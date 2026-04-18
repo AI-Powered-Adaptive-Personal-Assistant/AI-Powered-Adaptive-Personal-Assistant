@@ -1,0 +1,54 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User cognitive profile and identity data.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Firebase Auth UID" },
+        "email": { "type": "string", "format": "email" },
+        "role": { "type": "string", "enum": ["Student", "Professional"] },
+        "university": { "type": "string" },
+        "faculty": { "type": "string" },
+        "work": { "type": "string" },
+        "jobTitle": { "type": "string" },
+        "level": { "type": "string", "enum": ["Basic", "Intermediate", "Advanced"] },
+        "iqScore": { "type": "number" },
+        "lastQuizDate": { "type": "string", "format": "date-time" },
+        "points": { "type": "number" },
+        "onboardingComplete": { "type": "boolean" },
+        "questionHistory": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "score": { "type": "number" },
+              "date": { "type": "string", "format": "date-time" }
+            }
+          }
+        },
+        "chatHistory": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "role": { "type": "string", "enum": ["user", "assistant"] },
+              "content": { "type": "string" },
+              "timestamp": { "type": "string", "format": "date-time" }
+            }
+          }
+        },
+        "language": { "type": "string", "enum": ["English", "Arabic", "French", "Spanish", "German"] },
+        "name": { "type": "string" }
+      },
+      "required": ["uid", "email", "role", "level", "onboardingComplete", "points"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "Store individual user profiles."
+    }
+  }
+}
