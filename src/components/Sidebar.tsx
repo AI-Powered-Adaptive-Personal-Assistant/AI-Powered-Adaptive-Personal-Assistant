@@ -1,5 +1,6 @@
+import { useState, useEffect } from "react";
 import { UserProfile, CognitiveLevel, UserRole, Field, AccessibilityMode, ChatThread } from "../types";
-import { User, Settings, Brain, Briefcase, GraduationCap, Accessibility, Layers, MessageSquare, BarChart3, AlertCircle, LogOut, Plus, ChevronRight, X } from "lucide-react";
+import { User, Settings, Brain, Briefcase, GraduationCap, Accessibility, Layers, MessageSquare, BarChart3, AlertCircle, LogOut, Plus, ChevronRight, X, Moon, Sun } from "lucide-react";
 import { logout } from "../lib/firebase";
 
 interface SidebarProps {
@@ -10,6 +11,24 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ profile, setProfile, currentView, setCurrentView }: SidebarProps) {
+  const [isDark, setIsDark] = useState(false);
+
+  useEffect(() => {
+    setIsDark(document.documentElement.classList.contains('dark'));
+  }, []);
+
+  const toggleTheme = () => {
+    if (isDark) {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+      setIsDark(false);
+    } else {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+      setIsDark(true);
+    }
+  };
+
   const handleChange = (key: keyof UserProfile, value: string) => {
     setProfile({ ...profile, [key]: value });
   };
@@ -277,7 +296,20 @@ export default function Sidebar({ profile, setProfile, currentView, setCurrentVi
         </div>
       </div>
 
-      <div className="mt-auto pt-6 flex flex-col gap-6">
+      <div className="mt-auto pt-6 flex flex-col gap-3">
+        <button
+          onClick={toggleTheme}
+          className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-xs font-black text-slate-700 bg-slate-50 border border-slate-100 hover:bg-slate-100 transition-all uppercase tracking-widest dark:bg-slate-900 dark:text-slate-300 dark:border-slate-800 dark:hover:bg-slate-800"
+        >
+          <span className="flex items-center gap-2">
+            {isDark ? <Sun className="w-4 h-4 text-amber-500" /> : <Moon className="w-4 h-4 text-slate-500" />} 
+            Theme
+          </span>
+          <span className="text-[9px] px-2 py-0.5 rounded-full bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-400">
+            {isDark ? 'DARK' : 'LIGHT'}
+          </span>
+        </button>
+
         <button
           onClick={() => logout()}
           className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-xs font-black text-rose-600 bg-rose-50 border border-rose-100 hover:bg-rose-100 transition-all active:scale-95 uppercase tracking-widest"
