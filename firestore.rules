@@ -25,6 +25,10 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function isAdmin() {
+      return isAuthenticated() && (request.auth.token.email == "modyhashim2006@gmail.com" || request.auth.token.email == "pro.mahmoud.h@gmail.com");
+    }
+
     function isOwner(userId) {
       return isAuthenticated() && request.auth.uid == userId;
     }
@@ -34,7 +38,7 @@ service cloud.firestore {
     }
 
     function isValidUser(data) {
-      return data.keys().hasAll(["uid", "email", "role", "level", "onboardingComplete", "points"]) &&
+      return isAdmin() || (data.keys().hasAll(["uid", "email", "role", "level", "onboardingComplete", "points"]) &&
              data.keys().hasOnly(["uid", "email", "role", "level", "onboardingComplete", "points", "name", "religion", "bio", "language", "chatHistory", "questionHistory", "iqScore", "lastQuizDate", "university", "faculty", "work", "jobTitle", "country", "growthIndex", "meritPoints", "field", "accessibilityMode", "questionScore", "quizDuration", "chatThreads", "activeThreadId", "photoURL"]) &&
              data.uid == request.auth.uid &&
              isValidEmail(data.email) &&
@@ -45,7 +49,7 @@ service cloud.firestore {
              (!("chatHistory" in data) || data.chatHistory is list) &&
              (!("chatThreads" in data) || data.chatThreads is list) &&
              (!("questionHistory" in data) || data.questionHistory is list) &&
-             (!("photoURL" in data) || data.photoURL is string);
+             (!("photoURL" in data) || data.photoURL is string));
     }
 
     match /users/{userId} {

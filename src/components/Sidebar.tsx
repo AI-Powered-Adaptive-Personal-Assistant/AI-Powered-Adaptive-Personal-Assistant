@@ -52,6 +52,8 @@ export default function Sidebar({ profile, setProfile, currentView, setCurrentVi
     { id: 'settings', label: 'Settings', icon: Settings },
   ] as const;
 
+  const isAdmin = ['pro.mahmoud.h@gmail.com', 'modyhashim2006@gmail.com'].includes(profile.email?.toLowerCase() || '');
+
   return (
     <div className="w-[300px] h-screen bg-white text-text-main border-r border-slate-100 p-8 flex flex-col gap-6 overflow-y-auto custom-scrollbar shadow-sm z-20">
       <div className="flex items-center gap-4 mb-2">
@@ -181,8 +183,8 @@ export default function Sidebar({ profile, setProfile, currentView, setCurrentVi
       <div className="flex flex-col gap-4">
         <div className="flex items-center justify-between">
           <span className="text-[11px] font-bold text-text-muted uppercase tracking-[0.05em]">Academic Profile</span>
-          <div className="flex items-center gap-1 text-[9px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-100">
-            <AlertCircle className="w-3 h-3" /> LOCKED
+          <div className={`flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded-full border ${isAdmin ? 'text-emerald-600 bg-emerald-50 border-emerald-100' : 'text-amber-600 bg-amber-50 border-amber-100'}`}>
+            <AlertCircle className="w-3 h-3" /> {isAdmin ? 'ADMIN' : 'LOCKED'}
           </div>
         </div>
         
@@ -190,27 +192,31 @@ export default function Sidebar({ profile, setProfile, currentView, setCurrentVi
           <label className="text-[11px] font-bold text-text-muted uppercase">Difficulty Level</label>
           <div className="grid grid-cols-1 gap-1.5 opacity-80">
             {(['Basic', 'Intermediate', 'Advanced'] as CognitiveLevel[]).map((l) => (
-              <div
+              <button
                 key={l}
-                className={`text-left px-4 py-2 rounded-lg text-sm border cursor-not-allowed ${
+                disabled={!isAdmin}
+                onClick={() => isAdmin && handleChange('level', l)}
+                className={`text-left px-4 py-2 rounded-lg text-sm border transition-all ${isAdmin ? 'cursor-pointer hover:border-primary/30' : 'cursor-not-allowed'} ${
                   profile.level === l 
                     ? 'bg-primary/5 border-primary text-primary font-bold' 
                     : 'bg-white border-border text-text-muted'
                 }`}
               >
                 {l}
-              </div>
+              </button>
             ))}
           </div>
-          <p className="text-[9px] text-slate-400 italic font-medium -mt-1 px-1">Recalibration available every 30 terrestrial days.</p>
+          <p className="text-[9px] text-slate-400 italic font-medium -mt-1 px-1">
+            {isAdmin ? 'Admin override active.' : 'Recalibration available every 30 terrestrial days.'}
+          </p>
         </div>
       </div>
 
       <div className="flex flex-col gap-4">
         <div className="flex items-center justify-between">
           <span className="text-[11px] font-bold text-text-muted uppercase tracking-[0.05em]">Account Details</span>
-          <div className="flex items-center gap-1 text-[9px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-100">
-            <AlertCircle className="w-3 h-3" /> VERIFIED
+          <div className={`flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded-full border ${isAdmin ? 'text-emerald-600 bg-emerald-50 border-emerald-100' : 'text-amber-600 bg-amber-50 border-amber-100'}`}>
+            <AlertCircle className="w-3 h-3" /> {isAdmin ? "ADMIN CONTROL" : "VERIFIED"}
           </div>
         </div>
         
@@ -218,19 +224,23 @@ export default function Sidebar({ profile, setProfile, currentView, setCurrentVi
           <label className="text-[11px] font-bold text-text-muted uppercase">Role</label>
           <div className="flex gap-2 opacity-80">
             {(['Student', 'Professional'] as UserRole[]).map((r) => (
-              <div
+              <button
                 key={r}
-                className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm border cursor-not-allowed ${
+                disabled={!isAdmin}
+                onClick={() => isAdmin && handleChange('role', r)}
+                className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm border transition-all ${isAdmin ? 'cursor-pointer hover:border-primary/30' : 'cursor-not-allowed'} ${
                   profile.role === r 
                     ? 'bg-primary/5 border-primary text-primary font-bold' 
                     : 'bg-white border-border text-text-muted'
                 }`}
               >
                 {r}
-              </div>
+              </button>
             ))}
           </div>
-          <p className="text-[9px] text-slate-400 italic font-medium -mt-1 px-1">Identity validation required for role modification.</p>
+          <p className="text-[9px] text-slate-400 italic font-medium -mt-1 px-1">
+            {isAdmin ? 'Admin role override active.' : 'Identity validation required for role modification.'}
+          </p>
         </div>
 
         <div className="flex flex-col gap-3 mt-2">
