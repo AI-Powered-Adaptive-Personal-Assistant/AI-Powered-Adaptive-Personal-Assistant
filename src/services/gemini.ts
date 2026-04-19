@@ -5,7 +5,9 @@ let aiInstance: GoogleGenAI | null = null;
 
 function getAI() {
   if (!aiInstance) {
-    const apiKey = process.env.GEMINI_API_KEY;
+    // Use import.meta.env as a fallback for Vercel/Vite bundles, and process.env for Node
+    // @ts-ignore
+    const apiKey = typeof process !== 'undefined' && process.env && process.env.GEMINI_API_KEY ? process.env.GEMINI_API_KEY : import.meta.env.VITE_GEMINI_API_KEY;
     if (!apiKey || apiKey === "undefined") {
       throw new Error("GEMINI_API_KEY is not configured in environment variables.");
     }
