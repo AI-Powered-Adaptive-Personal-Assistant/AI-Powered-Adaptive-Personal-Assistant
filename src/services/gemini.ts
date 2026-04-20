@@ -1,20 +1,19 @@
-import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
+import { GoogleGenAI, Type } from "@google/genai";
 import { UserProfile } from "../types";
 
-let aiInstance: GoogleGenerativeAI | null = null;
+let aiInstance: GoogleGenAI | null = null;
 
 function getAI() {
   if (!aiInstance) {
-    // Standard Vite/Vercel/Node key fetching
     // @ts-ignore
-    const apiKey = (import.meta.env?.VITE_GEMINI_API_KEY) || 
+    const apiKey = (typeof process !== 'undefined' ? (process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY) : undefined) || 
                    // @ts-ignore
-                   (typeof process !== 'undefined' ? (process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY) : undefined);
+                   (import.meta.env?.VITE_GEMINI_API_KEY);
 
     if (!apiKey || apiKey === "undefined" || apiKey === "" || apiKey === "null") {
-      throw new Error(`API Key Missing. Please ensure VITE_GEMINI_API_KEY is set in your environment variables and REDEPLOY.`);
+      throw new Error(`API Key Missing. Please ensure VITE_GEMINI_API_KEY is set in your environment variables.`);
     }
-    aiInstance = new GoogleGenerativeAI(apiKey);
+    aiInstance = new GoogleGenAI({ apiKey });
   }
   return aiInstance;
 }
@@ -27,6 +26,9 @@ export async function generateLogicResponse(
 ) {
   try {
     const ai = getAI();
+    
+    // Using gemini-3-flash-preview as recommended by skill for basic text/logic tasks
+    const model = "gemini-3-flash-preview";
     
     const systemInstruction = `
 You are the AI-LA Advanced Logic Tutor. The user has explicitly opened a specialized sandbox to train their logic, analytical skills, and intellectual capabilities, specifically focusing on "${moduleName}".
@@ -45,24 +47,23 @@ YOUR GOAL & METHODOLOGY (NO ROTE LEARNING - لا للبصمجة):
 Make the experience feel like sitting with a brilliant, patient mentor who is slowly stretching their brain's capacity, not just an exam machine giving multiple-choice questions.
 `;
 
-    const cleanHistory = history.map(h => ({
-      role: h.role,
+    const chatHistory = history.map(h => ({
+      role: h.role === 'user' ? 'user' : 'model',
       parts: h.parts
     }));
 
-    const model = ai.getGenerativeModel({ 
-      model: "gemini-1.5-flash",
-      systemInstruction: systemInstruction 
-    });
-
-    const result = await model.generateContent({
+    const response = await ai.models.generateContent({
+      model,
       contents: [
-        ...cleanHistory,
+        ...chatHistory,
         { role: 'user', parts: [{ text: message }] }
-      ]
+      ],
+      config: {
+        systemInstruction
+      }
     });
 
-    return result.response.text() || "Logic module encountered an error.";
+    return response.text || "Logic module encountered an error (empty response).";
   } catch (error) {
     console.error("Error generating logic response:", error);
     return "The logic training uplink experienced an error. Please try again.";
@@ -74,12 +75,16 @@ export async function generateAdaptiveResponse(
   profile: UserProfile,
   attachments: { name: string, type: string, data: string }[] = []
 ) {
-  const otherThreadsSummary = profile.chatThreads
-    ?.filter(t => t.id !== profile.activeThreadId)
-    .map(t => `Thread "${t.title}": ${t.messages.slice(-2).map(m => m.content).join(' | ')}`)
-    .join('\n') || 'None';
+  try {
+    const ai = getAI();
+    const model = "gemini-3-flash-preview";
 
-  const systemInstruction = `
+    const otherThreadsSummary = profile.chatThreads
+      ?.filter(t => t.id !== profile.activeThreadId)
+      .map(t => `Thread "${t.title}": ${t.messages.slice(-2).map(m => m.content).join(' | ')}`)
+      .join('\n') || 'None';
+
+    const systemInstruction = `
 You are AI-LA, an advanced, highly conversational AI companion, mentor, and dialogue partner. Your core capability is natural, flowing, and deeply interactive discussion similar to advanced LLMs like ChatGPT or Claude.
 
 ========================
@@ -89,7 +94,7 @@ CONVERSATIONAL CAPABILITIES (NLP/LLM DYNAMICS)
 2. ACTIVE DIALOGUE: Ask thought-provoking follow-up questions when natural to keep the conversation going. If the user presents a thesis, discuss its pros and cons engagingly. Do not just answer passively; build logic with the user.
 3. FLUID CONTEXT: Maintain the flow of the conversation. Reference things said earlier in the chat naturally.
 4. HUMANNESS: Be engaging, empathetic, and intellectually curious. Avoid overly robotic statements, repetitive structures, or rigid formatting unless specifically requested or required for accessibility.
-5. EXTREME INTELLIGENCE: You are powered by Gemini 1.5 Flash, highly optimized for speed and brilliance. Show depth, logic tracking, and high-order reasoning when engaged in intellectual talks. Think step-by-step for complex requests.
+5. EXTREME INTELLIGENCE: You are powered by Gemini 3 Flash, highly optimized for speed and brilliance. Show depth, logic tracking, and high-order reasoning when engaged in intellectual talks. Think step-by-step for complex requests.
 
 ========================
 USER PROFILE CONTEXT
@@ -111,7 +116,6 @@ ${otherThreadsSummary}
 ========================
 MULTIMODAL CAPABILITIES
 ========================
-- You can synthesize high-resolution images, PDF text, and data files.
 - If the user provides an image: ALWAYS describe what you see in the context of their Field (${profile.field}) seamlessly before answering their question.
 - Perform deep visual/textual analysis on all attachments. Don't just acknowledge them—derive insights.
 
@@ -128,40 +132,34 @@ BEHAVIORAL PROTOCOLS & COGNITIVE CALIBRATION
 2) COGNITIVE CALIBRATION:
 - BASIC (Level 1):
   * Conversational, friendly, uses practical everyday examples.
-  * Avoid heavy scientific jargon. Focus on "How it works in real life."
 - INTERMEDIATE (Level 2):
   * Use practical scientific and technical examples. 
-  * Professional but conversational. Explain complex terms smoothly in passing.
 - ADVANCED (Level 3):
   * DEEP DIVE: Engage in high-level intellectual debates, peer-level discussions, and advanced analogies.
-  * Provide info on the latest trends, papers, or news in the user's field (${profile.field}).
 
 3) ADAPTIVE FORMATTING (ACCESSIBILITY):
-- Visual: Bulleted/Numbered lists ONLY. No paragraph block longer than 3 lines. No italic-heavy text. Each step MUST start with an action verb.
-- Speech: No markdown symbols (no #, **, etc.). Short, concise sentences. Use verbal transitions like "First...", "Second...", "Finally...".
+- Visual: Bulleted/Numbered lists ONLY. No paragraph block longer than 3 lines. Each step MUST start with an action verb.
+- Speech: No markdown symbols (no #, **, etc.). Short, concise sentences.
 
 ========================
 TOOLS
 ========================
-- You can generate images if requested.
+- You can generate images using the generateImage function. Use it for creative requests.
 `;
 
-  const activeThread = profile.chatThreads?.find(t => t.id === profile.activeThreadId);
-  const currentMessages = activeThread?.messages || profile.chatHistory || [];
+    const activeThread = profile.chatThreads?.find(t => t.id === profile.activeThreadId);
+    const currentMessages = activeThread?.messages || profile.chatHistory || [];
 
-  const history = currentMessages
-    .filter(m => m.id !== 'welcome')
-    .filter(m => m.content?.trim())
-    .map(m => ({
-      role: m.role === 'user' ? 'user' : 'model' as 'user' | 'model',
-      parts: [{ text: m.content }]
-    }));
+    const history = currentMessages
+      .filter(m => m.id !== 'welcome')
+      .filter(m => m.content?.trim())
+      .map(m => ({
+        role: m.role === 'user' ? 'user' : 'model' as 'user' | 'model',
+        parts: [{ text: m.content }]
+      }));
 
-  const cleanHistory = history[0]?.role === 'model' ? history.slice(1) : history;
+    const cleanHistory = history[0]?.role === 'model' ? history.slice(1) : history;
 
-  try {
-    const ai = getAI();
-    
     const parts: any[] = [{ text: message }];
     attachments.forEach(file => {
       parts.push({
@@ -172,65 +170,67 @@ TOOLS
       });
     });
 
-    const model = ai.getGenerativeModel({
-      model: "gemini-1.5-flash",
-      systemInstruction,
-      tools: [{
-        functionDeclarations: [
-          {
+    const response = await ai.models.generateContent({
+      model,
+      contents: [
+        ...cleanHistory,
+        { role: 'user', parts }
+      ],
+      config: {
+        systemInstruction,
+        tools: [{
+          functionDeclarations: [{
             name: "generateImage",
-            description: "Generate a custom high-quality image based on the user's request.",
+            description: "Generate a custom high-quality image based on the user's prompt.",
             parameters: {
-              type: SchemaType.OBJECT,
+              type: Type.OBJECT,
               properties: {
                 prompt: {
-                  type: SchemaType.STRING,
-                  description: "The detailed descriptive prompt for the image."
+                  type: Type.STRING,
+                  description: "Detailed description of the image to generate."
                 }
               },
               required: ["prompt"]
             }
-          }
-        ]
-      }]
+          }]
+        }]
+      }
     });
 
-    const result = await model.generateContent({
-      contents: [
-        ...cleanHistory,
-        { role: 'user', parts }
-      ]
-    });
-
-    const response = result.response;
     let generatedAttachments: { name: string, type: string, data: string }[] = [];
-    let finalText = response.text() || "";
+    let finalText = response.text || "";
 
-    const call = response.functionCalls()?.[0];
-    
+    const call = response.functionCalls?.[0];
     if (call && call.name === 'generateImage') {
       const args = call.args as any;
-      const prompt = args.prompt as string;
+      const prompt = args.prompt;
+      
       try {
-        const imgModel = ai.getGenerativeModel({ model: 'gemini-1.5-flash' });
-        const imageResponse = await imgModel.generateContent({
-          contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        // According to skill, image generation uses gemini-3.1-flash-image-preview
+        const imageResponse = await ai.models.generateContent({
+          model: 'gemini-3.1-flash-image-preview',
+          contents: { parts: [{ text: prompt }] },
+          config: {
+            imageConfig: {
+              aspectRatio: "1:1",
+              imageSize: "1K"
+            }
+          }
         });
         
-        const candidate = imageResponse.response.candidates?.[0];
-        const part = candidate?.content?.parts?.find(p => p.inlineData);
-        
-        if (part?.inlineData) {
-          generatedAttachments.push({
-            name: `Generated_Image_${Date.now()}.png`,
-            type: part.inlineData.mimeType,
-            data: part.inlineData.data
-          });
-          finalText = `I have generated an image based on your prompt: "${prompt}".`;
+        for (const part of imageResponse.candidates?.[0]?.content?.parts || []) {
+          if (part.inlineData) {
+            generatedAttachments.push({
+              name: `Generated_Image_${Date.now()}.png`,
+              type: part.inlineData.mimeType || 'image/png',
+              data: part.inlineData.data
+            });
+          }
         }
+        finalText = `I have generated an image based on: "${prompt}".`;
       } catch (e) {
         console.error("Image generation failed", e);
-        finalText = "I apologize, but I encountered an error while trying to generate the image.";
+        finalText = "I apologzie, image generation is currently experiencing heavy load. Please try again in 1 minute.";
       }
     }
 
@@ -238,6 +238,7 @@ TOOLS
       text: finalText,
       attachments: generatedAttachments
     };
+
   } catch (error: any) {
     console.error("Error generating adaptive response:", error);
     
@@ -251,9 +252,9 @@ TOOLS
     } else if (errorMsg.includes("403") || errorMsg.includes("API Key")) {
       friendlyText = "فيه مشكلة في مفتاح الـ API بتاعك، اتأكد إنه محطوط صح في إعدادات Vercel. 🔑";
     } else if (errorMsg.includes("404")) {
-      friendlyText = "جوجل بتقول إن الموديل ده مش موجود. غالباً محتاجين نتأكد من اسم الموديل في الكود. 🛠️";
+      friendlyText = "الموديل ده مش متاح حالياً أو فيه تحديث من جوجل. بحاول أربط مرة تانية.. جرب كمان لحظة. 🛠️";
     } else {
-      friendlyText = `حدث خطأ تقني: ${errorMsg.slice(0, 80)}. برجاء المحاولة مرة أخرى.`;
+      friendlyText = `حدث خطأ تقني: ${errorMsg.slice(0, 100)}. برجاء المحاولة مرة أخرى.`;
     }
 
     return {
