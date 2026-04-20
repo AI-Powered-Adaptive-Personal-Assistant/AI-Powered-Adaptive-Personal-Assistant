@@ -5,16 +5,14 @@ let aiInstance: GoogleGenAI | null = null;
 
 function getAI() {
   if (!aiInstance) {
-    // Vite's standard way is import.meta.env.
-    // We also check process.env as a fallback for some environments.
-    const apiKey = import.meta.env.VITE_GEMINI_API_KEY || 
+    // Standard Vite/Vercel/Node key fetching
+    // @ts-ignore
+    const apiKey = (import.meta.env?.VITE_GEMINI_API_KEY) || 
                    // @ts-ignore
-                   (typeof process !== 'undefined' ? process.env.GEMINI_API_KEY : undefined) ||
-                   // @ts-ignore
-                   (typeof process !== 'undefined' ? process.env.VITE_GEMINI_API_KEY : undefined);
+                   (typeof process !== 'undefined' ? (process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY) : undefined);
 
     if (!apiKey || apiKey === "undefined" || apiKey === "" || apiKey === "null") {
-      throw new Error(`API Key Missing. Found: ${apiKey}. Please ensure VITE_GEMINI_API_KEY is set in Vercel Settings and then trigger a REDEPLOY.`);
+      throw new Error(`API Key Missing. Please ensure VITE_GEMINI_API_KEY is set in your environment variables and REDEPLOY.`);
     }
     aiInstance = new GoogleGenAI({ apiKey });
   }
@@ -55,7 +53,7 @@ Make the experience feel like sitting with a brilliant, patient mentor who is sl
     const parts = [{ text: message }];
 
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-1.5-flash",
       contents: [
         ...cleanHistory,
         { role: 'user', parts }
@@ -193,7 +191,7 @@ CURRENT MODE SUMMARY:
     });
 
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-1.5-flash",
       contents: [
         ...cleanHistory,
         { role: 'user', parts }
@@ -245,7 +243,7 @@ CURRENT MODE SUMMARY:
         const prompt = call.args.prompt as string;
         try {
           const imageResponse = await ai.models.generateContent({
-            model: 'gemini-2.5-flash-image',
+            model: 'gemini-1.5-flash',
             contents: { parts: [{ text: prompt }] },
             config: {
               imageConfig: { aspectRatio: "16:9" }
@@ -287,7 +285,11 @@ CURRENT MODE SUMMARY:
           
           const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
           if (downloadLink) {
-             const apiKey = process.env.GEMINI_API_KEY!;
+             // Access the key correctly for Vercel/Vite environment
+             // @ts-ignore
+             const apiKey = (import.meta.env?.VITE_GEMINI_API_KEY) || 
+                            // @ts-ignore
+                            (typeof process !== 'undefined' ? process.env.GEMINI_API_KEY : '');
              const vidResponse = await fetch(downloadLink, {
                method: 'GET',
                headers: { 'x-goog-api-key': apiKey },
@@ -322,7 +324,20 @@ CURRENT MODE SUMMARY:
     };
   } catch (error: any) {
     console.error("Error generating adaptive response:", error);
-    const errorMsg = error?.message || "Unknown error";
-    return `I encountered an error. Technical details: ${errorMsg}. Please ensure your API key is correctly set in Vercel.`;
+    
+    const errorMsg = error?.message || "";
+    let friendlyEntry = "I encountered an error while processing your request.";
+
+    if (errorMsg.includes("429")) {
+      friendlyEntry = "يا مهندس، جوجل بتقول إننا استهلكنا عدد الرسايل المجانية المسموح بيها في الدقيقة. استنى بس 30 ثانية وجرب تاني وهتشتغل معاك زي الفل! ⏳";
+    } else if (errorMsg.includes("503") || errorMsg.includes("UNAVAILABLE")) {
+      friendlyEntry = "سيرفرات جوجل عليها ضغط كبير دلوقتي فمش قادرة ترد. جرب تبعت الرسالة كمان لحظة وهكون معاك. 🚀";
+    } else if (errorMsg.includes("403") || errorMsg.includes("API Key")) {
+      friendlyEntry = "فيه مشكلة في مفتاح الـ API بتاعك، اتأكد إنه محطوط صح في إعدادات Vercel. 🔑";
+    } else {
+      friendlyEntry = `حدث خطأ تقني بسيط: ${errorMsg.slice(0, 50)}... برجاء المحاولة مرة أخرى.`;
+    }
+
+    return friendlyEntry;
   }
 }
