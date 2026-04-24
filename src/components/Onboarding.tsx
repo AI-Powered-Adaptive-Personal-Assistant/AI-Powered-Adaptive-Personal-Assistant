@@ -511,7 +511,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
       </AnimatePresence>
 
       <div className="absolute bottom-12 left-1/2 -translate-x-1/2 text-[10px] text-slate-400 font-mono tracking-[0.3em] uppercase">
-        AI-LA Initialization
+        Cognify Initialization
       </div>
     </div>
   );

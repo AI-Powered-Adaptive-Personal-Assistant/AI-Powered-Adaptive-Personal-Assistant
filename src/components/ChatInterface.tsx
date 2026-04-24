@@ -51,7 +51,7 @@ export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClic
         {
           id: 'welcome',
           role: 'assistant',
-          content: `AI Assistant Ready. How can I assist your ${profile.field} studies today?`,
+          content: `Cognify Ready. How can I assist your ${profile.field} studies today?`,
           timestamp: new Date().toISOString()
         }
       ]);
@@ -235,7 +235,7 @@ export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClic
               <div className="bg-white p-12 rounded-[40px] max-w-2xl w-full text-center space-y-6">
                 <FileText className="w-20 h-20 text-primary mx-auto" />
                 <h3 className="text-2xl font-black text-slate-900">{previewFile.name}</h3>
-                <p className="text-slate-500 font-medium italic">Full AI analysis of document content is active. Refer to AI-LA for deep insights.</p>
+                <p className="text-slate-500 font-medium italic">Full AI analysis of document content is active. Refer to Cognify for deep insights.</p>
                 <button onClick={() => setPreviewFile(null)} className="px-8 py-4 bg-primary text-white rounded-2xl font-black text-xs uppercase tracking-widest">Close Preview</button>
               </div>
             )}
@@ -253,7 +253,7 @@ export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClic
             <Menu className="w-5 h-5" />
           </button>
           <div className="flex items-center gap-2">
-            <span className="text-lg font-extrabold text-primary tracking-tight">AI-LA</span>
+            <span className="text-lg font-extrabold text-primary tracking-tight">Cognify</span>
             <span className="text-sm md:text-lg font-light text-text-muted truncate max-w-[120px] md:max-w-xs">| {activeThread?.title || 'AI Session'}</span>
           </div>
           {profile.accessibilityMode !== 'None' && (

@@ -63,7 +63,7 @@ export default function Sidebar({ profile, setProfile, currentView, setCurrentVi
         <div className="p-3 bg-slate-900 rounded-2xl shadow-xl shadow-slate-200">
           <Layers className="w-6 h-6 text-white" />
         </div>
-        <h1 className="text-2xl font-black tracking-tighter text-slate-900 uppercase leading-none">AI-LA<br/><span className="text-[10px] text-primary tracking-widest">LEARNING</span></h1>
+        <h1 className="text-2xl font-black tracking-tighter text-slate-900 uppercase leading-none">Cognify<br/><span className="text-[10px] text-primary tracking-widest italic">C.O.G.N.I.F.Y</span></h1>
       </div>
 
       <button 
@@ -302,7 +302,7 @@ export default function Sidebar({ profile, setProfile, currentView, setCurrentVi
         </button>
 
         <div className="text-slate-500 text-[10px] uppercase tracking-[0.2em] font-bold">
-          AI-LA Engine v1.0
+          Cognify Engine v2.0
         </div>
       </div>
     </div>
