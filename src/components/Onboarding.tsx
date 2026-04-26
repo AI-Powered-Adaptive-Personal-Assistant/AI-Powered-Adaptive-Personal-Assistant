@@ -103,8 +103,13 @@ const JOB_TITLES = [
   "Teacher / Professor", "Accountant", "Sales Representative", "Other"
 ];
 
+const LANGUAGES = [
+  "English", "Arabic", "French", "Spanish", "German", 
+  "Italian", "Portuguese", "Russian", "Chinese", "Japanese"
+];
+
 export default function Onboarding({ onComplete }: OnboardingProps) {
-  const [step, setStep] = useState(2);
+  const [step, setStep] = useState(1);
   const [currentQIndex, setCurrentQIndex] = useState(0);
   const [quizQuestions, setQuizQuestions] = useState<Question[]>([]);
   const [questionTimeLeft, setQuestionTimeLeft] = useState(QUESTION_TIMER);
@@ -276,6 +281,43 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
   const validateEmail = (email: string | undefined) => {
     return email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
   };
+
+  const renderLanguageStep = () => (
+    <motion.div 
+      initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
+      className="flex flex-col gap-6 w-full max-w-lg"
+    >
+      <div className="space-y-2 text-center">
+        <h2 className="text-3xl font-extrabold tracking-tight text-slate-900 leading-tight">Language</h2>
+        <p className="text-slate-500">Pick your preferred cognitive interaction language.</p>
+      </div>
+      
+      <div className="grid grid-cols-2 gap-3">
+        {LANGUAGES.map((lang) => (
+          <button
+            key={lang}
+            onClick={() => setFormData({ ...formData, language: lang as any })}
+            className={`flex items-center gap-3 p-4 rounded-xl border-2 transition-all ${
+              formData.language === lang 
+                ? 'border-primary bg-primary/5 text-primary' 
+                : 'border-border bg-white text-slate-500 hover:border-primary/20'
+            }`}
+          >
+            <div className={`w-2 h-2 rounded-full ${formData.language === lang ? 'bg-primary' : 'bg-slate-200'}`} />
+            <span className="font-bold text-sm">{lang}</span>
+          </button>
+        ))}
+      </div>
+
+      <button
+        onClick={handleNextStep}
+        disabled={!formData.language}
+        className="w-full bg-primary text-white font-bold py-4 rounded-xl shadow-lg hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400 transition-all flex items-center justify-center gap-2 group"
+      >
+        Continue <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+      </button>
+    </motion.div>
+  );
 
   const renderRoleStep = () => (
     <motion.div 
@@ -491,12 +533,12 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
     <div className="fixed inset-0 bg-bg-main z-[100] flex items-center justify-center p-6 overflow-y-auto custom-scrollbar">
       {step < 4 && (
         <div className="absolute top-12 left-1/2 -translate-x-1/2 flex items-center gap-6">
-          {[2, 3].map(s => (
+          {[1, 2, 3].map(s => (
             <div key={s} className="flex items-center gap-3">
               <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
                 step >= s ? 'bg-primary text-white' : 'bg-slate-200 text-slate-400'
               }`}>
-                {s - 1}
+                {s}
               </div>
               {s < 3 && <div className={`w-12 h-[2px] ${step > s ? 'bg-primary' : 'bg-slate-200'}`} />}
             </div>
@@ -505,6 +547,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
       )}
 
       <AnimatePresence mode="wait">
+        {step === 1 && renderLanguageStep()}
         {step === 2 && renderRoleStep()}
         {step === 3 && renderQuizStep()}
         {step === 4 && renderResults()}

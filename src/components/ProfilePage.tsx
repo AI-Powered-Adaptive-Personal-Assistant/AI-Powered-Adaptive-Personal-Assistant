@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { UserProfile } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
-import { User, Mail, Shield, Award, Languages, Globe, BookOpen, GraduationCap, Briefcase, MapPin, Calendar, Clock, MessageSquare, Edit3, Save, X, Camera, Brain as BrainIcon, Menu } from 'lucide-react';
+import { User, Mail, Shield, Award, Languages, Globe, BookOpen, GraduationCap, Briefcase, MapPin, Calendar, Clock, MessageSquare, Edit3, Save, X, Camera, Eye, Brain as BrainIcon, Menu } from 'lucide-react';
 import { formatDate } from '../lib/utils';
 import { doc, setDoc } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
@@ -193,6 +193,15 @@ export default function ProfilePage({ profile, onMenuClick }: ProfilePageProps) 
                 onChange={(v) => handleChange('language', v)} 
                 type="select"
                 options={['English', 'Arabic', 'French', 'Spanish', 'German']}
+              />
+              <DataField 
+                label="Accessibility Mode" 
+                value={profile.accessibilityMode} 
+                icon={Eye} 
+                isEditing={isEditing} 
+                onChange={(v) => handleChange('accessibilityMode', v)} 
+                type="select"
+                options={['None', 'Speech', 'Visual', 'Vocal-Deaf', 'Sign-Only']}
               />
             </div>
           </div>

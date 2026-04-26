@@ -11,18 +11,18 @@ interface IntelligenceHubProps {
 }
 
 const IntelligenceHub = React.memo(({ profile, onMenuClick }: IntelligenceHubProps) => {
-  const chartData = useMemo(() => 
-    profile.questionHistory.map(h => ({
-      name: formatDate(h.date).split(',')[0],
-      score: h.score,
-      fullDate: formatDate(h.date)
-    })), [profile.questionHistory]);
-
   const levelDistribution = useMemo(() => [
     { name: 'Basic', value: profile.level === 'Basic' ? 100 : 0, color: '#f97316' },
     { name: 'Intermediate', value: profile.level === 'Intermediate' ? 100 : 0, color: '#3b82f6' },
     { name: 'Advanced', value: profile.level === 'Advanced' ? 100 : 0, color: '#a855f7' },
   ].filter(d => d.value > 0), [profile.level]);
+
+  const chartData = useMemo(() => 
+    profile.questionHistory.map((h, i) => ({
+      name: `${formatDate(h.date).split(',')[0]} #${i}`, // Make name unique for recharts
+      score: h.score,
+      fullDate: formatDate(h.date)
+    })), [profile.questionHistory]);
 
   const growthIndex = useMemo(() => 
     ((profile.points / 2000) * 100).toFixed(1), 

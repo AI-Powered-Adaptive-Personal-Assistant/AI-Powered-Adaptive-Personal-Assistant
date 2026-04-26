@@ -1,8 +1,8 @@
 export type CognitiveLevel = 'Basic' | 'Intermediate' | 'Advanced';
 export type UserRole = 'Student' | 'Professional';
 export type Field = 'Medicine' | 'Engineering' | 'Business' | 'General' | 'Other';
-export type AccessibilityMode = 'None' | 'Speech' | 'Visual' | 'Sign-support';
-export type LanguagePreference = 'English' | 'Arabic' | 'French' | 'Spanish' | 'German';
+export type AccessibilityMode = 'None' | 'Speech' | 'Visual' | 'Vocal-Deaf' | 'Sign-Only';
+export type LanguagePreference = 'English' | 'Arabic' | 'French' | 'Spanish' | 'German' | 'Italian' | 'Portuguese' | 'Russian' | 'Chinese' | 'Japanese';
 
 export interface Message {
   id: string;

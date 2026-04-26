@@ -6,7 +6,7 @@ interface RightPanelProps {
 
 export default function RightPanel({ profile }: RightPanelProps) {
   return (
-    <div className="w-[240px] h-screen bg-bg-main border-l border-border p-5 flex flex-col gap-5 overflow-y-auto custom-scrollbar">
+    <div className="w-[240px] h-full bg-bg-main border-l border-border p-5 flex flex-col gap-5 overflow-y-auto custom-scrollbar">
       {/* Quality Score Card */}
       <div className="bg-slate-900 text-white rounded-xl p-6 flex flex-col items-center justify-center shadow-lg">
         <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-2">Estimated IQ Score</span>

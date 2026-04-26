@@ -1,18 +1,19 @@
 import { useState, useEffect } from "react";
 import { UserProfile, CognitiveLevel, UserRole, Field, AccessibilityMode, ChatThread } from "../types";
-import { User, Settings, Brain, Briefcase, GraduationCap, Accessibility, Layers, MessageSquare, BarChart3, AlertCircle, LogOut, Plus, ChevronRight, X, Moon, Sun } from "lucide-react";
+import { User, Settings, Brain, Briefcase, GraduationCap, Accessibility, Layers, MessageSquare, BarChart3, AlertCircle, LogOut, Plus, ChevronRight, X, Moon, Sun, Video, Mic } from "lucide-react";
 import { logout } from "../lib/firebase";
 
 interface SidebarProps {
   profile: UserProfile;
   setProfile: (profile: UserProfile) => void;
-  currentView: 'chat' | 'hub' | 'profile' | 'settings' | 'logic';
-  setCurrentView: (view: 'chat' | 'hub' | 'profile' | 'settings' | 'logic') => void;
+  currentView: 'chat' | 'hub' | 'profile' | 'settings' | 'logic' | 'video' | 'disability';
+  setCurrentView: (view: 'chat' | 'hub' | 'profile' | 'settings' | 'logic' | 'video' | 'disability') => void;
   isDarkMode: boolean;
   toggleTheme: () => void;
+  openLiveCaptions: () => void;
 }
 
-export default function Sidebar({ profile, setProfile, currentView, setCurrentView, isDarkMode, toggleTheme }: SidebarProps) {
+export default function Sidebar({ profile, setProfile, currentView, setCurrentView, isDarkMode, toggleTheme, openLiveCaptions }: SidebarProps) {
   const handleChange = (key: keyof UserProfile, value: string) => {
     setProfile({ ...profile, [key]: value });
   };
@@ -58,7 +59,7 @@ export default function Sidebar({ profile, setProfile, currentView, setCurrentVi
   const isAdmin = ['pro.mahmoud.h@gmail.com', 'modyhashim2006@gmail.com'].includes(profile.email?.toLowerCase() || '');
 
   return (
-    <div className="w-[300px] h-screen bg-white text-text-main border-r border-slate-100 p-8 flex flex-col gap-6 overflow-y-auto custom-scrollbar shadow-sm z-20">
+    <div className="w-[300px] h-full bg-white text-text-main border-r border-slate-100 p-8 flex flex-col gap-6 overflow-y-auto custom-scrollbar shadow-sm z-20">
       <div className="flex items-center gap-4 mb-2">
         <div className="p-3 bg-slate-900 rounded-2xl shadow-xl shadow-slate-200">
           <Layers className="w-6 h-6 text-white" />
@@ -149,15 +150,18 @@ export default function Sidebar({ profile, setProfile, currentView, setCurrentVi
            </div>
          </div>
          
-         <div className="px-5 py-4 rounded-2xl bg-slate-50 border border-slate-100 relative group overflow-hidden">
-           <div className="relative z-10">
-             <p className="text-[10px] font-black text-slate-900 uppercase tracking-widest mb-1 group-hover:text-amber-600 transition-colors">Disability Mode</p>
-             <p className="text-[9px] text-slate-400 font-bold italic">Coming Soon</p>
+         <button 
+           onClick={() => setCurrentView('disability')}
+           className={`px-5 py-4 rounded-2xl bg-slate-50 border transition-all relative group overflow-hidden ${currentView === 'disability' ? 'border-primary ring-1 ring-primary/20 shadow-md shadow-primary/10' : 'border-slate-100 hover:border-primary/30 active:scale-[0.98]'}`}
+         >
+           <div className="relative z-10 text-left">
+             <p className={`text-[10px] font-black uppercase tracking-widest mb-1 transition-colors ${currentView === 'disability' ? 'text-primary' : 'text-slate-900 group-hover:text-amber-600'}`}>Disability Mode</p>
+             <p className={`text-[9px] font-bold ${currentView === 'disability' ? 'text-primary' : 'text-slate-500'}`}>Full Accessibility Suite</p>
            </div>
-           <div className="absolute right-[-10px] bottom-[-10px] opacity-5">
-             <Accessibility className="w-16 h-16 text-slate-900" />
+           <div className={`absolute right-[-10px] bottom-[-10px] opacity-5 transition-transform group-hover:scale-110 ${currentView === 'disability' ? 'opacity-10 text-primary' : 'text-slate-900'}`}>
+             <Accessibility className="w-16 h-16" />
            </div>
-         </div>
+         </button>
       </div>
 
       <div className="bg-white border border-border rounded-xl p-4 space-y-3">
@@ -253,32 +257,14 @@ export default function Sidebar({ profile, setProfile, currentView, setCurrentVi
             onChange={(e) => handleChange('language', e.target.value)}
             className="bg-slate-50 border border-slate-100 text-slate-900 rounded-xl px-4 py-3 text-xs font-bold focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none appearance-none cursor-pointer"
           >
-            {['English', 'Arabic', 'French', 'Spanish', 'German'].map((l) => (
+            {['English', 'Arabic', 'French', 'Spanish', 'German', 'Italian', 'Portuguese', 'Russian', 'Chinese', 'Japanese'].map((l) => (
               <option key={l} value={l}>{l}</option>
             ))}
           </select>
         </div>
       </div>
 
-      <div className="flex flex-col gap-4">
-        <span className="text-[11px] font-bold text-text-muted uppercase tracking-[0.05em]">Disability</span>
-        
-        <div className="grid grid-cols-1 gap-1.5">
-          {(['None', 'Speech', 'Visual', 'Sign-support'] as AccessibilityMode[]).map((m) => (
-            <button
-              key={m}
-              onClick={() => handleChange('accessibilityMode', m)}
-              className={`text-left px-4 py-2 rounded-lg text-sm transition-all border ${
-                profile.accessibilityMode === m 
-                  ? 'bg-primary/5 border-primary text-primary font-bold' 
-                  : 'bg-white border-border text-text-muted hover:border-primary/30'
-              }`}
-            >
-              {m}
-            </button>
-          ))}
-        </div>
-      </div>
+
 
       <div className="mt-auto pt-6 flex flex-col gap-3">
         <button
@@ -292,6 +278,13 @@ export default function Sidebar({ profile, setProfile, currentView, setCurrentVi
           <span className="text-[9px] px-2 py-0.5 rounded-full bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-400">
             {isDarkMode ? 'DARK' : 'LIGHT'}
           </span>
+        </button>
+
+        <button
+          onClick={openLiveCaptions}
+          className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-xs font-black text-primary bg-slate-900 border border-slate-800 hover:bg-black transition-all active:scale-95 uppercase tracking-widest shadow-xl"
+        >
+          <Mic className="w-4 h-4" /> Live Captions
         </button>
 
         <button

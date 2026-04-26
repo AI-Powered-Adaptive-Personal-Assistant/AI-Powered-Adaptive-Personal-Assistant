@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Message, UserProfile } from "../types";
 import { generateAdaptiveResponseStream } from "../services/gemini";
-import { Send, Bot, User, Loader2, Sparkles, BrainCircuit, Paperclip, ImageIcon, FileText, X, Accessibility, Menu, Download } from "lucide-react";
+import { geminiService } from "../services/geminiService";
+import { Send, Bot, User, Loader2, Sparkles, BrainCircuit, Paperclip, ImageIcon, FileText, X, Accessibility, Menu, Download, Mic, MicOff, RefreshCw } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
 interface ChatInterfaceProps {
@@ -9,18 +10,107 @@ interface ChatInterfaceProps {
   onQuestionEvaluated: (score: number, updatedHistory: Message[]) => void;
   onMenuClick?: () => void;
   syncMessages?: (messages: Message[]) => void;
+  externalMessage?: string;
+  onStreamingUpdate?: (text: string) => void;
+  isEmbedded?: boolean;
+  onSTTStateChange?: (active: boolean) => void;
 }
 
-export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClick, syncMessages }: ChatInterfaceProps) {
+export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClick, syncMessages, externalMessage, onStreamingUpdate, isEmbedded, onSTTStateChange }: ChatInterfaceProps) {
   const activeThread = profile.chatThreads?.find(t => t.id === profile.activeThreadId);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
+
+  // Handle external message injection
+  useEffect(() => {
+    if (externalMessage && !isLoading) {
+      if (profile.accessibilityMode === 'Vocal-Deaf' || profile.accessibilityMode === 'Sign-Only') {
+        handleSubmit(undefined, externalMessage);
+      } else {
+        setInput(externalMessage);
+      }
+    }
+  }, [externalMessage]);
+
   const [isLoading, setIsLoading] = useState(false);
   const [streamingText, setStreamingText] = useState("");
   const [selectedFiles, setSelectedFiles] = useState<{ name: string, type: string, data: string }[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [previewFile, setPreviewFile] = useState<{ name: string, type: string, data: string } | null>(null);
+
+  // STT Logic (Real-time Browser Speech Recognition)
+  const [isListening, setIsListening] = useState(false);
+  const [interimTranscript, setInterimTranscript] = useState("");
+  const recognitionRef = useRef<any>(null);
+
+  useEffect(() => {
+    onSTTStateChange?.(isListening);
+  }, [isListening, onSTTStateChange]);
+
+  useEffect(() => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      const recognition = new SpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = profile.language === 'Arabic' ? 'ar-SA' : 'en-US';
+
+      recognition.onstart = () => setIsListening(true);
+      recognition.onend = () => {
+        setIsListening(false);
+        // If content was captured, the user might want a fast send experience
+        // We'll check the current input in the handleSubmit logic called manually if needed
+      };
+
+      recognition.onresult = (event: any) => {
+        let finalStr = '';
+        let interimStr = '';
+
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const text = event.results[i][0].transcript;
+          if (event.results[i].isFinal) {
+            finalStr += text;
+          } else {
+            interimStr += text;
+          }
+        }
+
+        if (finalStr) {
+          setInput(prev => {
+            const newVal = (prev.trim() + " " + finalStr).trim();
+            return newVal;
+          });
+          setInterimTranscript("");
+        } else {
+          setInterimTranscript(interimStr);
+        }
+      };
+
+      recognitionRef.current = recognition;
+    }
+  }, [profile.language]);
+
+  const toggleListening = () => {
+    if (isListening) {
+      const finalFullText = (input + (input && interimTranscript ? " " : "") + interimTranscript).trim();
+      setInput(finalFullText);
+      setInterimTranscript("");
+      recognitionRef.current?.stop();
+      
+      // "If i end send it directly"
+      if (finalFullText) {
+        handleSubmit(undefined, finalFullText);
+      }
+    } else {
+      setInterimTranscript("");
+      recognitionRef.current?.start();
+    }
+  };
+
+  useEffect(() => {
+    return () => recognitionRef.current?.stop();
+  }, []);
 
   // Sync with active thread
   useEffect(() => {
@@ -71,6 +161,13 @@ export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClic
     const newFiles: { name: string, type: string, data: string }[] = [];
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
+      
+      // Limit file size to 5MB to prevent memory crashes (System Sync Errors)
+      if (file.size > 5 * 1024 * 1024) {
+        alert(`الملف "${file.name}" كبير جداً، الحد الأقصى 5 ميجا.`);
+        continue;
+      }
+
       const base64 = await new Promise<string>((resolve) => {
         const reader = new FileReader();
         reader.onload = () => resolve(reader.result as string);
@@ -83,6 +180,7 @@ export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClic
       });
     }
     setSelectedFiles(prev => [...prev, ...newFiles]);
+    if (fileInputRef.current) fileInputRef.current.value = ''; // Reset input to allow adding same file if needed
   };
 
   const removeFile = (index: number) => {
@@ -110,15 +208,16 @@ export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClic
     return Math.min(10, score);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if ((!input.trim() && selectedFiles.length === 0) || isLoading) return;
+  const handleSubmit = async (e?: React.FormEvent, directInput?: string) => {
+    if (e) e.preventDefault();
+    const finalInput = directInput || input;
+    if ((!finalInput.trim() && selectedFiles.length === 0) || isLoading) return;
 
-    const qualityScore = evaluateQuestionQuality(input);
+    const qualityScore = evaluateQuestionQuality(finalInput);
     
     // Auto-title thread if it's new
-    if (activeThread && activeThread.messages.length === 0 && input.trim()) {
-      const suggestedTitle = input.slice(0, 30) + (input.length > 30 ? '...' : '');
+    if (activeThread && activeThread.messages.length === 0 && finalInput.trim()) {
+      const suggestedTitle = finalInput.slice(0, 30) + (finalInput.length > 30 ? '...' : '');
       const updatedThreads = (profile.chatThreads || []).map(t => 
         t.id === activeThread.id ? { ...t, title: suggestedTitle } : t
       );
@@ -126,9 +225,9 @@ export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClic
     }
 
     const userMessage: Message = {
-      id: Date.now().toString(),
+      id: `user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       role: 'user',
-      content: input || "Analyzed attached media.",
+      content: finalInput || "Analyzed attached media.",
       timestamp: new Date().toISOString(),
       attachments: selectedFiles
     };
@@ -139,7 +238,7 @@ export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClic
       syncMessages(newHistory);
     }
     
-    const submittedMessage = input;
+    const submittedMessage = finalInput;
     setInput("");
     setIsLoading(true);
     setStreamingText("");
@@ -163,7 +262,7 @@ export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClic
       }
 
       const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
+        id: `assistant-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         role: 'assistant',
         content: lastText,
         timestamp: new Date().toISOString(),
@@ -173,6 +272,11 @@ export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClic
       const updatedHistory = [...newHistory, assistantMessage];
       setMessages(updatedHistory);
       setStreamingText("");
+      if (onStreamingUpdate) {
+        // Trigger TTS directly with the finalized AI text
+        onStreamingUpdate(""); // force reset
+        setTimeout(() => onStreamingUpdate(lastText), 50);
+      }
       onQuestionEvaluated(qualityScore, updatedHistory);
     } catch (error) {
       console.error(error);
@@ -195,7 +299,7 @@ export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClic
   };
 
   return (
-    <div className="flex-1 flex flex-col h-screen bg-bg-card overflow-hidden relative">
+    <div className="flex-1 flex flex-col h-[100dvh] bg-bg-card overflow-hidden relative">
       {/* File Preview Modal */}
       <AnimatePresence>
         {previewFile && (
@@ -244,31 +348,38 @@ export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClic
       </AnimatePresence>
 
       {/* Header Info */}
-      <div className="bg-bg-card border-b border-border h-[60px] px-4 md:px-8 flex justify-between items-center z-10 shrink-0">
-        <div className="flex items-center gap-3 md:gap-4">
-          <button 
-            onClick={onMenuClick}
-            className="lg:hidden p-2 -ml-2 text-slate-500 hover:bg-slate-100 rounded-lg active:scale-95"
-          >
-            <Menu className="w-5 h-5" />
-          </button>
-          <div className="flex items-center gap-2">
-            <span className="text-lg font-extrabold text-primary tracking-tight">Cognify</span>
-            <span className="text-sm md:text-lg font-light text-text-muted truncate max-w-[120px] md:max-w-xs">| {activeThread?.title || 'AI Session'}</span>
-          </div>
-          {profile.accessibilityMode !== 'None' && (
-            <div className="hidden sm:flex items-center gap-1.5 px-3 py-1 bg-primary/5 text-primary border border-primary/10 rounded-full text-[10px] font-black uppercase tracking-wider">
-               <Accessibility className="w-3 h-3" /> {profile.accessibilityMode} Mode
+      {!isEmbedded && (
+        <div className="bg-bg-card border-b border-border h-[60px] px-4 md:px-8 flex justify-between items-center z-10 shrink-0">
+          <div className="flex items-center gap-3 md:gap-4">
+            <button 
+              onClick={onMenuClick}
+              className="lg:hidden p-2 -ml-2 text-slate-500 hover:bg-slate-100 rounded-lg active:scale-95"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+            <div className="flex items-center gap-2">
+              <span className="text-lg font-extrabold text-primary tracking-tight">Cognify</span>
+              <span className="text-sm md:text-lg font-light text-text-muted truncate max-w-[120px] md:max-w-xs">| {activeThread?.title || 'AI Session'}</span>
             </div>
-          )}
+            {profile.accessibilityMode !== 'None' && (
+              <div className="hidden sm:flex items-center gap-1.5 px-3 py-1 bg-primary/5 text-primary border border-primary/10 rounded-full text-[10px] font-black uppercase tracking-wider">
+                 <Accessibility className="w-3 h-3" /> {profile.accessibilityMode} Mode
+              </div>
+            )}
+            {(profile.accessibilityMode === 'Vocal-Deaf' || profile.accessibilityMode === 'Sign-Only') && (
+              <div className="flex items-center gap-2 px-3 py-1 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-xl text-[10px] font-black uppercase tracking-wider animate-pulse">
+                 <Sparkles className="w-3 h-3" /> Sign Interpretation Active
+              </div>
+            )}
+          </div>
+          <div className="flex items-center gap-4">
+            <span className="hidden sm:flex text-[11px] font-bold uppercase py-1 px-3 bg-emerald-50 text-emerald-700 rounded-full border border-emerald-100 items-center gap-2">
+              <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
+              AI Assistant v1.5
+            </span>
+          </div>
         </div>
-        <div className="flex items-center gap-4">
-          <span className="hidden sm:flex text-[11px] font-bold uppercase py-1 px-3 bg-emerald-50 text-emerald-700 rounded-full border border-emerald-100 items-center gap-2">
-            <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
-            AI Assistant v1.5
-          </span>
-        </div>
-      </div>
+      )}
 
       {/* Messages */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 md:p-8 lg:p-12 flex flex-col items-center custom-scrollbar">
@@ -284,11 +395,21 @@ export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClic
               >
                 {m.role === 'user' ? (
                   <div className="space-y-4">
-                    <div className="bg-[#f1f5f9] p-6 rounded-xl border-l-4 border-primary italic text-text-main shadow-sm">
-                      "{m.content}"
+                    <div className="bg-[#f1f5f9] p-6 rounded-xl border-l-4 border-primary italic text-text-main shadow-sm flex flex-col gap-2">
+                       {m.content.split('\n').map((line, i) => {
+                          if (line.match(/^\[Signs:\s(.+)\]$/)) {
+                            const signsMatch = line.match(/^\[Signs:\s(.+)\]$/);
+                            return (
+                               <div key={i} className="flex flex-col gap-2 mt-2 pt-2 border-t border-slate-200/60 not-italic">
+                                 <span className="text-3xl bg-white border border-slate-100 p-2 rounded-xl inline-flex w-max shadow-sm">{signsMatch![1]}</span>
+                               </div>
+                            );
+                          }
+                          return <span key={i}>"{line}"</span>;
+                       })}
                     </div>
                     {m.attachments?.length ? m.attachments.map((file, idx) => (
-                      <div key={idx} className="relative group max-w-sm">
+                      <div key={`${m.id}-att-${idx}`} className="relative group max-w-sm">
                         <button 
                           onClick={() => file.data && setPreviewFile(file)}
                           className={`w-full flex items-center gap-3 p-3 bg-white border border-slate-200 rounded-xl transition-all ${file.data ? 'hover:border-primary hover:shadow-md cursor-pointer' : 'opacity-80 cursor-default'}`}
@@ -355,12 +476,71 @@ export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClic
                       }`}>
                         Level: {profile.level} ({profile.role})
                       </span>
+                      {('speechSynthesis' in window) && (
+                        <button 
+                          onClick={() => {
+                             const utterance = new SpeechSynthesisUtterance(m.content);
+                             const langMap: Record<string, string> = {
+                              'English': 'en-US',
+                              'Arabic': 'ar-SA',
+                              'French': 'fr-FR',
+                              'Spanish': 'es-ES',
+                              'German': 'de-DE'
+                             };
+                             utterance.lang = langMap[profile.language || 'English'] || 'en-US';
+                             window.speechSynthesis.cancel();
+                             window.speechSynthesis.speak(utterance);
+                          }}
+                          className="text-[10px] font-bold uppercase transition-colors px-2 py-0.5 rounded border flex items-center gap-1.5 bg-indigo-50 text-indigo-700 border-indigo-100 hover:bg-indigo-100"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path><path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path></svg>
+                          Speak
+                        </button>
+                      )}
                     </div>
                     <div className="text-text-main leading-relaxed adaptive-response text-base space-y-4">
+                      {(profile.accessibilityMode === 'Vocal-Deaf' || profile.accessibilityMode === 'Sign-Only') && (
+                        <div className="mb-6 p-4 bg-slate-50 rounded-2xl border border-slate-100 flex items-center gap-4">
+                           <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0 relative overflow-hidden">
+                              <Bot className="w-6 h-6 text-primary relative z-10" />
+                              <motion.div 
+                                animate={{ 
+                                  scale: [1, 1.5, 1],
+                                  opacity: [0.1, 0.3, 0.1]
+                                }}
+                                transition={{ repeat: Infinity, duration: 2 }}
+                                className="absolute inset-0 bg-primary"
+                              />
+                           </div>
+                           <div>
+                             <p className="text-[10px] font-black uppercase text-primary tracking-widest mb-1">Visual Sign Translation</p>
+                             <p className="text-xs text-slate-500 font-medium italic">Translating response to sign language visuals...</p>
+                           </div>
+                           <motion.div 
+                             animate={{ x: [0, 5, -5, 0], y: [0, -2, 2, 0] }}
+                             transition={{ repeat: Infinity, duration: 3 }}
+                             className="ml-auto"
+                           >
+                             <BrainCircuit className="w-6 h-6 text-emerald-400 opacity-50" />
+                           </motion.div>
+                        </div>
+                      )}
                       {m.content.split('\n').map((line, i) => {
-                        if (line.startsWith('## ')) return <h2 key={i} className="text-xl font-bold text-primary border-b-2 border-primary/5 pb-1 mb-2 pt-4">{line.replace('## ', '')}</h2>;
-                        if (line.startsWith('* ')) return <li key={i} className="ml-5 list-square marker:text-primary mb-1">{line.replace('* ', '')}</li>;
-                        return <p key={i} className="mb-4">{line}</p>;
+                        const lineKey = `${m.id}-line-${i}`;
+                        if (line.startsWith('## ')) return <h2 key={lineKey} className="text-xl font-bold text-primary border-b-2 border-primary/5 pb-1 mb-2 pt-4">{line.replace('## ', '')}</h2>;
+                        if (line.startsWith('* ')) return <li key={lineKey} className="ml-5 list-square marker:text-primary mb-1">{line.replace('* ', '')}</li>;
+                        
+                        if (line.match(/^\[Signs:\s(.+)\]$/)) {
+                           const signsMatch = line.match(/^\[Signs:\s(.+)\]$/);
+                           return (
+                             <div key={lineKey} className="flex flex-col gap-2 mt-4 pt-4 border-t border-slate-200/60 not-italic">
+                               <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Sign Translation</span>
+                               <span className="text-3xl bg-slate-50 border border-slate-100 p-3 rounded-xl inline-flex w-max">{signsMatch![1]}</span>
+                             </div>
+                           );
+                        }
+
+                        return <p key={lineKey} className="mb-4">{line}</p>;
                       })}
                     </div>
                     
@@ -368,7 +548,7 @@ export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClic
                     {m.attachments && m.attachments.length > 0 && (
                       <div className="flex flex-wrap gap-4 mt-6">
                         {m.attachments.map((file, idx) => (
-                          <div key={idx} className="relative group">
+                          <div key={`${m.id}-gen-att-${idx}`} className="relative group">
                             <button 
                               onClick={() => file.data && setPreviewFile(file)}
                               className={`flex flex-col items-center gap-2 p-2 bg-white border border-slate-200 rounded-xl transition-all overflow-hidden ${file.data ? 'hover:border-primary hover:shadow-md cursor-pointer' : 'opacity-80 cursor-default'}`}                             >
@@ -420,6 +600,7 @@ export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClic
 
           {isLoading && (
             <motion.div
+              key="streaming-block"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               className="space-y-4"
@@ -437,9 +618,21 @@ export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClic
               {streamingText ? (
                 <div className="text-text-main leading-relaxed adaptive-response text-base space-y-4">
                   {streamingText.split('\n').map((line, i) => {
-                    if (line.startsWith('## ')) return <h2 key={i} className="text-xl font-bold text-primary border-b-2 border-primary/5 pb-1 mb-2 pt-4">{line.replace('## ', '')}</h2>;
-                    if (line.startsWith('* ')) return <li key={i} className="ml-5 list-square marker:text-primary mb-1">{line.replace('* ', '')}</li>;
-                    return <p key={i} className="mb-4">{line}</p>;
+                    const lineKey = `streaming-line-${i}`;
+                    if (line.startsWith('## ')) return <h2 key={lineKey} className="text-xl font-bold text-primary border-b-2 border-primary/5 pb-1 mb-2 pt-4">{line.replace('## ', '')}</h2>;
+                    if (line.startsWith('* ')) return <li key={lineKey} className="ml-5 list-square marker:text-primary mb-1">{line.replace('* ', '')}</li>;
+                    
+                    if (line.match(/^\[Signs:\s(.+)\]$/)) {
+                       const signsMatch = line.match(/^\[Signs:\s(.+)\]$/);
+                       return (
+                         <div key={lineKey} className="flex flex-col gap-2 mt-4 pt-4 border-t border-slate-200/60 not-italic">
+                           <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Sign Translation</span>
+                           <span className="text-3xl bg-slate-50 border border-slate-100 p-3 rounded-xl inline-flex w-max">{signsMatch![1]}</span>
+                         </div>
+                       );
+                    }
+
+                    return <p key={lineKey} className="mb-4">{line}</p>;
                   })}
                 </div>
               ) : (
@@ -485,30 +678,57 @@ export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClic
               multiple
               accept="image/*,video/mp4,video/webm,video/quicktime,application/pdf,.doc,.docx,.txt"
             />
-            <div className="absolute left-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
-               <button 
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="p-2 text-slate-400 hover:text-primary transition-colors rounded-lg hover:bg-slate-50"
-               >
-                 <Paperclip className="w-4 h-4" />
-               </button>
+            
+            <div className="relative w-full">
+              <div className="absolute left-4 top-1/2 -translate-y-1/2 flex items-center gap-1 z-10">
+                 <button 
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="p-2 text-slate-400 hover:text-primary transition-colors rounded-lg hover:bg-slate-50"
+                 >
+                   <Paperclip className="w-5 h-5" />
+                 </button>
+                 
+                 <button
+                   type="button"
+                   onClick={toggleListening}
+                   className={`p-2 transition-colors rounded-lg ${
+                     isListening ? 'text-rose-500 bg-rose-50 hover:bg-rose-100 animate-pulse' : 'text-slate-400 hover:text-primary hover:bg-slate-50'
+                   }`}
+                   title={isListening ? "Listening... (Tap to stop and send)" : "Tap to Speak (Real-time Live Caption)"}
+                 >
+                   {isListening ? (
+                     <MicOff className="w-5 h-5" />
+                   ) : (
+                     <Mic className="w-5 h-5" />
+                   )}
+                 </button>
+              </div>
+
+              <input
+                type="text"
+                value={input + (interimTranscript ? (input ? " " : "") + interimTranscript : "")}
+                onChange={(e) => setInput(e.target.value)}
+                disabled={isLoading}
+                placeholder={isListening ? "Listening..." : "Ask a question..."}
+                className={`w-full bg-white border border-border rounded-2xl pl-24 py-4 pr-14 shadow-md focus:ring-4 focus:ring-primary/5 focus:border-primary outline-none transition-all placeholder:text-text-muted/50 disabled:opacity-50 relative z-0 ${isListening ? 'border-primary outline-primary ring-4 ring-primary/5' : ''}`}
+              />
+              {interimTranscript && (
+                <div className="absolute right-14 top-1/2 -translate-y-1/2 pointer-events-none z-10">
+                  <span className="flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+                  </span>
+                </div>
+              )}
+              <button
+                type="submit"
+                disabled={(!input.trim() && selectedFiles.length === 0) || isLoading}
+                className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-primary text-white rounded-lg flex items-center justify-center hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400 transition-all shadow-md active:scale-95 z-10"
+              >
+                <Send className="w-5 h-5" />
+              </button>
             </div>
-            <input
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              disabled={isLoading}
-              placeholder="Ask a question..."
-              className="w-full bg-white border border-border rounded-2xl px-14 py-4 pr-14 shadow-md focus:ring-4 focus:ring-primary/5 focus:border-primary outline-none transition-all placeholder:text-text-muted/50 disabled:opacity-50"
-            />
-            <button
-              type="submit"
-              disabled={(!input.trim() && selectedFiles.length === 0) || isLoading}
-              className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-primary text-white rounded-lg flex items-center justify-center hover:bg-blue-700 disabled:bg-border disabled:text-text-muted transition-all shadow-md active:scale-95"
-            >
-              <Send className="w-5 h-5" />
-            </button>
           </form>
         </div>
       </div>
