@@ -11,7 +11,7 @@ interface DisabilityModeViewProps {
   profile: UserProfile;
   onMenuClick: () => void;
   onNavigate?: (view: 'chat' | 'hub' | 'logic' | 'profile' | 'settings' | 'video' | 'disability') => void;
-  onQuestionEvaluated?: (score: number, updatedHistory?: Message[]) => void;
+  onQuestionEvaluated?: (score: number, lastMessageSnippet?: string) => void;
   syncMessages?: (updatedHistory: Message[]) => void;
   externalMessage?: string;
   onStreamingUpdate?: (text: string) => void;

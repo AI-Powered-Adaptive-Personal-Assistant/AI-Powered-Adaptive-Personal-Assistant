@@ -4,10 +4,12 @@ import { generateAdaptiveResponseStream } from "../services/gemini";
 import { geminiService } from "../services/geminiService";
 import { Send, Bot, User, Loader2, Sparkles, BrainCircuit, Paperclip, ImageIcon, FileText, X, Accessibility, Menu, Download, Mic, MicOff, RefreshCw } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+import { doc, setDoc, onSnapshot } from "firebase/firestore";
+import { db, handleFirestoreError, OperationType } from "../lib/firebase";
 
 interface ChatInterfaceProps {
   profile: UserProfile;
-  onQuestionEvaluated: (score: number, updatedHistory: Message[]) => void;
+  onQuestionEvaluated: (score: number, lastMessageSnippet: string) => void;
   onMenuClick?: () => void;
   syncMessages?: (messages: Message[]) => void;
   externalMessage?: string;
@@ -20,6 +22,7 @@ export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClic
   const activeThread = profile.chatThreads?.find(t => t.id === profile.activeThreadId);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
+  const [messagesLoading, setMessagesLoading] = useState(false);
 
   // Handle external message injection
   useEffect(() => {
@@ -38,8 +41,9 @@ export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClic
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [previewFile, setPreviewFile] = useState<{ name: string, type: string, data: string } | null>(null);
+  const [speakingMessageId, setSpeakingMessageId] = useState<string | null>(null);
 
-  // STT Logic (Real-time Browser Speech Recognition)
+  // STT Logic
   const [isListening, setIsListening] = useState(false);
   const [interimTranscript, setInterimTranscript] = useState("");
   const recognitionRef = useRef<any>(null);
@@ -59,8 +63,6 @@ export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClic
       recognition.onstart = () => setIsListening(true);
       recognition.onend = () => {
         setIsListening(false);
-        // If content was captured, the user might want a fast send experience
-        // We'll check the current input in the handleSubmit logic called manually if needed
       };
 
       recognition.onresult = (event: any) => {
@@ -97,8 +99,6 @@ export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClic
       setInput(finalFullText);
       setInterimTranscript("");
       recognitionRef.current?.stop();
-      
-      // "If i end send it directly"
       if (finalFullText) {
         handleSubmit(undefined, finalFullText);
       }
@@ -109,34 +109,17 @@ export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClic
   };
 
   useEffect(() => {
-    return () => recognitionRef.current?.stop();
+    return () => {
+      recognitionRef.current?.stop();
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+    };
   }, []);
 
-  // Sync with active thread
+  // Sync with active thread by fetching from subcollection
   useEffect(() => {
-    if (activeThread) {
-      setMessages(prev => {
-        // Only merge if we actually have incoming messages
-        if (!activeThread.messages) return prev;
-        
-        return activeThread.messages.map(incomingMsg => {
-          const localMsg = prev.find(p => p.id === incomingMsg.id);
-          
-          if (localMsg && localMsg.attachments && incomingMsg.attachments) {
-            const mergedAttachments = incomingMsg.attachments.map((incAtt, i) => {
-              const locAtt = localMsg.attachments![i];
-              // If incoming data was stripped because of 50kb limit, keep local data for the current session
-              if (!incAtt.data && locAtt && locAtt.data) {
-                return { ...incAtt, data: locAtt.data };
-              }
-              return incAtt;
-            });
-            return { ...incomingMsg, attachments: mergedAttachments };
-          }
-          return incomingMsg;
-        });
-      });
-    } else {
+    if (!profile.uid || !profile.activeThreadId) {
       setMessages([
         {
           id: 'welcome',
@@ -145,8 +128,29 @@ export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClic
           timestamp: new Date().toISOString()
         }
       ]);
+      return;
     }
-  }, [profile.activeThreadId, activeThread?.messages]);
+
+    setMessagesLoading(true);
+    const path = `users/${profile.uid}/threads/${profile.activeThreadId}`;
+    
+    const unsubscribe = onSnapshot(doc(db, path), (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.data();
+        const incomingMessages = data.messages as Message[] || [];
+        setMessages(incomingMessages);
+      } else {
+        // If thread exists in metadata but no document, it might be new
+        setMessages([]);
+      }
+      setMessagesLoading(false);
+    }, (err) => {
+      console.error("Error fetching messages:", err);
+      setMessagesLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [profile.uid, profile.activeThreadId]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -216,7 +220,7 @@ export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClic
     const qualityScore = evaluateQuestionQuality(finalInput);
     
     // Auto-title thread if it's new
-    if (activeThread && activeThread.messages.length === 0 && finalInput.trim()) {
+    if (activeThread && messages.length === 0 && finalInput.trim()) {
       const suggestedTitle = finalInput.slice(0, 30) + (finalInput.length > 30 ? '...' : '');
       const updatedThreads = (profile.chatThreads || []).map(t => 
         t.id === activeThread.id ? { ...t, title: suggestedTitle } : t
@@ -234,8 +238,13 @@ export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClic
 
     const newHistory = [...messages, userMessage];
     setMessages(newHistory);
-    if (syncMessages) {
-      syncMessages(newHistory);
+    
+    // Save locally to appropriate Firestore document
+    if (profile.uid && profile.activeThreadId) {
+      const threadPath = `users/${profile.uid}/threads/${profile.activeThreadId}`;
+      setDoc(doc(db, threadPath), { messages: newHistory }, { merge: true }).catch(err => {
+         handleFirestoreError(err, OperationType.UPDATE, threadPath);
+      });
     }
     
     const submittedMessage = finalInput;
@@ -246,7 +255,7 @@ export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClic
     setSelectedFiles([]);
 
     try {
-      const stream = generateAdaptiveResponseStream(submittedMessage, profile, attachmentsToSubmit);
+      const stream = generateAdaptiveResponseStream(submittedMessage, profile, newHistory, attachmentsToSubmit);
       
       let lastText = "";
       let finalAttachments: any[] = [];
@@ -277,7 +286,16 @@ export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClic
         onStreamingUpdate(""); // force reset
         setTimeout(() => onStreamingUpdate(lastText), 50);
       }
-      onQuestionEvaluated(qualityScore, updatedHistory);
+
+      // Final persistence
+      if (profile.uid && profile.activeThreadId) {
+        const threadPath = `users/${profile.uid}/threads/${profile.activeThreadId}`;
+        setDoc(doc(db, threadPath), { messages: updatedHistory }, { merge: true }).catch(err => {
+           handleFirestoreError(err, OperationType.UPDATE, threadPath);
+        });
+      }
+
+      onQuestionEvaluated(qualityScore, lastText.slice(0, 100));
     } catch (error) {
       console.error(error);
       setMessages(messages);
@@ -383,7 +401,12 @@ export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClic
 
       {/* Messages */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 md:p-8 lg:p-12 flex flex-col items-center custom-scrollbar">
-        <div className="w-full max-w-3xl space-y-10">
+        {messagesLoading && messages.length === 0 ? (
+          <div className="flex-1 flex items-center justify-center">
+             <Loader2 className="w-8 h-8 text-primary animate-spin" />
+          </div>
+        ) : (
+          <div className="w-full max-w-3xl space-y-10">
           <AnimatePresence mode="popLayout">
             {messages.map((m) => (
               <motion.div
@@ -479,22 +502,46 @@ export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClic
                       {('speechSynthesis' in window) && (
                         <button 
                           onClick={() => {
-                             const utterance = new SpeechSynthesisUtterance(m.content);
-                             const langMap: Record<string, string> = {
-                              'English': 'en-US',
-                              'Arabic': 'ar-SA',
-                              'French': 'fr-FR',
-                              'Spanish': 'es-ES',
-                              'German': 'de-DE'
-                             };
-                             utterance.lang = langMap[profile.language || 'English'] || 'en-US';
-                             window.speechSynthesis.cancel();
-                             window.speechSynthesis.speak(utterance);
+                             if (speakingMessageId === m.id) {
+                               window.speechSynthesis.cancel();
+                               setSpeakingMessageId(null);
+                             } else {
+                               window.speechSynthesis.cancel();
+                               setSpeakingMessageId(m.id);
+                               
+                               const cleanText = m.content.replace(/[*+#_`~\[\]()]/g, '');
+                               const utterance = new SpeechSynthesisUtterance(cleanText);
+                               
+                               const hasArabic = /[\u0600-\u06FF]/.test(cleanText);
+                               const langMap: Record<string, string> = {
+                                'English': 'en-US',
+                                'Arabic': 'ar-SA',
+                                'French': 'fr-FR',
+                                'Spanish': 'es-ES',
+                                'German': 'de-DE'
+                               };
+                               utterance.lang = hasArabic ? 'ar-SA' : (langMap[profile.language || 'English'] || 'en-US');
+                               
+                               // onend and onerror will clear the state when it finishes normally or fails
+                               utterance.onend = () => setSpeakingMessageId(null);
+                               utterance.onerror = () => setSpeakingMessageId(null);
+                               
+                               window.speechSynthesis.speak(utterance);
+                             }
                           }}
-                          className="text-[10px] font-bold uppercase transition-colors px-2 py-0.5 rounded border flex items-center gap-1.5 bg-indigo-50 text-indigo-700 border-indigo-100 hover:bg-indigo-100"
+                          className={`text-[10px] font-bold uppercase transition-colors px-2 py-0.5 rounded border flex items-center gap-1.5 ${speakingMessageId === m.id ? 'bg-rose-50 text-rose-700 border-rose-100 hover:bg-rose-100' : 'bg-indigo-50 text-indigo-700 border-indigo-100 hover:bg-indigo-100'}`}
                         >
-                          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path><path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path></svg>
-                          Speak
+                          {speakingMessageId === m.id ? (
+                            <>
+                              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg>
+                              Stop
+                            </>
+                          ) : (
+                            <>
+                              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path><path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path></svg>
+                              Speak
+                            </>
+                          )}
                         </button>
                       )}
                     </div>
@@ -644,7 +691,8 @@ export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClic
             </motion.div>
           )}
         </div>
-      </div>
+      )}
+    </div>
 
       {/* Input Area */}
       <div className="p-4 md:p-8 border-t border-border bg-bg-main relative shadow-[0_-10px_20px_-15px_rgba(0,0,0,0.05)]">

@@ -33,14 +33,6 @@ export default function RightPanel({ profile }: RightPanelProps) {
           Your current engagement shows high technical maturity. Consider exploring how <strong>Cognitive Load Theory</strong> could further refine your interactions in the {profile.field} domain.
         </p>
       </div>
-
-      {/* Meta Info */}
-      <div className="mt-auto pt-5 border-t border-border font-mono text-[10px] text-text-muted space-y-1 opacity-70">
-        <div className="flex justify-between"><span>SYS_CORE:</span><span>V2.5</span></div>
-        <div className="flex justify-between"><span>ADAPTIVE_MODE:</span><span>ACTIVE</span></div>
-        <div className="flex justify-between"><span>ACCESSIBILITY:</span><span>{profile.accessibilityMode.toUpperCase()}</span></div>
-        <div className="flex justify-between"><span>REGION:</span><span>GLOBAL</span></div>
-      </div>
     </div>
   );
 }

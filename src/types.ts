@@ -19,8 +19,8 @@ export interface Message {
 export interface ChatThread {
   id: string;
   title: string;
-  messages: Message[];
   updatedAt: string;
+  lastMessageSnippet?: string; // For sidebar display without loading full history
 }
 
 export interface UserProfile {
@@ -46,7 +46,7 @@ export interface UserProfile {
   onboardingComplete: boolean;
   photoURL?: string;
   questionHistory: { score: number; date: string }[];
-  chatHistory: Message[]; // Legacy/Global history
+  chatHistory: Message[]; // Legacy/Global history (to be deprecated or kept small)
   chatThreads?: ChatThread[];
   activeThreadId?: string;
 }

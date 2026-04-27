@@ -201,16 +201,16 @@ export default function App() {
     }
   };
 
-  const updateQuestionHistory = async (score: number, updatedHistory?: Message[]) => {
+  const updateQuestionHistory = async (score: number, lastMessageSnippet?: string) => {
     if (!user || !profile) return;
     const path = `users/${user.uid}`;
     
-    // If we have an active thread, update it specifically
+    // If we have an active thread, update its metadata
     let updatedThreads = profile.chatThreads || [];
-    if (profile.activeThreadId && updatedHistory) {
+    if (profile.activeThreadId && lastMessageSnippet) {
       updatedThreads = updatedThreads.map(t => 
         t.id === profile.activeThreadId 
-          ? { ...t, messages: updatedHistory, updatedAt: new Date().toISOString() } 
+          ? { ...t, lastMessageSnippet, updatedAt: new Date().toISOString() } 
           : t
       );
     }
@@ -219,12 +219,26 @@ export default function App() {
       ...profile,
       points: profile.points + (score * 5),
       questionHistory: [...(profile.questionHistory || []), { score, date: new Date().toISOString() }],
-      chatHistory: updatedHistory || profile.chatHistory || [], // Support legacy global sync
       chatThreads: updatedThreads
     };
 
     try {
+      // Explicitly prune large legacy arrays from the main document to resolve 1MB limit
       const cleanProfile = JSON.parse(JSON.stringify(updatedProfile));
+      
+      // Ensure chatThreads in the profile doc only contains metadata
+      if (cleanProfile.chatThreads) {
+        cleanProfile.chatThreads = cleanProfile.chatThreads.map((t: any) => ({
+          id: t.id,
+          title: t.title,
+          updatedAt: t.updatedAt,
+          lastMessageSnippet: t.lastMessageSnippet
+        }));
+      }
+      
+      // Clear legacy global history if it exists to save space
+      cleanProfile.chatHistory = []; 
+
       await setDoc(doc(db, path), cleanProfile);
     } catch (err) {
       handleFirestoreError(err, OperationType.UPDATE, path);
@@ -232,40 +246,15 @@ export default function App() {
   };
 
   const syncActiveThread = async (updatedHistory: Message[]) => {
-    if (!user || !profile) return;
-    const path = `users/${user.uid}`;
+    // This is now handled internally by ChatInterface for efficiency
+    // But we keep the function signature for compatibility if needed elsewhere
+    if (!user || !profile || !profile.activeThreadId) return;
     
-    // Strip large attachments from history before saving to DB
-    const historyForDb = updatedHistory.map(m => ({
-      ...m,
-      attachments: m.attachments?.map(a => ({
-        ...a,
-        // If data is very large (e.g. video or huge image), omit it so Firestore doesn't crash
-        data: a.data && a.data.length > 50000 ? "" : a.data 
-      }))
-    }));
-
-    let updatedThreads = profile.chatThreads || [];
-    // Only update if the thread still exists in the local state (hasn't been cleared)
-    if (profile.activeThreadId && updatedThreads.some(t => t.id === profile.activeThreadId)) {
-      updatedThreads = updatedThreads.map(t => 
-        t.id === profile.activeThreadId 
-          ? { ...t, messages: historyForDb, updatedAt: new Date().toISOString() } 
-          : t
-      );
-    }
-
-    const updatedProfile: UserProfile = {
-      ...profile,
-      chatHistory: historyForDb || profile.chatHistory || [],
-      chatThreads: updatedThreads
-    };
-
+    const threadPath = `users/${user.uid}/threads/${profile.activeThreadId}`;
     try {
-      const cleanProfile = JSON.parse(JSON.stringify(updatedProfile));
-      await setDoc(doc(db, path), cleanProfile);
+      await setDoc(doc(db, threadPath), { messages: updatedHistory }, { merge: true });
     } catch (err) {
-      handleFirestoreError(err, OperationType.UPDATE, path);
+      handleFirestoreError(err, OperationType.UPDATE, threadPath);
     }
   };
 
@@ -463,6 +452,18 @@ export default function App() {
                 const path = `users/${user.uid}`;
                 try {
                   const cleanProfile = JSON.parse(JSON.stringify(p));
+                  
+                  // Prune large arrays to stay under 1MB
+                  if (cleanProfile.chatThreads) {
+                    cleanProfile.chatThreads = cleanProfile.chatThreads.map((t: any) => ({
+                      id: t.id,
+                      title: t.title,
+                      updatedAt: t.updatedAt,
+                      lastMessageSnippet: t.lastMessageSnippet
+                    }));
+                  }
+                  cleanProfile.chatHistory = [];
+
                   await setDoc(doc(db, path), cleanProfile);
                 } catch (err) {
                   handleFirestoreError(err, OperationType.UPDATE, path);

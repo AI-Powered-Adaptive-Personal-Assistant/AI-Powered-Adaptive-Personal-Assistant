@@ -19,10 +19,10 @@ export default function Sidebar({ profile, setProfile, currentView, setCurrentVi
   };
 
   const startNewChat = () => {
-    // Check if there's already an empty thread to avoid duplicates
-    const emptyThread = profile.chatThreads?.find(t => t.messages.length === 0);
-    if (emptyThread) {
-      setProfile({ ...profile, activeThreadId: emptyThread.id });
+    // Check if there's already a thread named New Chat (we can't check messages.length easily now)
+    const existingNewChat = profile.chatThreads?.find(t => t.title === 'New Chat');
+    if (existingNewChat) {
+      setProfile({ ...profile, activeThreadId: existingNewChat.id });
       setCurrentView('chat');
       return;
     }
@@ -30,7 +30,6 @@ export default function Sidebar({ profile, setProfile, currentView, setCurrentVi
     const newThread: ChatThread = {
       id: Date.now().toString(),
       title: 'New Chat',
-      messages: [],
       updatedAt: new Date().toISOString()
     };
     
@@ -102,8 +101,7 @@ export default function Sidebar({ profile, setProfile, currentView, setCurrentVi
             </div>
             <div className="flex flex-col gap-1 max-h-[160px] overflow-y-auto custom-scrollbar pr-2">
               {profile.chatThreads?.slice().reverse().map((t) => {
-                const lastMessage = t.messages && t.messages.length > 0 ? t.messages[t.messages.length - 1] : null;
-                const snippet = lastMessage ? lastMessage.content || 'Media attached' : 'No messages yet';
+                const snippet = t.lastMessageSnippet || 'No messages yet';
                 
                 return (
                   <div key={t.id} className={`flex items-center justify-between gap-1 px-4 py-2 rounded-xl text-[10px] font-bold text-left transition-all group ${profile.activeThreadId === t.id ? 'bg-primary/5 border border-primary text-primary' : 'text-slate-500 hover:bg-slate-50 border border-transparent'}`}>

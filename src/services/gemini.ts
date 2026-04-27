@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import { UserProfile } from "../types";
+import { UserProfile, Message } from "../types";
 
 let aiInstance: GoogleGenAI | null = null;
 
@@ -92,6 +92,7 @@ Make the experience feel like sitting with a brilliant, patient mentor who is st
 export async function* generateAdaptiveResponseStream(
   message: string,
   profile: UserProfile,
+  history: Message[],
   attachments: { name: string, type: string, data: string }[] = []
 ) {
   try {
@@ -100,7 +101,7 @@ export async function* generateAdaptiveResponseStream(
 
     const otherThreadsSummary = profile.chatThreads
       ?.filter(t => t.id !== profile.activeThreadId)
-      .map(t => `Thread "${t.title}": ${t.messages.slice(-2).map(m => m.content).join(' | ')}`)
+      .map(t => `Thread "${t.title}": ${t.lastMessageSnippet || 'No summary'}`)
       .join('\n') || 'None';
 
     const systemInstruction = `
@@ -168,19 +169,6 @@ MULTIMODAL & TOOLS
 - You can generate images using the generateImage function.
 `;
 
-    const activeThread = profile.chatThreads?.find(t => t.id === profile.activeThreadId);
-    const currentMessages = activeThread?.messages || profile.chatHistory || [];
-
-    const history = currentMessages
-      .filter(m => m.id !== 'welcome')
-      .filter(m => m.content?.trim())
-      .map(m => ({
-        role: m.role === 'user' ? 'user' : 'model' as 'user' | 'model',
-        parts: [{ text: m.content }]
-      }));
-
-    const cleanHistory = history[0]?.role === 'model' ? history.slice(1) : history;
-
     const parts: any[] = [{ text: message }];
     attachments.forEach(file => {
       parts.push({
@@ -190,6 +178,16 @@ MULTIMODAL & TOOLS
         }
       });
     });
+
+    const historyForModel = history
+      .filter(m => m.id !== 'welcome')
+      .filter(m => m.content?.trim())
+      .map(m => ({
+        role: m.role === 'user' ? 'user' : 'model' as 'user' | 'model',
+        parts: [{ text: m.content }]
+      }));
+
+    const cleanHistory = historyForModel[0]?.role === 'model' ? historyForModel.slice(1) : historyForModel;
 
     const stream = await ai.models.generateContentStream({
       model,
@@ -270,6 +268,7 @@ MULTIMODAL & TOOLS
 export async function generateAdaptiveResponse(
   message: string,
   profile: UserProfile,
+  history: Message[],
   attachments: { name: string, type: string, data: string }[] = []
 ) {
   try {
@@ -278,7 +277,7 @@ export async function generateAdaptiveResponse(
 
     const otherThreadsSummary = profile.chatThreads
       ?.filter(t => t.id !== profile.activeThreadId)
-      .map(t => `Thread "${t.title}": ${t.messages.slice(-2).map(m => m.content).join(' | ')}`)
+      .map(t => `Thread "${t.title}": ${t.lastMessageSnippet || 'No summary'}`)
       .join('\n') || 'None';
 
     const systemInstruction = `
@@ -346,19 +345,6 @@ MULTIMODAL & TOOLS
 - You can generate images using the generateImage function.
 `;
 
-    const activeThread = profile.chatThreads?.find(t => t.id === profile.activeThreadId);
-    const currentMessages = activeThread?.messages || profile.chatHistory || [];
-
-    const history = currentMessages
-      .filter(m => m.id !== 'welcome')
-      .filter(m => m.content?.trim())
-      .map(m => ({
-        role: m.role === 'user' ? 'user' : 'model' as 'user' | 'model',
-        parts: [{ text: m.content }]
-      }));
-
-    const cleanHistory = history[0]?.role === 'model' ? history.slice(1) : history;
-
     const parts: any[] = [{ text: message }];
     attachments.forEach(file => {
       parts.push({
@@ -368,6 +354,16 @@ MULTIMODAL & TOOLS
         }
       });
     });
+
+    const historyForModel = history
+      .filter(m => m.id !== 'welcome')
+      .filter(m => m.content?.trim())
+      .map(m => ({
+        role: m.role === 'user' ? 'user' : 'model' as 'user' | 'model',
+        parts: [{ text: m.content }]
+      }));
+
+    const cleanHistory = historyForModel[0]?.role === 'model' ? historyForModel.slice(1) : historyForModel;
 
     const response = await ai.models.generateContent({
       model,
