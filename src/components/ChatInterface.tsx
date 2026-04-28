@@ -481,7 +481,7 @@ export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClic
           <div className="flex items-center gap-3 md:gap-4">
             <button 
               onClick={onMenuClick}
-              className="lg:hidden p-2 -ml-2 text-slate-500 hover:bg-slate-100 rounded-lg active:scale-95"
+              className="lg:hidden p-2 -ms-2 text-slate-500 hover:bg-slate-100 rounded-lg active:scale-95"
             >
               <Menu className="w-5 h-5" />
             </button>
@@ -841,7 +841,7 @@ export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClic
             />
             
             <div className="relative w-full">
-              <div className="absolute left-4 top-1/2 -translate-y-1/2 flex items-center gap-1 z-10">
+              <div className="absolute start-4 top-1/2 -translate-y-1/2 flex items-center gap-1 z-10">
                  <button 
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
@@ -872,10 +872,10 @@ export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClic
                 onChange={(e) => setInput(e.target.value)}
                 disabled={isLoading}
                 placeholder={isListening ? (profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya' ? 'جاري الاستماع...' : "Listening...") : getTranslation(profile.language, 'typeMessage')}
-                className={`w-full bg-white border border-border rounded-2xl pl-24 py-4 pr-14 shadow-md focus:ring-4 focus:ring-primary/5 focus:border-primary outline-none transition-all placeholder:text-text-muted/50 disabled:opacity-50 relative z-0 ${isListening ? 'border-primary outline-primary ring-4 ring-primary/5' : ''}`}
+                className={`w-full bg-white border border-border rounded-2xl ps-24 py-4 pe-14 shadow-md focus:ring-4 focus:ring-primary/5 focus:border-primary outline-none transition-all placeholder:text-text-muted/50 disabled:opacity-50 relative z-0 ${isListening ? 'border-primary outline-primary ring-4 ring-primary/5' : ''}`}
               />
               {interimTranscript && (
-                <div className="absolute right-14 top-1/2 -translate-y-1/2 pointer-events-none z-10">
+                <div className="absolute end-14 top-1/2 -translate-y-1/2 pointer-events-none z-10">
                   <span className="flex h-2 w-2">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
                     <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
@@ -885,7 +885,7 @@ export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClic
               <button
                 type="submit"
                 disabled={(!input.trim() && selectedFiles.length === 0) || isLoading}
-                className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-primary text-white rounded-lg flex items-center justify-center hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400 transition-all shadow-md active:scale-95 z-10"
+                className="absolute end-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-primary text-white rounded-lg flex items-center justify-center hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400 transition-all shadow-md active:scale-95 z-10"
               >
                 <Send className="w-5 h-5" />
               </button>
