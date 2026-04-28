@@ -2,10 +2,11 @@ import React, { useState, useRef, useEffect } from "react";
 import { Message, UserProfile } from "../types";
 import { generateAdaptiveResponseStream } from "../services/gemini";
 import { geminiService } from "../services/geminiService";
-import { Send, Bot, User, Loader2, Sparkles, BrainCircuit, Paperclip, ImageIcon, FileText, X, Accessibility, Menu, Download, Mic, MicOff, RefreshCw } from "lucide-react";
+import { Send, Bot, User, Loader2, Sparkles, BrainCircuit, Paperclip, ImageIcon, FileText, X, Accessibility, Menu, Download, Mic, MicOff, RefreshCw, Volume2 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { doc, setDoc, onSnapshot } from "firebase/firestore";
 import { db, handleFirestoreError, OperationType } from "../lib/firebase";
+import { getTranslation } from "../lib/translations";
 
 interface ChatInterfaceProps {
   profile: UserProfile;
@@ -42,6 +43,67 @@ export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClic
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [previewFile, setPreviewFile] = useState<{ name: string, type: string, data: string } | null>(null);
   const [speakingMessageId, setSpeakingMessageId] = useState<string | null>(null);
+  const [isReadingDocument, setIsReadingDocument] = useState(false);
+
+  const handleSpeak = (m: Message) => {
+    if (speakingMessageId === m.id) {
+      window.speechSynthesis.cancel();
+      setSpeakingMessageId(null);
+    } else {
+      window.speechSynthesis.cancel();
+      setSpeakingMessageId(m.id);
+      
+      const cleanText = m.content.replace(/\[Signs:.*?\]/g, '').replace(/[*+#_`~\[\]()]/g, '');
+      const utterance = new SpeechSynthesisUtterance(cleanText);
+      
+      const hasArabic = /[\u0600-\u06FF]/.test(cleanText);
+      const langMap: Record<string, string> = {
+        'English': 'en-US',
+        'Arabic': 'ar-SA',
+        'Egyptian Ammiya': 'ar-EG',
+        'French': 'fr-FR',
+        'Spanish': 'es-ES',
+        'German': 'de-DE'
+      };
+      
+      if (hasArabic) {
+        const isEgyptian = profile.language === 'Egyptian Ammiya' || 
+                           cleanText.includes('يا باشا') || 
+                           cleanText.includes('تمام') || 
+                           cleanText.includes('ازيك');
+        utterance.lang = isEgyptian ? 'ar-EG' : 'ar-SA';
+      } else {
+        utterance.lang = langMap[profile.language || 'English'] || 'en-US';
+      }
+      
+      utterance.onend = () => setSpeakingMessageId(null);
+      utterance.onerror = () => setSpeakingMessageId(null);
+      
+      window.speechSynthesis.speak(utterance);
+    }
+  };
+
+  const readDocument = async (file: {name: string, type: string, data: string}) => {
+    if (isLoading || isReadingDocument) return;
+    setIsReadingDocument(true);
+    
+    try {
+      const prompt = `You are an accessibility auditor for the blind. 
+      Task: Read and extract all important text and meaningful information from this document: "${file.name}".
+      Style: Narrate it slowly and clearly as if reading it to a blind person. 
+      Mirror the user's dialect (Standard Arabic, Egyptian Ammiya, or English).
+      If it's an image, describe it in high detail. 
+      If it's a PDF/Text, read the key chapters and paragraphs.
+      Return the full narrated text.`;
+      
+      handleSubmit(undefined, prompt, [file]);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setIsReadingDocument(false);
+      setPreviewFile(null);
+    }
+  };
 
   // STT Logic
   const [isListening, setIsListening] = useState(false);
@@ -58,7 +120,15 @@ export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClic
       const recognition = new SpeechRecognition();
       recognition.continuous = true;
       recognition.interimResults = true;
-      recognition.lang = profile.language === 'Arabic' ? 'ar-SA' : 'en-US';
+      const langMap: Record<string, string> = {
+        'Arabic': 'ar-SA',
+        'Egyptian Ammiya': 'ar-EG',
+        'English': 'en-US',
+        'French': 'fr-FR',
+        'Spanish': 'es-ES',
+        'German': 'de-DE'
+      };
+      recognition.lang = langMap[profile.language || 'English'] || 'en-US';
 
       recognition.onstart = () => setIsListening(true);
       recognition.onend = () => {
@@ -99,6 +169,13 @@ export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClic
       setInput(finalFullText);
       setInterimTranscript("");
       recognitionRef.current?.stop();
+      if (finalFullText && profile.accessibilityMode === 'Visual') {
+        const isArabic = profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya';
+        const confirmMsg = isArabic ? "تم الإرسال: " + finalFullText : "Sent: " + finalFullText;
+        const confirmUtterance = new SpeechSynthesisUtterance(confirmMsg);
+        confirmUtterance.lang = profile.language === 'Egyptian Ammiya' ? 'ar-EG' : (profile.language === 'Arabic' ? 'ar-SA' : 'en-US');
+        window.speechSynthesis.speak(confirmUtterance);
+      }
       if (finalFullText) {
         handleSubmit(undefined, finalFullText);
       }
@@ -120,11 +197,16 @@ export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClic
   // Sync with active thread by fetching from subcollection
   useEffect(() => {
     if (!profile.uid || !profile.activeThreadId) {
+      const isArabic = profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya';
+      const welcomeMsg = isArabic 
+        ? `كوجنيفي جاهز. كيف يمكنني مساعدتك في دراساتك في مجال ${profile.field} اليوم؟`
+        : `Cognify Ready. How can I assist your ${profile.field} studies today?`;
+        
       setMessages([
         {
           id: 'welcome',
           role: 'assistant',
-          content: `Cognify Ready. How can I assist your ${profile.field} studies today?`,
+          content: welcomeMsg,
           timestamp: new Date().toISOString()
         }
       ]);
@@ -212,10 +294,11 @@ export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClic
     return Math.min(10, score);
   };
 
-  const handleSubmit = async (e?: React.FormEvent, directInput?: string) => {
+  const handleSubmit = async (e?: React.FormEvent, directInput?: string, overrideAttachments?: { name: string, type: string, data: string }[]) => {
     if (e) e.preventDefault();
     const finalInput = directInput || input;
-    if ((!finalInput.trim() && selectedFiles.length === 0) || isLoading) return;
+    const finalAttachments = overrideAttachments || selectedFiles;
+    if ((!finalInput.trim() && finalAttachments.length === 0) || isLoading) return;
 
     const qualityScore = evaluateQuestionQuality(finalInput);
     
@@ -233,7 +316,7 @@ export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClic
       role: 'user',
       content: finalInput || "Analyzed attached media.",
       timestamp: new Date().toISOString(),
-      attachments: selectedFiles
+      attachments: finalAttachments
     };
 
     const newHistory = [...messages, userMessage];
@@ -251,8 +334,8 @@ export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClic
     setInput("");
     setIsLoading(true);
     setStreamingText("");
-    const attachmentsToSubmit = [...selectedFiles];
-    setSelectedFiles([]);
+    const attachmentsToSubmit = [...finalAttachments];
+    if (!overrideAttachments) setSelectedFiles([]);
 
     try {
       const stream = generateAdaptiveResponseStream(submittedMessage, profile, newHistory, attachmentsToSubmit);
@@ -332,9 +415,19 @@ export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClic
           >
             <div className="absolute top-10 right-10 flex gap-4">
               {previewFile.data && (
-                <button title="Download" onClick={() => handleDownload(previewFile)} className="text-white hover:text-primary transition-colors bg-white/10 hover:bg-white/20 p-2 rounded-full backdrop-blur">
-                  <Download className="w-8 h-8" />
-                </button>
+                <>
+                  <button 
+                    title="Narrate Document (Blind Accessibility)" 
+                    onClick={() => readDocument(previewFile)} 
+                    className="text-white hover:text-emerald-400 transition-colors bg-white/10 hover:bg-white/20 p-2 rounded-full backdrop-blur border border-white/20 flex items-center gap-2 px-4"
+                  >
+                    <Volume2 className="w-6 h-6" />
+                    <span className="text-[10px] font-black uppercase tracking-widest hidden sm:inline">Hear Content</span>
+                  </button>
+                  <button title="Download" onClick={() => handleDownload(previewFile)} className="text-white hover:text-primary transition-colors bg-white/10 hover:bg-white/20 p-2 rounded-full backdrop-blur">
+                    <Download className="w-8 h-8" />
+                  </button>
+                </>
               )}
               <button title="Close" onClick={() => setPreviewFile(null)} className="text-white hover:text-primary transition-colors bg-white/10 hover:bg-white/20 p-2 rounded-full backdrop-blur">
                 <X className="w-8 h-8" />
@@ -355,10 +448,27 @@ export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClic
               />
             ) : (
               <div className="bg-white p-12 rounded-[40px] max-w-2xl w-full text-center space-y-6">
-                <FileText className="w-20 h-20 text-primary mx-auto" />
+                <div className="relative inline-block">
+                  <FileText className="w-20 h-20 text-primary mx-auto" />
+                  <motion.div 
+                    animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.6, 0.3] }}
+                    transition={{ repeat: Infinity, duration: 2 }}
+                    className="absolute inset-0 bg-primary/20 blur-xl rounded-full"
+                  />
+                </div>
                 <h3 className="text-2xl font-black text-slate-900">{previewFile.name}</h3>
-                <p className="text-slate-500 font-medium italic">Full AI analysis of document content is active. Refer to Cognify for deep insights.</p>
-                <button onClick={() => setPreviewFile(null)} className="px-8 py-4 bg-primary text-white rounded-2xl font-black text-xs uppercase tracking-widest">Close Preview</button>
+                <p className="text-slate-500 font-medium italic">Full AI analysis of document content is active. For blind users, tap "Hear Content" to have the AI narrate this document.</p>
+                <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                   <button 
+                    onClick={() => readDocument(previewFile)} 
+                    disabled={isReadingDocument}
+                    className="px-8 py-4 bg-emerald-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 active:scale-95 transition-all"
+                   >
+                     {isReadingDocument ? <Loader2 className="w-4 h-4 animate-spin" /> : <Volume2 className="w-4 h-4" />}
+                     Narrate Document
+                   </button>
+                   <button onClick={() => setPreviewFile(null)} className="px-8 py-4 bg-slate-100 text-slate-500 rounded-2xl font-black text-xs uppercase tracking-widest">Close Preview</button>
+                </div>
               </div>
             )}
           </motion.div>
@@ -414,11 +524,11 @@ export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClic
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.98 }}
-                className={`flex flex-col w-full`}
+                className={`flex flex-col w-full ${m.role === 'user' ? 'items-end text-end' : 'items-start text-start'}`}
               >
                 {m.role === 'user' ? (
-                  <div className="space-y-4">
-                    <div className="bg-[#f1f5f9] p-6 rounded-xl border-l-4 border-primary italic text-text-main shadow-sm flex flex-col gap-2">
+                  <div className="space-y-4 max-w-[90%] md:max-w-[80%]">
+                    <div className="bg-[#f1f5f9] p-6 rounded-xl border-s-4 border-primary italic text-text-main shadow-sm flex flex-col gap-2">
                        {m.content.split('\n').map((line, i) => {
                           if (line.match(/^\[Signs:\s(.+)\]$/)) {
                             const signsMatch = line.match(/^\[Signs:\s(.+)\]$/);
@@ -465,16 +575,28 @@ export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClic
                            </div>
                         </button>
                         {file.data && (
-                          <button 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDownload(file);
-                            }}
-                            className="absolute right-2 top-1/2 -translate-y-1/2 bg-slate-100 hover:bg-primary hover:text-white p-2 rounded-full text-slate-500 opacity-0 group-hover:opacity-100 transition-all"
-                            title="Download"
-                          >
-                            <Download className="w-4 h-4" />
-                          </button>
+                          <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                readDocument(file);
+                              }}
+                              className="bg-emerald-50 text-emerald-600 hover:bg-emerald-500 hover:text-white p-2 rounded-full transition-all"
+                              title="Hear Content"
+                            >
+                              <Volume2 className="w-4 h-4" />
+                            </button>
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDownload(file);
+                              }}
+                              className="bg-slate-100 hover:bg-primary hover:text-white p-2 rounded-full text-slate-500 transition-all"
+                              title="Download"
+                            >
+                              <Download className="w-4 h-4" />
+                            </button>
+                          </div>
                         )}
                       </div>
                     )) : null}
@@ -490,56 +612,29 @@ export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClic
                     </div>
                   </div>
                 ) : (
-                  <div className="space-y-4">
+                  <div className="space-y-4 max-w-[90%] md:max-w-[85%]">
                     <div className="flex items-center gap-3">
                       <span className={`text-[11px] font-bold uppercase px-2 py-0.5 rounded ${
                         profile.level === 'Advanced' ? 'bg-purple-100 text-purple-800' :
                         profile.level === 'Intermediate' ? 'bg-blue-100 text-blue-800' :
                         'bg-orange-100 text-orange-800'
                       }`}>
-                        Level: {profile.level} ({profile.role})
+                        {getTranslation(profile.language, 'difficultyLevel')}: {profile.level} ({profile.role})
                       </span>
                       {('speechSynthesis' in window) && (
                         <button 
-                          onClick={() => {
-                             if (speakingMessageId === m.id) {
-                               window.speechSynthesis.cancel();
-                               setSpeakingMessageId(null);
-                             } else {
-                               window.speechSynthesis.cancel();
-                               setSpeakingMessageId(m.id);
-                               
-                               const cleanText = m.content.replace(/[*+#_`~\[\]()]/g, '');
-                               const utterance = new SpeechSynthesisUtterance(cleanText);
-                               
-                               const hasArabic = /[\u0600-\u06FF]/.test(cleanText);
-                               const langMap: Record<string, string> = {
-                                'English': 'en-US',
-                                'Arabic': 'ar-SA',
-                                'French': 'fr-FR',
-                                'Spanish': 'es-ES',
-                                'German': 'de-DE'
-                               };
-                               utterance.lang = hasArabic ? 'ar-SA' : (langMap[profile.language || 'English'] || 'en-US');
-                               
-                               // onend and onerror will clear the state when it finishes normally or fails
-                               utterance.onend = () => setSpeakingMessageId(null);
-                               utterance.onerror = () => setSpeakingMessageId(null);
-                               
-                               window.speechSynthesis.speak(utterance);
-                             }
-                          }}
+                          onClick={() => handleSpeak(m)}
                           className={`text-[10px] font-bold uppercase transition-colors px-2 py-0.5 rounded border flex items-center gap-1.5 ${speakingMessageId === m.id ? 'bg-rose-50 text-rose-700 border-rose-100 hover:bg-rose-100' : 'bg-indigo-50 text-indigo-700 border-indigo-100 hover:bg-indigo-100'}`}
                         >
                           {speakingMessageId === m.id ? (
                             <>
                               <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg>
-                              Stop
+                              {profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya' ? 'إيقاف' : 'Stop'}
                             </>
                           ) : (
                             <>
                               <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path><path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path></svg>
-                              Speak
+                              {profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya' ? 'استماع' : 'Speak'}
                             </>
                           )}
                         </button>
@@ -624,16 +719,28 @@ export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClic
                                </div>
                             </button>
                             {file.data && (
-                              <button 
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleDownload(file);
-                                }}
-                                className="absolute top-4 right-4 bg-black/60 hover:bg-black p-2 rounded-full text-white opacity-0 group-hover:opacity-100 transition-all backdrop-blur-sm"
-                                title="Download"
-                              >
-                                <Download className="w-4 h-4" />
-                              </button>
+                              <div className="absolute top-4 right-4 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                                <button 
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    readDocument(file);
+                                  }}
+                                  className="bg-emerald-500/80 hover:bg-emerald-600 text-white p-2 rounded-full backdrop-blur-sm transition-all"
+                                  title="Hear Content"
+                                >
+                                  <Volume2 className="w-4 h-4" />
+                                </button>
+                                <button 
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDownload(file);
+                                  }}
+                                  className="bg-black/60 hover:bg-black p-2 rounded-full text-white backdrop-blur-sm transition-all"
+                                  title="Download"
+                                >
+                                  <Download className="w-4 h-4" />
+                                </button>
+                              </div>
                             )}
                           </div>
                         ))}
@@ -685,7 +792,7 @@ export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClic
               ) : (
                 <div className="flex items-center gap-3 p-6 bg-bg-main rounded-xl border border-border italic text-text-muted">
                   <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                  <span>Analyzing and typing response...</span>
+                  <span>{getTranslation(profile.language, 'analyzing')}</span>
                 </div>
               )}
             </motion.div>
@@ -758,7 +865,7 @@ export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClic
                 value={input + (interimTranscript ? (input ? " " : "") + interimTranscript : "")}
                 onChange={(e) => setInput(e.target.value)}
                 disabled={isLoading}
-                placeholder={isListening ? "Listening..." : "Ask a question..."}
+                placeholder={isListening ? (profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya' ? 'جاري الاستماع...' : "Listening...") : getTranslation(profile.language, 'typeMessage')}
                 className={`w-full bg-white border border-border rounded-2xl pl-24 py-4 pr-14 shadow-md focus:ring-4 focus:ring-primary/5 focus:border-primary outline-none transition-all placeholder:text-text-muted/50 disabled:opacity-50 relative z-0 ${isListening ? 'border-primary outline-primary ring-4 ring-primary/5' : ''}`}
               />
               {interimTranscript && (
