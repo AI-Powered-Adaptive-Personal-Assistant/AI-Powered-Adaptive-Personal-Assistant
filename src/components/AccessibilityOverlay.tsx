@@ -29,7 +29,7 @@ export default function AccessibilityOverlay({ mode, profile, aiResponse = "", o
 
   const [currentWord, setCurrentWord] = useState("");
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const [autoSpeak, setAutoSpeak] = useState(false);
+  const [autoSpeak, setAutoSpeak] = useState(mode !== 'None');
   const [avatarImage, setAvatarImage] = useState("https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&q=80&w=400&h=600");
   const [signHistory, setSignHistory] = useState<string[]>([]);
 
@@ -62,19 +62,30 @@ export default function AccessibilityOverlay({ mode, profile, aiResponse = "", o
       setAvatarImage("https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&q=80&w=400&h=600"); // Speaking/Active expression
       
       // text-to-speech for AI response
-      if (autoSpeak && (mode === 'Speech' || mode === 'Vocal-Deaf' || mode === 'Visual')) {
+      if (autoSpeak && (mode === 'Speech' || mode === 'Vocal-Deaf' || mode === 'Visual' || mode === 'Sign-Only')) {
         if ('speechSynthesis' in window) {
-           const cleanText = aiResponse.replace(/[*+#_`~\[\]()]/g, '');
-           const utterance = new SpeechSynthesisUtterance(cleanText);
+          const cleanText = aiResponse.replace(/\[Signs:.*?\]/g, '').replace(/[*+#_`~\[\]()]/g, '');
+          const utterance = new SpeechSynthesisUtterance(cleanText);
            const hasArabic = /[\u0600-\u06FF]/.test(cleanText);
            const langMap: Record<string, string> = {
             'English': 'en-US',
             'Arabic': 'ar-SA',
+            'Egyptian Ammiya': 'ar-EG',
             'French': 'fr-FR',
             'Spanish': 'es-ES',
             'German': 'de-DE'
            };
-           utterance.lang = hasArabic ? 'ar-SA' : (langMap[profile.language || 'English'] || 'en-US');
+           
+           if (hasArabic) {
+             // If profile language is Egyptian or content has Egyptian keywords, use ar-EG
+             const isEgyptian = profile.language === 'Egyptian Ammiya' || 
+                                cleanText.includes('يا باشا') || 
+                                cleanText.includes('تمام') || 
+                                cleanText.includes('ازيك');
+             utterance.lang = isEgyptian ? 'ar-EG' : 'ar-SA';
+           } else {
+             utterance.lang = langMap[profile.language || 'English'] || 'en-US';
+           }
            
            utterance.onstart = () => setIsSpeaking(true);
            utterance.onend = () => setIsSpeaking(false);
@@ -168,7 +179,7 @@ export default function AccessibilityOverlay({ mode, profile, aiResponse = "", o
           onTranscription(mostFrequent);
           
           // Audio feedback
-          if ('speechSynthesis' in window && (mode === 'Sign-Only' || mode === 'Vocal-Deaf')) {
+          if ('speechSynthesis' in window && autoSpeak && (mode === 'Sign-Only' || mode === 'Vocal-Deaf')) {
              const utterance = new SpeechSynthesisUtterance(mostFrequent);
              utterance.lang = profile.language === 'Arabic' ? 'ar-SA' : 'en-US';
              window.speechSynthesis.speak(utterance);
@@ -371,7 +382,7 @@ export default function AccessibilityOverlay({ mode, profile, aiResponse = "", o
       className="fixed bottom-32 left-4 md:left-8 z-50 flex flex-col gap-6 pointer-events-none"
     >
       <AnimatePresence>
-        {(mode === 'Vocal-Deaf' || mode === 'Sign-Only' || mode === 'Speech') && (
+        {(mode === 'Vocal-Deaf' || mode === 'Sign-Only' || mode === 'Speech' || mode === 'Visual') && (
           <motion.div
             key="virtual-signer-container"
             initial={{ opacity: 0, x: -25, scale: 0.9 }}
@@ -381,7 +392,7 @@ export default function AccessibilityOverlay({ mode, profile, aiResponse = "", o
             className="flex flex-col items-center gap-2 pointer-events-auto shrink-0 cursor-grab active:cursor-grabbing"
           >
               <div className="flex flex-col items-center gap-4">
-                 {(mode === 'Speech' || mode === 'Vocal-Deaf') && (
+                 {(mode === 'Speech' || mode === 'Vocal-Deaf' || mode === 'Sign-Only' || mode === 'Visual') && (
                    <button
                     onClick={() => {
                       setAutoSpeak(!autoSpeak);
