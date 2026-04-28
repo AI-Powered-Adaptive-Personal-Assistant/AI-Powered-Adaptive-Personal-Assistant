@@ -181,7 +181,9 @@ export default function AccessibilityOverlay({ mode, profile, aiResponse = "", o
           // Audio feedback
           if ('speechSynthesis' in window && autoSpeak && (mode === 'Sign-Only' || mode === 'Vocal-Deaf')) {
              const utterance = new SpeechSynthesisUtterance(mostFrequent);
-             utterance.lang = profile.language === 'Arabic' ? 'ar-SA' : 'en-US';
+             const isEgyptian = profile.language === 'Egyptian Ammiya';
+             const isArabic = profile.language === 'Arabic';
+             utterance.lang = isEgyptian ? 'ar-EG' : (isArabic ? 'ar-SA' : 'en-US');
              window.speechSynthesis.speak(utterance);
           }
           
