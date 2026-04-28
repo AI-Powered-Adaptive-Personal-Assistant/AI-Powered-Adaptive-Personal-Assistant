@@ -1,11 +1,12 @@
 import React from 'react';
 import { UserProfile, AccessibilityMode, Message } from '../types';
 import { Settings, Eye, Accessibility, Menu, Sparkles, User, Ear, Mic, Brain, ArrowLeft, MessageSquare } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
 import { doc, setDoc } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import SignVideoStudio from './SignVideoStudio';
 import ChatInterface from './ChatInterface';
+import { getTranslation } from '../lib/translations';
 
 interface DisabilityModeViewProps {
   profile: UserProfile;
@@ -50,12 +51,13 @@ export default function DisabilityModeView({
   };
 
   const getModeDescription = (mode: AccessibilityMode) => {
+    const isArabic = profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya';
     switch (mode) {
-      case 'None': return 'Standard cognitive interface without accessibility overlays.';
-      case 'Speech': return 'Activates voice transcription, synthetic speech synthesis, and text-to-speech feedback.';
-      case 'Visual': return 'Enables vision analysis, high contrast, text zooming, and spatial layout modifications.';
-      case 'Vocal-Deaf': return 'Enables sign language avatar alongside speech recognition for users who are deaf but can speak.';
-      case 'Sign-Only': return 'Full sign language interface powered by the avatar and vision-based gesture recognition.';
+      case 'None': return isArabic ? 'واجهة إدراكية قياسية بدون طبقات إمكانية وصول.' : 'Standard cognitive interface without accessibility overlays.';
+      case 'Speech': return isArabic ? 'يفعل النسخ الصوتي، والتخليق الصوتي، وملاحظات تحويل النص إلى كلام.' : 'Activates voice transcription, synthetic speech synthesis, and text-to-speech feedback.';
+      case 'Visual': return isArabic ? 'يفعل تحليل الرؤية، والتباين العالي، وتكبير النص، وتعديلات التخطيط المكاني.' : 'Enables vision analysis, high contrast, text zooming, and spatial layout modifications.';
+      case 'Vocal-Deaf': return isArabic ? 'يفعل الصورة الرمزية للغة الإشارة جنباً إلى جنب مع التعرف على الكلام للمستخدمين الصم الذين يمكنهم التحدث.' : 'Enables sign language avatar alongside speech recognition for users who are deaf but can speak.';
+      case 'Sign-Only': return isArabic ? 'واجهة كاملة للغة الإشارة مدعومة بالصورة الرمزية والتعرف على الإيماءات المعتمد على الرؤية.' : 'Full sign language interface powered by the avatar and vision-based gesture recognition.';
       default: return '';
     }
   };
@@ -68,14 +70,14 @@ export default function DisabilityModeView({
             onClick={() => onNavigate ? onNavigate('chat') : onMenuClick()}
             className="p-2 text-slate-500 bg-slate-50 border border-slate-200 hover:bg-slate-100 rounded-lg active:scale-95 transition-all flex items-center gap-2"
           >
-            <ArrowLeft className="w-5 h-5" /> 
-            <span className="hidden sm:inline text-xs font-semibold uppercase tracking-widest text-slate-600">Return</span>
+            <ArrowLeft className={`w-5 h-5 ${profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya' ? 'rotate-180' : ''}`} /> 
+            <span className="hidden sm:inline text-xs font-semibold uppercase tracking-widest text-slate-600">{getTranslation(profile.language, 'back')}</span>
           </button>
           <div>
             <h1 className="text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-3">
-              <Accessibility className="w-6 h-6 text-primary" /> Disability Mode
+              <Accessibility className="w-6 h-6 text-primary" /> {getTranslation(profile.language, 'disabilityModeTitle')}
             </h1>
-            <p className="text-sm text-slate-500 mt-1">Empowering all neuro-diverse and differently-abled individuals.</p>
+            <p className="text-sm text-slate-500 mt-1">{getTranslation(profile.language, 'disabilityModeSubtitle')}</p>
           </div>
         </div>
 
@@ -86,15 +88,15 @@ export default function DisabilityModeView({
               activeTab === 'chat' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
             }`}
           >
-            AI Assistant
+            {getTranslation(profile.language, 'aiAssistant')}
           </button>
           <button
             onClick={() => setActiveTab('settings')}
-            className={`px-6 py-2.5 rounded-lg text-sm font-medium transition-all ${
+            className={`px-6 py-2.5 rounded-[17px] border border-[#443158] text-sm font-medium transition-all ${
               activeTab === 'settings' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
             }`}
           >
-            Preferences
+            {getTranslation(profile.language, 'preferences')}
           </button>
           <button
             onClick={() => setActiveTab('video')}
@@ -102,7 +104,7 @@ export default function DisabilityModeView({
               activeTab === 'video' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
             }`}
           >
-            Sign Studio
+            {getTranslation(profile.language, 'signStudio')}
           </button>
         </div>
       </header>
@@ -140,8 +142,8 @@ export default function DisabilityModeView({
               <div className="max-w-4xl mx-auto space-y-10 pb-20">
               <div className="bg-white p-8 md:p-10 rounded-2xl shadow-sm border border-slate-200">
                 <div className="mb-8">
-                  <h2 className="text-xl font-semibold text-slate-900 tracking-tight mb-1">Accessibility Profiles</h2>
-                  <p className="text-sm text-slate-500">Select an interaction mode. The interface will adapt dynamically to empower your workflow.</p>
+                  <h2 className="text-xl font-semibold text-slate-900 tracking-tight mb-1">{getTranslation(profile.language, 'accessibilityProfiles')}</h2>
+                  <p className="text-sm text-slate-500">{getTranslation(profile.language, 'accessibilityModeDescription')}</p>
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -149,7 +151,7 @@ export default function DisabilityModeView({
                     <button
                       key={mode}
                       onClick={() => updateAccessibilityMode(mode)}
-                      className={`text-left p-5 rounded-xl border transition-all relative ${
+                      className={`text-start p-5 rounded-xl border transition-all relative ${
                         profile.accessibilityMode === mode 
                           ? 'border-primary bg-primary/5 shadow-sm' 
                           : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
@@ -167,7 +169,7 @@ export default function DisabilityModeView({
                           <h3 className={`text-sm font-semibold mb-1 ${
                             profile.accessibilityMode === mode ? 'text-primary' : 'text-slate-900'
                           }`}>
-                            {mode === 'None' ? 'Standard Protocol' : mode}
+                            {mode === 'None' ? getTranslation(profile.language, 'standardProtocol') : mode}
                           </h3>
                           <p className="text-xs text-slate-500 leading-relaxed font-medium">
                             {getModeDescription(mode)}
