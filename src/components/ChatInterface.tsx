@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Message, UserProfile } from "../types";
-import { generateAdaptiveResponseStream } from "../services/gemini";
+import { Message, UserProfile, Task } from "../types";
+import { generateAdaptiveResponseStream, generateBenchmarkComparison, generateProactiveInsights } from "../services/gemini";
 import { geminiService } from "../services/geminiService";
-import { Send, Bot, User, Loader2, Sparkles, BrainCircuit, Paperclip, ImageIcon, FileText, X, Accessibility, Menu, Download, Mic, MicOff, RefreshCw, Volume2 } from "lucide-react";
+import { Send, Bot, User, Loader2, Sparkles, BrainCircuit, Paperclip, ImageIcon, FileText, X, Accessibility, Menu, Download, Mic, MicOff, RefreshCw, Volume2, ListTodo, Plus, Trash2, CheckCircle2, Circle, Scale, Lightbulb } from "lucide-react";
+import Markdown from 'react-markdown';
 import { motion, AnimatePresence } from "motion/react";
 import { doc, setDoc, onSnapshot } from "firebase/firestore";
 import { db, handleFirestoreError, OperationType } from "../lib/firebase";
@@ -23,6 +24,60 @@ export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClic
   const activeThread = profile.chatThreads?.find(t => t.id === profile.activeThreadId);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
+  const [showTasks, setShowTasks] = useState(false);
+  const [newTaskInput, setNewTaskInput] = useState("");
+  const [showInsights, setShowInsights] = useState(false);
+  const [insights, setInsights] = useState<string | null>(null);
+  const [isGeneratingInsights, setIsGeneratingInsights] = useState(false);
+
+  const handleGenerateInsights = async () => {
+    if (!profile.uid) return;
+    setIsGeneratingInsights(true);
+    const result = await generateProactiveInsights(profile, messages);
+    setInsights(result);
+    setIsGeneratingInsights(false);
+  };
+
+  const handleAddTask = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!profile.uid || !profile.activeThreadId || !newTaskInput.trim()) return;
+
+    const newTask: Task = {
+      id: `task-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      threadId: profile.activeThreadId,
+      content: newTaskInput.trim(),
+      completed: false,
+      createdAt: new Date().toISOString()
+    };
+
+    const updatedTasks = [...(profile.tasks || []), newTask];
+    
+    setDoc(doc(db, `users/${profile.uid}`), { tasks: updatedTasks }, { merge: true }).catch(err => {
+      console.error("Error adding task", err);
+    });
+    
+    setNewTaskInput("");
+  };
+
+  const handleToggleTask = (taskId: string) => {
+    if (!profile.uid) return;
+    const updatedTasks = (profile.tasks || []).map(t => 
+      t.id === taskId ? { ...t, completed: !t.completed } : t
+    );
+    setDoc(doc(db, `users/${profile.uid}`), { tasks: updatedTasks }, { merge: true }).catch(err => {
+      console.error("Error toggling task", err);
+    });
+  };
+
+  const handleDeleteTask = (taskId: string) => {
+    if (!profile.uid) return;
+    const updatedTasks = (profile.tasks || []).filter(t => t.id !== taskId);
+    setDoc(doc(db, `users/${profile.uid}`), { tasks: updatedTasks }, { merge: true }).catch(err => {
+      console.error("Error deleting task", err);
+    });
+  };
+
+  const currentThreadTasks = (profile.tasks || []).filter(t => t.threadId === profile.activeThreadId);
   const [messagesLoading, setMessagesLoading] = useState(false);
 
   // Handle external message injection
@@ -389,6 +444,44 @@ export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClic
     }
   };
 
+  const [comparingId, setComparingId] = useState<string | null>(null);
+
+  const handleCompareAI = async (message: Message) => {
+    if (!profile.uid || !profile.activeThreadId) return;
+    setComparingId(message.id);
+
+    // Find the previous user message
+    const messageIndex = messages.findIndex(m => m.id === message.id);
+    let userPrompt = "Provide an optimal response.";
+    for (let i = messageIndex - 1; i >= 0; i--) {
+      if (messages[i].role === 'user') {
+        userPrompt = messages[i].content;
+        break;
+      }
+    }
+
+    const comparisonText = await generateBenchmarkComparison(message.content, userPrompt, profile);
+    
+    const updatedMessages = messages.map(m => {
+      if (m.id === message.id) {
+        const existing = m.comparisons || [];
+        return {
+          ...m,
+          comparisons: [...existing, { modelName: "ChatGPT Assessment", content: comparisonText }]
+        };
+      }
+      return m;
+    });
+
+    setMessages(updatedMessages);
+    setComparingId(null);
+
+    const threadPath = `users/${profile.uid}/threads/${profile.activeThreadId}`;
+    setDoc(doc(db, threadPath), { messages: updatedMessages }, { merge: true }).catch(err => {
+        handleFirestoreError(err, OperationType.UPDATE, threadPath);
+    });
+  };
+
   const handleDownload = (file: {name: string, type: string, data: string}) => {
     if (!file || !file.data) return;
     const link = document.createElement("a");
@@ -500,7 +593,32 @@ export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClic
               </div>
             )}
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4">
+            <button 
+              onClick={() => {
+                setShowInsights(!showInsights);
+                if (!insights && !showInsights) handleGenerateInsights();
+              }}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-[11px] font-bold uppercase transition-colors ${
+                showInsights ? 'bg-amber-500 text-white shadow-md shadow-amber-500/20' : 'bg-slate-100 text-amber-600 hover:bg-amber-50'
+              }`}
+            >
+              <Lightbulb className={`w-4 h-4 ${showInsights ? 'text-white' : 'text-amber-500'}`} />
+              <span className="hidden sm:inline">Insights</span>
+            </button>
+            
+            <button 
+              onClick={() => setShowTasks(!showTasks)}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-[11px] font-bold uppercase transition-colors ${
+                showTasks ? 'bg-primary text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              <ListTodo className="w-4 h-4" />
+              <span className="hidden sm:inline">Tasks</span>
+              {currentThreadTasks.length > 0 && (
+                <span className="bg-white/20 px-1.5 rounded-md">{currentThreadTasks.length}</span>
+              )}
+            </button>
             <span className="hidden sm:flex text-[11px] font-bold uppercase py-1 px-3 bg-emerald-50 text-emerald-700 rounded-full border border-emerald-100 items-center gap-2">
               <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
               AI Assistant v1.5
@@ -510,7 +628,8 @@ export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClic
       )}
 
       {/* Messages */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 md:p-8 lg:p-12 flex flex-col items-center custom-scrollbar">
+      <div className="flex flex-1 overflow-hidden relative">
+        <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 md:p-8 lg:p-12 flex flex-col items-center custom-scrollbar">
         {messagesLoading && messages.length === 0 ? (
           <div className="flex-1 flex items-center justify-center">
              <Loader2 className="w-8 h-8 text-primary animate-spin" />
@@ -752,6 +871,35 @@ export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClic
                         ))}
                       </div>
                     )}
+                    
+                    {/* Benchmark comparisons */}
+                    {m.comparisons && m.comparisons.map((comp, idx) => (
+                      <div key={idx} className="mt-6 p-6 bg-slate-900 text-slate-200 rounded-2xl border border-slate-700 shadow-xl">
+                        <div className="flex items-center gap-3 mb-4 border-b border-slate-700 pb-4">
+                          <Scale className="w-5 h-5 text-indigo-400" />
+                          <h4 className="font-bold text-white tracking-widest uppercase text-xs">{comp.modelName}</h4>
+                        </div>
+                        <div className="space-y-3 text-sm opacity-90 font-mono leading-relaxed">
+                          {comp.content.split('\n').map((line, lidx) => (
+                            <p key={lidx}>{line}</p>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+
+                    <div className="mt-4 flex gap-2 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button 
+                        onClick={() => handleCompareAI(m)}
+                        disabled={comparingId === m.id}
+                        className="text-[10px] font-bold uppercase tracking-widest text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 px-3 py-1.5 rounded-lg border border-transparent hover:border-indigo-100 transition-all flex items-center gap-2 disabled:opacity-50"
+                      >
+                        {comparingId === m.id ? (
+                          <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Benchmarking...</>
+                        ) : (
+                          <><Scale className="w-3.5 h-3.5" /> Benchmark vs ChatGPT</>
+                        )}
+                      </button>
+                    </div>
                   </div>
                 )}
               </motion.div>
@@ -803,9 +951,114 @@ export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClic
               )}
             </motion.div>
           )}
+          </div>
+        )}
         </div>
-      )}
-    </div>
+
+        {/* Task Panel */}
+        <AnimatePresence>
+          {showTasks && (
+            <motion.div
+              initial={{ width: 0, opacity: 0 }}
+              animate={{ width: 320, opacity: 1 }}
+              exit={{ width: 0, opacity: 0 }}
+              className="bg-slate-50 border-s border-border overflow-y-auto flex flex-col shadow-inner shrink-0"
+            >
+              <div className="p-4 border-b border-border bg-white flex justify-between items-center shrink-0">
+                <h3 className="font-extrabold text-slate-800 flex items-center gap-2">
+                  <ListTodo className="w-5 h-5 text-primary" /> Thread Tasks
+                </h3>
+                <button onClick={() => setShowTasks(false)} className="p-1 hover:bg-slate-100 rounded-lg text-slate-500">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="p-4 flex-1 flex flex-col gap-4 overflow-y-auto custom-scrollbar">
+                <form onSubmit={handleAddTask} className="flex gap-2">
+                  <input
+                    type="text"
+                    value={newTaskInput}
+                    onChange={(e) => setNewTaskInput(e.target.value)}
+                    placeholder="New task..."
+                    className="flex-1 bg-white border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary shadow-sm"
+                  />
+                  <button type="submit" disabled={!newTaskInput.trim()} className="bg-primary hover:bg-blue-700 text-white p-2 rounded-lg disabled:opacity-50 transition-colors shadow-sm">
+                    <Plus className="w-4 h-4" />
+                  </button>
+                </form>
+                <div className="space-y-2">
+                  {currentThreadTasks.length === 0 ? (
+                     <div className="text-center p-6 text-slate-400 italic text-sm border-2 border-dashed border-slate-200 rounded-xl">
+                       No tasks for this thread yet.
+                     </div>
+                  ) : (
+                    currentThreadTasks.map(task => (
+                      <div key={task.id} className={`flex items-start gap-3 p-3 rounded-xl border transition-all ${task.completed ? 'bg-slate-100 border-transparent opacity-60' : 'bg-white border-slate-200 shadow-sm'}`}>
+                        <button onClick={() => handleToggleTask(task.id)} className={`mt-0.5 shrink-0 transition-colors ${task.completed ? 'text-emerald-500' : 'text-slate-400 hover:text-primary'}`}>
+                          {task.completed ? <CheckCircle2 className="w-5 h-5" /> : <Circle className="w-5 h-5" />}
+                        </button>
+                        <p className={`flex-1 text-sm ${task.completed ? 'line-through text-slate-500' : 'text-slate-700 font-medium'}`}>
+                          {task.content}
+                        </p>
+                        <button onClick={() => handleDeleteTask(task.id)} className="text-slate-400 hover:text-rose-500 hover:bg-rose-50 p-1.5 rounded-lg transition-colors shrink-0">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Insights Panel */}
+        <AnimatePresence>
+          {showInsights && (
+            <motion.div
+              initial={{ width: 0, opacity: 0 }}
+              animate={{ width: 340, opacity: 1 }}
+              exit={{ width: 0, opacity: 0 }}
+              className="bg-amber-50 border-s border-amber-200 overflow-y-auto flex flex-col shadow-inner shrink-0 relative"
+            >
+              <div className="p-4 border-b border-amber-200 bg-amber-100/50 flex justify-between items-center shrink-0">
+                <h3 className="font-extrabold text-amber-900 flex items-center gap-2">
+                  <Lightbulb className="w-5 h-5 text-amber-600" /> Proactive Insights
+                </h3>
+                <button onClick={() => setShowInsights(false)} className="p-1 hover:bg-amber-200/50 rounded-lg text-amber-700">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="p-5 flex-1 flex flex-col gap-4 overflow-y-auto custom-scrollbar text-amber-950">
+                {isGeneratingInsights ? (
+                  <div className="flex flex-col items-center justify-center p-8 text-amber-600 gap-3">
+                    <Loader2 className="w-8 h-8 animate-spin" />
+                    <span className="text-sm font-medium text-amber-800">Analyzing thread & profile...</span>
+                  </div>
+                ) : (
+                  <>
+                    <div className="prose prose-base prose-slate max-w-none prose-p:text-slate-900 prose-headings:text-slate-900 prose-strong:text-slate-900 prose-a:text-blue-600 prose-li:text-slate-900 w-full bg-white p-5 rounded-xl shadow border border-amber-300">
+                      {insights ? (
+                        <div className="markdown-body">
+                          <Markdown>{insights}</Markdown>
+                        </div>
+                      ) : (
+                        <span className="text-slate-700 font-medium tracking-wide">Click refresh to generate new insights.</span>
+                      )}
+                    </div>
+                    
+                    <button 
+                      onClick={handleGenerateInsights}
+                      className="mt-4 flex items-center justify-center gap-2 w-full py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-sm transition-colors shadow-md shadow-amber-500/20"
+                    >
+                      <RefreshCw className="w-4 h-4" /> Regenerate Insights
+                    </button>
+                  </>
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
 
       {/* Input Area */}
       <div className="p-4 md:p-8 border-t border-border bg-bg-main relative shadow-[0_-10px_20px_-15px_rgba(0,0,0,0.05)]">

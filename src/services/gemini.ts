@@ -101,7 +101,77 @@ MULTIMODAL & TOOLS
 - For images: Describe what you see in the context of their Field (${profile.field}) before answering. ESPECIALLY for blind users, be very descriptive.
 - Perform deep visual/textual analysis on all attachments. Derive insights.
 - You can generate images using the generateImage function.
+
+========================
+SELF-REFLECTION & BENCHMARKING (AI COMPARISON)
+========================
+To ensure the absolute highest quality response, adhere to this self-reflection protocol:
+For complex, analytical, or nuanced questions:
+1. INTERNAL BENCHMARKING: Mentally simulate how other leading AI models (e.g., ChatGPT-4, Claude 3.5 Sonnet) would answer the prompt. What frameworks or data points would they use?
+2. Compare your initial approach against those simulated top-tier responses.
+3. Integrate the best aspects of their anticipated answers into your final response.
+4. If the user explicitly asks to compare responses against ChatGPT or another model, output a specific section: 
+   "**Cognify vs. ChatGPT (Simulated) Comparison:**"
+   where you provide both your reasoning and how the other model would approach it, highlighting strengths, differences, and why your combined approach works best. This ensures you continuously evaluate if your response is optimal.
 `;
+
+export async function generateBenchmarkComparison(
+  originalMessage: string,
+  userMessage: string,
+  profile: UserProfile
+): Promise<string> {
+  const ai = getAI();
+  const prompt = `You are a comparative AI benchmarking tool.
+The user asked: "${userMessage}"
+An AI Assistant (Cognify) replied: "${originalMessage}"
+
+Your task is to act as ChatGPT (GPT-4) and provide YOUR improved response to this same prompt, taking into account the user's profile:
+User Level: ${profile.level}
+User Field: ${profile.field}
+
+Provide your response in this EXACT format:
+## ChatGPT Response
+[Your simulated ChatGPT response here - be structured, clear, and very high quality]
+
+## Critique
+[A brief critique of what Cognify did well, and what your response did better or differently.]
+`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-pro-latest",
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    });
+    return response.text || "Failed to generate comparison. Please try again.";
+  } catch (error) {
+    console.error("Benchmark error:", error);
+    return "An error occurred while generating the comparison. Please wait and try again.";
+  }
+}
+
+export async function generateProactiveInsights(
+  profile: UserProfile,
+  recentMessages: Message[]
+): Promise<string> {
+  const ai = getAI();
+  const context = recentMessages.slice(-5).map(m => `${m.role}: ${m.content}`).join('\n');
+  const prompt = `You are a proactive AI mentor. The user is a ${profile.level} in the field of ${profile.field}.
+Based on their recent conversation:
+${context || 'No recent conversation.'}
+
+Proactively generate 3 highly relevant study materials, actionable insights, or next steps tailored specifically to their profile and current focus. Format as a concise, engaging markdown list.`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-pro-latest",
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    });
+    return response.text || "No insights available at the moment.";
+  } catch (error) {
+    console.error("Insights error:", error);
+    return "Failed to generate insights. Please try again.";
+  }
+}
 
 export async function generateLogicResponse(
   message: string,

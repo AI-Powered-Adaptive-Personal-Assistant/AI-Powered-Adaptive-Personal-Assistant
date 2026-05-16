@@ -14,6 +14,10 @@ export interface Message {
     type: string;
     data: string; // Base64
   }[];
+  comparisons?: {
+    modelName: string;
+    content: string;
+  }[];
 }
 
 export interface ChatThread {
@@ -21,6 +25,14 @@ export interface ChatThread {
   title: string;
   updatedAt: string;
   lastMessageSnippet?: string; // For sidebar display without loading full history
+}
+
+export interface Task {
+  id: string;
+  threadId: string;
+  content: string;
+  completed: boolean;
+  createdAt: string;
 }
 
 export interface UserProfile {
@@ -49,4 +61,5 @@ export interface UserProfile {
   chatHistory: Message[]; // Legacy/Global history (to be deprecated or kept small)
   chatThreads?: ChatThread[];
   activeThreadId?: string;
+  tasks?: Task[];
 }

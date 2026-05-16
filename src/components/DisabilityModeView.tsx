@@ -92,7 +92,7 @@ export default function DisabilityModeView({
           </button>
             <button
               onClick={() => setActiveTab('settings')}
-              className={`px-6 py-2.5 rounded-[17px] border border-[#443158] text-sm font-medium transition-all ${
+              className={`px-6 py-2.5 rounded-lg text-sm font-medium transition-all ${
                 activeTab === 'settings' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
               }`}
             >
