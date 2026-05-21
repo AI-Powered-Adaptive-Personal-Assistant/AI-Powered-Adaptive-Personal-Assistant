@@ -604,7 +604,7 @@ export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClic
               }`}
             >
               <Lightbulb className={`w-4 h-4 ${showInsights ? 'text-white' : 'text-amber-500'}`} />
-              <span className="hidden sm:inline">Insights</span>
+              <span className="hidden sm:inline">{getTranslation(profile.language, 'insights')}</span>
             </button>
             
             <button 
@@ -614,7 +614,7 @@ export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClic
               }`}
             >
               <ListTodo className="w-4 h-4" />
-              <span className="hidden sm:inline">Tasks</span>
+              <span className="hidden sm:inline">{getTranslation(profile.language, 'tasks')}</span>
               {currentThreadTasks.length > 0 && (
                 <span className="bg-white/20 px-1.5 rounded-md">{currentThreadTasks.length}</span>
               )}
@@ -707,7 +707,7 @@ export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClic
                                 readDocument(file);
                               }}
                               className="bg-emerald-50 text-emerald-600 hover:bg-emerald-500 hover:text-white p-2 rounded-full transition-all"
-                              title="Hear Content"
+                              title={getTranslation(profile.language, 'hearContent')}
                             >
                               <Volume2 className="w-4 h-4" />
                             </button>
@@ -731,8 +731,8 @@ export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClic
                         evaluateQuestionQuality(m.content) >= 5 ? 'bg-amber-50 text-amber-700 border-amber-100' :
                         'bg-slate-50 text-slate-500 border-slate-100'
                       }`}>
-                        {evaluateQuestionQuality(m.content) >= 8 ? 'Excellent Question' :
-                         evaluateQuestionQuality(m.content) >= 5 ? 'Good Question' : 'Basic Question'}
+                        {evaluateQuestionQuality(m.content) >= 8 ? getTranslation(profile.language, 'excellentQuestion') :
+                         evaluateQuestionQuality(m.content) >= 5 ? getTranslation(profile.language, 'goodQuestion') : getTranslation(profile.language, 'basicQuestion')}
                       </span>
                     </div>
                   </div>
@@ -960,9 +960,10 @@ export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClic
           {showTasks && (
             <motion.div
               initial={{ width: 0, opacity: 0 }}
-              animate={{ width: 320, opacity: 1 }}
+              animate={{ width: isEmbedded ? '100%' : 320, opacity: 1 }}
               exit={{ width: 0, opacity: 0 }}
-              className="bg-slate-50 border-s border-border overflow-y-auto flex flex-col shadow-inner shrink-0"
+              style={{ position: isEmbedded ? 'absolute' : 'relative', right: 0, top: 0, bottom: 0, zIndex: 40 }}
+              className="bg-slate-50 border-s border-border overflow-y-auto flex flex-col shadow-xl shrink-0"
             >
               <div className="p-4 border-b border-border bg-white flex justify-between items-center shrink-0">
                 <h3 className="font-extrabold text-slate-800 flex items-center gap-2">
@@ -1016,13 +1017,14 @@ export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClic
           {showInsights && (
             <motion.div
               initial={{ width: 0, opacity: 0 }}
-              animate={{ width: 340, opacity: 1 }}
+              animate={{ width: isEmbedded ? '100%' : 340, opacity: 1 }}
               exit={{ width: 0, opacity: 0 }}
-              className="bg-amber-50 border-s border-amber-200 overflow-y-auto flex flex-col shadow-inner shrink-0 relative"
+              style={{ position: isEmbedded ? 'absolute' : 'relative', right: 0, top: 0, bottom: 0, zIndex: 40 }}
+              className="bg-amber-50 border-s border-amber-200 overflow-y-auto flex flex-col shadow-xl shrink-0"
             >
               <div className="p-4 border-b border-amber-200 bg-amber-100/50 flex justify-between items-center shrink-0">
                 <h3 className="font-extrabold text-amber-900 flex items-center gap-2">
-                  <Lightbulb className="w-5 h-5 text-amber-600" /> Proactive Insights
+                  <Lightbulb className="w-5 h-5 text-amber-600" /> {getTranslation(profile.language, 'proactiveInsights')}
                 </h3>
                 <button onClick={() => setShowInsights(false)} className="p-1 hover:bg-amber-200/50 rounded-lg text-amber-700">
                   <X className="w-4 h-4" />
@@ -1036,13 +1038,13 @@ export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClic
                   </div>
                 ) : (
                   <>
-                    <div className="prose prose-base prose-slate max-w-none prose-p:text-slate-900 prose-headings:text-slate-900 prose-strong:text-slate-900 prose-a:text-blue-600 prose-li:text-slate-900 w-full bg-white p-5 rounded-xl shadow border border-amber-300">
+                    <div className="prose prose-base prose-slate max-w-none leading-relaxed p-6 rounded-2xl shadow-xl text-slate-900 border-2 border-amber-400 bg-white" style={{ boxShadow: '0 10px 25px -5px rgba(251, 191, 36, 0.2)' }}>
                       {insights ? (
-                        <div className="markdown-body">
+                        <div className="markdown-body font-medium">
                           <Markdown>{insights}</Markdown>
                         </div>
                       ) : (
-                        <span className="text-slate-700 font-medium tracking-wide">Click refresh to generate new insights.</span>
+                        <span className="text-slate-800 font-bold tracking-tight">Click refresh to generate new insights.</span>
                       )}
                     </div>
                     
@@ -1050,7 +1052,7 @@ export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClic
                       onClick={handleGenerateInsights}
                       className="mt-4 flex items-center justify-center gap-2 w-full py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-sm transition-colors shadow-md shadow-amber-500/20"
                     >
-                      <RefreshCw className="w-4 h-4" /> Regenerate Insights
+                      <RefreshCw className="w-4 h-4" /> {getTranslation(profile.language, 'regenerateInsights')}
                     </button>
                   </>
                 )}

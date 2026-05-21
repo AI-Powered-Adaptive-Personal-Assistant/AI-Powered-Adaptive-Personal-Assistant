@@ -79,7 +79,27 @@ export type TranslationKey =
   | 'recalibration'
   | 'recalibrationDesc'
   | 'nextAvailable'
-  | 'analyticsSubtitle';
+  | 'analyticsSubtitle'
+  | 'insights'
+  | 'tasks'
+  | 'proactiveInsights'
+  | 'regenerateInsights'
+  | 'excellentQuestion'
+  | 'goodQuestion'
+  | 'basicQuestion'
+  | 'threadTasks'
+  | 'at'
+  | 'hearContent'
+  | 'narrateDocument'
+  | 'accessibilityActive'
+  | 'signInterpretationActive'
+  | 'educationLevel'
+  | 'primary'
+  | 'secondary'
+  | 'university'
+  | 'sustainability'
+  | 'sustainableGoal'
+  | 'lifeSustainability';
 
 export const translations: Record<string, Record<TranslationKey, string>> = {
   English: {
@@ -96,7 +116,7 @@ export const translations: Record<string, Record<TranslationKey, string>> = {
     language: 'Language',
     accessibilityMode: 'Accessibility Mode',
     userRole: 'User Role',
-    fieldOfStudy: 'Field of Study',
+    fieldOfStudy: 'Field of Interest',
     iqScore: 'IQ Score',
     saveChanges: 'Save Changes',
     edit: 'Edit',
@@ -162,7 +182,27 @@ export const translations: Record<string, Record<TranslationKey, string>> = {
     recalibration: 'Recalibration',
     recalibrationDesc: 'System allows assessment retakes every 30 days to ensure validity.',
     nextAvailable: 'Next available:',
-    analyticsSubtitle: 'Analytics and intelligence tracking over time.'
+    analyticsSubtitle: 'Analytics and intelligence tracking over time.',
+    insights: 'Insights',
+    tasks: 'Tasks',
+    proactiveInsights: 'Proactive Insights',
+    regenerateInsights: 'Regenerate Insights',
+    excellentQuestion: 'Excellent Question',
+    goodQuestion: 'Good Question',
+    basicQuestion: 'Basic Question',
+    threadTasks: 'Thread Tasks',
+    at: 'at',
+    hearContent: 'Hear Content',
+    narrateDocument: 'Narrate Document',
+    accessibilityActive: 'Accessibility Active',
+    signInterpretationActive: 'Sign Interpretation Active',
+    educationLevel: 'Education Level',
+    primary: 'Primary School',
+    secondary: 'Secondary School',
+    university: 'University / Higher Ed',
+    sustainability: 'Sustainability',
+    sustainableGoal: 'Sustainability Goal',
+    lifeSustainability: 'Life Sustainability'
   },
   Arabic: {
     appName: 'كوجنيفي AI',
@@ -178,7 +218,7 @@ export const translations: Record<string, Record<TranslationKey, string>> = {
     language: 'اللغة',
     accessibilityMode: 'وضع إمكانية الوصول',
     userRole: 'دور المستخدم',
-    fieldOfStudy: 'مجال الدراسة',
+    fieldOfStudy: 'مجال الاهتمام',
     iqScore: 'درجة الذكاء (IQ)',
     saveChanges: 'حفظ التغييرات',
     edit: 'تعديل',
@@ -244,7 +284,27 @@ export const translations: Record<string, Record<TranslationKey, string>> = {
     recalibration: 'إعادة المعايرة',
     recalibrationDesc: 'يسمح النظام بإعادة إجراء التقييم كل 30 يومًا لضمان الصلاحية.',
     nextAvailable: 'الموعد القادم:',
-    analyticsSubtitle: 'التحليلات وتتبع الذكاء مع مرور الوقت.'
+    analyticsSubtitle: 'التحليلات وتتبع الذكاء مع مرور الوقت.',
+    insights: 'رؤى',
+    tasks: 'مهام',
+    proactiveInsights: 'رؤى استباقية',
+    regenerateInsights: 'تجديد الرؤى',
+    excellentQuestion: 'سؤال ممتاز',
+    goodQuestion: 'سؤال جيد',
+    basicQuestion: 'سؤال بسيط',
+    threadTasks: 'مهام المحادثة',
+    at: 'في',
+    hearContent: 'استمع للمحتوى',
+    narrateDocument: 'قراءة المستند',
+    accessibilityActive: 'وضع الوصول نشط',
+    signInterpretationActive: 'ترجمة الإشارة نشطة',
+    educationLevel: 'المستوى التعليمي',
+    primary: 'المدرسة الابتدائية',
+    secondary: 'المدرسة الثانوية',
+    university: 'الجامعة / التعليم العالي',
+    sustainability: 'الاستدامة',
+    sustainableGoal: 'هدف الاستدامة',
+    lifeSustainability: 'استدامة الحياة'
   },
   'Egyptian Ammiya': {
     appName: 'كوجنيفي AI',
@@ -260,7 +320,7 @@ export const translations: Record<string, Record<TranslationKey, string>> = {
     language: 'اللغة',
     accessibilityMode: 'طريقة التعامل',
     userRole: 'انت بتعمل ايه؟',
-    fieldOfStudy: 'مجالك',
+    fieldOfStudy: 'مجالك واهتماماتك',
     iqScore: 'درجة ذكائك',
     saveChanges: 'احفظ الكلام ده',
     edit: 'عدل',
@@ -326,7 +386,27 @@ export const translations: Record<string, Record<TranslationKey, string>> = {
     recalibration: 'تعديل القياس',
     recalibrationDesc: 'تقدر تعيد الاختبار كل 30 يوم عشان نشوف وصلت لفين.',
     nextAvailable: 'الموعد الجاي:',
-    analyticsSubtitle: 'متابعة ذكاءك وتطورك بالتفصيل.'
+    analyticsSubtitle: 'متابعة ذكاءك وتطورك بالتفصيل.',
+    insights: 'رؤى وتحليل',
+    tasks: 'مهام',
+    proactiveInsights: 'نصائح ذكية',
+    regenerateInsights: 'تجديد النصائح',
+    excellentQuestion: 'سؤال برنس',
+    goodQuestion: 'سؤال حلو',
+    basicQuestion: 'سؤال بسيط',
+    threadTasks: 'مهام الشات ده',
+    at: 'في',
+    hearContent: 'اسمع المحتوى',
+    narrateDocument: 'اقرأ الملف',
+    accessibilityActive: 'الوضع الخاص شغال',
+    signInterpretationActive: 'ترجمة الإشارة شغالة',
+    educationLevel: 'مستوى الدراسة',
+    primary: 'إبتدائي',
+    secondary: 'إعدادي وثانوي',
+    university: 'جامعة / تعليم عالي',
+    sustainability: 'الاستدامة',
+    sustainableGoal: 'هدف الاستدامة',
+    lifeSustainability: 'استدامة الحياة'
   }
 };
 

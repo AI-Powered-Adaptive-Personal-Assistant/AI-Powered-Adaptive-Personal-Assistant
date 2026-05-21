@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { UserProfile } from "../types";
 import { motion, AnimatePresence } from "motion/react";
-import { Mic, Square, Play, RefreshCw, Menu, Download, FileText, Settings, Video } from "lucide-react";
+import { Mic, Square, Play, RefreshCw, Menu, Download, FileText, Settings, Video, Sparkles, Brain } from "lucide-react";
 
 interface SignVideoStudioProps {
   profile: UserProfile;
@@ -167,6 +167,8 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
     };
   }, [isPlaying, sequence]);
 
+  const [is3DActive, setIs3DActive] = useState(false);
+
   const activeWord = playbackProgress < sequence.length ? sequence[playbackProgress] : '';
 
   return (
@@ -187,6 +189,13 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
                </h1>
                <p className="text-sm text-slate-500 font-medium mt-1">Generate AI Sign Language videos from speech or text input.</p>
              </div>
+           </div>
+           
+           <div className="hidden md:flex items-center gap-3">
+              <div className="flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-full border border-slate-200">
+                <div className={`w-2 h-2 rounded-full ${is3DActive ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`} />
+                <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider">3D Neutral Engine</span>
+              </div>
            </div>
         </header>
       )}
@@ -250,23 +259,50 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
             {/* Output Section */}
             <div className="bg-slate-900 rounded-3xl shadow-2xl border border-slate-800 p-2 flex flex-col relative overflow-hidden h-[500px] lg:h-full min-h-[500px]">
                {/* Player Header */}
-               <div className="absolute top-4 left-6 right-6 z-30 flex items-center justify-between">
+               <div className="absolute top-4 left-6 right-6 z-40 flex items-center justify-between">
                   <div className="flex items-center gap-2">
                      <div className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
                      <span className="text-xs font-black uppercase tracking-widest text-white/80 drop-shadow-md">LIVE PREVIEW</span>
                   </div>
-                  <button className="text-white/50 hover:text-white transition-colors bg-black/40 p-2 rounded-lg backdrop-blur-md">
-                    <Download className="w-5 h-5" />
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button 
+                      onClick={() => setIs3DActive(!is3DActive)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all border ${
+                        is3DActive 
+                          ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/50' 
+                          : 'bg-black/40 text-white/40 border-white/10 hover:text-white hover:border-white/30'
+                      }`}
+                    >
+                      <Sparkles className={`w-3 h-3 ${is3DActive ? 'text-emerald-400' : 'text-amber-400'}`} />
+                      {is3DActive ? '3D Engine Active' : 'Enable 3D Engine'}
+                    </button>
+                    <button className="text-white/50 hover:text-white transition-colors bg-black/40 p-2 rounded-lg backdrop-blur-md">
+                      <Download className="w-5 h-5" />
+                    </button>
+                  </div>
                </div>
                
                {/* Video Area */}
                <div className="flex-1 relative flex items-center justify-center rounded-2xl overflow-hidden bg-slate-950">
-                  {sequence.length === 0 ? (
+                  {!is3DActive && sequence.length === 0 ? (
                      <div className="text-center p-8 z-10 flex flex-col items-center">
                         <Video className="w-16 h-16 text-slate-700 mb-4" />
                         <p className="text-slate-400 font-medium max-w-[250px]">Enter your script and generate to see the AI sign language video.</p>
                      </div>
+                  ) : is3DActive ? (
+                    <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-slate-900">
+                      <div className="w-24 h-24 bg-primary/20 rounded-full flex items-center justify-center mb-6 animate-pulse">
+                        <Brain className="w-12 h-12 text-primary" />
+                      </div>
+                      <h3 className="text-xl font-bold text-white mb-2">3D Neural Renderer</h3>
+                      <p className="text-slate-400 text-sm max-w-sm text-center px-10">
+                        The full 3D avatar engine requires high-tier multimodal processing. 
+                        Enable a <span className="text-amber-400">Paid Gemini API Key</span> to unlock real-time WebGL rendering and physics-based hand movements.
+                      </p>
+                      <button className="mt-8 px-6 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl text-sm transition-all shadow-lg shadow-amber-500/20">
+                        Upgrade to Premium
+                      </button>
+                    </div>
                   ) : (
                      <>
                         <motion.div 

@@ -193,7 +193,7 @@ const IntelligenceHub = React.memo(({ profile, onMenuClick }: IntelligenceHubPro
                   <PolarGrid stroke="currentColor" className="opacity-10 dark:opacity-20" />
                   <PolarAngleAxis 
                     dataKey="subject" 
-                    tick={{ fill: '#64748b', fontSize: 9, fontWeight: 700, textTransform: 'uppercase' }} 
+                    tick={{ fill: '#64748b', fontSize: 9, fontWeight: 700 }} 
                   />
                   <Radar 
                     name="Skill" 
@@ -282,6 +282,16 @@ const IntelligenceHub = React.memo(({ profile, onMenuClick }: IntelligenceHubPro
                 <SystemModule label="Core Engine" value="ONLINE" status="good" />
                 <SystemModule label="Data Sync" value={profile.lastQuizDate ? 'STABLE' : 'PENDING'} status={profile.lastQuizDate ? 'good' : 'warn'} />
                 <SystemModule label="Recalibration" value={profile.lastQuizDate ? new Date(new Date(profile.lastQuizDate).getTime() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString() : 'REQUIRED'} status="neutral" />
+                <div className="pt-4 border-t border-white/10 mt-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Zap className="w-3.5 h-3.5 text-amber-500" />
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-300">Sustainability Path</span>
+                  </div>
+                  <div className="bg-white/5 rounded-xl p-3 border border-emerald-500/20">
+                    <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-1">UN Goal Alignment</p>
+                    <p className="text-xs font-bold text-slate-100">{profile.sustainabilityGoal === 'climate' ? 'Climate Action' : profile.sustainabilityGoal === 'quality-edu' ? 'Quality Education' : profile.sustainabilityGoal === 'health' ? 'Health & Well-being' : profile.sustainabilityGoal === 'zero-hunger' ? 'Zero Hunger' : 'General Sustainability'}</p>
+                  </div>
+                </div>
               </div>
 
               <button onClick={() => window.location.hash = '#settings'} className="mt-6 w-full py-3 bg-white/10 hover:bg-white/20 transition-colors rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 group-hover:border-white/20 border border-transparent">

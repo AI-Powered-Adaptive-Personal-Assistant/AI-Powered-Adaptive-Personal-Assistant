@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { UserProfile } from '../types';
+import { UserProfile, EducationLevel } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
-import { User, Mail, Shield, Award, Languages, Globe, BookOpen, GraduationCap, Briefcase, MapPin, Calendar, Clock, MessageSquare, Edit3, Save, X, Camera, Eye, Brain as BrainIcon, Menu } from 'lucide-react';
+import { User, Mail, Shield, Award, Languages, Globe, BookOpen, GraduationCap, Briefcase, MapPin, Calendar, Clock, MessageSquare, Edit3, Save, X, Camera, Eye, Brain as BrainIcon, Menu, Sprout, Heart } from 'lucide-react';
 import { formatDate } from '../lib/utils';
 import { doc, setDoc } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
@@ -11,6 +11,13 @@ interface ProfilePageProps {
   profile: UserProfile;
   onMenuClick?: () => void;
 }
+
+const SUSTAINABILITY_GOALS = [
+  { id: 'climate', label: 'Climate Action', icon: Globe },
+  { id: 'quality-edu', label: 'Quality Education', icon: GraduationCap },
+  { id: 'health', label: 'Good Health & Well-being', icon: Heart },
+  { id: 'zero-hunger', label: 'Zero Hunger / Sustainable Food', icon: Sprout }
+];
 
 export default function ProfilePage({ profile, onMenuClick }: ProfilePageProps) {
   const [isEditing, setIsEditing] = useState(false);
@@ -37,7 +44,7 @@ export default function ProfilePage({ profile, onMenuClick }: ProfilePageProps) 
     }
   };
 
-  const handleChange = (key: keyof UserProfile, value: string) => {
+  const handleChange = (key: keyof UserProfile, value: any) => {
     setEditedProfile(prev => ({ ...prev, [key]: value }));
   };
 
@@ -84,6 +91,8 @@ export default function ProfilePage({ profile, onMenuClick }: ProfilePageProps) 
     const base64 = await resizeImage(file);
     setEditedProfile(prev => ({ ...prev, photoURL: base64 }));
   };
+
+  const currentGoal = SUSTAINABILITY_GOALS.find(g => g.id === (isEditing ? editedProfile.sustainabilityGoal : profile.sustainabilityGoal)) || SUSTAINABILITY_GOALS[1];
 
   return (
     <div className="flex-1 h-screen overflow-y-auto bg-slate-50 p-6 md:p-10 flex flex-col gap-6 md:gap-10 custom-scrollbar relative">
@@ -164,20 +173,22 @@ export default function ProfilePage({ profile, onMenuClick }: ProfilePageProps) 
                   onChange={(e) => handleChange('name', e.target.value)}
                   placeholder="Full Name"
                 />
-                <input 
-                   className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-2 text-center text-xs font-bold text-slate-500 outline-none focus:border-primary uppercase tracking-widest"
-                   value={editedProfile.religion || ''}
-                   onChange={(e) => handleChange('religion', e.target.value)}
-                   placeholder="Belief System / Religion"
-                />
+                <select 
+                   className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-2 text-center text-xs font-bold text-slate-500 outline-none focus:border-primary uppercase tracking-widest appearance-none cursor-pointer"
+                   value={editedProfile.educationLevel || 'University'}
+                   onChange={(e) => handleChange('educationLevel', e.target.value)}
+                >
+                  <option value="Primary">Primary Education</option>
+                  <option value="Secondary">Secondary Education</option>
+                  <option value="University">University Level</option>
+                  <option value="Professional">Professional Workspace</option>
+                </select>
               </div>
             ) : (
               <>
                 <h2 className="text-2xl font-black text-slate-900 mb-1">{profile.name}</h2>
-                <p className="text-slate-500 text-sm font-black mb-1 uppercase tracking-widest">{profile.role}</p>
-                {profile.religion && (
-                   <p className="text-[10px] text-primary font-black mb-6 uppercase tracking-[0.2em]">{profile.religion}</p>
-                )}
+                <p className="text-slate-500 text-sm font-black mb-1 uppercase tracking-widest">{profile.educationLevel || profile.role}</p>
+                <p className="text-[10px] text-primary font-black mb-6 uppercase tracking-[0.2em]">{profile.religion || "Unspecified Path"}</p>
               </>
             )}
             
@@ -208,18 +219,30 @@ export default function ProfilePage({ profile, onMenuClick }: ProfilePageProps) 
           </div>
 
           <div className="bg-white p-8 rounded-[40px] border border-slate-200 shadow-sm">
-             <h3 className="text-sm font-black uppercase tracking-[0.2em] text-slate-900 mb-4">Biography</h3>
+             <h3 className="text-sm font-black uppercase tracking-[0.2em] text-slate-900 mb-4 flex items-center gap-2">
+                <currentGoal.icon className="w-4 h-4 text-emerald-600" /> Sustainability Goal
+             </h3>
              {isEditing ? (
-               <textarea 
-                  className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 text-sm text-slate-600 focus:border-primary outline-none min-h-[120px] resize-none"
-                  value={editedProfile.bio || ''}
-                  onChange={(e) => handleChange('bio', e.target.value)}
-                  placeholder="Tell us about yourself..."
-               />
+                <div className="space-y-3">
+                  {SUSTAINABILITY_GOALS.map(goal => (
+                    <button
+                      key={goal.id}
+                      onClick={() => handleChange('sustainabilityGoal', goal.id)}
+                      className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-all text-xs font-bold ${
+                        editedProfile.sustainabilityGoal === goal.id ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-white border-slate-100 text-slate-400'
+                      }`}
+                    >
+                      <goal.icon className="w-4 h-4" /> {goal.label}
+                    </button>
+                  ))}
+                </div>
              ) : (
-               <p className="text-sm text-slate-500 leading-relaxed italic">
-                 {profile.bio || "No biography provided yet."}
-               </p>
+                <div className="flex flex-col gap-2">
+                  <span className="text-sm font-bold text-slate-900">{currentGoal.label}</span>
+                  <p className="text-[10px] text-slate-400 leading-relaxed font-medium">
+                    Committed to fostering positive change through educational excellence and sustainable practices.
+                  </p>
+                </div>
              )}
           </div>
         </div>
@@ -233,14 +256,14 @@ export default function ProfilePage({ profile, onMenuClick }: ProfilePageProps) 
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-10">
               <DataField 
-                label="Institution Name" 
+                label={profile.educationLevel === 'Professional' ? "Company Name" : (profile.educationLevel === 'University' ? "University Name" : "School Name")} 
                 value={isEditing ? (editedProfile.role === 'Student' ? editedProfile.university : editedProfile.work) : (profile.role === 'Student' ? profile.university : profile.work)} 
                 icon={Briefcase} 
                 isEditing={isEditing}
                 onChange={(v) => handleChange(profile.role === 'Student' ? 'university' : 'work', v)}
               />
               <DataField 
-                label="Faculty / Department" 
+                label={profile.role === 'Student' ? (profile.educationLevel === 'University' ? "Academic Faculty" : "Current Grade") : "Operational Role"} 
                 value={isEditing ? (editedProfile.role === 'Student' ? editedProfile.faculty : editedProfile.jobTitle) : (profile.role === 'Student' ? profile.faculty : profile.jobTitle)} 
                 icon={BookOpen} 
                 isEditing={isEditing}

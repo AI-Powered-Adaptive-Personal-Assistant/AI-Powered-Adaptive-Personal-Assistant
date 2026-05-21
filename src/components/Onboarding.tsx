@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
-import { UserProfile, UserRole, CognitiveLevel } from "../types";
+import { UserProfile, UserRole, CognitiveLevel, EducationLevel } from "../types";
 import { motion, AnimatePresence } from "motion/react";
-import { Mail, GraduationCap, Briefcase, Brain, ArrowRight, CheckCircle, Trophy, Timer, AlertCircle, Quote } from "lucide-react";
+import { Mail, GraduationCap, Briefcase, Brain, ArrowRight, CheckCircle, Trophy, Timer, AlertCircle, Quote, Sprout, Globe, Heart } from "lucide-react";
 import { auth } from "../lib/firebase";
 import { getTranslation, isRTL } from "../lib/translations";
 
@@ -45,68 +45,28 @@ const MASTER_QUESTION_POOL: Question[] = [
 const QUESTION_TIMER = 60; // 60 seconds per question
 
 const UNIVERSITIES = [
-  // Public Universities (الجامعات الحكومية)
-  "Cairo University", "Ain Shams University", "Alexandria University", "Assiut University", "Tanta University",
-  "Mansoura University", "Zagazig University", "Helwan University", "Minia University", "Menoufia University",
-  "Suez Canal University", "South Valley University", "Benha University", "Fayoum University", "Beni-Suef University",
-  "Kafrelsheikh University", "Sohag University", "Port Said University", "Damanhour University", "Aswan University",
-  "Damietta University", "University of Sadat City", "Suez University", "Arish University", "New Valley University",
-  "Matrouh University", "Luxor University", "Hurghada University", "Al-Azhar University",
-  
-  // National Universities (الجامعات الأهلية)
-  "Galala University", "King Salman International University", "Alamein International University",
-  "New Mansoura University", "Nile University", "Egypt University of Informatics (EUI)",
-  "Alexandria National University", "Assiut National University", "Menoufia National University",
-  "Zagazig National University", "Benha National University", "Beni-Suef National University",
-  "South Valley National University",
-  
-  // Private Universities (الجامعات الخاصة)
-  "AUC (American University in Cairo)", "GUC (German University in Cairo)", "BUE (British University in Egypt)",
-  "MIU (Misr International University)", "MUST (Misr University for Science and Technology)", "O6U (October 6 University)",
-  "MSA University", "Future University in Egypt (FUE)", "Badr University in Cairo (BUC)", "Nahda University",
-  "Pharos University", "Delta University for Science and Technology", "Heliopolis University", "Sinai University",
-  "New Giza University (NGU)", "Deraya University", "Ahram Canadian University (ACU)", "Horus University",
-  "Egyptian Russian University (ERU)", "Egyptian Chinese University (ECU)",
-  
-  // International Branches (الجامعات الدولية / الفروع الأجنبية)
-  "German International University (GIU)", "French University in Egypt (UFE)", "European Universities in Egypt (EUE)",
-  "University of Hertfordshire (Egypt Branch)", "Coventry University (Egypt Branch)", "University of London (Egypt Branch)",
-  
-  // Technological Universities (الجامعات التكنولوجية)
-  "New Cairo Technological University", "Delta Technological University", "Beni-Suef Technological University",
-  "East Port Said Technological University", "6th of October Technological University", "Borg El Arab Technological University",
-  "Assiut Technological University",
-  
-  "Other"
+  "Ain Shams University", "Al-Azhar University", "Alexandria University", "Arish University", "Assiut University",
+  "Aswan University", "Benha University", "Beni-Suef University", "Cairo University", "Damanhour University",
+  "Damietta University", "Fayoum University", "Helwan University", "Hurghada University", "Kafrelsheikh University",
+  "Luxor University", "Mansoura University", "Matrouh University", "Menoufia University", "Minia University",
+  "New Valley University", "Port Said University", "Sohag University", "South Valley University", "Suez Canal University",
+  "Suez University", "Tanta University", "University of Sadat City", "Zagazig University", "Other"
 ];
 
 const FACULTIES = [
-  "Medicine (طب بشري)", "Dentistry (طب أسنان)", "Pharmacy (صيدلة)", "Physical Therapy (علاج طبيعي)", 
-  "Nursing (تمريض)", "Engineering (هندسة)", "Computer Science & IT (حاسبات ومعلومات)", 
-  "Artificial Intelligence (ذكاء اصطناعي)", "Science (علوم)", "Business / Commerce (تجارة)", 
-  "Economics & Political Science (اقتصاد وعلوم سياسية)", "Mass Communication (إعلام)", 
-  "Arts / Humanities (آداب)", "Law (حقوق)", "Education (تربية)", "Agriculture (زراعة)", 
-  "Tourism and Hotels (سياحة وفنادق)", "Fine Arts (فنون جميلة)", "Applied Arts (فنون تطبيقية)", 
-  "Physical Education (تربية رياضية)", "Languages / Al-Alsun (ألسن)", "Archaeology (آثار)", "Other"
-];
-
-const WORKPLACES = [
-  "Tech Startup", "Corporate Enterprise", "Medical Center / Hospital", 
-  "Government Agency", "Freelance / Self-employed", "NGO / Non-profit", 
-  "Banking & Finance", "Education / Research", "Construction / Engineering Firm", 
-  "Retail", "Hospitality", "Manufacturing", "Other"
-];
-
-const JOB_TITLES = [
-  "Software Engineer", "Business Analyst", "Marketing Specialist", 
-  "Medical Doctor", "Pharmacist", "Designer", "Content Creator", 
-  "Project Manager", "Data Scientist", "Research Lead", "Consultant", 
-  "Teacher / Professor", "Accountant", "Sales Representative", "Other"
+  "Medicine", "Dentistry", "Pharmacy", "Physical Therapy", "Engineering", "Computer Science & IT", 
+  "Artificial Intelligence", "Science", "Business / Commerce", "Mass Communication", "Other"
 ];
 
 const LANGUAGES = [
-  "English", "Arabic", "Egyptian Ammiya", "French", "Spanish", "German", 
-  "Italian", "Portuguese", "Russian", "Chinese", "Japanese"
+  "English", "Arabic", "Egyptian Ammiya", "French", "Spanish", "German", "Italian", "Portuguese", "Russian", "Chinese", "Japanese"
+];
+
+const SUSTAINABILITY_GOALS = [
+  { id: 'climate', label: 'Climate Action', icon: <Globe className="w-5 h-5 text-emerald-500" /> },
+  { id: 'quality-edu', label: 'Quality Education', icon: <GraduationCap className="w-5 h-5 text-blue-500" /> },
+  { id: 'health', label: 'Good Health & Well-being', icon: <Heart className="w-5 h-5 text-red-500" /> },
+  { id: 'zero-hunger', label: 'Zero Hunger / Sustainable Food', icon: <Sprout className="w-5 h-5 text-amber-500" /> }
 ];
 
 export default function Onboarding({ onComplete }: OnboardingProps) {
@@ -118,13 +78,15 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
   const [formData, setFormData] = useState<Partial<UserProfile>>({
     email: auth.currentUser?.email || "",
     role: "Student",
+    educationLevel: "University",
     university: "",
     faculty: "",
     work: "",
     jobTitle: "",
     points: 100,
     questionHistory: [],
-    onboardingComplete: false
+    onboardingComplete: false,
+    sustainabilityGoal: "quality-edu"
   });
   
   const [quizStartTime, setQuizStartTime] = useState<number | null>(null);
@@ -141,7 +103,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
   }, []);
 
   useEffect(() => {
-    if (step === 3) {
+    if (step === 4) {
       // Overall timer
       if (!quizStartTime) setQuizStartTime(Date.now());
       timerRef.current = setInterval(() => {
@@ -181,7 +143,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
       setCurrentQIndex(currentQIndex + 1);
     } else {
       if (timerRef.current) clearInterval(timerRef.current);
-      setStep(4); // Results step
+      setStep(5); // Results step
     }
   };
 
@@ -327,103 +289,119 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
     >
       <div className="space-y-2 text-center">
         <h2 className="text-3xl font-extrabold tracking-tight text-slate-900 leading-tight">{getTranslation(formData.language, 'userRole')}</h2>
-        <p className="text-slate-500">What is your current occupation?</p>
+        <p className="text-slate-500">How would you describe your current path?</p>
       </div>
       
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-3">
         {(["Student", "Professional"] as UserRole[]).map((r) => (
           <button
             key={r}
-            onClick={() => setFormData({ ...formData, role: r })}
-            className={`flex flex-col items-center gap-4 p-6 rounded-2xl border-2 transition-all ${
+            onClick={() => {
+              setFormData({ 
+                ...formData, 
+                role: r, 
+                educationLevel: r === 'Professional' ? 'Professional' : 'University' 
+              });
+            }}
+            className={`flex flex-col items-center gap-3 p-4 rounded-2xl border-2 transition-all ${
               formData.role === r 
                 ? 'border-primary bg-primary/5 text-primary' 
                 : 'border-border bg-white text-slate-400 hover:border-primary/20'
             }`}
           >
-            {r === "Student" ? <GraduationCap className="w-10 h-10" /> : <Briefcase className="w-10 h-10" />}
-            <span className="font-bold text-sm uppercase tracking-wider">{r}</span>
+            {r === "Student" ? <GraduationCap className="w-8 h-8" /> : <Briefcase className="w-8 h-8" />}
+            <span className="font-bold text-xs uppercase tracking-wider">{getTranslation(formData.language, r.toLowerCase() as any)}</span>
           </button>
         ))}
       </div>
+
+      {formData.role === 'Student' && (
+        <div className="grid grid-cols-3 gap-2">
+          {(['Primary', 'Secondary', 'University'] as EducationLevel[]).map((lvl) => (
+            <button
+              key={lvl}
+              onClick={() => setFormData({ ...formData, educationLevel: lvl })}
+              className={`p-3 rounded-xl border-2 text-[10px] font-black uppercase transition-all ${
+                formData.educationLevel === lvl 
+                  ? 'border-blue-600 bg-blue-50 text-blue-700' 
+                  : 'border-border bg-white text-slate-400'
+              }`}
+            >
+              {getTranslation(formData.language, lvl.toLowerCase() as any)}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-4">
           <div className="space-y-2">
             <label className="text-[11px] font-bold text-text-muted uppercase tracking-[0.05em]">
-              {formData.role === "Student" ? "Educational Institution" : "Primary Workspace"}
+              {formData.educationLevel === "University" ? "Educational Institution" : 
+               formData.educationLevel === "Professional" ? "Primary Workspace" : "School Name"}
             </label>
-            <select
-              className="w-full bg-white border border-border rounded-xl px-4 py-3 shadow-sm focus:ring-4 focus:ring-primary/5 focus:border-primary outline-none transition-all text-sm appearance-none cursor-pointer"
-              value={formData.role === "Student" ? (UNIVERSITIES.includes(formData.university || "") ? formData.university : "Other") : (WORKPLACES.includes(formData.work || "") ? formData.work : "Other")}
-              onChange={(e) => {
-                const val = e.target.value;
-                setFormData({ 
-                  ...formData, 
-                  [formData.role === "Student" ? "university" : "work"]: val === "Other" ? "" : val 
-                });
-              }}
-            >
-              <option value="" disabled>Select {formData.role === "Student" ? "University" : "Entity"}</option>
-              {(formData.role === "Student" ? UNIVERSITIES : WORKPLACES).map(item => (
-                <option key={item} value={item}>{item}</option>
-              ))}
-            </select>
-          </div>
-
-          {((formData.role === "Student" && formData.university === "") || (formData.role === "Professional" && formData.work === "")) && (
-            <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="space-y-2">
-               <input
+            {formData.educationLevel === 'University' ? (
+              <select
+                className="w-full bg-white border border-border rounded-xl px-4 py-3 shadow-sm focus:ring-4 focus:ring-primary/5 focus:border-primary outline-none transition-all text-sm appearance-none cursor-pointer"
+                value={UNIVERSITIES.includes(formData.university || "") ? formData.university : "Other"}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setFormData({ ...formData, university: val === "Other" ? "" : val });
+                }}
+              >
+                <option value="" disabled>Select Institution</option>
+                {UNIVERSITIES.map(item => (
+                  <option key={item} value={item}>{item}</option>
+                ))}
+              </select>
+            ) : (
+              <input
                 type="text"
-                placeholder={formData.role === "Student" ? "Enter your University" : "Enter your Organization"}
-                className="w-full bg-slate-50 border border-dashed border-slate-300 rounded-xl px-4 py-3 text-sm focus:ring-4 focus:ring-primary/5 focus:border-primary outline-none transition-all"
-                value={formData.role === "Student" ? formData.university : formData.work}
+                placeholder={formData.educationLevel === 'Professional' ? "Company / Organization" : "Enter School Name"}
+                className="w-full bg-white border border-border rounded-xl px-4 py-3 text-sm focus:ring-4 focus:ring-primary/5 focus:border-primary outline-none transition-all"
+                value={formData.role === 'Student' ? formData.university : formData.work}
                 onChange={(e) => setFormData({ 
                   ...formData, 
-                  [formData.role === "Student" ? "university" : "work"]: e.target.value 
+                  [formData.role === 'Student' ? 'university' : 'work']: e.target.value 
                 })}
               />
-            </motion.div>
-          )}
+            )}
+          </div>
         </div>
 
         <div className="space-y-4">
           <div className="space-y-2">
             <label className="text-[11px] font-bold text-text-muted uppercase tracking-[0.05em]">
-              {formData.role === "Student" ? "Academic Faculty" : "Operational Role"}
+              {formData.educationLevel === "University" ? "Academic Faculty" : 
+               formData.role === "Professional" ? "Operational Role" : "Current Grade"}
             </label>
-            <select
-              className="w-full bg-white border border-border rounded-xl px-4 py-3 shadow-sm focus:ring-4 focus:ring-primary/5 focus:border-primary outline-none transition-all text-sm appearance-none cursor-pointer"
-              value={formData.role === "Student" ? (FACULTIES.includes(formData.faculty || "") ? formData.faculty : "Other") : (JOB_TITLES.includes(formData.jobTitle || "") ? formData.jobTitle : "Other")}
-              onChange={(e) => {
-                const val = e.target.value;
-                setFormData({ 
-                  ...formData, 
-                  [formData.role === "Student" ? "faculty" : "jobTitle"]: val === "Other" ? "" : val 
-                });
-              }}
-            >
-              <option value="" disabled>Select {formData.role === "Student" ? "Faculty" : "Title"}</option>
-              {(formData.role === "Student" ? FACULTIES : JOB_TITLES).map(item => (
-                <option key={item} value={item}>{item}</option>
-              ))}
-            </select>
-          </div>
-
-          {((formData.role === "Student" && formData.faculty === "") || (formData.role === "Professional" && formData.jobTitle === "")) && (
-            <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="space-y-2">
-               <input
+            {formData.educationLevel === 'University' ? (
+              <select
+                className="w-full bg-white border border-border rounded-xl px-4 py-3 shadow-sm focus:ring-4 focus:ring-primary/5 focus:border-primary outline-none transition-all text-sm appearance-none cursor-pointer"
+                value={FACULTIES.includes(formData.faculty || "") ? formData.faculty : "Other"}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setFormData({ ...formData, faculty: val === "Other" ? "" : val });
+                }}
+              >
+                <option value="" disabled>Select Faculty</option>
+                {FACULTIES.map(item => (
+                  <option key={item} value={item}>{item}</option>
+                ))}
+              </select>
+            ) : (
+              <input
                 type="text"
-                placeholder={formData.role === "Student" ? "Enter Faculty/Major" : "Enter Job Title"}
-                className="w-full bg-slate-50 border border-dashed border-slate-300 rounded-xl px-4 py-3 text-sm focus:ring-4 focus:ring-primary/5 focus:border-primary outline-none transition-all"
-                value={formData.role === "Student" ? formData.faculty : formData.jobTitle}
+                placeholder={formData.role === 'Student' ? "e.g. Grade 5, Year 10" : "Enter Job Title"}
+                className="w-full bg-white border border-border rounded-xl px-4 py-3 text-sm focus:ring-4 focus:ring-primary/5 focus:border-primary outline-none transition-all"
+                value={formData.role === 'Student' ? formData.faculty : formData.jobTitle}
                 onChange={(e) => setFormData({ 
                   ...formData, 
-                  [formData.role === "Student" ? "faculty" : "jobTitle"]: e.target.value 
+                  [formData.role === 'Student' ? 'faculty' : 'jobTitle']: e.target.value 
                 })}
               />
-            </motion.div>
-          )}
+            )}
+          </div>
         </div>
       </div>
 
@@ -435,7 +413,53 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
         }
         className="w-full bg-primary text-white font-bold py-4 rounded-xl shadow-lg hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400 transition-all flex items-center justify-center gap-2 group"
       >
-        Start Initial Quiz <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+        Next: Personalized Goals <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+      </button>
+    </motion.div>
+  );
+
+  const renderSustainabilityStep = () => (
+    <motion.div 
+      initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
+      className="flex flex-col gap-6 w-full max-w-lg text-center"
+    >
+      <div className="space-y-4">
+        <div className="w-16 h-16 bg-emerald-50 rounded-2xl flex items-center justify-center mx-auto border border-emerald-100">
+           <Sprout className="w-10 h-10 text-emerald-600" />
+        </div>
+        <div className="space-y-2">
+          <h2 className="text-3xl font-extrabold tracking-tight text-slate-900 leading-tight">Sustainability & Life Goals</h2>
+          <p className="text-slate-500">Cognify is built for long-term human growth. Which UN Sustainable Development Goal do you care about most?</p>
+        </div>
+      </div>
+      
+      <div className="grid grid-cols-1 gap-3">
+        {SUSTAINABILITY_GOALS.map((goal) => (
+          <button
+            key={goal.id}
+            onClick={() => setFormData({ ...formData, sustainabilityGoal: goal.id })}
+            className={`flex items-center gap-4 p-4 rounded-2xl border-2 transition-all ${
+              formData.sustainabilityGoal === goal.id 
+                ? 'border-emerald-600 bg-emerald-50 text-emerald-700' 
+                : 'border-border bg-white text-slate-500 hover:border-emerald-200'
+            }`}
+          >
+            <div className={`p-2 rounded-lg ${formData.sustainabilityGoal === goal.id ? 'bg-white shadow-sm' : 'bg-slate-50'}`}>
+              {goal.icon}
+            </div>
+            <span className="font-bold text-sm">{goal.label}</span>
+            {formData.sustainabilityGoal === goal.id && (
+              <CheckCircle className="w-5 h-5 ml-auto text-emerald-600" />
+            )}
+          </button>
+        ))}
+      </div>
+
+      <button
+        onClick={handleNextStep}
+        className="w-full bg-slate-900 text-white font-bold py-4 rounded-xl shadow-lg hover:bg-black transition-all flex items-center justify-center gap-2 group"
+      >
+        Start Intelligence Assessment <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
       </button>
     </motion.div>
   );
@@ -534,16 +558,16 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
 
   return (
     <div dir={direction} className="fixed inset-0 bg-bg-main z-[100] flex items-center justify-center p-6 overflow-y-auto custom-scrollbar">
-      {step < 4 && (
+      {step < 5 && (
         <div className="absolute top-12 left-1/2 -translate-x-1/2 flex items-center gap-6">
-          {[1, 2, 3].map(s => (
+          {[1, 2, 3, 4].map(s => (
             <div key={s} className="flex items-center gap-3">
               <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
                 step >= s ? 'bg-primary text-white' : 'bg-slate-200 text-slate-400'
               }`}>
                 {s}
               </div>
-              {s < 3 && <div className={`w-12 h-[2px] ${step > s ? 'bg-primary' : 'bg-slate-200'}`} />}
+              {s < 4 && <div className={`w-12 h-[2px] ${step > s ? 'bg-primary' : 'bg-slate-200'}`} />}
             </div>
           ))}
         </div>
@@ -552,8 +576,9 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
       <AnimatePresence mode="wait">
         {step === 1 && renderLanguageStep()}
         {step === 2 && renderRoleStep()}
-        {step === 3 && renderQuizStep()}
-        {step === 4 && renderResults()}
+        {step === 3 && renderSustainabilityStep()}
+        {step === 4 && renderQuizStep()}
+        {step === 5 && renderResults()}
       </AnimatePresence>
 
       <div className="absolute bottom-12 left-1/2 -translate-x-1/2 text-[10px] text-slate-400 font-mono tracking-[0.3em] uppercase">
