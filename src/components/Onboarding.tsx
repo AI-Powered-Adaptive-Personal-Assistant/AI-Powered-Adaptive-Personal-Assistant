@@ -54,18 +54,18 @@ const UNIVERSITIES = [
 ];
 
 const FACULTIES = [
-  "Medicine", "Dentistry", "Pharmacy", "Physical Therapy", "Engineering", "Computer Science & IT", 
-  "Artificial Intelligence", "Science", "Business / Commerce", "Mass Communication", "Other"
+  "Artificial Intelligence", "Business / Commerce", "Computer Science & IT", "Dentistry", "Engineering", 
+  "Mass Communication", "Medicine", "Pharmacy", "Physical Therapy", "Science", "Other"
 ];
 
 const LANGUAGES = [
-  "English", "Arabic", "Egyptian Ammiya", "French", "Spanish", "German", "Italian", "Portuguese", "Russian", "Chinese", "Japanese"
+  "Arabic", "Chinese", "Egyptian Ammiya", "English", "French", "German", "Italian", "Japanese", "Portuguese", "Russian", "Spanish"
 ];
 
 const SUSTAINABILITY_GOALS = [
   { id: 'climate', label: 'Climate Action', icon: <Globe className="w-5 h-5 text-emerald-500" /> },
-  { id: 'quality-edu', label: 'Quality Education', icon: <GraduationCap className="w-5 h-5 text-blue-500" /> },
   { id: 'health', label: 'Good Health & Well-being', icon: <Heart className="w-5 h-5 text-red-500" /> },
+  { id: 'quality-edu', label: 'Quality Education', icon: <GraduationCap className="w-5 h-5 text-blue-500" /> },
   { id: 'zero-hunger', label: 'Zero Hunger / Sustainable Food', icon: <Sprout className="w-5 h-5 text-amber-500" /> }
 ];
 
@@ -293,7 +293,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
       </div>
       
       <div className="grid grid-cols-2 gap-3">
-        {(["Student", "Professional"] as UserRole[]).map((r) => (
+        {(["Professional", "Student"] as UserRole[]).map((r) => (
           <button
             key={r}
             onClick={() => {

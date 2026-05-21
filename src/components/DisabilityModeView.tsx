@@ -147,7 +147,7 @@ export default function DisabilityModeView({
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {(['None', 'Speech', 'Visual', 'Vocal-Deaf', 'Sign-Only'] as AccessibilityMode[]).map((mode) => (
+                  {(['None', 'Sign-Only', 'Speech', 'Visual', 'Vocal-Deaf'] as AccessibilityMode[]).map((mode) => (
                     <button
                       key={mode}
                       onClick={() => updateAccessibilityMode(mode)}

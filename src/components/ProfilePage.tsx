@@ -14,8 +14,8 @@ interface ProfilePageProps {
 
 const SUSTAINABILITY_GOALS = [
   { id: 'climate', label: 'Climate Action', icon: Globe },
-  { id: 'quality-edu', label: 'Quality Education', icon: GraduationCap },
   { id: 'health', label: 'Good Health & Well-being', icon: Heart },
+  { id: 'quality-edu', label: 'Quality Education', icon: GraduationCap },
   { id: 'zero-hunger', label: 'Zero Hunger / Sustainable Food', icon: Sprout }
 ];
 
@@ -179,9 +179,9 @@ export default function ProfilePage({ profile, onMenuClick }: ProfilePageProps) 
                    onChange={(e) => handleChange('educationLevel', e.target.value)}
                 >
                   <option value="Primary">Primary Education</option>
+                  <option value="Professional">Professional Workspace</option>
                   <option value="Secondary">Secondary Education</option>
                   <option value="University">University Level</option>
-                  <option value="Professional">Professional Workspace</option>
                 </select>
               </div>
             ) : (
@@ -204,7 +204,7 @@ export default function ProfilePage({ profile, onMenuClick }: ProfilePageProps) 
                 isEditing={isEditing} 
                 onChange={(v) => handleChange('language', v)} 
                 type="select"
-                options={['English', 'Arabic', 'Egyptian Ammiya', 'French', 'Spanish', 'German', 'Italian', 'Portuguese', 'Russian', 'Chinese', 'Japanese']}
+                options={['Arabic', 'Chinese', 'Egyptian Ammiya', 'English', 'French', 'German', 'Italian', 'Japanese', 'Portuguese', 'Russian', 'Spanish']}
               />
               <DataField 
                 label={getTranslation(profile.language, 'accessibilityMode')} 
@@ -213,7 +213,7 @@ export default function ProfilePage({ profile, onMenuClick }: ProfilePageProps) 
                 isEditing={isEditing} 
                 onChange={(v) => handleChange('accessibilityMode', v)} 
                 type="select"
-                options={['None', 'Speech', 'Visual', 'Vocal-Deaf', 'Sign-Only']}
+                options={['None', 'Sign-Only', 'Speech', 'Visual', 'Vocal-Deaf']}
               />
             </div>
           </div>

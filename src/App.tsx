@@ -13,6 +13,7 @@ import ProfilePage from "./components/ProfilePage";
 import LogicSandbox from "./components/LogicSandbox";
 import SignVideoStudio from "./components/SignVideoStudio";
 import Login from "./components/Login";
+import AdminDashboard from "./components/AdminDashboard";
 import AccessibilityOverlay from "./components/AccessibilityOverlay";
 import LiveCaptions from "./components/LiveCaptions";
 import DisabilityModeView from "./components/DisabilityModeView";
@@ -29,14 +30,13 @@ import { isRTL, getTranslation } from "./lib/translations";
 export default function App() {
   const [user, loading, authError] = useAuthState(auth);
   
-  const [currentView, setCurrentView] = useState<'chat' | 'hub' | 'profile' | 'settings' | 'logic' | 'video' | 'disability'>(() => {
+  const [currentView, setCurrentView] = useState<'chat' | 'hub' | 'profile' | 'settings' | 'logic' | 'video' | 'disability' | 'admin'>(() => {
     const hash = window.location.hash.replace('#', '');
-    return ['chat', 'hub', 'logic', 'profile', 'settings', 'video', 'disability'].includes(hash) ? hash as any : 'chat';
+    return ['chat', 'hub', 'logic', 'profile', 'settings', 'video', 'disability', 'admin'].includes(hash) ? hash as any : 'chat';
   });
   
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
-  const [connectionError, setConnectionError] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [externalMessage, setExternalMessage] = useState("");
   const [currentAIResponse, setCurrentAIResponse] = useState("");
@@ -110,7 +110,7 @@ export default function App() {
 
     const handlePopState = () => {
       const hash = window.location.hash.replace('#', '');
-      if (['chat', 'hub', 'logic', 'profile', 'settings', 'video', 'disability'].includes(hash)) {
+      if (['chat', 'hub', 'logic', 'profile', 'settings', 'video', 'disability', 'admin'].includes(hash)) {
         setCurrentView(hash as any);
       } else {
         setCurrentView('chat');
@@ -123,36 +123,13 @@ export default function App() {
   }, []);
 
   // Custom navigation function that updates URL and state
-  const navigateTo = (view: 'chat' | 'hub' | 'logic' | 'profile' | 'settings' | 'video' | 'disability') => {
+  const navigateTo = (view: 'chat' | 'hub' | 'logic' | 'profile' | 'settings' | 'video' | 'disability' | 'admin') => {
     if (view !== currentView) {
       window.history.pushState(null, '', `#${view}`);
       setCurrentView(view);
     }
     setIsMobileMenuOpen(false);
   };
-
-  // Firestore Connection Test with Retries
-  useEffect(() => {
-    let retries = 0;
-    const maxRetries = 3;
-
-    async function testConnection() {
-      try {
-        await getDocFromServer(doc(db, 'system', 'connection_test'));
-        setConnectionError(false);
-      } catch (error) {
-        if (retries < maxRetries) {
-          retries++;
-          console.warn(`Connection attempt ${retries} failed. Retrying...`);
-          setTimeout(testConnection, 2000);
-        } else {
-          console.error("Firebase connection is offline or misconfigured after retries.");
-          setConnectionError(true);
-        }
-      }
-    }
-    testConnection();
-  }, []);
 
   // Sync profile from Firestore
   useEffect(() => {
@@ -165,7 +142,19 @@ export default function App() {
     const path = `users/${user.uid}`;
     const unsubscribe = onSnapshot(doc(db, path), (snapshot) => {
       if (snapshot.exists()) {
-        setProfile(snapshot.data() as UserProfile);
+        const data = snapshot.data() as UserProfile;
+        setProfile(data);
+        
+        // Update lastActiveDate if it's more than an hour old or missing
+        const now = new Date().toISOString();
+        if (!data.lastActiveDate || (new Date(now).getTime() - new Date(data.lastActiveDate).getTime() > 3600000)) {
+           // We are doing a setDoc merge so we don't trigger an infinite loop locally.
+           // However, since we update the doc, onSnapshot will fire again.
+           // Setting the condition (e.g. 1 hr) prevents infinite loop.
+           setDoc(doc(db, path), { lastActiveDate: now }, { merge: true }).catch(err => {
+             console.error("Failed to update last active date:", err);
+           });
+        }
       } else {
         setProfile(null);
       }
@@ -284,7 +273,7 @@ export default function App() {
     );
   }
 
-  if (connectionError || authError) {
+  if (authError) {
     const errorDetails = authError?.message || "We're having trouble connecting to our servers. Your internet connection might be unstable, or our service could be temporarily down.";
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center p-6 bg-technical">
@@ -367,6 +356,8 @@ export default function App() {
         return <ProfilePage profile={profile} onMenuClick={() => setIsMobileMenuOpen(true)} />;
       case 'logic':
         return <LogicSandbox profile={profile} onMenuClick={() => setIsMobileMenuOpen(true)} />;
+      case 'admin':
+        return <AdminDashboard profile={profile} onMenuClick={() => setIsMobileMenuOpen(true)} />;
       case 'settings':
         return (
           <div className="flex-1 flex flex-col bg-slate-50 relative overflow-hidden">

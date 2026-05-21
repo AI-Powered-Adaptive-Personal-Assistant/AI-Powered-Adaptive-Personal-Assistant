@@ -39,7 +39,7 @@ service cloud.firestore {
 
     function isValidUser(data) {
       return isAdmin() || (data.keys().hasAll(["uid", "email", "role", "level", "onboardingComplete", "points"]) &&
-             data.keys().hasOnly(["uid", "email", "role", "level", "onboardingComplete", "points", "name", "religion", "bio", "language", "chatHistory", "questionHistory", "iqScore", "lastQuizDate", "university", "faculty", "work", "jobTitle", "country", "growthIndex", "meritPoints", "field", "accessibilityMode", "questionScore", "quizDuration", "chatThreads", "activeThreadId", "photoURL"]) &&
+             data.keys().hasOnly(["uid", "email", "role", "level", "onboardingComplete", "points", "name", "religion", "bio", "language", "chatHistory", "questionHistory", "iqScore", "lastQuizDate", "university", "faculty", "work", "jobTitle", "country", "growthIndex", "meritPoints", "field", "accessibilityMode", "questionScore", "quizDuration", "chatThreads", "activeThreadId", "photoURL", "educationLevel", "sustainabilityGoal", "tasks", "lastActiveDate"]) &&
              data.uid == request.auth.uid &&
              isValidEmail(data.email) &&
              data.role in ["Student", "Professional"] &&
@@ -49,11 +49,12 @@ service cloud.firestore {
              (!("chatHistory" in data) || data.chatHistory is list) &&
              (!("chatThreads" in data) || data.chatThreads is list) &&
              (!("questionHistory" in data) || data.questionHistory is list) &&
+             (!("tasks" in data) || data.tasks is list) &&
              (!("photoURL" in data) || data.photoURL is string));
     }
 
     match /users/{userId} {
-      allow read: if isOwner(userId);
+      allow read: if isOwner(userId) || isAdmin();
       allow create: if isOwner(userId) && isValidUser(request.resource.data);
       allow update: if isOwner(userId) && isValidUser(request.resource.data) && 
                     request.resource.data.uid == resource.data.uid;

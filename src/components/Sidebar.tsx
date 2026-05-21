@@ -7,8 +7,8 @@ import { getTranslation } from "../lib/translations";
 interface SidebarProps {
   profile: UserProfile;
   setProfile: (profile: UserProfile) => void;
-  currentView: 'chat' | 'hub' | 'profile' | 'settings' | 'logic' | 'video' | 'disability';
-  setCurrentView: (view: 'chat' | 'hub' | 'profile' | 'settings' | 'logic' | 'video' | 'disability') => void;
+  currentView: 'chat' | 'hub' | 'profile' | 'settings' | 'logic' | 'video' | 'disability' | 'admin';
+  setCurrentView: (view: 'chat' | 'hub' | 'profile' | 'settings' | 'logic' | 'video' | 'disability' | 'admin') => void;
   isDarkMode: boolean;
   toggleTheme: () => void;
   openLiveCaptions: () => void;
@@ -58,6 +58,8 @@ export default function Sidebar({ profile, setProfile, currentView, setCurrentVi
 
   const isAdmin = ['pro.mahmoud.h@gmail.com', 'modyhashim2006@gmail.com'].includes(profile.email?.toLowerCase() || '');
 
+  const actualNavItems = isAdmin ? [...navItems, { id: 'admin', label: 'Admin Dashboard', icon: AlertCircle }] : navItems;
+
   return (
     <div className="w-[300px] h-full bg-white text-text-main border-e border-slate-100 p-8 flex flex-col gap-6 overflow-y-auto custom-scrollbar shadow-sm z-20">
       <div className="flex items-center gap-4 mb-2">
@@ -77,10 +79,10 @@ export default function Sidebar({ profile, setProfile, currentView, setCurrentVi
       <div className="flex flex-col gap-6">
         <nav className="flex flex-col gap-1.5">
           <div className="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-1 ms-2">{getTranslation(profile.language, 'mainNavigation')}</div>
-          {navItems.map((item) => (
+          {actualNavItems.map((item) => (
             <button 
               key={item.id}
-              onClick={() => setCurrentView(item.id)}
+              onClick={() => setCurrentView(item.id as any)}
               className={`flex items-center gap-3 px-5 py-3.5 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all ${currentView === item.id ? 'bg-slate-900 text-white shadow-xl shadow-slate-200' : 'text-slate-400 hover:text-slate-900 hover:bg-slate-50'}`}
             >
               <item.icon className={`w-3.5 h-3.5 ${currentView === item.id ? 'text-primary' : ''}`} /> {item.label}
@@ -197,7 +199,7 @@ export default function Sidebar({ profile, setProfile, currentView, setCurrentVi
         <div className="flex flex-col gap-3">
           <label className="text-[11px] font-bold text-text-muted uppercase">{getTranslation(profile.language, 'difficultyLevel')}</label>
           <div className="grid grid-cols-1 gap-1.5 opacity-80">
-            {(['Basic', 'Intermediate', 'Advanced'] as CognitiveLevel[]).map((l) => (
+            {(['Advanced', 'Basic', 'Intermediate'] as CognitiveLevel[]).map((l) => (
               <button
                 key={l}
                 disabled={!isAdmin}
@@ -229,7 +231,7 @@ export default function Sidebar({ profile, setProfile, currentView, setCurrentVi
         <div className="flex flex-col gap-2">
           <label className="text-[11px] font-bold text-text-muted uppercase">{getTranslation(profile.language, 'userRole')}</label>
           <div className="flex gap-2 opacity-80">
-            {(['Student', 'Professional'] as UserRole[]).map((r) => (
+            {(['Professional', 'Student'] as UserRole[]).map((r) => (
               <button
                 key={r}
                 disabled={!isAdmin}
@@ -256,7 +258,7 @@ export default function Sidebar({ profile, setProfile, currentView, setCurrentVi
             onChange={(e) => handleChange('language', e.target.value)}
             className="bg-slate-50 border border-slate-100 text-slate-900 rounded-xl px-4 py-3 text-xs font-bold focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none appearance-none cursor-pointer"
           >
-            {['English', 'Arabic', 'Egyptian Ammiya', 'French', 'Spanish', 'German', 'Italian', 'Portuguese', 'Russian', 'Chinese', 'Japanese'].map((l) => (
+            {['Arabic', 'Chinese', 'Egyptian Ammiya', 'English', 'French', 'German', 'Italian', 'Japanese', 'Portuguese', 'Russian', 'Spanish'].map((l) => (
               <option key={l} value={l}>{l}</option>
             ))}
           </select>

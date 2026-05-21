@@ -65,4 +65,5 @@ export interface UserProfile {
   chatThreads?: ChatThread[];
   activeThreadId?: string;
   tasks?: Task[];
+  lastActiveDate?: string;
 }
