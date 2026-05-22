@@ -101,7 +101,7 @@ export type TranslationKey =
   | 'sustainableGoal'
   | 'lifeSustainability';
 
-export const translations: Record<string, Record<TranslationKey, string>> = {
+export const translations: Record<string, Partial<Record<TranslationKey, string>>> = {
   English: {
     appName: 'Cognify AI',
     onboardingTitle: 'Welcome to Cognify',
@@ -611,12 +611,122 @@ export const translations: Record<string, Record<TranslationKey, string>> = {
     sustainability: 'Sostenibilidad',
     sustainableGoal: 'Objetivo Sostenible',
     lifeSustainability: 'Sostenibilidad de Vida'
+  },
+  Chinese: {
+    appName: 'Cognify AI',
+    onboardingTitle: '欢迎使用 Cognify',
+    onboardingSubtitle: '为逻辑和无障碍提供个性化 AI 辅导。',
+    continue: '继续',
+    back: '返回',
+    finish: '开始',
+    profile: '个人资料',
+    chat: '聊天',
+    intelligence: '智能',
+    settings: '设置',
+    language: '语言',
+    accessibilityMode: '无障碍模式',
+    userRole: '用户角色',
+    fieldOfStudy: '兴趣领域',
+    saveChanges: '保存更改',
+    edit: '编辑',
+    logout: '登出',
+    student: '学生',
+    professional: '专业人士'
+  },
+  Japanese: {
+    appName: 'Cognify AI',
+    onboardingTitle: 'Cognifyへようこそ',
+    onboardingSubtitle: '論理とアクセシビリティのためのパーソナライズされたAIコーチング。',
+    continue: '続ける',
+    back: '戻る',
+    finish: '始める',
+    profile: 'プロフィール',
+    chat: 'チャット',
+    intelligence: '知能',
+    settings: '設定',
+    language: '言語',
+    accessibilityMode: 'アクセシビリティモード',
+    userRole: 'ユーザーの役割',
+    fieldOfStudy: '興味のある分野',
+    saveChanges: '変更を保存',
+    edit: '編集',
+    logout: 'ログアウト',
+    student: '学生',
+    professional: '専門家'
+  },
+  German: {
+    appName: 'Cognify AI',
+    onboardingTitle: 'Willkommen bei Cognify',
+    onboardingSubtitle: 'Personalisiertes KI-Coaching für Logik und Barrierefreiheit.',
+    continue: 'Weiter',
+    back: 'Zurück',
+    finish: 'Loslegen',
+    profile: 'Profil',
+    chat: 'Chat',
+    intelligence: 'Intelligenz',
+    settings: 'Einstellungen',
+    language: 'Sprache',
+    accessibilityMode: 'Barrierefreiheitsmodus',
+    userRole: 'Benutzerrolle',
+    fieldOfStudy: 'Interessengebiet'
+  },
+  Italian: {
+    appName: 'Cognify AI',
+    onboardingTitle: 'Benvenuto in Cognify',
+    onboardingSubtitle: 'Coaching AI personalizzato per logica e accessibilità.',
+    continue: 'Continua',
+    back: 'Indietro',
+    finish: 'Inizia'
+  },
+  Portuguese: {
+    appName: 'Cognify AI',
+    onboardingTitle: 'Bem-vindo ao Cognify',
+    onboardingSubtitle: 'Coaching de IA personalizado para lógica e acessibilidade.',
+    continue: 'Continuar',
+    back: 'Voltar',
+    finish: 'Começar'
+  },
+  Russian: {
+    appName: 'Cognify AI',
+    onboardingTitle: 'Добро пожаловать в Cognify',
+    onboardingSubtitle: 'Персонализированное ИИ-обучение для логики и доступности.',
+    continue: 'Продолжить',
+    back: 'Назад',
+    finish: 'Начать'
+  },
+  'Egyptian Ammiya': {
+    appName: 'Cognify AI',
+    onboardingTitle: 'أهلا بيك في Cognify',
+    onboardingSubtitle: 'مساعد ذكي مخصوص عشان اللوجيك والسهولة.',
+    continue: 'كمل',
+    back: 'ارجع',
+    finish: 'يلا بينا',
+    profile: 'البروفايل',
+    chat: 'دردشة',
+    intelligence: 'الذكاء',
+    settings: 'الإعدادات',
+    language: 'اللغة',
+    accessibilityMode: 'وضع سهولة الوصول',
+    userRole: 'دورك إيه',
+    fieldOfStudy: 'مجال اهتمامك',
+    iqScore: 'درجة الذكاء',
+    saveChanges: 'احفظ',
+    edit: 'عدل',
+    logout: 'اخرج',
+    typeMessage: 'اكتب رسالتك...',
+    student: 'طالب',
+    professional: 'موظف',
+    medicine: 'طب',
+    engineering: 'هندسة',
+    business: 'بيزنس',
+    general: 'عام',
+    other: 'حاجة تانية'
   }
 };
 
 export const getTranslation = (lang: string | undefined, key: TranslationKey): string => {
   const language = lang || 'English';
-  return translations[language]?.[key] || translations['English'][key];
+  return translations[language]?.[key] || translations['English']?.[key] || key;
 };
 
 export const isRTL = (lang: string | undefined): boolean => {
