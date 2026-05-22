@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from "react";
 import { UserProfile, UserRole, CognitiveLevel, EducationLevel } from "../types";
 import { motion, AnimatePresence } from "motion/react";
-import { Mail, GraduationCap, Briefcase, Brain, ArrowRight, CheckCircle, Trophy, Timer, AlertCircle, Quote, Sprout, Globe, Heart } from "lucide-react";
-import { auth } from "../lib/firebase";
+import { Mail, GraduationCap, Briefcase, Brain, ArrowRight, CheckCircle, Trophy, Timer, AlertCircle, Quote, Sprout, Globe, Heart, LogOut } from "lucide-react";
+import { auth, logout } from "../lib/firebase";
 import { getTranslation, isRTL } from "../lib/translations";
 
 interface OnboardingProps {
@@ -557,7 +557,14 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
   const direction = isRTL(formData.language) ? 'rtl' : 'ltr';
 
   return (
-    <div dir={direction} className="fixed inset-0 bg-bg-main z-[100] flex items-center justify-center p-6 overflow-y-auto custom-scrollbar">
+    <div dir={direction} className="fixed inset-0 bg-bg-main z-[100] flex items-center justify-center p-6 overflow-y-auto custom-scrollbar relative">
+      <button 
+        onClick={() => logout()}
+        className="absolute top-6 right-6 md:top-8 md:right-8 flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 rounded-xl transition-all text-xs font-bold uppercase tracking-widest z-50 shadow-sm"
+      >
+        <LogOut className="w-4 h-4" /> Logout
+      </button>
+
       {step < 5 && (
         <div className="absolute top-12 left-1/2 -translate-x-1/2 flex items-center gap-6">
           {[1, 2, 3, 4].map(s => (

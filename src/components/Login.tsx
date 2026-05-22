@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Layers, Chrome, Mail, Lock, AlertCircle, Loader2 } from 'lucide-react';
 
 export default function Login() {
-  const [mode, setMode] = useState<'options' | 'email-login' | 'email-register'>('options');
+  const [mode, setMode] = useState<'options' | 'email-login' | 'email-register'>('email-login');
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -131,9 +131,106 @@ export default function Login() {
                 )}
               </AnimatePresence>
             </motion.div>
+          ) : mode === 'email-register' ? (
+            <motion.div 
+              key="register-form"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              className="w-full space-y-5 text-left"
+            >
+              <div className="space-y-2 mb-6">
+                 <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50 text-blue-700 rounded-full border border-blue-100 text-[10px] font-bold mb-2">
+                    <Lock className="w-3 h-3" /> Secure Initial Sign-in
+                 </div>
+                 <h2 className="text-3xl font-extrabold text-slate-800 tracking-tight">Create your account</h2>
+                 <p className="text-slate-500 text-sm">Create your profile and gain access to personalized cognitive improvements and practice feedback.</p>
+              </div>
+
+              <form onSubmit={handleManualAuth} className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-slate-700 ml-1">First Name</label>
+                     <input 
+                       type="text" 
+                       required
+                       className="w-full bg-white border border-slate-200 rounded-lg py-2.5 px-3 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all shadow-sm"
+                     />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-slate-700 ml-1">Last Name</label>
+                     <input 
+                       type="text" 
+                       required
+                       className="w-full bg-white border border-slate-200 rounded-lg py-2.5 px-3 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all shadow-sm"
+                     />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700 ml-1">Phone</label>
+                   <input 
+                     type="tel" 
+                     className="w-full bg-white border border-slate-200 rounded-lg py-2.5 px-3 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all shadow-sm"
+                   />
+                </div>
+
+                <div className="space-y-1">
+                   <label className="text-xs font-bold text-slate-700 ml-1">Email Address</label>
+                   <input 
+                     type="email" 
+                     required
+                     className="w-full bg-white border border-slate-200 rounded-lg py-2.5 px-3 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all shadow-sm"
+                     value={email}
+                     onChange={(e) => setEmail(e.target.value)}
+                   />
+                </div>
+
+                <div className="space-y-1">
+                   <label className="text-xs font-bold text-slate-700 ml-1">Password</label>
+                   <input 
+                     type="password" 
+                     required
+                     className="w-full bg-white border border-slate-200 rounded-lg py-2.5 px-3 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all shadow-sm"
+                     value={password}
+                     onChange={(e) => setPassword(e.target.value)}
+                   />
+                   <p className="text-[10px] text-slate-400 ml-1 mt-1">Use at least 8 characters with a mix of letters, numbers, and symbols.</p>
+                </div>
+
+                {error && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="flex items-center gap-2 p-3 bg-rose-50 border border-rose-100 rounded-xl text-rose-600 text-xs font-bold"
+                  >
+                    <AlertCircle className="w-4 h-4" />
+                    {error}
+                  </motion.div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full bg-[#4F46E5] text-white py-3.5 rounded-lg flex items-center justify-center font-bold text-sm hover:bg-[#4338CA] transition-all disabled:opacity-50 mt-2 shadow-sm"
+                >
+                  {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Create account'}
+                </button>
+              </form>
+
+              <div className="pt-2 text-center text-sm">
+                 <span className="text-slate-500">Already have an account? </span>
+                 <button 
+                   onClick={() => { setMode('email-login'); setError(null); }}
+                   className="text-[#4F46E5] font-bold hover:underline"
+                 >
+                   Sign in
+                 </button>
+              </div>
+            </motion.div>
           ) : (
             <motion.div 
-              key="form"
+              key="login-form"
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
@@ -186,16 +283,16 @@ export default function Login() {
                   disabled={loading}
                   className="w-full bg-primary text-white py-4 rounded-xl flex items-center justify-center font-bold shadow-lg shadow-primary/20 hover:bg-blue-700 transition-all disabled:opacity-50"
                 >
-                  {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : mode === 'email-login' ? 'Login' : 'Create Account'}
+                  {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Login'}
                 </button>
               </form>
 
               <div className="flex flex-col gap-3 pt-4">
                 <button 
-                  onClick={() => setMode(mode === 'email-login' ? 'email-register' : 'email-login')}
+                  onClick={() => setMode('email-register')}
                   className="text-xs font-bold text-slate-500 hover:text-primary transition-colors"
                 >
-                  {mode === 'email-login' ? "Don't have an account? Create one" : "Already registered? Log in"}
+                  Don't have an account? Create one
                 </button>
                 <button 
                   onClick={() => { setMode('options'); setError(null); }}
