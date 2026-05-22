@@ -14,7 +14,15 @@ export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardP
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
 
-  const isAdmin = ['pro.mahmoud.h@gmail.com', 'modyhashim2006@gmail.com'].includes(profile.email?.toLowerCase() || '');
+  const isAdmin = [
+    'pro.mahmoud.h@gmail.com', 
+    'modyhashim2006@gmail.com',
+    'marwaneltaweel0@gmail.com',
+    'its.alkhateeb@gmail.com',
+    'esraahosni8@gmail.com',
+    'nermeenatefateffarouk@gmail.com',
+    'mariemsayedr33@gmail.com'
+  ].includes(profile.email?.toLowerCase() || '');
 
   useEffect(() => {
     if (!isAdmin) return;

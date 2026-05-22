@@ -267,47 +267,15 @@ export default function App() {
       <div className="min-h-screen bg-slate-950 flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="w-10 h-10 text-blue-500 animate-spin" />
-          <p className="text-slate-400 font-mono text-xs uppercase tracking-[0.3em] animate-pulse">Syncing Profile...</p>
+          <p className="text-slate-400 font-mono text-xs uppercase tracking-[0.3em] animate-pulse">
+            {loading ? "Authenticating..." : "Syncing Profile..."}
+          </p>
         </div>
       </div>
     );
   }
 
-  if (authError) {
-    const errorDetails = authError?.message || "We're having trouble connecting to our servers. Your internet connection might be unstable, or our service could be temporarily down.";
-    return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center p-6 bg-technical">
-        <div className="max-w-md w-full text-center space-y-6 bg-slate-900 p-8 md:p-10 rounded-[2rem] border border-red-500/20 shadow-2xl relative overflow-hidden">
-          <div className="absolute top-0 inset-x-0 h-1 bg-red-500" />
-          <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-2">
-            <AlertCircle className="w-8 h-8 text-red-500" />
-          </div>
-          
-          <div className="space-y-2">
-            <h2 className="text-2xl font-black text-white uppercase tracking-tighter">Connection Interrupted</h2>
-            <p className="text-slate-400 text-sm leading-relaxed">{errorDetails}</p>
-          </div>
 
-          <div className="flex flex-col gap-3 pt-4">
-            <button 
-              onClick={() => window.location.reload()} 
-              className="w-full py-3.5 bg-red-600 hover:bg-red-500 text-white rounded-xl font-bold transition-all shadow-lg shadow-red-900/20 flex items-center justify-center gap-2 group"
-            >
-              <RefreshCw className="w-4 h-4 group-hover:rotate-180 transition-transform duration-500" />
-              Retry Connection
-            </button>
-            <button 
-              onClick={() => window.open('mailto:support@aistudio.com', '_blank')}
-              className="w-full py-3.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl font-semibold transition-all flex items-center justify-center gap-2"
-            >
-              <Mail className="w-4 h-4" />
-              Contact Support
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   if (!user) {
     return <Login />;
