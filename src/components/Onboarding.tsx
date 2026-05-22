@@ -59,7 +59,7 @@ const FACULTIES = [
 ];
 
 const LANGUAGES = [
-  "Arabic", "English"
+  "Arabic", "Chinese", "Egyptian Ammiya", "English", "French", "German", "Italian", "Japanese", "Portuguese", "Russian", "Spanish"
 ];
 
 const SUSTAINABILITY_GOALS = [
