@@ -59,7 +59,7 @@ const FACULTIES = [
 ];
 
 const LANGUAGES = [
-  "Arabic", "Chinese", "Egyptian Ammiya", "English", "French", "German", "Italian", "Japanese", "Portuguese", "Russian", "Spanish"
+  "Arabic", "English"
 ];
 
 const SUSTAINABILITY_GOALS = [
@@ -557,38 +557,42 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
   const direction = isRTL(formData.language) ? 'rtl' : 'ltr';
 
   return (
-    <div dir={direction} className="fixed inset-0 bg-bg-main z-[100] flex items-center justify-center p-6 overflow-y-auto custom-scrollbar relative">
+    <div dir={direction} className="fixed inset-0 bg-slate-50 z-[100] flex flex-col items-center justify-start py-12 px-6 overflow-y-auto custom-scrollbar relative">
       <button 
         onClick={() => logout()}
-        className="absolute top-6 right-6 md:top-8 md:right-8 flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 rounded-xl transition-all text-xs font-bold uppercase tracking-widest z-50 shadow-sm"
+        className="absolute top-6 right-6 md:top-8 md:right-8 flex items-center gap-2 px-4 py-2 bg-white hover:bg-slate-100 text-slate-600 hover:text-slate-900 rounded-xl transition-all text-xs font-bold uppercase tracking-widest z-50 shadow-sm border border-slate-200"
       >
         <LogOut className="w-4 h-4" /> Logout
       </button>
 
       {step < 5 && (
-        <div className="absolute top-12 left-1/2 -translate-x-1/2 flex items-center gap-6">
-          {[1, 2, 3, 4].map(s => (
-            <div key={s} className="flex items-center gap-3">
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
-                step >= s ? 'bg-primary text-white' : 'bg-slate-200 text-slate-400'
-              }`}>
-                {s}
+        <div className="w-full flex justify-center mb-10 pt-4">
+          <div className="flex items-center gap-4 md:gap-6">
+            {[1, 2, 3, 4].map(s => (
+              <div key={s} className="flex items-center gap-2 md:gap-3">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all shadow-sm ${
+                  step >= s ? 'bg-[#4F46E5] text-white' : 'bg-white border-2 border-slate-200 text-slate-400'
+                }`}>
+                  {s}
+                </div>
+                {s < 4 && <div className={`w-8 md:w-12 h-[2px] ${step > s ? 'bg-[#4F46E5]' : 'bg-slate-200'}`} />}
               </div>
-              {s < 4 && <div className={`w-12 h-[2px] ${step > s ? 'bg-primary' : 'bg-slate-200'}`} />}
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       )}
 
-      <AnimatePresence mode="wait">
-        {step === 1 && renderLanguageStep()}
-        {step === 2 && renderRoleStep()}
-        {step === 3 && renderSustainabilityStep()}
-        {step === 4 && renderQuizStep()}
-        {step === 5 && renderResults()}
-      </AnimatePresence>
+      <div className="flex flex-col items-center justify-center w-full flex-1 max-w-lg">
+        <AnimatePresence mode="wait">
+          {step === 1 && renderLanguageStep()}
+          {step === 2 && renderRoleStep()}
+          {step === 3 && renderSustainabilityStep()}
+          {step === 4 && renderQuizStep()}
+          {step === 5 && renderResults()}
+        </AnimatePresence>
+      </div>
 
-      <div className="absolute bottom-12 left-1/2 -translate-x-1/2 text-[10px] text-slate-400 font-mono tracking-[0.3em] uppercase">
+      <div className="mt-8 text-[10px] text-slate-400 font-mono tracking-[0.3em] uppercase pb-6">
         Cognify Initialization
       </div>
     </div>
