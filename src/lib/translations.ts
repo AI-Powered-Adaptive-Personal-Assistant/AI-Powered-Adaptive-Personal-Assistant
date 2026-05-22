@@ -693,34 +693,6 @@ export const translations: Record<string, Partial<Record<TranslationKey, string>
     continue: 'Продолжить',
     back: 'Назад',
     finish: 'Начать'
-  },
-  'Egyptian Ammiya': {
-    appName: 'Cognify AI',
-    onboardingTitle: 'أهلا بيك في Cognify',
-    onboardingSubtitle: 'مساعد ذكي مخصوص عشان اللوجيك والسهولة.',
-    continue: 'كمل',
-    back: 'ارجع',
-    finish: 'يلا بينا',
-    profile: 'البروفايل',
-    chat: 'دردشة',
-    intelligence: 'الذكاء',
-    settings: 'الإعدادات',
-    language: 'اللغة',
-    accessibilityMode: 'وضع سهولة الوصول',
-    userRole: 'دورك إيه',
-    fieldOfStudy: 'مجال اهتمامك',
-    iqScore: 'درجة الذكاء',
-    saveChanges: 'احفظ',
-    edit: 'عدل',
-    logout: 'اخرج',
-    typeMessage: 'اكتب رسالتك...',
-    student: 'طالب',
-    professional: 'موظف',
-    medicine: 'طب',
-    engineering: 'هندسة',
-    business: 'بيزنس',
-    general: 'عام',
-    other: 'حاجة تانية'
   }
 };
 

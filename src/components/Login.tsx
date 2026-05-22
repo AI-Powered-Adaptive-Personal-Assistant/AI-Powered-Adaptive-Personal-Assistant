@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { signInWithGoogle, loginWithEmail, registerWithEmail } from '../lib/firebase';
 import { motion, AnimatePresence } from 'motion/react';
-import { Layers, Chrome, Mail, Lock, AlertCircle, Loader2 } from 'lucide-react';
+import { Layers, Chrome, Mail, Lock, AlertCircle, Loader2, Eye, EyeOff } from 'lucide-react';
 
 export default function Login() {
   const [mode, setMode] = useState<'options' | 'email-login' | 'email-register'>('email-login');
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -188,13 +189,22 @@ export default function Login() {
 
                 <div className="space-y-1">
                    <label className="text-xs font-bold text-slate-700 ml-1">Password</label>
-                   <input 
-                     type="password" 
-                     required
-                     className="w-full bg-white border border-slate-200 rounded-lg py-2.5 px-3 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all shadow-sm"
-                     value={password}
-                     onChange={(e) => setPassword(e.target.value)}
-                   />
+                   <div className="relative">
+                     <input 
+                       type={showPassword ? "text" : "password"} 
+                       required
+                       className="w-full bg-white border border-slate-200 rounded-lg py-2.5 px-3 pr-10 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all shadow-sm"
+                       value={password}
+                       onChange={(e) => setPassword(e.target.value)}
+                     />
+                     <button 
+                       type="button" 
+                       onClick={() => setShowPassword(!showPassword)} 
+                       className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                     >
+                       {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                     </button>
+                   </div>
                    <p className="text-[10px] text-slate-400 ml-1 mt-1">Use at least 8 characters with a mix of letters, numbers, and symbols.</p>
                 </div>
 
@@ -257,13 +267,20 @@ export default function Login() {
                   <div className="relative">
                     <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
                     <input 
-                      type="password" 
+                      type={showPassword ? "text" : "password"} 
                       required
                       placeholder="••••••••"
-                      className="w-full bg-slate-50 border border-slate-100 rounded-xl py-3 pl-12 pr-4 text-sm focus:ring-4 focus:ring-primary/5 focus:border-primary focus:bg-white outline-none transition-all"
+                      className="w-full bg-slate-50 border border-slate-100 rounded-xl py-3 pl-12 pr-12 text-sm focus:ring-4 focus:ring-primary/5 focus:border-primary focus:bg-white outline-none transition-all"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                     />
+                     <button 
+                       type="button" 
+                       onClick={() => setShowPassword(!showPassword)} 
+                       className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                     >
+                       {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                     </button>
                   </div>
                 </div>
 
