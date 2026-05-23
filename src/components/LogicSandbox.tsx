@@ -134,7 +134,7 @@ export default function LogicSandbox({ profile, onMenuClick }: LogicSandboxProps
   }, [messages, isLoading]);
 
   return (
-    <div className="flex-1 h-screen overflow-y-auto bg-slate-50 p-6 md:p-10 flex flex-col gap-6 md:gap-10 custom-scrollbar">
+    <div className={`flex-1 h-screen overflow-y-auto bg-slate-50 flex flex-col custom-scrollbar ${isTraining ? 'p-4 md:p-6 gap-4 md:gap-6' : 'p-6 md:p-10 gap-6 md:gap-10'}`}>
       <header className="flex items-start gap-4 space-y-2">
         <button 
           onClick={onMenuClick}
@@ -148,7 +148,7 @@ export default function LogicSandbox({ profile, onMenuClick }: LogicSandboxProps
         </div>
       </header>
 
-      <div className={`grid grid-cols-1 ${isTraining ? 'lg:grid-cols-1' : 'lg:grid-cols-2'} gap-8 flex-1 w-full max-w-6xl mx-auto min-h-0`}>
+      <div className={`grid grid-cols-1 ${isTraining ? 'lg:grid-cols-1 max-w-full' : 'lg:grid-cols-2 max-w-6xl'} gap-4 md:gap-8 flex-1 w-full mx-auto min-h-0`}>
         {!isTraining && (
           <div className="space-y-6">
             <div className="text-[10px] font-black text-slate-300 uppercase tracking-widest ml-2">Available Training Modules</div>
@@ -298,26 +298,28 @@ export default function LogicSandbox({ profile, onMenuClick }: LogicSandboxProps
         </div>
       </div>
 
-      <div className="mt-auto bg-slate-900 p-8 rounded-[40px] text-white flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-6">
-          <div className="w-16 h-16 rounded-2xl bg-white/10 flex items-center justify-center border border-white/20">
-            <Sparkles className="w-8 h-8 text-primary" />
+      {!isTraining && (
+        <div className="mt-auto bg-slate-900 p-6 md:p-8 rounded-[32px] md:rounded-[40px] text-white flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-4 md:gap-6">
+            <div className="w-12 h-12 md:w-16 md:h-16 rounded-2xl bg-white/10 flex items-center justify-center border border-white/20">
+              <Sparkles className="w-6 h-6 md:w-8 md:h-8 text-primary" />
+            </div>
+            <div className="space-y-1">
+              <h4 className="text-base md:text-lg font-black uppercase tracking-tighter">Logic Level: {profile.iqScore ? (profile.iqScore > 120 ? 'Savant' : profile.iqScore > 100 ? 'Analytical' : 'Standard') : 'Initializing'}</h4>
+              <p className="text-white/50 text-[10px] md:text-xs font-medium italic">Based on your integrated IQ score: {profile.iqScore || 'N/A'}</p>
+            </div>
           </div>
-          <div className="space-y-1">
-             <h4 className="text-lg font-black uppercase tracking-tighter">Logic Level: {profile.iqScore ? (profile.iqScore > 120 ? 'Savant' : profile.iqScore > 100 ? 'Analytical' : 'Standard') : 'Initializing'}</h4>
-             <p className="text-white/50 text-xs font-medium italic">Based on your integrated IQ score: {profile.iqScore || 'N/A'}</p>
+          <div className="flex items-center gap-3">
+            <div className="text-right hidden sm:block">
+              <p className="text-[10px] font-black text-white/40 uppercase tracking-widest">Next Evolution</p>
+              <p className="text-xs md:text-sm font-black text-white">+ {150 - (profile.points % 150)} Merit Points</p>
+            </div>
+            <div className="w-10 h-10 md:w-12 md:h-12 rounded-full border-2 border-white/10 flex items-center justify-center">
+              <ChevronRight className="w-5 h-5 md:w-6 md:h-6 text-white/40" />
+            </div>
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="text-right">
-             <p className="text-[10px] font-black text-white/40 uppercase tracking-widest">Next Evolution</p>
-             <p className="text-sm font-black text-white">+ {150 - (profile.points % 150)} Merit Points</p>
-          </div>
-          <div className="w-12 h-12 rounded-full border-2 border-white/10 flex items-center justify-center">
-             <ChevronRight className="w-6 h-6 text-white/40" />
-          </div>
-        </div>
-      </div>
+      )}
     </div>
   );
 }
