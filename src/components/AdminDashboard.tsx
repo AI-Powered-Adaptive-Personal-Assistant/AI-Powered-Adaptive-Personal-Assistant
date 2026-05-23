@@ -31,7 +31,7 @@ export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardP
     const unsubscribe = onSnapshot(usersRef, (snapshot) => {
       const usersData: UserProfile[] = [];
       snapshot.forEach((doc) => {
-        usersData.push(doc.data() as UserProfile);
+        usersData.push({ ...doc.data(), uid: doc.id } as UserProfile);
       });
 
       // Sort by last active date or onboarding date

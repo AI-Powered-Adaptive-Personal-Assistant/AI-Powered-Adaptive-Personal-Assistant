@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { signInWithGoogle, loginWithEmail, registerWithEmail } from '../lib/firebase';
 import { motion, AnimatePresence } from 'motion/react';
-import { Layers, Chrome, Mail, Lock, AlertCircle, Loader2, Eye, EyeOff } from 'lucide-react';
+import { Layers, Chrome, Mail, Lock, AlertCircle, Loader2, Eye, EyeOff, ArrowLeft } from 'lucide-react';
 
 export default function Login() {
-  const [mode, setMode] = useState<'options' | 'email-login' | 'email-register'>('email-login');
+  const [mode, setMode] = useState<'options' | 'email-login' | 'email-register'>('options');
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -138,9 +138,16 @@ export default function Login() {
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
-              className="w-full space-y-5 text-left"
+              className="w-full space-y-5 text-left relative"
             >
-              <div className="space-y-2 mb-6">
+              <button 
+                onClick={() => { setMode('options'); setError(null); }}
+                className="absolute -top-3 -left-3 p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 transition-colors"
+                title="Back to options"
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </button>
+              <div className="space-y-2 mb-6 pt-4">
                  <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50 text-blue-700 rounded-full border border-blue-100 text-[10px] font-bold mb-2">
                     <Lock className="w-3 h-3" /> Secure Initial Sign-in
                  </div>
@@ -244,8 +251,15 @@ export default function Login() {
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
-              className="w-full space-y-6"
+              className="w-full space-y-6 relative"
             >
+              <button 
+                onClick={() => { setMode('options'); setError(null); }}
+                className="absolute -top-8 -left-3 p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 transition-colors"
+                title="Back to options"
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </button>
               <form onSubmit={handleManualAuth} className="space-y-4 text-left">
                 <div className="space-y-2">
                   <label className="text-[10px] font-black text-slate-400 uppercase ml-4">Email Address</label>
