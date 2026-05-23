@@ -368,13 +368,39 @@ export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClic
 
     const qualityScore = evaluateQuestionQuality(finalInput);
     
-    // Auto-title thread if it's new
-    if (activeThread && messages.length === 0 && finalInput.trim()) {
+    let currentThreadId = profile.activeThreadId;
+    let isCreatingNewThread = false;
+
+    // Auto-create thread if it doesn't exist
+    if (!currentThreadId) {
+      currentThreadId = Date.now().toString();
+      isCreatingNewThread = true;
+      const suggestedTitle = finalInput.slice(0, 30) + (finalInput.length > 30 ? '...' : '');
+      const newThread = {
+        id: currentThreadId,
+        title: suggestedTitle,
+        updatedAt: new Date().toISOString()
+      };
+      profile.chatThreads = [...(profile.chatThreads || []), newThread];
+      profile.activeThreadId = currentThreadId;
+      
+      // Persist the new thread creation immediately to the user document
+      if (profile.uid) {
+         setDoc(doc(db, `users/${profile.uid}`), { 
+           chatThreads: profile.chatThreads, 
+           activeThreadId: currentThreadId 
+         }, { merge: true });
+      }
+    } else if (activeThread && messages.length === 0 && finalInput.trim()) {
       const suggestedTitle = finalInput.slice(0, 30) + (finalInput.length > 30 ? '...' : '');
       const updatedThreads = (profile.chatThreads || []).map(t => 
         t.id === activeThread.id ? { ...t, title: suggestedTitle } : t
       );
       profile.chatThreads = updatedThreads; // Immediate local update
+      
+      if (profile.uid) {
+         setDoc(doc(db, `users/${profile.uid}`), { chatThreads: updatedThreads }, { merge: true });
+      }
     }
 
     const userMessage: Message = {
@@ -389,8 +415,8 @@ export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClic
     setMessages(newHistory);
     
     // Save locally to appropriate Firestore document
-    if (profile.uid && profile.activeThreadId) {
-      const threadPath = `users/${profile.uid}/threads/${profile.activeThreadId}`;
+    if (profile.uid && currentThreadId) {
+      const threadPath = `users/${profile.uid}/threads/${currentThreadId}`;
       setDoc(doc(db, threadPath), { messages: newHistory }, { merge: true }).catch(err => {
          handleFirestoreError(err, OperationType.UPDATE, threadPath);
       });
@@ -437,8 +463,8 @@ export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClic
       }
 
       // Final persistence
-      if (profile.uid && profile.activeThreadId) {
-        const threadPath = `users/${profile.uid}/threads/${profile.activeThreadId}`;
+      if (profile.uid && currentThreadId) {
+        const threadPath = `users/${profile.uid}/threads/${currentThreadId}`;
         setDoc(doc(db, threadPath), { messages: updatedHistory }, { merge: true }).catch(err => {
            handleFirestoreError(err, OperationType.UPDATE, threadPath);
         });
