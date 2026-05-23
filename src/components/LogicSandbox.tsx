@@ -5,6 +5,8 @@ import { Brain, Sparkles, Target, Zap, ChevronRight, HelpCircle, Lightbulb, Menu
 import { generateLogicResponse } from '../services/gemini';
 import Markdown from 'react-markdown';
 import { getTranslation } from '../lib/translations';
+import { db } from '../lib/firebase';
+import { doc, setDoc, onSnapshot } from 'firebase/firestore';
 
 interface LogicSandboxProps {
   profile: UserProfile;
@@ -15,6 +17,7 @@ export default function LogicSandbox({ profile, onMenuClick }: LogicSandboxProps
   const [selectedModule, setSelectedModule] = useState<number | null>(null);
   const [isTraining, setIsTraining] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [hasHistory, setHasHistory] = useState(false);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -48,9 +51,33 @@ export default function LogicSandbox({ profile, onMenuClick }: LogicSandboxProps
 
   const getActiveModule = () => modules.find(m => m.id === selectedModule);
 
+  useEffect(() => {
+    if (!profile?.uid || !selectedModule) {
+      setHasHistory(false);
+      return;
+    }
+    
+    const unsubscribe = onSnapshot(doc(db, `users/${profile.uid}/sandbox/${selectedModule}`), (snap) => {
+      if (snap.exists() && snap.data().messages?.length > 0) {
+        setHasHistory(true);
+        setMessages(snap.data().messages);
+      } else {
+        setHasHistory(false);
+        setMessages([]);
+      }
+    });
+
+    return () => unsubscribe();
+  }, [profile?.uid, selectedModule]);
+
   const startTraining = async () => {
     if (!selectedModule) return;
     setIsTraining(true);
+    
+    if (hasHistory && messages.length > 0) {
+       return; // Just resume, messages are already loaded
+    }
+
     setIsLoading(true);
     setMessages([]);
     
@@ -62,12 +89,16 @@ export default function LogicSandbox({ profile, onMenuClick }: LogicSandboxProps
         activeMod?.title || "Logic"
       );
       
-      setMessages([{
+      const sessionStartMsg = {
         id: Date.now().toString(),
-        role: 'assistant',
+        role: 'assistant' as const,
         content: response,
         timestamp: new Date().toISOString()
-      }]);
+      };
+      setMessages([sessionStartMsg]);
+      if (profile.uid) {
+        setDoc(doc(db, `users/${profile.uid}/sandbox/${selectedModule}`), { messages: [sessionStartMsg] }, { merge: true });
+      }
     } catch (err) {
       console.error(err);
       setMessages([{
@@ -94,6 +125,9 @@ export default function LogicSandbox({ profile, onMenuClick }: LogicSandboxProps
 
     const newHistory = [...messages, userMsg];
     setMessages(newHistory);
+    if (profile?.uid && selectedModule) {
+      setDoc(doc(db, `users/${profile.uid}/sandbox/${selectedModule}`), { messages: newHistory }, { merge: true });
+    }
     setInput('');
     setIsLoading(true);
 
@@ -110,20 +144,28 @@ export default function LogicSandbox({ profile, onMenuClick }: LogicSandboxProps
         formattedHistory
       );
 
-      setMessages([...newHistory, {
+      const updatedHistory = [...newHistory, {
         id: (Date.now() + 1).toString(),
-        role: 'assistant',
+        role: 'assistant' as const,
         content: response,
         timestamp: new Date().toISOString()
-      }]);
+      }];
+      setMessages(updatedHistory);
+      if (profile?.uid && selectedModule) {
+        setDoc(doc(db, `users/${profile.uid}/sandbox/${selectedModule}`), { messages: updatedHistory }, { merge: true });
+      }
     } catch (err) {
       console.error(err);
-      setMessages([...newHistory, {
+      const errHistory = [...newHistory, {
         id: (Date.now() + 1).toString(),
-        role: 'assistant',
+        role: 'assistant' as const,
         content: "System communication error.",
         timestamp: new Date().toISOString()
-      }]);
+      }];
+      setMessages(errHistory);
+      if (profile?.uid && selectedModule) {
+        setDoc(doc(db, `users/${profile.uid}/sandbox/${selectedModule}`), { messages: errHistory }, { merge: true });
+      }
     } finally {
       setIsLoading(false);
     }
@@ -210,7 +252,7 @@ export default function LogicSandbox({ profile, onMenuClick }: LogicSandboxProps
                     onClick={startTraining}
                     className="mt-4 px-10 py-4 bg-slate-900 text-white font-black text-xs uppercase tracking-widest rounded-2xl shadow-xl hover:bg-black transition-all hover:-translate-y-1"
                   >
-                    Initiate Session
+                    {hasHistory ? "Resume Session" : "Initiate Session"}
                   </button>
                 </motion.div>
               ) : (
@@ -232,7 +274,7 @@ export default function LogicSandbox({ profile, onMenuClick }: LogicSandboxProps
                 <div className="flex items-center justify-between p-6 border-b border-slate-100 shrink-0">
                   <div className="flex items-center gap-4">
                     <button 
-                      onClick={() => { setIsTraining(false); setMessages([]); }}
+                      onClick={() => { setIsTraining(false); }}
                       className="p-2 bg-slate-50 text-slate-500 hover:bg-slate-100 hover:text-slate-900 rounded-xl transition-colors"
                     >
                       <ArrowLeft className="w-5 h-5" />
