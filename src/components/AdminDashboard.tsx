@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import { UserProfile } from "../types";
 import { db, handleFirestoreError, OperationType } from "../lib/firebase";
-import { collection, getDocs, query, orderBy } from "firebase/firestore";
-import { Loader2, Users, Search, Activity, Menu, ShieldAlert, Mail } from "lucide-react";
+import { collection, onSnapshot, query, orderBy, deleteDoc, doc } from "firebase/firestore";
+import { Loader2, Users, Search, Activity, Menu, ShieldAlert, Mail, Trash2 } from "lucide-react";
 
 interface AdminDashboardProps {
   profile: UserProfile;
@@ -27,32 +27,39 @@ export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardP
   useEffect(() => {
     if (!isAdmin) return;
 
-    const fetchUsers = async () => {
-      try {
-        const usersRef = collection(db, "users");
-        const querySnapshot = await getDocs(usersRef);
-        const usersData: UserProfile[] = [];
-        querySnapshot.forEach((doc) => {
-          usersData.push(doc.data() as UserProfile);
-        });
+    const usersRef = collection(db, "users");
+    const unsubscribe = onSnapshot(usersRef, (snapshot) => {
+      const usersData: UserProfile[] = [];
+      snapshot.forEach((doc) => {
+        usersData.push(doc.data() as UserProfile);
+      });
 
-        // Sort by last active date or onboarding date
-        usersData.sort((a, b) => {
-          const dateA = a.lastActiveDate || a.lastQuizDate || "1970-01-01T00:00:00Z";
-          const dateB = b.lastActiveDate || b.lastQuizDate || "1970-01-01T00:00:00Z";
-          return new Date(dateB).getTime() - new Date(dateA).getTime();
-        });
+      // Sort by last active date or onboarding date
+      usersData.sort((a, b) => {
+        const dateA = a.lastActiveDate || a.lastQuizDate || "1970-01-01T00:00:00Z";
+        const dateB = b.lastActiveDate || b.lastQuizDate || "1970-01-01T00:00:00Z";
+        return new Date(dateB).getTime() - new Date(dateA).getTime();
+      });
 
-        setUsers(usersData);
-      } catch (error) {
-        handleFirestoreError(error, OperationType.LIST, "users");
-      } finally {
-        setLoading(false);
-      }
-    };
+      setUsers(usersData);
+      setLoading(false);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, "users");
+      setLoading(false);
+    });
 
-    fetchUsers();
+    return () => unsubscribe();
   }, [isAdmin]);
+
+  const handleDeleteUser = async (uid: string) => {
+    if (window.confirm("Are you sure you want to delete this user profile? This action cannot be undone.")) {
+      try {
+        await deleteDoc(doc(db, "users", uid));
+      } catch (error) {
+        handleFirestoreError(error, OperationType.DELETE, "users");
+      }
+    }
+  };
 
   if (!isAdmin) {
     return (
@@ -129,6 +136,7 @@ export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardP
                        <th className="p-4">User</th>
                        <th className="p-4">Role & Level</th>
                        <th className="p-4">Points</th>
+                       <th className="p-4">IQ Score</th>
                        <th className="p-4">Last Active</th>
                        <th className="p-4">Email</th>
                        <th className="p-4 text-right">Actions</th>
@@ -148,22 +156,31 @@ export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardP
                            </div>
                          </td>
                          <td className="p-4 font-black text-slate-800">{u.points}</td>
+                         <td className="p-4 font-black text-slate-800">{u.iqScore || '--'}</td>
                          <td className="p-4 text-xs font-bold text-slate-600">
                            {formatDate(u.lastActiveDate || u.lastQuizDate || u.chatThreads?.[0]?.updatedAt)}
                          </td>
                          <td className="p-4 text-xs text-slate-500 truncate max-w-[200px]" title={u.email}>{u.email}</td>
                          <td className="p-4 text-right">
-                           <a 
-                             href={`mailto:${u.email}?subject=Message from Cognify Admin`}
-                             className="inline-flex items-center gap-2 px-3 py-1.5 bg-slate-900 hover:bg-black text-white text-[10px] font-bold uppercase tracking-widest rounded-lg transition-colors"
-                           >
-                             <Mail className="w-3 h-3" /> Notify
-                           </a>
+                           <div className="flex items-center justify-end gap-2">
+                             <a 
+                               href={`mailto:${u.email}?subject=Message from Cognify Admin`}
+                               className="inline-flex items-center gap-2 px-3 py-1.5 bg-slate-900 hover:bg-black text-white text-[10px] font-bold uppercase tracking-widest rounded-lg transition-colors"
+                             >
+                               <Mail className="w-3 h-3" /> Notify
+                             </a>
+                             <button
+                               onClick={() => handleDeleteUser(u.uid)}
+                               className="inline-flex items-center gap-2 px-3 py-1.5 bg-rose-100 hover:bg-rose-200 text-rose-700 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-colors"
+                             >
+                               <Trash2 className="w-3 h-3" /> Delete
+                             </button>
+                           </div>
                          </td>
                        </tr>
                      )) : (
                        <tr>
-                         <td colSpan={6} className="p-10 text-center text-slate-400 font-medium">
+                         <td colSpan={7} className="p-10 text-center text-slate-400 font-medium">
                            No users found matching "{searchTerm}"
                          </td>
                        </tr>

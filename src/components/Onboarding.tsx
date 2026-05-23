@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { Mail, GraduationCap, Briefcase, Brain, ArrowRight, CheckCircle, Trophy, Timer, AlertCircle, Quote, Sprout, Globe, Heart, LogOut } from "lucide-react";
 import { auth, logout } from "../lib/firebase";
 import { getTranslation, isRTL } from "../lib/translations";
+import { evaluateQuizPOV } from "../services/gemini";
 
 interface OnboardingProps {
   onComplete: (data: Partial<UserProfile>) => void;
@@ -74,6 +75,8 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
   const [currentQIndex, setCurrentQIndex] = useState(0);
   const [quizQuestions, setQuizQuestions] = useState<Question[]>([]);
   const [questionTimeLeft, setQuestionTimeLeft] = useState(QUESTION_TIMER);
+  const [isEvaluating, setIsEvaluating] = useState(false);
+  const [finalResults, setFinalResults] = useState<any>(null);
   
   const [formData, setFormData] = useState<Partial<UserProfile>>({
     email: auth.currentUser?.email || "",
@@ -133,9 +136,47 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
 
   const handleAnswerSelect = (answer: string, isTimeout = false) => {
     setUserAnswers(prev => ({ ...prev, [quizQuestions[currentQIndex].id]: answer }));
-    if (isTimeout) {
-      handleNextQuestion();
+    if (isTimeout || answer !== "TRICK") {
+      // Small delay for normal clicks to show selection feedback
+      setTimeout(() => {
+        handleNextQuestion();
+      }, 400); 
     }
+  };
+
+  const evaluateAndFinishQuiz = async () => {
+    setIsEvaluating(true);
+    let correctCount = 0;
+
+    for (const q of quizQuestions) {
+      if (userAnswers[q.id] === q.correctAnswer) {
+        correctCount++;
+      } else if (userAnswers[q.id] === "TRICK" && userPOVs[q.id]) {
+        // AI Evaluation for POV
+        const isGood = await evaluateQuizPOV(q.text, userPOVs[q.id]);
+        if (isGood) correctCount++;
+      }
+    }
+
+    const totalPossible = quizQuestions.length;
+    const scorePercentage = (correctCount / totalPossible) * 100;
+    const baseIq = 70;
+    const iqPerQuestion = 5.5; 
+    const finalIq = Math.round(baseIq + (correctCount * iqPerQuestion));
+
+    let finalLevel: CognitiveLevel = 'Basic';
+    if (finalIq >= 135) finalLevel = 'Advanced';
+    else if (finalIq >= 105) finalLevel = 'Intermediate';
+
+    setFinalResults({
+      score: finalIq,
+      level: finalLevel,
+      correctCount,
+      percentage: scorePercentage,
+      lastQuizDate: new Date().toISOString()
+    });
+    setIsEvaluating(false);
+    setStep(5);
   };
 
   const handleNextQuestion = () => {
@@ -145,43 +186,13 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
       setCurrentQIndex(currentQIndex + 1);
     } else {
       if (timerRef.current) clearInterval(timerRef.current);
-      setStep(5); // Results step
+      evaluateAndFinishQuiz();
     }
   };
 
-  const calculateResults = () => {
-    let correctCount = 0;
-    quizQuestions.forEach(q => {
-      if (userAnswers[q.id] === q.correctAnswer) {
-        correctCount++;
-      }
-    });
-
-    const totalPossible = quizQuestions.length;
-    const scorePercentage = (correctCount / totalPossible) * 100;
-    
-    // Improved IQ Calculation Logic
-    // Accuracy-focus as requested, ignoring total speed but strictly validating responses.
-    const baseIq = 70;
-    const iqPerQuestion = 5.5; // (15 * 5.5) + 70 = ~152 max
-    const finalIq = Math.round(baseIq + (correctCount * iqPerQuestion));
-
-    // Cognitive Level Determination based on normalized scales
-    let finalLevel: CognitiveLevel = 'Basic';
-    if (finalIq >= 135) finalLevel = 'Advanced';
-    else if (finalIq >= 105) finalLevel = 'Intermediate';
-
-    return {
-      score: finalIq,
-      level: finalLevel,
-      correctCount,
-      percentage: scorePercentage,
-      lastQuizDate: new Date().toISOString()
-    };
-  };
-
   const renderResults = () => {
-    const results = calculateResults();
+    if (!finalResults) return null;
+    const results = finalResults;
     return (
       <motion.div 
         initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
@@ -467,6 +478,15 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
   );
 
   const renderQuizStep = () => {
+    if (isEvaluating) {
+      return (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center justify-center p-20 w-full max-w-lg bg-white rounded-3xl shadow-2xl border border-border">
+          <div className="w-16 h-16 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-6" />
+          <h2 className="text-xl font-bold mb-2">Analyzing Cognition Profile</h2>
+          <p className="text-slate-500 text-sm font-medium animate-pulse">Running advanced evaluation on point-of-view responses...</p>
+        </motion.div>
+      );
+    }
     if (!quizQuestions.length) return null;
     const q = quizQuestions[currentQIndex];
     if (!q) return null;

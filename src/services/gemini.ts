@@ -123,6 +123,26 @@ For complex, analytical, or nuanced questions:
    where you provide both your reasoning and how the other model would approach it, highlighting strengths, differences, and why your combined approach works best. This ensures you continuously evaluate if your response is optimal.
 `;
 
+export async function evaluateQuizPOV(question: string, pov: string): Promise<boolean> {
+  try {
+    const ai = getAI();
+    const prompt = `A user answered a logic trick question: 
+Question: "${question}"
+Their custom reasoning: "${pov}" 
+
+Is their reasoning somewhat logical, creative, or functionally identifying the trick/anomaly? 
+Reply with EXACTLY ONE WORD: either "YES" or "NO".`;
+    const response = await ai.models.generateContent({
+       model: "gemini-flash-latest",
+       contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    });
+    return response.text?.trim().toUpperCase().includes("YES") ?? true;
+  } catch (error) {
+    console.error('POV Eval Error', error);
+    return true; // Fallback to accepting it if AI fails
+  }
+}
+
 export async function generateBenchmarkComparison(
   originalMessage: string,
   userMessage: string,
