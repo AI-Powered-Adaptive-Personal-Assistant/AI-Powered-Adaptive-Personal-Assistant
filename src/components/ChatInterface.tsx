@@ -30,8 +30,29 @@ export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClic
   const [insights, setInsights] = useState<string | null>(null);
   const [isGeneratingInsights, setIsGeneratingInsights] = useState(false);
 
+  const currentThreadId = profile.activeThreadId || Date.now().toString();
+
+  const ensureThreadExists = () => {
+    if (!profile.activeThreadId) {
+      const newThread = {
+        id: currentThreadId,
+        title: "New Chat",
+        updatedAt: new Date().toISOString()
+      };
+      profile.chatThreads = [...(profile.chatThreads || []), newThread];
+      profile.activeThreadId = currentThreadId;
+      if (profile.uid) {
+         setDoc(doc(db, `users/${profile.uid}`), { 
+           chatThreads: profile.chatThreads, 
+           activeThreadId: currentThreadId 
+         }, { merge: true });
+      }
+    }
+  };
+
   const handleGenerateInsights = async () => {
     if (!profile.uid) return;
+    ensureThreadExists();
     setIsGeneratingInsights(true);
     const result = await generateProactiveInsights(profile, messages);
     setInsights(result);
@@ -40,11 +61,12 @@ export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClic
 
   const handleAddTask = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!profile.uid || !profile.activeThreadId || !newTaskInput.trim()) return;
+    if (!profile.uid || !newTaskInput.trim()) return;
+    ensureThreadExists();
 
     const newTask: Task = {
       id: `task-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      threadId: profile.activeThreadId,
+      threadId: currentThreadId,
       content: newTaskInput.trim(),
       completed: false,
       createdAt: new Date().toISOString()
@@ -77,7 +99,7 @@ export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClic
     });
   };
 
-  const currentThreadTasks = (profile.tasks || []).filter(t => t.threadId === profile.activeThreadId);
+  const currentThreadTasks = (profile.tasks || []).filter(t => t.threadId === currentThreadId);
   const [messagesLoading, setMessagesLoading] = useState(false);
 
   // Handle external message injection
@@ -283,13 +305,24 @@ export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClic
     const path = `users/${profile.uid}/threads/${profile.activeThreadId}`;
     
     const unsubscribe = onSnapshot(doc(db, path), (snapshot) => {
-      if (snapshot.exists()) {
+      if (snapshot.exists() && snapshot.data().messages?.length > 0) {
         const data = snapshot.data();
         const incomingMessages = data.messages as Message[] || [];
         setMessages(incomingMessages);
       } else {
-        // If thread exists in metadata but no document, it might be new
-        setMessages([]);
+        // If thread exists in metadata but no document, or no messages
+        const isArabic = profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya';
+        const welcomeMsg = isArabic 
+          ? `كوجنيفي جاهز. كيف يمكنني مساعدتك في دراساتك في مجال ${profile.field} اليوم؟`
+          : `Cognify Ready. How can I assist your ${profile.field} studies today?`;
+        setMessages([
+          {
+            id: 'welcome',
+            role: 'assistant',
+            content: welcomeMsg,
+            timestamp: new Date().toISOString()
+          }
+        ]);
       }
       setMessagesLoading(false);
     }, (err) => {
@@ -997,10 +1030,10 @@ export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClic
           {showTasks && (
             <motion.div
               initial={{ width: 0, opacity: 0 }}
-              animate={{ width: isEmbedded ? '100%' : 320, opacity: 1 }}
+              animate={{ width: isEmbedded ? '100%' : (window.innerWidth < 768 ? '100%' : 320), opacity: 1 }}
               exit={{ width: 0, opacity: 0 }}
-              style={{ position: isEmbedded ? 'absolute' : 'relative', right: 0, top: 0, bottom: 0, zIndex: 40 }}
-              className="bg-slate-50 border-s border-border overflow-y-auto flex flex-col shadow-xl shrink-0"
+              style={{ right: 0, top: 0, bottom: 0, zIndex: 40 }}
+              className={`bg-slate-50 border-s border-border overflow-y-auto flex flex-col shadow-xl shrink-0 ${isEmbedded ? 'absolute' : 'absolute md:relative'}`}
             >
               <div className="p-4 border-b border-border bg-white flex justify-between items-center shrink-0">
                 <h3 className="font-extrabold text-slate-800 flex items-center gap-2">
@@ -1054,10 +1087,10 @@ export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClic
           {showInsights && (
             <motion.div
               initial={{ width: 0, opacity: 0 }}
-              animate={{ width: isEmbedded ? '100%' : 340, opacity: 1 }}
+              animate={{ width: isEmbedded ? '100%' : (window.innerWidth < 768 ? '100%' : 340), opacity: 1 }}
               exit={{ width: 0, opacity: 0 }}
-              style={{ position: isEmbedded ? 'absolute' : 'relative', right: 0, top: 0, bottom: 0, zIndex: 40 }}
-              className="bg-amber-50 border-s border-amber-200 overflow-y-auto flex flex-col shadow-xl shrink-0"
+              style={{ right: 0, top: 0, bottom: 0, zIndex: 40 }}
+              className={`bg-amber-50 border-s border-amber-200 overflow-y-auto flex flex-col shadow-xl shrink-0 ${isEmbedded ? 'absolute' : 'absolute md:relative'}`}
             >
               <div className="p-4 border-b border-amber-200 bg-amber-100/50 flex justify-between items-center shrink-0">
                 <h3 className="font-extrabold text-amber-900 flex items-center gap-2">
