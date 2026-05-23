@@ -115,7 +115,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
       questionTimerRef.current = setInterval(() => {
         setQuestionTimeLeft(prev => {
           if (prev <= 1) {
-            handleAnswerSelect("TIMEOUT"); // Auto-skip on timeout
+            handleAnswerSelect("TIMEOUT", true); // Auto-skip on timeout
             return QUESTION_TIMER;
           }
           return prev - 1;
@@ -131,9 +131,11 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
 
   const handleNextStep = () => setStep(step + 1);
 
-  const handleAnswerSelect = (answer: string) => {
+  const handleAnswerSelect = (answer: string, isTimeout = false) => {
     setUserAnswers(prev => ({ ...prev, [quizQuestions[currentQIndex].id]: answer }));
-    handleNextQuestion();
+    if (isTimeout) {
+      handleNextQuestion();
+    }
   };
 
   const handleNextQuestion = () => {

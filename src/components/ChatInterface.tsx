@@ -118,7 +118,12 @@ export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClic
         'Egyptian Ammiya': 'ar-EG',
         'French': 'fr-FR',
         'Spanish': 'es-ES',
-        'German': 'de-DE'
+        'German': 'de-DE',
+        'Italian': 'it-IT',
+        'Portuguese': 'pt-BR',
+        'Russian': 'ru-RU',
+        'Chinese': 'zh-CN',
+        'Japanese': 'ja-JP'
       };
       
       if (hasArabic) {
@@ -228,7 +233,13 @@ export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClic
         const isArabic = profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya';
         const confirmMsg = isArabic ? "تم الإرسال: " + finalFullText : "Sent: " + finalFullText;
         const confirmUtterance = new SpeechSynthesisUtterance(confirmMsg);
-        confirmUtterance.lang = profile.language === 'Egyptian Ammiya' ? 'ar-EG' : (profile.language === 'Arabic' ? 'ar-SA' : 'en-US');
+        const langMap: Record<string, string> = {
+          'English': 'en-US', 'Arabic': 'ar-SA', 'Egyptian Ammiya': 'ar-EG',
+          'French': 'fr-FR', 'Spanish': 'es-ES', 'German': 'de-DE',
+          'Italian': 'it-IT', 'Portuguese': 'pt-BR', 'Russian': 'ru-RU',
+          'Chinese': 'zh-CN', 'Japanese': 'ja-JP'
+        };
+        confirmUtterance.lang = langMap[profile.language || 'English'] || 'en-US';
         window.speechSynthesis.speak(confirmUtterance);
       }
       if (finalFullText) {

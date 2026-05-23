@@ -73,7 +73,12 @@ export default function AccessibilityOverlay({ mode, profile, aiResponse = "", o
             'Egyptian Ammiya': 'ar-EG',
             'French': 'fr-FR',
             'Spanish': 'es-ES',
-            'German': 'de-DE'
+            'German': 'de-DE',
+            'Italian': 'it-IT',
+            'Portuguese': 'pt-BR',
+            'Russian': 'ru-RU',
+            'Chinese': 'zh-CN',
+            'Japanese': 'ja-JP'
            };
            
            if (hasArabic) {
