@@ -12,7 +12,6 @@ import IntelligenceHub from "./components/IntelligenceHub";
 import ProfilePage from "./components/ProfilePage";
 import LogicSandbox from "./components/LogicSandbox";
 import SignVideoStudio from "./components/SignVideoStudio";
-import GmailIntegration from "./components/GmailIntegration";
 import Login from "./components/Login";
 import AdminDashboard from "./components/AdminDashboard";
 import AccessibilityOverlay from "./components/AccessibilityOverlay";
@@ -31,9 +30,9 @@ import { isRTL, getTranslation } from "./lib/translations";
 export default function App() {
   const [user, loading, authError] = useAuthState(auth);
   
-  const [currentView, setCurrentView] = useState<'chat' | 'hub' | 'profile' | 'settings' | 'logic' | 'video' | 'disability' | 'admin' | 'gmail'>(() => {
+  const [currentView, setCurrentView] = useState<'chat' | 'hub' | 'profile' | 'settings' | 'logic' | 'video' | 'disability' | 'admin'>(() => {
     const hash = window.location.hash.replace('#', '');
-    return ['chat', 'hub', 'logic', 'profile', 'settings', 'video', 'disability', 'admin', 'gmail'].includes(hash) ? hash as any : 'chat';
+    return ['chat', 'hub', 'logic', 'profile', 'settings', 'video', 'disability', 'admin'].includes(hash) ? hash as any : 'chat';
   });
   
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -111,7 +110,7 @@ export default function App() {
 
     const handlePopState = () => {
       const hash = window.location.hash.replace('#', '');
-      if (['chat', 'hub', 'logic', 'profile', 'settings', 'video', 'disability', 'admin', 'gmail'].includes(hash)) {
+      if (['chat', 'hub', 'logic', 'profile', 'settings', 'video', 'disability', 'admin'].includes(hash)) {
         setCurrentView(hash as any);
       } else {
         setCurrentView('chat');
@@ -124,7 +123,7 @@ export default function App() {
   }, []);
 
   // Custom navigation function that updates URL and state
-  const navigateTo = (view: 'chat' | 'hub' | 'logic' | 'profile' | 'settings' | 'video' | 'disability' | 'admin' | 'gmail') => {
+  const navigateTo = (view: 'chat' | 'hub' | 'logic' | 'profile' | 'settings' | 'video' | 'disability' | 'admin') => {
     if (view !== currentView) {
       window.history.pushState(null, '', `#${view}`);
       setCurrentView(view);
@@ -327,8 +326,6 @@ export default function App() {
         return <LogicSandbox profile={profile} onMenuClick={() => setIsMobileMenuOpen(true)} />;
       case 'admin':
         return <AdminDashboard profile={profile} onMenuClick={() => setIsMobileMenuOpen(true)} />;
-      case 'gmail':
-        return <GmailIntegration profile={profile} onMenuClick={() => setIsMobileMenuOpen(true)} />;
       case 'settings':
         return (
           <div className="flex-1 flex flex-col bg-slate-50 relative overflow-hidden">

@@ -20,13 +20,6 @@ export const db = initializeFirestore(app, {
 }, firebaseConfig.firestoreDatabaseId);
 
 export const googleProvider = new GoogleAuthProvider();
-googleProvider.addScope('https://www.googleapis.com/auth/gmail.readonly');
-googleProvider.addScope('https://www.googleapis.com/auth/gmail.send');
-googleProvider.addScope('https://www.googleapis.com/auth/gmail.modify');
-
-// Cache the access token in memory.
-let cachedAccessToken: string | null = null;
-
 
 export enum OperationType {
   CREATE = 'create',
@@ -67,27 +60,7 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
   throw new Error(JSON.stringify(errInfo));
 }
 
-export const signInWithGoogle = async () => {
-  try {
-    const result = await signInWithPopup(auth, googleProvider);
-    const credential = GoogleAuthProvider.credentialFromResult(result);
-    if (credential && credential.accessToken) {
-      cachedAccessToken = credential.accessToken;
-    }
-    return result;
-  } catch (error) {
-    console.error('Sign in error:', error);
-    throw error;
-  }
-};
-
-export const getAccessToken = async (): Promise<string | null> => {
-  return cachedAccessToken;
-};
-
+export const signInWithGoogle = () => signInWithPopup(auth, googleProvider);
 export const registerWithEmail = (email: string, pass: string) => createUserWithEmailAndPassword(auth, email, pass);
 export const loginWithEmail = (email: string, pass: string) => signInWithEmailAndPassword(auth, email, pass);
-export const logout = async () => {
-  await signOut(auth);
-  cachedAccessToken = null;
-};
+export const logout = () => signOut(auth);
