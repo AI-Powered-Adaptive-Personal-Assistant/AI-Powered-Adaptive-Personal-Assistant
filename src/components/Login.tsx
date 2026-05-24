@@ -1,15 +1,17 @@
 import React, { useState } from 'react';
-import { signInWithGoogle, loginWithEmail, registerWithEmail } from '../lib/firebase';
+import { signInWithGoogle, loginWithEmail, registerWithEmail, auth } from '../lib/firebase';
+import { sendPasswordResetEmail } from 'firebase/auth';
 import { motion, AnimatePresence } from 'motion/react';
 import { Layers, Chrome, Mail, Lock, AlertCircle, Loader2, Eye, EyeOff, ArrowLeft } from 'lucide-react';
 
 export default function Login() {
-  const [mode, setMode] = useState<'options' | 'email-login' | 'email-register'>('options');
+  const [mode, setMode] = useState<'options' | 'email-login' | 'email-register' | 'reset-password'>('options');
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [resetSuccess, setResetSuccess] = useState(false);
 
   const [showHelp, setShowHelp] = useState(false);
 
@@ -50,6 +52,26 @@ export default function Login() {
       } else {
         await registerWithEmail(email, password);
       }
+    } catch (err: any) {
+      setError(err.message.replace("Firebase: ", ""));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email) {
+      setError("Please enter your email address.");
+      return;
+    }
+    setError(null);
+    setLoading(true);
+    setResetSuccess(false);
+
+    try {
+      await sendPasswordResetEmail(auth, email);
+      setResetSuccess(true);
     } catch (err: any) {
       setError(err.message.replace("Firebase: ", ""));
     } finally {
@@ -245,7 +267,7 @@ export default function Login() {
                  </button>
               </div>
             </motion.div>
-          ) : (
+          ) : mode === 'email-login' ? (
             <motion.div 
               key="login-form"
               initial={{ opacity: 0, x: 20 }}
@@ -296,6 +318,15 @@ export default function Login() {
                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                      </button>
                   </div>
+                  <div className="flex justify-end pt-1">
+                    <button 
+                      type="button"
+                      onClick={() => { setMode('reset-password'); setError(null); setResetSuccess(false); }}
+                      className="text-[10px] font-bold text-primary hover:underline uppercase tracking-wide"
+                    >
+                      Forgot Password?
+                    </button>
+                  </div>
                 </div>
 
                 {error && (
@@ -333,7 +364,79 @@ export default function Login() {
                 </button>
               </div>
             </motion.div>
-          )}
+          ) : mode === 'reset-password' ? (
+            <motion.div 
+              key="reset-password-form"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              className="w-full space-y-6 relative text-left"
+            >
+              <button 
+                onClick={() => { setMode('email-login'); setError(null); }}
+                className="absolute -top-8 -left-3 p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 transition-colors"
+                title="Back to login"
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </button>
+              
+              <div className="space-y-2 mb-6">
+                <h2 className="text-2xl font-black text-slate-800 tracking-tight">Reset Password</h2>
+                <p className="text-slate-500 text-sm">Enter your email address to receive password reset instructions.</p>
+              </div>
+
+              {resetSuccess ? (
+                <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-xl text-emerald-700 text-sm font-medium">
+                  Password reset instructions have been sent to <strong>{email}</strong>. Please check your inbox.
+                </div>
+              ) : (
+                <form onSubmit={handleResetPassword} className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase ml-4">Email Address</label>
+                    <div className="relative">
+                      <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
+                      <input 
+                        type="email" 
+                        required
+                        placeholder="name@example.com"
+                        className="w-full bg-slate-50 border border-slate-100 rounded-xl py-3 pl-12 pr-4 text-sm focus:ring-4 focus:ring-primary/5 focus:border-primary focus:bg-white outline-none transition-all"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  {error && (
+                    <motion.div 
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="flex items-center gap-2 p-3 bg-rose-50 border border-rose-100 rounded-xl text-rose-600 text-xs font-bold"
+                    >
+                      <AlertCircle className="w-4 h-4" />
+                      {error}
+                    </motion.div>
+                  )}
+
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full bg-primary text-white py-4 rounded-xl flex items-center justify-center font-bold shadow-lg shadow-primary/20 hover:bg-blue-700 transition-all disabled:opacity-50 mt-2"
+                  >
+                    {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Send Reset Link'}
+                  </button>
+                </form>
+              )}
+
+              <div className="flex justify-center pt-2">
+                <button 
+                  onClick={() => { setMode('email-login'); setError(null); }}
+                  className="text-xs font-bold text-slate-500 hover:text-primary transition-colors"
+                >
+                  Back to sign in
+                </button>
+              </div>
+            </motion.div>
+          ) : null}
         </AnimatePresence>
 
         <div className="text-[10px] font-black text-slate-200 uppercase tracking-[0.4em]">
