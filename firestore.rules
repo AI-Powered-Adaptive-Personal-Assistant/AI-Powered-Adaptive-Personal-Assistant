@@ -27,13 +27,7 @@ service cloud.firestore {
 
     function isAdmin() {
       return isAuthenticated() && request.auth.token.email_verified == true && request.auth.token.email in [
-        "modyhashim2006@gmail.com", 
-        "pro.mahmoud.h@gmail.com",
-        "marwaneltaweel0@gmail.com",
-        "its.alkhateeb@gmail.com",
-        "esraahosni8@gmail.com",
-        "nermeenatefateffarouk@gmail.com",
-        "mariemsayedr33@gmail.com"
+        "modyhashim2006@gmail.com"
       ];
     }
 
@@ -42,12 +36,11 @@ service cloud.firestore {
     }
 
     function isValidEmail(email) {
-      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+      return email is string && email.size() >= 3 && email.size() <= 256 && email.matches("^[^@]+@[^@]+\\.[^@]+$");
     }
 
     function isValidUser(data) {
       return isAdmin() || (data.keys().hasAll(["uid", "email", "role", "level", "onboardingComplete", "points"]) &&
-             data.keys().hasOnly(["uid", "email", "role", "level", "onboardingComplete", "points", "name", "religion", "bio", "language", "chatHistory", "questionHistory", "iqScore", "lastQuizDate", "university", "faculty", "work", "jobTitle", "country", "growthIndex", "meritPoints", "field", "accessibilityMode", "questionScore", "quizDuration", "chatThreads", "activeThreadId", "photoURL", "educationLevel", "sustainabilityGoal", "tasks", "lastActiveDate", "accountPath", "universityEmail", "department", "disabilityType"]) &&
              data.uid == request.auth.uid &&
              isValidEmail(data.email) &&
              data.role in ["Student", "Professional"] &&

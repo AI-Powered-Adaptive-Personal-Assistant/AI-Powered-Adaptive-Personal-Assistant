@@ -1,11 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { 
   getAuth, 
-  initializeAuth,
-  indexedDBLocalPersistence,
-  browserLocalPersistence,
-  browserSessionPersistence,
-  inMemoryPersistence,
   GoogleAuthProvider, 
   signInWithPopup, 
   signOut, 
@@ -51,57 +46,8 @@ const isLocalStorageSupported = (): boolean => {
   }
 };
 
-const isSessionStorageSupported = (): boolean => {
-  try {
-    if (typeof window === 'undefined' || !window.sessionStorage) {
-      return false;
-    }
-    window.sessionStorage.setItem('__firebase_probe__', '1');
-    window.sessionStorage.removeItem('__firebase_probe__');
-    return true;
-  } catch (err) {
-    return false;
-  }
-};
-
-// Compile a safe array of persistence layers based on actual browser capabilities
-const getSafePersistenceArray = () => {
-  const persistences = [];
-
-  // signInWithPopup / signInWithRedirect rely on indexedDBLocalPersistence to synchronize credentials or state.
-  // We include indexedDBLocalPersistence if supported so that Google Login works flawlessly inside standalone view windows.
-  if (isIndexedDBSupported()) {
-    persistences.push(indexedDBLocalPersistence);
-  }
-  if (isLocalStorageSupported()) {
-    persistences.push(browserLocalPersistence);
-  }
-  if (isSessionStorageSupported()) {
-    persistences.push(browserSessionPersistence);
-  }
-  persistences.push(inMemoryPersistence);
-  return persistences;
-};
-
-// Safe initialization of Firebase Auth
-let safeAuth;
-try {
-  safeAuth = initializeAuth(app, {
-    persistence: getSafePersistenceArray()
-  });
-} catch (error) {
-  try {
-    safeAuth = getAuth(app);
-  } catch (getAuthError) {
-    console.error("Critical: Could not initialize or retrieve Firebase Auth", getAuthError);
-    // Ultimate fallback as single value
-    safeAuth = initializeAuth(app, {
-      persistence: inMemoryPersistence
-    });
-  }
-}
-
-export const auth = safeAuth;
+// Standard and robust initialization of Firebase Auth
+export const auth = getAuth(app);
 export const storage = getStorage(app);
 
 // Initialize Firestore safely with IndexedDB support checks
