@@ -289,6 +289,17 @@ export default function Login() {
                 <span>Continue with Google</span>
               </button>
 
+              {error && (
+                <motion.div 
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="w-full flex items-center gap-2 p-3 bg-rose-50 border border-rose-100 rounded-2xl text-rose-600 text-xs font-bold text-left"
+                >
+                  <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
+                  <span>{error}</span>
+                </motion.div>
+              )}
+
               {isInIframe && (
                 <div className="p-5 bg-blue-50/80 border border-blue-100 rounded-3xl text-xs text-blue-900 text-left space-y-3 font-medium">
                   <div className="flex items-center gap-2 text-blue-950 font-black uppercase text-xs">

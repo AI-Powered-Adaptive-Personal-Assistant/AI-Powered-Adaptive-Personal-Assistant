@@ -191,6 +191,8 @@ export default function App() {
 
     try {
       await setDoc(doc(db, path), newProfile, { merge: true });
+      // Cleanly and immediately update local state to navigate the user away from Onboarding to the dashboard.
+      setProfile(newProfile);
     } catch (err) {
       handleFirestoreError(err, OperationType.CREATE, path);
     }

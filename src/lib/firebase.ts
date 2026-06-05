@@ -67,9 +67,12 @@ const isSessionStorageSupported = (): boolean => {
 // Compile a safe array of persistence layers based on actual browser capabilities
 const getSafePersistenceArray = () => {
   const persistences = [];
-  if (isIndexedDBSupported()) {
-    persistences.push(indexedDBLocalPersistence);
-  }
+
+  // Exclude indexedDBLocalPersistence entirely across all environments to prevent
+  // the asynchronous "@firebase/auth: INTERNAL ASSERTION FAILED: Pending promise was never set" error.
+  // This error frequently affects iOS, Safari, Chrome on iOS/Mac, and sandboxed iframes.
+  // browserLocalPersistence (localStorage) is highly stable, maintains sessions perfectly across refreshes,
+  // and does not suffer from blocking IndexedDB async constraints.
   if (isLocalStorageSupported()) {
     persistences.push(browserLocalPersistence);
   }
