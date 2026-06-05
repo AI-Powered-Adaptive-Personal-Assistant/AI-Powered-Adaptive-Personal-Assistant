@@ -2,6 +2,11 @@ import express from "express";
 import { createServer as createViteServer } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
+import dotenv from "dotenv";
+
+dotenv.config();
+
+import { geminiRouter } from "./server/routes";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -10,12 +15,14 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  app.use(express.json({ limit: '10mb' }));
+  app.use(express.json({ limit: '50mb' }));
 
   // API Health Check
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok" });
   });
+
+  app.use("/api/gemini", geminiRouter);
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {

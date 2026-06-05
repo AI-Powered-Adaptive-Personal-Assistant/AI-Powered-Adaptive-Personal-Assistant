@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Sidebar from "./components/Sidebar";
 import ChatInterface from "./components/ChatInterface";
 import RightPanel from "./components/RightPanel";
@@ -29,6 +29,7 @@ import { isRTL, getTranslation } from "./lib/translations";
 
 export default function App() {
   const [user, loading, authError] = useAuthState(auth);
+  const chatRef = useRef<any>(null);
   
   const [currentView, setCurrentView] = useState<'chat' | 'hub' | 'profile' | 'settings' | 'logic' | 'video' | 'disability' | 'admin'>(() => {
     const hash = window.location.hash.replace('#', '');
@@ -233,7 +234,7 @@ export default function App() {
       // Clear legacy global history if it exists to save space
       cleanProfile.chatHistory = []; 
 
-      await setDoc(doc(db, path), cleanProfile);
+      await setDoc(doc(db, path), cleanProfile, { merge: true });
     } catch (err) {
       handleFirestoreError(err, OperationType.UPDATE, path);
     }
@@ -293,6 +294,7 @@ export default function App() {
         return (
           <>
             <ChatInterface 
+              ref={chatRef}
               profile={profile} 
               onQuestionEvaluated={updateQuestionHistory} 
               syncMessages={syncActiveThread} 
@@ -402,6 +404,7 @@ export default function App() {
         return (
           <>
             <ChatInterface 
+              ref={chatRef}
               profile={profile} 
               onQuestionEvaluated={updateQuestionHistory} 
               syncMessages={syncActiveThread} 
@@ -455,7 +458,7 @@ export default function App() {
                   }
                   cleanProfile.chatHistory = [];
 
-                  await setDoc(doc(db, path), cleanProfile);
+                  await setDoc(doc(db, path), cleanProfile, { merge: true });
                 } catch (err) {
                   handleFirestoreError(err, OperationType.UPDATE, path);
                 }
@@ -485,10 +488,9 @@ export default function App() {
               setTimeout(() => setExternalMessage(""), 500);
             }} 
             onToggleListening={() => {
-              // We need a way to trigger ChatInterface's toggle
-              // I'll add a global event or common state
-              const btn = document.querySelector('button[title*="Speak"]') as HTMLButtonElement;
-              if (btn) btn.click();
+              if (chatRef.current) {
+                chatRef.current.toggleSTT();
+              }
             }}
           />
         )}

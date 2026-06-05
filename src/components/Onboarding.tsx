@@ -88,7 +88,6 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
     role: "Student",
     educationLevel: "University",
     university: "",
-    faculty: "",
     work: "",
     jobTitle: "",
     points: 100,

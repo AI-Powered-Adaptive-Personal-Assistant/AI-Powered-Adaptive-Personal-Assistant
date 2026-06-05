@@ -6,7 +6,8 @@ import { Send, Bot, User, Loader2, Sparkles, BrainCircuit, Paperclip, ImageIcon,
 import Markdown from 'react-markdown';
 import { motion, AnimatePresence } from "motion/react";
 import { doc, setDoc, onSnapshot } from "firebase/firestore";
-import { db, handleFirestoreError, OperationType } from "../lib/firebase";
+import { ref as firebaseStorageRef, uploadString, getDownloadURL } from "firebase/storage";
+import { db, storage, handleFirestoreError, OperationType } from "../lib/firebase";
 import { getTranslation } from "../lib/translations";
 
 interface ChatInterfaceProps {
@@ -18,9 +19,14 @@ interface ChatInterfaceProps {
   onStreamingUpdate?: (text: string) => void;
   isEmbedded?: boolean;
   onSTTStateChange?: (active: boolean) => void;
+  setProfile?: (profile: UserProfile) => void;
 }
 
-export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClick, syncMessages, externalMessage, onStreamingUpdate, isEmbedded, onSTTStateChange }: ChatInterfaceProps) {
+export interface ChatInterfaceRef {
+  toggleSTT: () => void;
+}
+
+const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ profile, onQuestionEvaluated, onMenuClick, syncMessages, externalMessage, onStreamingUpdate, isEmbedded, onSTTStateChange, setProfile }, ref) => {
   const activeThread = profile.chatThreads?.find(t => t.id === profile.activeThreadId);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -39,11 +45,20 @@ export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClic
         title: "New Chat",
         updatedAt: new Date().toISOString()
       };
-      profile.chatThreads = [...(profile.chatThreads || []), newThread];
-      profile.activeThreadId = currentThreadId;
+      const updatedThreads = [...(profile.chatThreads || []), newThread];
+      if (setProfile) {
+        setProfile({
+            ...profile,
+            chatThreads: updatedThreads,
+            activeThreadId: currentThreadId
+        });
+      } else {
+        profile.chatThreads = updatedThreads;
+        profile.activeThreadId = currentThreadId;
+      }
       if (profile.uid) {
          setDoc(doc(db, `users/${profile.uid}`), { 
-           chatThreads: profile.chatThreads, 
+           chatThreads: updatedThreads, 
            activeThreadId: currentThreadId 
          }, { merge: true });
       }
@@ -273,6 +288,10 @@ export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClic
     }
   };
 
+  React.useImperativeHandle(ref, () => ({
+    toggleSTT: toggleListening
+  }));
+
   useEffect(() => {
     return () => {
       recognitionRef.current?.stop();
@@ -343,7 +362,12 @@ export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClic
     const files = e.target.files;
     if (!files) return;
 
-    const newFiles: { name: string, type: string, data: string }[] = [];
+    if (!profile.uid) {
+         alert("Please login first");
+         return;
+    }
+
+    const newFiles: { name: string, type: string, data: string, url?: string }[] = [];
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
       
@@ -358,10 +382,22 @@ export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClic
         reader.onload = () => resolve(reader.result as string);
         reader.readAsDataURL(file);
       });
+      const dataStr = base64.split(',')[1];
+      
+      let downloadUrl = "";
+      try {
+        const storageRef = firebaseStorageRef(storage, `users/${profile.uid}/attachments/${Date.now()}_${file.name}`);
+        await uploadString(storageRef, dataStr, 'base64', { contentType: file.type });
+        downloadUrl = await getDownloadURL(storageRef);
+      } catch (err) {
+        console.error("Storage upload error", err);
+      }
+
       newFiles.push({
         name: file.name,
         type: file.type,
-        data: base64.split(',')[1] // Just the bytes
+        data: dataStr,
+        url: downloadUrl
       });
     }
     setSelectedFiles(prev => [...prev, ...newFiles]);
@@ -414,13 +450,23 @@ export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClic
         title: suggestedTitle,
         updatedAt: new Date().toISOString()
       };
-      profile.chatThreads = [...(profile.chatThreads || []), newThread];
-      profile.activeThreadId = currentThreadId;
+      
+      const updatedThreads = [...(profile.chatThreads || []), newThread];
+      if (setProfile) {
+        setProfile({
+            ...profile,
+            chatThreads: updatedThreads,
+            activeThreadId: currentThreadId
+        });
+      } else {
+        profile.chatThreads = updatedThreads;
+        profile.activeThreadId = currentThreadId;
+      }
       
       // Persist the new thread creation immediately to the user document
       if (profile.uid) {
          setDoc(doc(db, `users/${profile.uid}`), { 
-           chatThreads: profile.chatThreads, 
+           chatThreads: updatedThreads, 
            activeThreadId: currentThreadId 
          }, { merge: true });
       }
@@ -429,7 +475,12 @@ export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClic
       const updatedThreads = (profile.chatThreads || []).map(t => 
         t.id === activeThread.id ? { ...t, title: suggestedTitle } : t
       );
-      profile.chatThreads = updatedThreads; // Immediate local update
+      
+      if (setProfile) {
+        setProfile({ ...profile, chatThreads: updatedThreads });
+      } else {
+        profile.chatThreads = updatedThreads; // Immediate local update
+      }
       
       if (profile.uid) {
          setDoc(doc(db, `users/${profile.uid}`), { chatThreads: updatedThreads }, { merge: true });
@@ -450,7 +501,13 @@ export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClic
     // Save locally to appropriate Firestore document
     if (profile.uid && currentThreadId) {
       const threadPath = `users/${profile.uid}/threads/${currentThreadId}`;
-      setDoc(doc(db, threadPath), { messages: newHistory }, { merge: true }).catch(err => {
+      const historyToSave = newHistory.map(m => ({
+        ...m,
+        attachments: m.attachments?.map((a: any) => ({
+           name: a.name, type: a.type, url: a.url || null
+        }))
+      }));
+      setDoc(doc(db, threadPath), { messages: historyToSave }, { merge: true }).catch(err => {
          handleFirestoreError(err, OperationType.UPDATE, threadPath);
       });
     }
@@ -498,7 +555,13 @@ export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClic
       // Final persistence
       if (profile.uid && currentThreadId) {
         const threadPath = `users/${profile.uid}/threads/${currentThreadId}`;
-        setDoc(doc(db, threadPath), { messages: updatedHistory }, { merge: true }).catch(err => {
+        const historyToSave = updatedHistory.map(m => ({
+          ...m,
+          attachments: m.attachments?.map((a: any) => ({
+             name: a.name, type: a.type, url: a.url || null
+          }))
+        }));
+        setDoc(doc(db, threadPath), { messages: historyToSave }, { merge: true }).catch(err => {
            handleFirestoreError(err, OperationType.UPDATE, threadPath);
         });
       }
@@ -547,7 +610,13 @@ export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClic
     setComparingId(null);
 
     const threadPath = `users/${profile.uid}/threads/${profile.activeThreadId}`;
-    setDoc(doc(db, threadPath), { messages: updatedMessages }, { merge: true }).catch(err => {
+    const historyToSave = updatedMessages.map(m => ({
+      ...m,
+      attachments: m.attachments?.map((a: any) => ({
+         name: a.name, type: a.type, url: a.url || null
+      }))
+    }));
+    setDoc(doc(db, threadPath), { messages: historyToSave }, { merge: true }).catch(err => {
         handleFirestoreError(err, OperationType.UPDATE, threadPath);
     });
   };
@@ -1220,4 +1289,6 @@ export default function ChatInterface({ profile, onQuestionEvaluated, onMenuClic
       </div>
     </div>
   );
-}
+});
+
+export default ChatInterface;

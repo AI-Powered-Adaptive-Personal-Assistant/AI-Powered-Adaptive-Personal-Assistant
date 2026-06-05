@@ -10,6 +10,7 @@ import { getTranslation } from '../lib/translations';
 interface ProfilePageProps {
   profile: UserProfile;
   onMenuClick?: () => void;
+  setProfile?: (profile: UserProfile) => void;
 }
 
 const SUSTAINABILITY_GOALS = [
@@ -19,7 +20,7 @@ const SUSTAINABILITY_GOALS = [
   { id: 'zero-hunger', label: 'Zero Hunger / Sustainable Food', icon: Sprout }
 ];
 
-export default function ProfilePage({ profile, onMenuClick }: ProfilePageProps) {
+export default function ProfilePage({ profile, onMenuClick, setProfile }: ProfilePageProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedProfile, setEditedProfile] = useState<UserProfile>(profile);
   const [saving, setSaving] = useState(false);
@@ -35,7 +36,8 @@ export default function ProfilePage({ profile, onMenuClick }: ProfilePageProps) 
     setSaving(true);
     const path = `users/${profile.uid}`;
     try {
-      await setDoc(doc(db, path), editedProfile);
+      if (setProfile) setProfile(editedProfile);
+      await setDoc(doc(db, path), editedProfile, { merge: true });
       setIsEditing(false);
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, path);

@@ -26,7 +26,7 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return isAuthenticated() && request.auth.token.email in [
+      return isAuthenticated() && request.auth.token.email_verified == true && request.auth.token.email in [
         "modyhashim2006@gmail.com", 
         "pro.mahmoud.h@gmail.com",
         "marwaneltaweel0@gmail.com",
@@ -47,7 +47,7 @@ service cloud.firestore {
 
     function isValidUser(data) {
       return isAdmin() || (data.keys().hasAll(["uid", "email", "role", "level", "onboardingComplete", "points"]) &&
-             data.keys().hasOnly(["uid", "email", "role", "level", "onboardingComplete", "points", "name", "religion", "bio", "language", "chatHistory", "questionHistory", "iqScore", "lastQuizDate", "university", "faculty", "work", "jobTitle", "country", "growthIndex", "meritPoints", "field", "accessibilityMode", "questionScore", "quizDuration", "chatThreads", "activeThreadId", "photoURL", "educationLevel", "sustainabilityGoal", "tasks", "lastActiveDate"]) &&
+             data.keys().hasOnly(["uid", "email", "role", "level", "onboardingComplete", "points", "name", "religion", "bio", "language", "chatHistory", "questionHistory", "iqScore", "lastQuizDate", "university", "faculty", "work", "jobTitle", "country", "growthIndex", "meritPoints", "field", "accessibilityMode", "questionScore", "quizDuration", "chatThreads", "activeThreadId", "photoURL", "educationLevel", "sustainabilityGoal", "tasks", "lastActiveDate", "accountPath", "universityEmail", "department", "disabilityType"]) &&
              data.uid == request.auth.uid &&
              isValidEmail(data.email) &&
              data.role in ["Student", "Professional"] &&
@@ -67,6 +67,14 @@ service cloud.firestore {
       allow update: if isOwner(userId) && isValidUser(request.resource.data) && 
                     request.resource.data.uid == resource.data.uid;
       allow delete: if isAdmin();
+      
+      match /threads/{threadId} {
+        allow read, write: if isOwner(userId) || isAdmin();
+      }
+      
+      match /sandbox/{sandboxId} {
+        allow read, write: if isOwner(userId) || isAdmin();
+      }
     }
 
     match /system/{docId} {
