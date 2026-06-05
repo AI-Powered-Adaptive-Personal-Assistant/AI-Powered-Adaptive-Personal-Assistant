@@ -20,6 +20,13 @@ export default function Login() {
   const [disabilityType, setDisabilityType] = useState("");
 
   const [showHelp, setShowHelp] = useState(false);
+  const [isInIframe] = useState(() => {
+    try {
+      return window.self !== window.top;
+    } catch (e) {
+      return true;
+    }
+  });
 
   const handleContinuePath = () => {
     localStorage.setItem('preLoginAccountPath', accountPath);
@@ -281,6 +288,32 @@ export default function Login() {
                 )}
                 <span>Continue with Google</span>
               </button>
+
+              {isInIframe && (
+                <div className="p-5 bg-blue-50/80 border border-blue-100 rounded-3xl text-xs text-blue-900 text-left space-y-3 font-medium">
+                  <div className="flex items-center gap-2 text-blue-950 font-black uppercase text-xs">
+                    <AlertCircle className="w-4 h-4 text-blue-600 shrink-0 animate-pulse" />
+                    <span>تنبيه هام للمتصفح (Browser Notice)</span>
+                  </div>
+                  <p className="leading-relaxed">
+                     إذا لم يستجب زر <strong className="text-blue-950">Continue with Google</strong>، فذلك بسبب قيود حماية النوافذ المضمنة (Iframe Sandbox) بالمتصفح أثناء المعاينة بنظام AI Studio.
+                  </p>
+                  <p className="leading-relaxed font-bold">
+                     يرجى فتح التطبيق في صفحة مستقلة جديدة ليسهل إتمام تسجيل الدخول مباشرة وبأمان:
+                  </p>
+                  <a 
+                    href={window.location.href} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="w-full h-12 flex items-center justify-center gap-2 bg-[#4F46E5] text-white rounded-xl hover:bg-[#4338CA] transition-colors font-black text-xs uppercase tracking-wider shadow-md shadow-indigo-200"
+                  >
+                    افتح في صفحة جديدة ↗ Open in New Tab
+                  </a>
+                  <p className="text-[10px] text-slate-500 pt-1 text-center font-bold">
+                    أو قم بالتسجيل وإدخال بريدك الإلكتروني يدويًا واختيار كلمة مرور بالأعلى.
+                  </p>
+                </div>
+              )}
 
               <AnimatePresence>
                 {showHelp && (

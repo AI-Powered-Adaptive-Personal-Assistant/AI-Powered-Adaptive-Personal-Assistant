@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { UserProfile } from "../types";
 import { motion, AnimatePresence } from "motion/react";
 import { Mic, Square, Play, RefreshCw, Menu, Download, FileText, Settings, Video, Sparkles, Brain } from "lucide-react";
+import SignAvatar3D from "./SignAvatar3D";
 
 interface SignVideoStudioProps {
   profile: UserProfile;
@@ -14,9 +15,9 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
   const [isRecording, setIsRecording] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [playbackProgress, setPlaybackProgress] = useState(0);
-  const [currentSignWord, setCurrentSignWord] = useState<string | null>(null);
   const [sequence, setSequence] = useState<string[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [is3DActive, setIs3DActive] = useState(true); // real 3D engine is now the default
   const prevInputRef = useRef("");
   const recognitionRef = useRef<any>(null);
 
@@ -36,24 +37,23 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
         }
       }
     }, 1000);
-    
+
     return () => clearTimeout(timer);
   }, [inputText]);
 
-  // Setup exact same getHandPose as overlay, or just basic mapping
+  // Setup exact same getHandPose as overlay (used by the 2D fallback mode)
   const getHandPose = (word: string, side: 'left' | 'right') => {
     const w = word.toLowerCase();
-    
-    // Advanced ASL logic (simulated based on Kaggle dataset mappings)
+
     if (w.length === 1 && /^[a-z]$/.test(w)) {
         const charCode = w.charCodeAt(0) - 97;
-        const xOffset = (charCode % 5) * 8; // More distinct offsets
+        const xOffset = (charCode % 5) * 8;
         const yOffset = (charCode % 3) * 15 - 20;
         const rotateOffset = (charCode % 7) * 15 - 45;
-        
+
         return {
           x: side === 'left' ? xOffset : -xOffset,
-          y: yOffset + 25, 
+          y: yOffset + 25,
           rotate: side === 'left' ? rotateOffset : -rotateOffset,
           scale: 0.85 + (charCode % 3) * 0.1,
           opacity: 0.95,
@@ -61,18 +61,17 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
         };
     }
 
-    // Advanced word-level mapping based on Kaggle dataset models
     if (['hello', 'hi', 'hey', 'مرحبا', 'اهلا', 'سلام'].some(g => w.includes(g))) {
-        return side === 'left' 
-          ? { x: 60, y: -80, rotate: 90, scale: 1.4, opacity: 1, transition: { type: "spring", stiffness: 150, damping: 12 } } 
+        return side === 'left'
+          ? { x: 60, y: -80, rotate: 90, scale: 1.4, opacity: 1, transition: { type: "spring", stiffness: 150, damping: 12 } }
           : { x: -15, y: 20, rotate: 10, scale: 0.9, opacity: 0.8 };
     }
     if (['thank', 'shukran', 'شكرا', 'تقدير', 'love'].some(g => w.includes(g))) {
         return { y: [0, 60, 0], x: side === 'left' ? 25 : -25, scale: [1, 1.3, 1], rotate: side === 'left' ? -35 : 35, transition: { duration: 0.6, ease: "easeInOut" } };
     }
     if (['think', 'know', 'brain', 'mind', 'cognify', 'عقل', 'فكر', 'اعرف', 'ذكاء', 'ai'].some(g => w.includes(g))) {
-        return side === 'left' 
-          ? { y: -100, x: 35, rotate: 120, scale: 1.2, opacity: 1, transition: { type: "spring", stiffness: 100, damping: 10 } } 
+        return side === 'left'
+          ? { y: -100, x: 35, rotate: 120, scale: 1.2, opacity: 1, transition: { type: "spring", stiffness: 100, damping: 10 } }
           : { y: -30, x: -20, rotate: -25, scale: 0.8, opacity: 0.6 };
     }
     if (['help', 'support', 'assist', 'مساعدة', 'عون', 'please'].some(g => w.includes(g))) {
@@ -87,15 +86,13 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
     if (['no', 'not', 'never', 'don', 'لا', 'كلا', 'ليس'].some(x => w.includes(x))) {
         return { x: side === 'left' ? [-60, 0, -60] : [60, 0, 60], rotate: side === 'left' ? -50 : 50, scale: 0.85, transition: { duration: 0.35, repeat: 1 } };
     }
-    
-    // Spelling fallback for unknown words (simulating sequence of letters)
-    // We base the movement on the hash of the word to give unique but consistent gestures
+
     const hash = w.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
     const complexRotate = hash % 60 - 30;
     const complexY = hash % 50 - 25;
-    
-    return side === 'left' 
-      ? { x: [-30, 35, -15, 0], y: [0, complexY - 50, 30, 0], rotate: [-35, complexRotate + 50, -65, -35], scale: [1, 1.3, 0.85, 1], transition: { duration: 0.6 } } 
+
+    return side === 'left'
+      ? { x: [-30, 35, -15, 0], y: [0, complexY - 50, 30, 0], rotate: [-35, complexRotate + 50, -65, -35], scale: [1, 1.3, 0.85, 1], transition: { duration: 0.6 } }
       : { x: [30, -35, 15, 0], y: [0, complexY + 50, -30, 0], rotate: [35, -complexRotate - 50, 65, 35], scale: [1, 1.3, 0.85, 1], transition: { duration: 0.6 } };
   };
 
@@ -105,7 +102,7 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
       const recognition = new SpeechRecognition();
       recognition.continuous = true;
       recognition.interimResults = true;
-      recognition.lang = profile.language === 'Arabic' ? 'ar-SA' : 'en-US';
+      recognition.lang = profile.language === 'Arabic' ? 'ar-SA' : profile.language === 'Egyptian Ammiya' ? 'ar-EG' : 'en-US';
 
       recognition.onresult = (event: any) => {
         let fullTranscript = "";
@@ -117,7 +114,7 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
 
       recognition.onerror = () => { setIsRecording(false); };
       recognition.onend = () => { setIsRecording(false); };
-      
+
       recognitionRef.current = recognition;
       recognition.start();
       setIsRecording(true);
@@ -136,18 +133,18 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
   const generateVideo = () => {
     if (!inputText.trim()) return;
     setIsGenerating(true);
-    // Simulate generation delay
     setTimeout(() => {
-      // Split into words, filter out empty
       const words = inputText.trim().split(/\s+/).filter(Boolean);
       setSequence(words);
       setIsGenerating(false);
       setPlaybackProgress(0);
       setIsPlaying(true);
-    }, 1500);
+    }, 600);
   };
 
+  // 2D fallback timeline only — in 3D mode the avatar drives progress itself
   useEffect(() => {
+    if (is3DActive) return;
     let playInterval: any;
     if (isPlaying && sequence.length > 0) {
       playInterval = setInterval(() => {
@@ -159,15 +156,13 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
           }
           return prev + 1;
         });
-      }, 1000); // 1 second per word
+      }, 1000);
     }
-    
+
     return () => {
         if (playInterval) clearInterval(playInterval);
     };
-  }, [isPlaying, sequence]);
-
-  const [is3DActive, setIs3DActive] = useState(false);
+  }, [isPlaying, sequence, is3DActive]);
 
   const activeWord = playbackProgress < sequence.length ? sequence[playbackProgress] : '';
 
@@ -176,7 +171,7 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
       {!isEmbedded && (
         <header className="p-6 md:p-10 shrink-0 flex items-center justify-between z-10 relative bg-white border-b border-slate-200">
            <div className="flex items-center gap-4">
-             <button 
+             <button
               onClick={onMenuClick}
               className="lg:hidden p-2 text-slate-500 bg-white shadow-sm border border-slate-200 hover:bg-slate-50 rounded-lg active:scale-95"
             >
@@ -184,30 +179,30 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
             </button>
              <div>
                <h1 className="text-3xl font-bold tracking-tight text-slate-900 flex items-center gap-3">
-                 Sign Video Studio 
+                 Sign Video Studio
                  <div className="px-2 py-1 bg-primary/10 text-primary rounded-md text-xs font-bold uppercase tracking-widest border border-primary/20">Beta</div>
                </h1>
                <p className="text-sm text-slate-500 font-medium mt-1">Generate AI Sign Language videos from speech or text input.</p>
              </div>
            </div>
-           
+
            <div className="hidden md:flex items-center gap-3">
               <div className="flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-full border border-slate-200">
                 <div className={`w-2 h-2 rounded-full ${is3DActive ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`} />
-                <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider">3D Neutral Engine</span>
+                <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider">3D Avatar Engine</span>
               </div>
            </div>
         </header>
       )}
-      
+
       <div className="bg-indigo-600/10 border-b border-indigo-600/20 text-indigo-700 text-[10px] sm:text-xs font-mono py-2 px-4 text-center flex justify-center items-center gap-2 z-20 relative w-full font-bold">
          <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse drop-shadow-md" />
-         KAGGLE DATASET REFERENCE (ASL v2) LOADED — ENHANCED TRANSLATION MODEL ACTIVE.
+         FINGERSPELLING ENGINE (A–Z, 0–9, ARABIC MAPPING) + WORD GESTURES — RENDERED IN REAL-TIME WEBGL.
       </div>
-      
+
       <div className="flex-1 overflow-y-auto p-6 md:p-10 z-10 relative flex flex-col items-center">
          <div className="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-2 gap-8 h-full">
-            
+
             {/* Input Section */}
             <div className="flex flex-col gap-6 w-full h-full">
                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 flex-1 flex flex-col">
@@ -217,17 +212,17 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
                        Script Input
                      </h2>
                   </div>
-                  
+
                   <textarea
                     value={inputText}
                     onChange={(e) => setInputText(e.target.value)}
                     placeholder="Type or dictate the script you want to convert to sign language video..."
                     className="flex-1 w-full p-4 bg-slate-50 border border-slate-200 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-primary/50 text-slate-700"
                   />
-                  
+
                   <div className="mt-4 flex flex-col sm:flex-row gap-3">
                      {isRecording ? (
-                        <button 
+                        <button
                           onClick={stopRecording}
                           className="flex items-center justify-center gap-2 px-6 py-3 bg-red-500 hover:bg-red-600 active:scale-95 transform transition-all text-white font-medium rounded-xl shadow-lg shadow-red-500/20"
                         >
@@ -235,7 +230,7 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
                            Stop Recording
                         </button>
                      ) : (
-                        <button 
+                        <button
                           onClick={startRecording}
                           className="flex items-center justify-center gap-2 px-6 py-3 bg-white border border-slate-200 hover:bg-slate-50 active:scale-95 transform transition-all text-slate-700 font-medium rounded-xl shadow-sm"
                         >
@@ -243,8 +238,8 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
                            Record Speech
                         </button>
                      )}
-                     
-                     <button 
+
+                     <button
                        onClick={generateVideo}
                        disabled={!inputText.trim() || isGenerating}
                        className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-primary hover:bg-blue-700 disabled:opacity-50 disabled:active:scale-100 active:scale-95 transform transition-all text-white font-bold rounded-xl shadow-lg shadow-primary/20"
@@ -255,7 +250,7 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
                   </div>
                </div>
             </div>
-            
+
             {/* Output Section */}
             <div className="bg-slate-900 rounded-3xl shadow-2xl border border-slate-800 p-2 flex flex-col relative overflow-hidden h-[500px] lg:h-full min-h-[500px]">
                {/* Player Header */}
@@ -265,60 +260,77 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
                      <span className="text-xs font-black uppercase tracking-widest text-white/80 drop-shadow-md">LIVE PREVIEW</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <button 
+                    <button
                       onClick={() => setIs3DActive(!is3DActive)}
                       className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all border ${
-                        is3DActive 
-                          ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/50' 
+                        is3DActive
+                          ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/50'
                           : 'bg-black/40 text-white/40 border-white/10 hover:text-white hover:border-white/30'
                       }`}
                     >
                       <Sparkles className={`w-3 h-3 ${is3DActive ? 'text-emerald-400' : 'text-amber-400'}`} />
-                      {is3DActive ? '3D Engine Active' : 'Enable 3D Engine'}
+                      {is3DActive ? '3D Avatar' : '2D Mode'}
                     </button>
                     <button className="text-white/50 hover:text-white transition-colors bg-black/40 p-2 rounded-lg backdrop-blur-md">
                       <Download className="w-5 h-5" />
                     </button>
                   </div>
                </div>
-               
+
                {/* Video Area */}
                <div className="flex-1 relative flex items-center justify-center rounded-2xl overflow-hidden bg-slate-950">
-                  {!is3DActive && sequence.length === 0 ? (
+                  {is3DActive ? (
+                    <>
+                      <div className="absolute inset-0 z-10">
+                        <SignAvatar3D
+                          words={sequence}
+                          playing={isPlaying}
+                          onProgress={(i) => setPlaybackProgress(i)}
+                          onDone={() => {
+                            setIsPlaying(false);
+                            setPlaybackProgress(sequence.length);
+                          }}
+                        />
+                      </div>
+
+                      {sequence.length === 0 && (
+                        <div className="absolute inset-x-0 bottom-28 text-center z-30 px-8 pointer-events-none">
+                          <p className="text-slate-400 text-xs font-bold uppercase tracking-widest bg-black/40 backdrop-blur-md inline-block px-4 py-2 rounded-xl border border-white/5">
+                            Type a script to start signing
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Subtitles Overlay */}
+                      {sequence.length > 0 && (
+                        <div className="absolute bottom-16 left-0 right-0 text-center z-30 px-8 pointer-events-none">
+                           <span className="inline-block px-4 py-2 bg-black/60 backdrop-blur-md rounded-xl text-2xl font-black text-white uppercase tracking-widest border border-white/10 shadow-xl">
+                              {activeWord || "—"}
+                           </span>
+                        </div>
+                      )}
+                    </>
+                  ) : sequence.length === 0 ? (
                      <div className="text-center p-8 z-10 flex flex-col items-center">
                         <Video className="w-16 h-16 text-slate-700 mb-4" />
                         <p className="text-slate-400 font-medium max-w-[250px]">Enter your script and generate to see the AI sign language video.</p>
                      </div>
-                  ) : is3DActive ? (
-                    <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-slate-900">
-                      <div className="w-24 h-24 bg-primary/20 rounded-full flex items-center justify-center mb-6 animate-pulse">
-                        <Brain className="w-12 h-12 text-primary" />
-                      </div>
-                      <h3 className="text-xl font-bold text-white mb-2">3D Neural Renderer</h3>
-                      <p className="text-slate-400 text-sm max-w-sm text-center px-10">
-                        The full 3D avatar engine requires high-tier multimodal processing. 
-                        Enable a <span className="text-amber-400">Paid Gemini API Key</span> to unlock real-time WebGL rendering and physics-based hand movements.
-                      </p>
-                      <button className="mt-8 px-6 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl text-sm transition-all shadow-lg shadow-amber-500/20">
-                        Upgrade to Premium
-                      </button>
-                    </div>
                   ) : (
                      <>
-                        <motion.div 
+                        <motion.div
                           className="w-full h-full relative z-10 flex flex-col items-center justify-end overflow-hidden"
-                          animate={{ 
+                          animate={{
                              filter: isPlaying ? "contrast(1.05) saturate(1.15)" : "contrast(1) saturate(1)"
                           }}
                         >
-                           <img 
-                             src="https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&q=80&w=600&h=800" 
+                           <img
+                             src="https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&q=80&w=600&h=800"
                              alt="AI Avatar"
                              className="absolute inset-0 w-full h-full object-cover object-top opacity-30 brightness-50 mix-blend-luminosity"
                            />
-                           
+
                            <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none">
-                             <motion.img 
+                             <motion.img
                                drag
                                dragConstraints={{ left: -150, right: 150, top: -300, bottom: 100 }}
                                dragElastic={0.2}
@@ -327,7 +339,7 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
                                className="absolute bottom-1/4 left-[15%] w-48 h-48 drop-shadow-[0_20px_20px_rgba(59,130,246,0.5)] pointer-events-auto cursor-grab active:cursor-grabbing"
                                style={{ transform: 'scaleX(-1)' }}
                              />
-                             <motion.img 
+                             <motion.img
                                drag
                                dragConstraints={{ left: -150, right: 150, top: -300, bottom: 100 }}
                                dragElastic={0.2}
@@ -337,7 +349,7 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
                              />
                            </div>
                         </motion.div>
-                        
+
                         {/* Subtitles Overlay */}
                         <div className="absolute bottom-20 left-0 right-0 text-center z-30 px-8">
                            <span className="inline-block px-4 py-2 bg-black/60 backdrop-blur-md rounded-xl text-2xl font-black text-white uppercase tracking-widest border border-white/10 shadow-xl">
@@ -347,11 +359,11 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
                      </>
                   )}
                </div>
-               
+
                {/* Player Controls Timeline */}
                <div className="mt-2 p-4 bg-slate-900/50 rounded-xl relative z-30">
                   <div className="flex items-center gap-4">
-                     <button 
+                     <button
                        onClick={() => {
                          if (sequence.length > 0) {
                             if (isPlaying) {
@@ -367,9 +379,9 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
                      >
                         {isPlaying ? <Square className="w-4 h-4 fill-current" /> : <Play className="w-5 h-5 ml-1 fill-current" />}
                      </button>
-                     
+
                      <div className="flex-1 h-3 bg-slate-800 rounded-full overflow-hidden relative border border-slate-700/50 cursor-pointer">
-                        <motion.div 
+                        <motion.div
                           className="absolute top-0 bottom-0 left-0 bg-primary"
                           initial={{ width: 0 }}
                           animate={{ width: sequence.length > 0 ? `${(playbackProgress / Math.max(1, sequence.length)) * 100}%` : '0%' }}
@@ -377,12 +389,12 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
                         />
                      </div>
                      <div className="text-xs font-mono text-slate-400 font-medium w-12 text-right">
-                       00:{(playbackProgress < 10 ? '0' : '') + playbackProgress}
+                       {String(Math.min(playbackProgress, 99)).padStart(2, '0')}/{String(Math.min(sequence.length, 99)).padStart(2, '0')}
                      </div>
                   </div>
                </div>
             </div>
-            
+
          </div>
       </div>
     </div>
