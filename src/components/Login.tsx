@@ -30,6 +30,10 @@ export default function Login() {
     return e && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
   };
 
+  const validateUniversityEmail = (e: string) => {
+    return e && /^[^\s@]+@[^\s@]+\.edu(\.[^\s@]+)?$/.test(e);
+  };
+
 
   const handleGoogleAuth = async () => {
     if (loading) return;
@@ -156,11 +160,14 @@ export default function Login() {
                   <label className="text-[11px] font-bold text-text-muted uppercase tracking-[0.05em]">University Email</label>
                   <input
                     type="email"
-                    placeholder="e.g. student@example.edu"
+                    placeholder="e.g. id@stud.fci-cu.edu.eg"
                     className="w-full bg-white border border-border rounded-xl px-4 py-3 text-sm focus:ring-4 focus:ring-primary/5 focus:border-primary outline-none transition-all"
                     value={universityEmail}
                     onChange={(e) => setUniversityEmail(e.target.value)}
                   />
+                  {!validateUniversityEmail(universityEmail) && universityEmail.length > 0 && (
+                    <p className="text-xs text-red-500 mt-1">Please enter a valid university email (e.g., .edu.eg)</p>
+                  )}
                 </motion.div>
               )}
 
@@ -186,7 +193,7 @@ export default function Login() {
               <button
                 onClick={handleContinuePath}
                 disabled={
-                  (accountPath === 'Graduation Project' && !validateEmail(universityEmail)) ||
+                  (accountPath === 'Graduation Project' && !validateUniversityEmail(universityEmail)) ||
                   (accountPath === 'Special Needs' && !disabilityType)
                 }
                 className="w-full h-16 bg-primary text-white font-bold py-4 rounded-xl shadow-lg hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400 transition-all flex items-center justify-center gap-2 group"

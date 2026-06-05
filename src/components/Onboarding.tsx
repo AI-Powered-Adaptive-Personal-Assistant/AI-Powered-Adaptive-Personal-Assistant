@@ -643,16 +643,28 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
       </button>
 
       {step < 5 && (
-        <div className="w-full flex justify-center mb-10 pt-4">
-          <div className="flex items-center gap-4 md:gap-6">
-            {[1, 2, 3, 4].map(s => (
-              <div key={s} className="flex items-center gap-2 md:gap-3">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all shadow-sm ${
-                  step >= s ? 'bg-[#4F46E5] text-white' : 'bg-white border-2 border-slate-200 text-slate-400'
-                }`}>
-                  {s}
+        <div className="w-full flex justify-center mb-16 pt-4">
+          <div className="flex items-center">
+            {[
+              { id: 1, label: 'Language' },
+              { id: 2, label: 'Profile' },
+              { id: 3, label: 'Settings' },
+              { id: 4, label: 'Assessment' }
+            ].map((s, i, arr) => (
+              <div key={s.id} className="flex items-center">
+                <div className="flex flex-col items-center relative">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all shadow-sm z-10 ${
+                    step >= s.id ? 'bg-[#4F46E5] text-white ring-4 ring-[#4F46E5]/10' : 'bg-white border-2 border-slate-200 text-slate-400'
+                  }`}>
+                    {step > s.id ? <CheckCircle className="w-4 h-4" /> : s.id}
+                  </div>
+                  <span className={`absolute -bottom-6 text-[9px] md:text-[10px] font-bold uppercase tracking-wider whitespace-nowrap transition-colors ${
+                    step >= s.id ? 'text-[#4F46E5]' : 'text-slate-400'
+                  }`}>
+                    {s.label}
+                  </span>
                 </div>
-                {s < 4 && <div className={`w-8 md:w-12 h-[2px] ${step > s ? 'bg-[#4F46E5]' : 'bg-slate-200'}`} />}
+                {i < arr.length - 1 && <div className={`w-10 md:w-16 h-[2px] mx-2 md:mx-4 transition-colors ${step > s.id ? 'bg-[#4F46E5]' : 'bg-slate-200'}`} />}
               </div>
             ))}
           </div>
