@@ -2,10 +2,10 @@ import React, { useState } from 'react';
 import { signInWithGoogle, loginWithEmail, registerWithEmail, auth } from '../lib/firebase';
 import { sendPasswordResetEmail } from 'firebase/auth';
 import { motion, AnimatePresence } from 'motion/react';
-import { Layers, Chrome, Mail, Lock, AlertCircle, Loader2, Eye, EyeOff, ArrowLeft } from 'lucide-react';
+import { Layers, Chrome, Mail, Lock, AlertCircle, Loader2, Eye, EyeOff, ArrowLeft, Brain, GraduationCap, Heart, CheckCircle, ArrowRight } from 'lucide-react';
 
 export default function Login() {
-  const [mode, setMode] = useState<'options' | 'email-login' | 'email-register' | 'reset-password'>('options');
+  const [mode, setMode] = useState<'path-selection' | 'options' | 'email-login' | 'email-register' | 'reset-password'>('path-selection');
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -13,7 +13,23 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [resetSuccess, setResetSuccess] = useState(false);
 
+  const [accountPath, setAccountPath] = useState<'Normal' | 'Graduation Project' | 'Special Needs'>('Normal');
+  const [universityEmail, setUniversityEmail] = useState("");
+  const [disabilityType, setDisabilityType] = useState("");
+
   const [showHelp, setShowHelp] = useState(false);
+
+  const handleContinuePath = () => {
+    localStorage.setItem('preLoginAccountPath', accountPath);
+    if (accountPath === 'Graduation Project') localStorage.setItem('preLoginUniEmail', universityEmail);
+    if (accountPath === 'Special Needs') localStorage.setItem('preLoginDisability', disabilityType);
+    setMode('options');
+  };
+
+  const validateEmail = (e: string) => {
+    return e && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
+  };
+
 
   const handleGoogleAuth = async () => {
     if (loading) return;
@@ -96,7 +112,89 @@ export default function Login() {
         </div>
 
         <AnimatePresence mode="wait">
-          {mode === 'options' ? (
+          {mode === 'path-selection' ? (
+            <motion.div 
+              key="path-selection"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 1.05 }}
+              className="flex flex-col gap-6 w-full"
+            >
+              <div className="flex flex-col gap-3">
+                {(["Normal", "Graduation Project", "Special Needs"] as const).map((path) => (
+                  <button
+                    key={path}
+                    onClick={() => setAccountPath(path)}
+                    className={`flex items-center gap-4 p-5 rounded-2xl border-2 transition-all text-left ${
+                      accountPath === path 
+                        ? 'border-primary bg-primary/5 text-primary' 
+                        : 'border-border bg-white text-slate-600 hover:border-primary/20'
+                    }`}
+                  >
+                    <div className={`p-2 rounded-lg ${accountPath === path ? 'bg-primary/10' : 'bg-slate-50'}`}>
+                      {path === "Normal" && <Brain className="w-6 h-6" />}
+                      {path === "Graduation Project" && <GraduationCap className="w-6 h-6" />}
+                      {path === "Special Needs" && <Heart className="w-6 h-6 text-red-400" />}
+                    </div>
+                    <div>
+                      <span className="font-bold text-base block">{path}</span>
+                      <span className="text-xs text-slate-500 font-medium">
+                        {path === "Normal" && "Standard cognitive evaluation path."}
+                        {path === "Graduation Project" && "For university students."}
+                        {path === "Special Needs" && "Customized accessible experience."}
+                      </span>
+                    </div>
+                    {accountPath === path && (
+                      <CheckCircle className="w-5 h-5 ml-auto text-primary" />
+                    )}
+                  </button>
+                ))}
+              </div>
+
+              {accountPath === 'Graduation Project' && (
+                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="space-y-2 text-left">
+                  <label className="text-[11px] font-bold text-text-muted uppercase tracking-[0.05em]">University Email</label>
+                  <input
+                    type="email"
+                    placeholder="e.g. student@example.edu"
+                    className="w-full bg-white border border-border rounded-xl px-4 py-3 text-sm focus:ring-4 focus:ring-primary/5 focus:border-primary outline-none transition-all"
+                    value={universityEmail}
+                    onChange={(e) => setUniversityEmail(e.target.value)}
+                  />
+                </motion.div>
+              )}
+
+              {accountPath === 'Special Needs' && (
+                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="space-y-2 text-left">
+                  <label className="text-[11px] font-bold text-text-muted uppercase tracking-[0.05em]">Disability Type</label>
+                  <select
+                    className="w-full bg-white border border-border rounded-xl px-4 py-3 text-sm focus:ring-4 focus:ring-primary/5 focus:border-primary outline-none transition-all"
+                    value={disabilityType}
+                    onChange={(e) => setDisabilityType(e.target.value)}
+                  >
+                    <option value="" disabled>Select your disability type</option>
+                    <option value="Visual Impairment">Visual Impairment</option>
+                    <option value="Hearing Impairment">Hearing Impairment</option>
+                    <option value="Motor Impairment">Motor Impairment</option>
+                    <option value="Cognitive/Learning Disability">Cognitive/Learning Disability</option>
+                    <option value="Speech Impairment">Speech Impairment</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </motion.div>
+              )}
+
+              <button
+                onClick={handleContinuePath}
+                disabled={
+                  (accountPath === 'Graduation Project' && !validateEmail(universityEmail)) ||
+                  (accountPath === 'Special Needs' && !disabilityType)
+                }
+                className="w-full h-16 bg-primary text-white font-bold py-4 rounded-xl shadow-lg hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400 transition-all flex items-center justify-center gap-2 group"
+              >
+                Continue <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+              </button>
+            </motion.div>
+          ) : mode === 'options' ? (
             <motion.div 
               key="options"
               initial={{ opacity: 0, scale: 0.95 }}

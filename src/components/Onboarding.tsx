@@ -80,6 +80,9 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
   
   const [formData, setFormData] = useState<Partial<UserProfile>>({
     email: auth.currentUser?.email || "",
+    accountPath: (localStorage.getItem('preLoginAccountPath') as any) || "Normal",
+    universityEmail: localStorage.getItem('preLoginUniEmail') || "",
+    disabilityType: localStorage.getItem('preLoginDisability') || "",
     role: "Student",
     educationLevel: "University",
     university: "",
@@ -193,6 +196,44 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
   const renderResults = () => {
     if (!finalResults) return null;
     const results = finalResults;
+    const isRtl = formData.language === 'Arabic' || formData.language === 'Egyptian Ammiya';
+    
+    if (results.skipped) {
+      return (
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
+          className="flex flex-col items-center gap-8 w-full max-w-lg bg-white p-6 md:p-10 rounded-3xl shadow-2xl border border-border"
+        >
+          <div className="w-20 h-20 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-600 mb-2 border border-emerald-100">
+            <CheckCircle className="w-10 h-10" />
+          </div>
+          
+          <div className="text-center space-y-2">
+            <h2 className="text-4xl font-black text-text-main tracking-tighter uppercase">{isRtl ? 'اكتملت التهيئة' : 'Profile Ready'}</h2>
+            <p className="text-text-muted font-medium">{isRtl ? 'تم إنشاء ملفك الشخصي الخاص بنجاح.' : 'Your customized accessible profile is ready to go.'}</p>
+          </div>
+
+          <div className="w-full bg-emerald-50/50 p-6 rounded-2xl border border-emerald-100/50 text-center">
+            <p className="text-sm text-emerald-800 font-medium">Cognify has been tailored to your specific path.</p>
+          </div>
+
+          <button
+            onClick={() => onComplete({ 
+              ...formData, 
+              iqScore: results.score, 
+              level: results.level, 
+              quizDuration: 0,
+              lastQuizDate: results.lastQuizDate,
+              onboardingComplete: true 
+            })}
+            className="w-full bg-slate-900 text-white font-bold py-4 rounded-xl shadow-lg hover:bg-black transition-all flex items-center justify-center gap-2 group mt-4"
+          >
+            {getTranslation(formData.language, 'finish')} <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+          </button>
+        </motion.div>
+      );
+    }
+
     return (
       <motion.div 
         initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
@@ -203,8 +244,8 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
         </div>
         
         <div className="text-center space-y-2">
-          <h2 className="text-4xl font-black text-text-main tracking-tighter uppercase">{formData.language === 'Arabic' || formData.language === 'Egyptian Ammiya' ? 'اكتمل الاختبار' : 'Test Complete'}</h2>
-          <p className="text-text-muted font-medium">{formData.language === 'Arabic' || formData.language === 'Egyptian Ammiya' ? 'تم إنشاء ملفك الشخصي بنجاح.' : 'Your initial profile has been successfully generated.'}</p>
+          <h2 className="text-4xl font-black text-text-main tracking-tighter uppercase">{isRtl ? 'اكتمل الاختبار' : 'Test Complete'}</h2>
+          <p className="text-text-muted font-medium">{isRtl ? 'تم إنشاء ملفك الشخصي بنجاح.' : 'Your initial profile has been successfully generated.'}</p>
         </div>
 
         <div className="grid grid-cols-2 gap-4 w-full">
@@ -469,10 +510,24 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
       </div>
 
       <button
-        onClick={handleNextStep}
+        onClick={() => {
+          if (formData.accountPath === 'Special Needs') {
+            setFinalResults({
+              score: 70, // Basic score
+              level: 'Basic',
+              correctCount: 0,
+              percentage: 0,
+              lastQuizDate: new Date().toISOString(),
+              skipped: true
+            });
+            setStep(5);
+          } else {
+            handleNextStep();
+          }
+        }}
         className="w-full bg-slate-900 text-white font-bold py-4 rounded-xl shadow-lg hover:bg-black transition-all flex items-center justify-center gap-2 group"
       >
-        Start Intelligence Assessment <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+        {formData.accountPath === 'Special Needs' ? 'Complete Profile' : 'Start Intelligence Assessment'} <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
       </button>
     </motion.div>
   );

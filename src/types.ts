@@ -4,6 +4,7 @@ export type EducationLevel = 'Primary' | 'Secondary' | 'University' | 'Professio
 export type Field = 'Medicine' | 'Engineering' | 'Business' | 'General' | 'Other';
 export type AccessibilityMode = 'None' | 'Speech' | 'Visual' | 'Vocal-Deaf' | 'Sign-Only';
 export type LanguagePreference = 'English' | 'Arabic' | 'Egyptian Ammiya' | 'French' | 'Spanish' | 'German' | 'Italian' | 'Portuguese' | 'Russian' | 'Chinese' | 'Japanese';
+export type AccountPath = 'Graduation Project' | 'Special Needs' | 'Normal';
 
 export interface Message {
   id: string;
@@ -39,6 +40,9 @@ export interface Task {
 export interface UserProfile {
   uid: string;
   email: string;
+  accountPath?: AccountPath;
+  universityEmail?: string;
+  disabilityType?: string;
   name?: string;
   religion?: string;
   bio?: string;
