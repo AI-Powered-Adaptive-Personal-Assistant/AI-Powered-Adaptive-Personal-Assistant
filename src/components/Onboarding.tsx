@@ -110,6 +110,32 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
   }, []);
 
   useEffect(() => {
+    if (formData.accountPath === 'Special Needs') {
+      const disabilityType = formData.disabilityType || localStorage.getItem('preLoginDisability') || 'Other';
+      
+      let accessibilityMode: 'None' | 'Speech' | 'Visual' | 'Vocal-Deaf' | 'Sign-Only' = 'None';
+      if (disabilityType === 'Visual Impairment') {
+        accessibilityMode = 'Visual';
+      } else if (disabilityType === 'Hearing Impairment') {
+        accessibilityMode = 'Vocal-Deaf';
+      } else if (disabilityType === 'Speech Impairment') {
+        accessibilityMode = 'Speech';
+      } else if (disabilityType === 'Motor Impairment') {
+        accessibilityMode = 'Visual';
+      }
+
+      onComplete({
+        ...formData,
+        accountPath: 'Special Needs',
+        disabilityType: disabilityType,
+        accessibilityMode: accessibilityMode,
+        level: 'Basic',
+        onboardingComplete: true
+      });
+    }
+  }, [formData.accountPath]);
+
+  useEffect(() => {
     if (step === 4) {
       // Overall timer
       if (!quizStartTime) setQuizStartTime(Date.now());

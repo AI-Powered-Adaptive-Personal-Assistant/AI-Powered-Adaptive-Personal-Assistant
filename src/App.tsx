@@ -141,10 +141,17 @@ export default function App() {
     }
 
     const path = `users/${user.uid}`;
-    const unsubscribe = onSnapshot(doc(db, path), (snapshot) => {
+    const unsubscribe = onSnapshot(doc(db, path), async (snapshot) => {
       if (snapshot.exists()) {
         const data = snapshot.data() as UserProfile;
         setProfile(data);
+
+        // Redirect special needs users to the disability view by default
+        const hash = window.location.hash.replace('#', '');
+        if (data.accountPath === 'Special Needs' && (!hash || hash === 'chat' || hash === '')) {
+          setCurrentView('disability');
+          window.history.replaceState(null, '', '#disability');
+        }
         
         // Update lastActiveDate if it's more than an hour old or missing
         const now = new Date().toISOString();
@@ -157,7 +164,52 @@ export default function App() {
            });
         }
       } else {
-        setProfile(null);
+        // If the user selected 'Special Needs' at login but has no profile, auto-create it immediately to bypass onboarding!
+        const preLoginPath = localStorage.getItem('preLoginAccountPath');
+        if (preLoginPath === 'Special Needs') {
+          const disabilityType = localStorage.getItem('preLoginDisability') || 'Other';
+          
+          let accessibilityMode: 'None' | 'Speech' | 'Visual' | 'Vocal-Deaf' | 'Sign-Only' = 'None';
+          if (disabilityType === 'Visual Impairment') {
+            accessibilityMode = 'Visual';
+          } else if (disabilityType === 'Hearing Impairment') {
+            accessibilityMode = 'Vocal-Deaf';
+          } else if (disabilityType === 'Speech Impairment') {
+            accessibilityMode = 'Speech';
+          } else if (disabilityType === 'Motor Impairment') {
+            accessibilityMode = 'Visual';
+          }
+
+          const defaultProfile: UserProfile = {
+            uid: user.uid,
+            email: user.email || "",
+            name: user.displayName || user.email?.split('@')[0] || "User",
+            points: 100,
+            questionHistory: [],
+            chatHistory: [],
+            level: 'Basic',
+            role: 'Student',
+            educationLevel: 'University',
+            field: 'General',
+            accountPath: 'Special Needs',
+            disabilityType: disabilityType,
+            accessibilityMode: accessibilityMode,
+            questionScore: 0,
+            onboardingComplete: true,
+          };
+
+          try {
+            await setDoc(doc(db, path), defaultProfile);
+            setProfile(defaultProfile);
+            setCurrentView('disability');
+            window.history.replaceState(null, '', '#disability');
+          } catch (err) {
+            console.error("Failed to auto-create special needs profile:", err);
+            setProfile(null);
+          }
+        } else {
+          setProfile(null);
+        }
       }
       setProfileLoading(false);
     }, (err) => {

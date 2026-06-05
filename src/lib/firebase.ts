@@ -67,14 +67,10 @@ const isSessionStorageSupported = (): boolean => {
 // Compile a safe array of persistence layers based on actual browser capabilities
 const getSafePersistenceArray = () => {
   const persistences = [];
-  const isInIframe = typeof window !== 'undefined' && window.self !== window.top;
 
   // signInWithPopup / signInWithRedirect rely on indexedDBLocalPersistence to synchronize credentials or state.
-  // We exclude indexedDBLocalPersistence ONLY inside sandboxed iframes (isInIframe) where IndexedDB permissions are restricted,
-  // preventing the asynchronous "@firebase/auth: INTERNAL ASSERTION FAILED: Pending promise was never set" error.
-  // On standard standalone browser windows (standalone tabs, Vercel deployments), we include indexedDBLocalPersistence
-  // so that Google Login works flawlessly without any "auth/argument-error".
-  if (!isInIframe && isIndexedDBSupported()) {
+  // We include indexedDBLocalPersistence if supported so that Google Login works flawlessly inside standalone view windows.
+  if (isIndexedDBSupported()) {
     persistences.push(indexedDBLocalPersistence);
   }
   if (isLocalStorageSupported()) {
