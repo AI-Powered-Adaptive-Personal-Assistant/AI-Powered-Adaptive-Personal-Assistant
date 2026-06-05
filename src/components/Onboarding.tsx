@@ -82,6 +82,8 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
     email: auth.currentUser?.email || "",
     accountPath: (localStorage.getItem('preLoginAccountPath') as any) || "Normal",
     universityEmail: localStorage.getItem('preLoginUniEmail') || "",
+    faculty: localStorage.getItem('preLoginFaculty') || "",
+    department: localStorage.getItem('preLoginDepartment') || "",
     disabilityType: localStorage.getItem('preLoginDisability') || "",
     role: "Student",
     educationLevel: "University",

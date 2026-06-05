@@ -56,6 +56,7 @@ export interface UserProfile {
   questionScore: number;
   university?: string;
   faculty?: string;
+  department?: string;
   work?: string;
   jobTitle?: string;
   iqScore?: number;

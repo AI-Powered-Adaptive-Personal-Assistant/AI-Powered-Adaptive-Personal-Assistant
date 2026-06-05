@@ -15,13 +15,19 @@ export default function Login() {
 
   const [accountPath, setAccountPath] = useState<'Normal' | 'Graduation Project' | 'Special Needs'>('Normal');
   const [universityEmail, setUniversityEmail] = useState("");
+  const [faculty, setFaculty] = useState("");
+  const [department, setDepartment] = useState("");
   const [disabilityType, setDisabilityType] = useState("");
 
   const [showHelp, setShowHelp] = useState(false);
 
   const handleContinuePath = () => {
     localStorage.setItem('preLoginAccountPath', accountPath);
-    if (accountPath === 'Graduation Project') localStorage.setItem('preLoginUniEmail', universityEmail);
+    if (accountPath === 'Graduation Project') {
+      localStorage.setItem('preLoginUniEmail', universityEmail);
+      localStorage.setItem('preLoginFaculty', faculty);
+      localStorage.setItem('preLoginDepartment', department);
+    }
     if (accountPath === 'Special Needs') localStorage.setItem('preLoginDisability', disabilityType);
     setMode('options');
   };
@@ -156,18 +162,51 @@ export default function Login() {
               </div>
 
               {accountPath === 'Graduation Project' && (
-                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="space-y-2 text-left">
-                  <label className="text-[11px] font-bold text-text-muted uppercase tracking-[0.05em]">University Email</label>
-                  <input
-                    type="email"
-                    placeholder="e.g. id@stud.fci-cu.edu.eg"
-                    className="w-full bg-white border border-border rounded-xl px-4 py-3 text-sm focus:ring-4 focus:ring-primary/5 focus:border-primary outline-none transition-all"
-                    value={universityEmail}
-                    onChange={(e) => setUniversityEmail(e.target.value)}
-                  />
-                  {!validateUniversityEmail(universityEmail) && universityEmail.length > 0 && (
-                    <p className="text-xs text-red-500 mt-1">Please enter a valid university email (e.g., .edu.eg)</p>
-                  )}
+                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="space-y-4 text-left">
+                  <div className="space-y-2">
+                    <label className="text-[11px] font-bold text-text-muted uppercase tracking-[0.05em]">Faculty / College</label>
+                    <select
+                      className="w-full bg-white border border-border rounded-xl px-4 py-3 text-sm focus:ring-4 focus:ring-primary/5 focus:border-primary outline-none transition-all"
+                      value={faculty}
+                      onChange={(e) => setFaculty(e.target.value)}
+                    >
+                      <option value="" disabled>Select your faculty</option>
+                      <option value="Computers and Artificial Intelligence">Computers and Artificial Intelligence</option>
+                      <option value="Engineering">Engineering</option>
+                      <option value="Medicine">Medicine</option>
+                      <option value="Pharmacy">Pharmacy</option>
+                      <option value="Commerce">Commerce</option>
+                      <option value="Arts">Arts</option>
+                      <option value="Law">Law</option>
+                      <option value="Science">Science</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[11px] font-bold text-text-muted uppercase tracking-[0.05em]">Department / Major</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Computer Science, AI, etc."
+                      className="w-full bg-white border border-border rounded-xl px-4 py-3 text-sm focus:ring-4 focus:ring-primary/5 focus:border-primary outline-none transition-all"
+                      value={department}
+                      onChange={(e) => setDepartment(e.target.value)}
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <label className="text-[11px] font-bold text-text-muted uppercase tracking-[0.05em]">University Email</label>
+                    <input
+                      type="email"
+                      placeholder="e.g. id@university.edu.eg"
+                      className="w-full bg-white border border-border rounded-xl px-4 py-3 text-sm focus:ring-4 focus:ring-primary/5 focus:border-primary outline-none transition-all"
+                      value={universityEmail}
+                      onChange={(e) => setUniversityEmail(e.target.value)}
+                    />
+                    {!validateUniversityEmail(universityEmail) && universityEmail.length > 0 && (
+                      <p className="text-xs text-red-500 mt-1">Please enter a valid university email (e.g., .edu.eg)</p>
+                    )}
+                  </div>
                 </motion.div>
               )}
 
@@ -193,7 +232,7 @@ export default function Login() {
               <button
                 onClick={handleContinuePath}
                 disabled={
-                  (accountPath === 'Graduation Project' && !validateUniversityEmail(universityEmail)) ||
+                  (accountPath === 'Graduation Project' && (!validateUniversityEmail(universityEmail) || !faculty || !department)) ||
                   (accountPath === 'Special Needs' && !disabilityType)
                 }
                 className="w-full h-16 bg-primary text-white font-bold py-4 rounded-xl shadow-lg hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400 transition-all flex items-center justify-center gap-2 group"
