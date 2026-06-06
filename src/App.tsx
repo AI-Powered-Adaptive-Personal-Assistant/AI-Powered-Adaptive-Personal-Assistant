@@ -301,7 +301,30 @@ export default function App() {
     
     const threadPath = `users/${user.uid}/threads/${profile.activeThreadId}`;
     try {
-      await setDoc(doc(db, threadPath), { messages: updatedHistory }, { merge: true });
+      const cleanHistory = updatedHistory.map(m => {
+        const item: any = {
+          id: m.id,
+          role: m.role,
+          content: m.content || "",
+          timestamp: m.timestamp
+        };
+        if (m.attachments !== undefined && m.attachments !== null) {
+          item.attachments = m.attachments.map((a: any) => {
+            const att: any = { name: a.name || "", type: a.type || "" };
+            if (a.url !== undefined && a.url !== null) att.url = a.url;
+            if (a.data !== undefined && a.data !== null) att.data = a.data;
+            return att;
+          });
+        }
+        if (m.comparisons !== undefined && m.comparisons !== null) {
+          item.comparisons = m.comparisons.map((c: any) => ({
+            modelName: c.modelName || "",
+            content: c.content || ""
+          }));
+        }
+        return item;
+      });
+      await setDoc(doc(db, threadPath), { messages: cleanHistory }, { merge: true });
     } catch (err) {
       handleFirestoreError(err, OperationType.UPDATE, threadPath);
     }

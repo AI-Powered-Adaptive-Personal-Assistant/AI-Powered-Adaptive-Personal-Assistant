@@ -10,6 +10,32 @@ import { ref as firebaseStorageRef, uploadString, getDownloadURL } from "firebas
 import { db, storage, handleFirestoreError, OperationType } from "../lib/firebase";
 import { getTranslation } from "../lib/translations";
 
+const cleanMessagesForFirestore = (newHistory: Message[]) => {
+  return newHistory.map(m => {
+    const item: any = {
+      id: m.id,
+      role: m.role,
+      content: m.content || "",
+      timestamp: m.timestamp
+    };
+    if (m.attachments !== undefined && m.attachments !== null) {
+      item.attachments = m.attachments.map((a: any) => {
+        const att: any = { name: a.name || "", type: a.type || "" };
+        if (a.url !== undefined && a.url !== null) att.url = a.url;
+        if (a.data !== undefined && a.data !== null) att.data = a.data;
+        return att;
+      });
+    }
+    if (m.comparisons !== undefined && m.comparisons !== null) {
+      item.comparisons = m.comparisons.map((c: any) => ({
+        modelName: c.modelName || "",
+        content: c.content || ""
+      }));
+    }
+    return item;
+  });
+};
+
 interface ChatInterfaceProps {
   profile: UserProfile;
   onQuestionEvaluated: (score: number, lastMessageSnippet: string) => void;
@@ -501,12 +527,7 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
     // Save locally to appropriate Firestore document
     if (profile.uid && currentThreadId) {
       const threadPath = `users/${profile.uid}/threads/${currentThreadId}`;
-      const historyToSave = newHistory.map(m => ({
-        ...m,
-        attachments: m.attachments?.map((a: any) => ({
-           name: a.name, type: a.type, url: a.url || null
-        }))
-      }));
+      const historyToSave = cleanMessagesForFirestore(newHistory);
       setDoc(doc(db, threadPath), { messages: historyToSave }, { merge: true }).catch(err => {
          handleFirestoreError(err, OperationType.UPDATE, threadPath);
       });
@@ -555,12 +576,7 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
       // Final persistence
       if (profile.uid && currentThreadId) {
         const threadPath = `users/${profile.uid}/threads/${currentThreadId}`;
-        const historyToSave = updatedHistory.map(m => ({
-          ...m,
-          attachments: m.attachments?.map((a: any) => ({
-             name: a.name, type: a.type, url: a.url || null
-          }))
-        }));
+        const historyToSave = cleanMessagesForFirestore(updatedHistory);
         setDoc(doc(db, threadPath), { messages: historyToSave }, { merge: true }).catch(err => {
            handleFirestoreError(err, OperationType.UPDATE, threadPath);
         });
@@ -610,12 +626,7 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
     setComparingId(null);
 
     const threadPath = `users/${profile.uid}/threads/${profile.activeThreadId}`;
-    const historyToSave = updatedMessages.map(m => ({
-      ...m,
-      attachments: m.attachments?.map((a: any) => ({
-         name: a.name, type: a.type, url: a.url || null
-      }))
-    }));
+    const historyToSave = cleanMessagesForFirestore(updatedMessages);
     setDoc(doc(db, threadPath), { messages: historyToSave }, { merge: true }).catch(err => {
         handleFirestoreError(err, OperationType.UPDATE, threadPath);
     });
