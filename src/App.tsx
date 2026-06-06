@@ -356,6 +356,7 @@ export default function App() {
               externalMessage={externalMessage}
               onStreamingUpdate={(text) => setCurrentAIResponse(text)}
               onSTTStateChange={setIsSTTActive}
+              setProfile={setProfile}
             />
             <div className="hidden xl:block">
               <RightPanel profile={profile} />
@@ -375,6 +376,7 @@ export default function App() {
           syncMessages={syncActiveThread}
           externalMessage={externalMessage}
           onStreamingUpdate={(text) => setCurrentAIResponse(text)}
+          setProfile={setProfile}
         />;
       case 'profile':
         return <ProfilePage profile={profile} onMenuClick={() => setIsMobileMenuOpen(true)} />;
@@ -464,6 +466,7 @@ export default function App() {
               syncMessages={syncActiveThread} 
               onMenuClick={() => setIsMobileMenuOpen(true)}
               onStreamingUpdate={setCurrentAIResponse}
+              setProfile={setProfile}
             />
             <div className="hidden xl:block">
               <RightPanel profile={profile} />

@@ -16,6 +16,7 @@ interface DisabilityModeViewProps {
   syncMessages?: (updatedHistory: Message[]) => void;
   externalMessage?: string;
   onStreamingUpdate?: (text: string) => void;
+  setProfile?: (profile: UserProfile) => void;
 }
 
 export default function DisabilityModeView({ 
@@ -25,7 +26,8 @@ export default function DisabilityModeView({
   onQuestionEvaluated,
   syncMessages,
   externalMessage,
-  onStreamingUpdate 
+  onStreamingUpdate,
+  setProfile
 }: DisabilityModeViewProps) {
   const [activeTab, setActiveTab] = React.useState<'chat' | 'settings' | 'video'>('chat');
 
@@ -128,6 +130,7 @@ export default function DisabilityModeView({
                   externalMessage={externalMessage}
                   onStreamingUpdate={onStreamingUpdate}
                   isEmbedded={true}
+                  setProfile={setProfile}
                 />
               </div>
             </motion.div>
