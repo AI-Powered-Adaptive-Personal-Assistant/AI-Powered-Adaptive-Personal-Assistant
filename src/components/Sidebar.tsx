@@ -57,7 +57,13 @@ export default function Sidebar({ profile, setProfile, currentView, setCurrentVi
   ] as const;
 
   const isAdmin = [
-    'modyhashim2006@gmail.com'
+    'pro.mahmoud.h@gmail.com', 
+    'modyhashim2006@gmail.com',
+    'marwaneltaweel0@gmail.com',
+    'its.alkhateeb@gmail.com',
+    'esraahosni8@gmail.com',
+    'nermeenatefateffarouk@gmail.com',
+    'mariemsayedr33@gmail.com'
   ].includes(profile.email?.toLowerCase() || '');
 
   const actualNavItems = isAdmin ? [...navItems, { id: 'admin', label: 'Admin Dashboard', icon: AlertCircle }] : navItems;
