@@ -7,7 +7,7 @@ import Markdown from 'react-markdown';
 import { motion, AnimatePresence } from "motion/react";
 import { doc, setDoc, onSnapshot } from "firebase/firestore";
 import { ref as firebaseStorageRef, uploadString, getDownloadURL } from "firebase/storage";
-import { db, storage, handleFirestoreError, OperationType } from "../lib/firebase";
+import { db, storage, handleFirestoreError, OperationType, cleanDataForFirestore } from "../lib/firebase";
 import { getTranslation } from "../lib/translations";
 
 const cleanMessagesForFirestore = (newHistory: Message[]) => {
@@ -83,10 +83,10 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
         profile.activeThreadId = currentThreadId;
       }
       if (profile.uid) {
-         setDoc(doc(db, `users/${profile.uid}`), { 
+         setDoc(doc(db, `users/${profile.uid}`), cleanDataForFirestore({ 
            chatThreads: updatedThreads, 
            activeThreadId: currentThreadId 
-         }, { merge: true });
+         }), { merge: true });
       }
     }
   };
@@ -491,10 +491,10 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
       
       // Persist the new thread creation immediately to the user document
       if (profile.uid) {
-         setDoc(doc(db, `users/${profile.uid}`), { 
+         setDoc(doc(db, `users/${profile.uid}`), cleanDataForFirestore({ 
            chatThreads: updatedThreads, 
            activeThreadId: currentThreadId 
-         }, { merge: true });
+         }), { merge: true });
       }
     } else if (activeThread && messages.length === 0 && finalInput.trim()) {
       const suggestedTitle = finalInput.slice(0, 30) + (finalInput.length > 30 ? '...' : '');
@@ -509,7 +509,7 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
       }
       
       if (profile.uid) {
-         setDoc(doc(db, `users/${profile.uid}`), { chatThreads: updatedThreads }, { merge: true });
+         setDoc(doc(db, `users/${profile.uid}`), cleanDataForFirestore({ chatThreads: updatedThreads }), { merge: true });
       }
     }
 

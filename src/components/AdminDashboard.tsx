@@ -34,14 +34,49 @@ export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardP
         usersData.push({ ...doc.data(), uid: doc.id } as UserProfile);
       });
 
+      // Group by lowercased email to filter out duplicate user entries with identical email addresses
+      const emailMap = new Map<string, UserProfile>();
+      usersData.forEach((u) => {
+        const emailKey = (u.email || "").toLowerCase().trim();
+        if (!emailKey) {
+          // If no email, add it uniquely by UID so we don't lose it
+          emailMap.set(`no-email-${u.uid}`, u);
+          return;
+        }
+
+        const existing = emailMap.get(emailKey);
+        if (!existing) {
+          emailMap.set(emailKey, u);
+        } else {
+          // Pick the one that is more representative / active
+          const dateA = u.lastActiveDate || u.lastQuizDate || "1970-01-01T00:00:00Z";
+          const dateB = existing.lastActiveDate || existing.lastQuizDate || "1970-01-01T00:00:00Z";
+          const timeA = new Date(dateA).getTime();
+          const timeB = new Date(dateB).getTime();
+
+          if (timeA > timeB) {
+            emailMap.set(emailKey, u);
+          } else if (timeA === timeB) {
+            // Tie-break by complete profile fields or points
+            const scoreA = (u.points || 0) + (u.name ? 10 : 0) + (u.chatThreads?.length ? 20 : 0);
+            const scoreB = (existing.points || 0) + (existing.name ? 10 : 0) + (existing.chatThreads?.length ? 20 : 0);
+            if (scoreA > scoreB) {
+              emailMap.set(emailKey, u);
+            }
+          }
+        }
+      });
+
+      const uniqueUsersData = Array.from(emailMap.values());
+
       // Sort by last active date or onboarding date
-      usersData.sort((a, b) => {
+      uniqueUsersData.sort((a, b) => {
         const dateA = a.lastActiveDate || a.lastQuizDate || "1970-01-01T00:00:00Z";
         const dateB = b.lastActiveDate || b.lastQuizDate || "1970-01-01T00:00:00Z";
         return new Date(dateB).getTime() - new Date(dateA).getTime();
       });
 
-      setUsers(usersData);
+      setUsers(uniqueUsersData);
       setLoading(false);
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, "users");

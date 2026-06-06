@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { User, Mail, Shield, Award, Languages, Globe, BookOpen, GraduationCap, Briefcase, MapPin, Calendar, Clock, MessageSquare, Edit3, Save, X, Camera, Eye, Brain as BrainIcon, Menu, Sprout, Heart } from 'lucide-react';
 import { formatDate } from '../lib/utils';
 import { doc, setDoc } from 'firebase/firestore';
-import { db, handleFirestoreError, OperationType } from '../lib/firebase';
+import { db, handleFirestoreError, OperationType, cleanDataForFirestore } from '../lib/firebase';
 import { getTranslation } from '../lib/translations';
 
 interface ProfilePageProps {
@@ -29,15 +29,16 @@ export default function ProfilePage({ profile, onMenuClick, setProfile }: Profil
     { label: 'Cognitive Level', value: profile.level, icon: BrainIcon },
     { label: 'Uplink Integrity', value: `${profile.iqScore || 0}%`, icon: Award },
     { label: 'Merit Index', value: profile.points, icon: Shield },
-    { label: 'Sessions', value: profile.chatHistory?.length || 0, icon: Clock },
+    { label: 'Sessions', value: profile.chatThreads?.length || 0, icon: Clock },
   ];
 
   const handleSave = async () => {
     setSaving(true);
     const path = `users/${profile.uid}`;
     try {
-      if (setProfile) setProfile(editedProfile);
-      await setDoc(doc(db, path), editedProfile, { merge: true });
+      const cleaned = cleanDataForFirestore(editedProfile);
+      if (setProfile) setProfile(cleaned);
+      await setDoc(doc(db, path), cleaned, { merge: true });
       setIsEditing(false);
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, path);
@@ -282,22 +283,24 @@ export default function ProfilePage({ profile, onMenuClick, setProfile }: Profil
               <MessageSquare className="w-5 h-5 text-primary" /> Recent Chat History
             </h3>
             <div className="space-y-4">
-              {profile.chatHistory?.length === 0 ? (
+              {!profile.chatThreads || profile.chatThreads.length === 0 ? (
                 <div className="text-center py-10 text-slate-400 font-medium italic border-2 border-dashed border-slate-50 rounded-3xl">
                   No previous chat history recorded.
                 </div>
               ) : (
-                profile.chatHistory?.slice(-4).reverse().map((m, i) => (
-                  <div key={i} className="flex items-start gap-4 p-4 rounded-3xl hover:bg-slate-50 transition-colors border border-transparent hover:border-slate-100">
-                    <div className={`w-8 h-8 rounded-xl flex-shrink-0 flex items-center justify-center ${m.role === 'user' ? 'bg-blue-50 text-blue-600' : 'bg-primary/5 text-primary'}`}>
-                      {m.role === 'user' ? <User className="w-4 h-4" /> : <BrainIcon className="w-4 h-4" />}
+                profile.chatThreads.slice(-4).reverse().map((t, i) => (
+                  <div key={t.id || i} className="flex items-start gap-4 p-4 rounded-3xl hover:bg-slate-50 transition-colors border border-transparent hover:border-slate-100">
+                    <div className="w-8 h-8 rounded-xl flex-shrink-0 flex items-center justify-center bg-primary/5 text-primary">
+                      <MessageSquare className="w-4 h-4" />
                     </div>
                     <div className="space-y-1">
                       <p className="text-xs font-bold text-slate-900 flex items-center gap-2">
-                        {m.role === 'user' ? 'User Question' : 'Assistant Response'}
-                        <span className="text-[10px] font-normal text-slate-400 uppercase tracking-tighter">• {formatDate(m.timestamp)}</span>
+                        {t.title}
+                        {t.updatedAt && (
+                          <span className="text-[10px] font-normal text-slate-400 uppercase tracking-tighter">• {formatDate(t.updatedAt)}</span>
+                        )}
                       </p>
-                      <p className="text-sm text-slate-500 line-clamp-1 leading-relaxed">{m.content}</p>
+                      <p className="text-sm text-slate-500 line-clamp-1 leading-relaxed">{t.lastMessageSnippet || 'No messages yet'}</p>
                     </div>
                   </div>
                 ))

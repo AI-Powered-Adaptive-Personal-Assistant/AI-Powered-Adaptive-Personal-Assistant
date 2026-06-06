@@ -115,3 +115,29 @@ export const signInWithGoogle = () => signInWithPopup(auth, googleProvider);
 export const registerWithEmail = (email: string, pass: string) => createUserWithEmailAndPassword(auth, email, pass);
 export const loginWithEmail = (email: string, pass: string) => signInWithEmailAndPassword(auth, email, pass);
 export const logout = () => signOut(auth);
+
+export function cleanDataForFirestore(data: any): any {
+  if (data === undefined) {
+    return null;
+  }
+  if (data === null) {
+    return null;
+  }
+  if (Array.isArray(data)) {
+    return data.map(item => cleanDataForFirestore(item));
+  }
+  if (typeof data === 'object') {
+    // If it's a date or other special object, return it as is or serialize/format
+    if (data instanceof Date) {
+      return data.toISOString();
+    }
+    const cleaned: any = {};
+    for (const key of Object.keys(data)) {
+      if (data[key] !== undefined) {
+        cleaned[key] = cleanDataForFirestore(data[key]);
+      }
+    }
+    return cleaned;
+  }
+  return data;
+}

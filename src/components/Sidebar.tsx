@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { UserProfile, CognitiveLevel, UserRole, Field, AccessibilityMode, ChatThread } from "../types";
 import { User, Settings, Brain, Briefcase, GraduationCap, Accessibility, Layers, MessageSquare, BarChart3, AlertCircle, LogOut, Plus, ChevronRight, X, Moon, Sun, Video, Mic } from "lucide-react";
-import { logout } from "../lib/firebase";
+import { logout, db } from "../lib/firebase";
+import { deleteDoc, doc } from "firebase/firestore";
 import { getTranslation } from "../lib/translations";
 
 interface SidebarProps {
@@ -103,7 +104,17 @@ export default function Sidebar({ profile, setProfile, currentView, setCurrentVi
             <div className="flex items-center justify-between mb-1 ms-2 me-2">
               <div className="text-[10px] font-black text-slate-300 uppercase tracking-widest">{getTranslation(profile.language, 'chatHistory')}</div>
               <button 
-                onClick={() => setProfile({ ...profile, chatThreads: [], activeThreadId: undefined })}
+                onClick={() => {
+                  const threadsToDelete = profile.chatThreads || [];
+                  setProfile({ ...profile, chatThreads: [], activeThreadId: undefined });
+                  if (profile.uid) {
+                    threadsToDelete.forEach((thread) => {
+                      deleteDoc(doc(db, `users/${profile.uid}/threads/${thread.id}`)).catch((err) => {
+                        console.error("Failed to delete thread doc:", err);
+                      });
+                    });
+                  }
+                }}
                 className="text-[9px] font-bold text-rose-400 hover:text-rose-600 transition-colors uppercase tracking-widest"
                 title="Clear all chats"
               >
@@ -131,6 +142,11 @@ export default function Sidebar({ profile, setProfile, currentView, setCurrentVi
                           e.stopPropagation();
                           const updatedThreads = profile.chatThreads?.filter(thread => thread.id !== t.id) || [];
                           setProfile({ ...profile, chatThreads: updatedThreads, activeThreadId: updatedThreads.length > 0 ? updatedThreads[updatedThreads.length - 1].id : undefined });
+                          if (profile.uid) {
+                            deleteDoc(doc(db, `users/${profile.uid}/threads/${t.id}`)).catch((err) => {
+                              console.error("Failed to delete thread doc:", err);
+                            });
+                          }
                         }}
                         className="p-1.5 hover:bg-rose-100 hover:text-rose-600 rounded-md transition-colors"
                         title="Delete Chat"

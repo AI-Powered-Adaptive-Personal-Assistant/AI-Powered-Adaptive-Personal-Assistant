@@ -20,7 +20,7 @@ import DisabilityModeView from "./components/DisabilityModeView";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { motion, AnimatePresence } from "motion/react";
 import { Message, UserProfile } from "./types";
-import { auth, db, handleFirestoreError, OperationType } from "./lib/firebase";
+import { auth, db, handleFirestoreError, OperationType, cleanDataForFirestore } from "./lib/firebase";
 import { useAuthState } from "react-firebase-hooks/auth";
 import { doc, setDoc, onSnapshot, getDocFromServer } from "firebase/firestore";
 import { Loader2, Settings, Layers, Menu, Moon, Sun, AlertCircle, RefreshCw, Mail } from "lucide-react";
@@ -242,9 +242,10 @@ export default function App() {
     };
 
     try {
-      await setDoc(doc(db, path), newProfile, { merge: true });
+      const cleanedProfile = cleanDataForFirestore(newProfile);
+      await setDoc(doc(db, path), cleanedProfile, { merge: true });
       // Cleanly and immediately update local state to navigate the user away from Onboarding to the dashboard.
-      setProfile(newProfile);
+      setProfile(cleanedProfile);
     } catch (err) {
       handleFirestoreError(err, OperationType.CREATE, path);
     }
@@ -334,7 +335,7 @@ export default function App() {
     if (!user || !profile) return;
     const path = `users/${user.uid}`;
     try {
-      await setDoc(doc(db, path), { language }, { merge: true });
+      await setDoc(doc(db, path), cleanDataForFirestore({ language }), { merge: true });
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, path);
     }
@@ -522,23 +523,30 @@ export default function App() {
             <Sidebar 
               profile={profile} 
               setProfile={async (p) => {
+                // Update local state instantly so UI is highly reactive
+                setProfile(p);
+                
                 if (!user) return;
                 const path = `users/${user.uid}`;
                 try {
                   const cleanProfile = JSON.parse(JSON.stringify(p));
                   
+                  // Ensure activeThreadId is explicitly preserved as null if not present/undefined, so Firestore overwrites it and doesn't get merged out
+                  cleanProfile.activeThreadId = p.activeThreadId !== undefined ? p.activeThreadId : null;
+                  
                   // Prune large arrays to stay under 1MB
                   if (cleanProfile.chatThreads) {
                     cleanProfile.chatThreads = cleanProfile.chatThreads.map((t: any) => ({
-                      id: t.id,
-                      title: t.title,
-                      updatedAt: t.updatedAt,
-                      lastMessageSnippet: t.lastMessageSnippet
+                      id: t.id || "",
+                      title: t.title || "New Chat",
+                      updatedAt: t.updatedAt || new Date().toISOString(),
+                      lastMessageSnippet: t.lastMessageSnippet || ""
                     }));
                   }
                   cleanProfile.chatHistory = [];
 
-                  await setDoc(doc(db, path), cleanProfile, { merge: true });
+                  const finalProfileToSave = cleanDataForFirestore(cleanProfile);
+                  await setDoc(doc(db, path), finalProfileToSave, { merge: true });
                 } catch (err) {
                   handleFirestoreError(err, OperationType.UPDATE, path);
                 }
