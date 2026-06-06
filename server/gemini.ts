@@ -68,7 +68,7 @@ Their custom reasoning: "${pov}"
 Is their reasoning somewhat logical, creative, or functionally identifying the trick/anomaly? 
 Reply with EXACTLY ONE WORD: either "YES" or "NO".`;
     const response = await ai.models.generateContent({
-       model: "gemini-2.5-flash",
+       model: "gemini-3.5-flash",
        contents: [{ role: 'user', parts: [{ text: prompt }] }],
     });
     return response.text?.trim().toUpperCase().includes("YES") ?? true;
@@ -102,7 +102,7 @@ Provide your response in this EXACT format:
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-pro",
+      model: "gemini-3.1-pro-preview",
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
     });
     return response.text || "Failed to generate comparison. Please try again.";
@@ -126,7 +126,7 @@ Proactively generate 3 highly relevant study materials, actionable insights, or 
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-pro",
+      model: "gemini-3.1-pro-preview",
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
     });
     return response.text || "No insights available at the moment.";
@@ -144,7 +144,7 @@ export async function generateLogicResponse(
 ) {
   try {
     const ai = getAI();
-    const model = "gemini-2.5-flash";
+    const model = "gemini-3.5-flash";
     
     const systemInstruction = `
 You are the Cognify Advanced Logic Tutor, a production-grade AI designed to train logic and analytical skills focusing on "${moduleName}".
@@ -227,7 +227,7 @@ export async function* generateAdaptiveResponseStream(
 ) {
   try {
     const ai = getAI();
-    const model = "gemini-2.5-flash";
+    const model = "gemini-3.5-flash";
 
     const otherThreadsSummary = profile.chatThreads
       ?.filter(t => t.id !== profile.activeThreadId)
@@ -343,7 +343,7 @@ export async function generateAdaptiveResponse(
 ) {
   try {
     const ai = getAI();
-    const model = "gemini-2.5-flash";
+    const model = "gemini-3.5-flash";
 
     const otherThreadsSummary = profile.chatThreads
       ?.filter(t => t.id !== profile.activeThreadId)

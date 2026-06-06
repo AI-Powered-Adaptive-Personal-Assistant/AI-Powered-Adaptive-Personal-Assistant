@@ -30,7 +30,7 @@ export const geminiService = {
     Return ONLY the letter, translated word, or [NO_SIGN]. Do NOT include any markdown formatting, conversational text, or punctuation.`;
 
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-3.5-flash",
       contents: {
         parts: [
           { text: prompt },
@@ -65,7 +65,7 @@ export const geminiService = {
 
     try {
       const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
+        model: "gemini-3.5-flash",
         contents: [{ text: prompt }]
       });
       return response.text?.trim() || text;
@@ -93,7 +93,7 @@ export const geminiService = {
 
     try {
       const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
+        model: "gemini-3.5-flash",
         contents: {
           parts: [
             { text: prompt },
@@ -151,7 +151,7 @@ export const geminiService = {
 
     try {
       const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
+        model: "gemini-3.5-flash",
         contents: [{ text: prompt }]
       });
       return JSON.parse(response.text?.trim() || "[]");
