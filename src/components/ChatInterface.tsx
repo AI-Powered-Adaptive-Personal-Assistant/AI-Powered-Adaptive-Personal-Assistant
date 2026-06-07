@@ -497,7 +497,12 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
            activeThreadId: currentThreadId 
          }), { merge: true });
       }
-    } else if (activeThread && messages.length === 0 && finalInput.trim()) {
+    } else if (
+      activeThread &&
+      finalInput.trim() &&
+      activeThread.title === 'New Chat' &&
+      messages.filter(m => m.id !== 'welcome' && m.role === 'user').length === 0
+    ) {
       const suggestedTitle = finalInput.slice(0, 30) + (finalInput.length > 30 ? '...' : '');
       const updatedThreads = (profile.chatThreads || []).map(t => 
         t.id === activeThread.id ? { ...t, title: suggestedTitle } : t

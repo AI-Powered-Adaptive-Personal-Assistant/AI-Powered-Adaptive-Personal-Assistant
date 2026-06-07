@@ -22,7 +22,9 @@ export default function Sidebar({ profile, setProfile, currentView, setCurrentVi
 
   const startNewChat = () => {
     // Check if there's already a thread named New Chat (we can't check messages.length easily now)
-    const existingNewChat = profile.chatThreads?.find(t => t.title === 'New Chat');
+    const existingNewChat = profile.chatThreads?.find(
+      t => t.title === 'New Chat' && !t.lastMessageSnippet
+    );
     if (existingNewChat) {
       setProfile({ ...profile, activeThreadId: existingNewChat.id });
       setCurrentView('chat');
