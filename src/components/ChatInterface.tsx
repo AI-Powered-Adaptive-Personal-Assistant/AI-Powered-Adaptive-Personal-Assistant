@@ -814,7 +814,7 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.98 }}
-                className={`flex flex-col w-full ${
+                className={`flex flex-col w-full group ${
                   profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya'
                     ? (m.role === 'user' ? 'items-start text-start' : 'items-end text-end')
                     : (m.role === 'user' ? 'items-end text-end' : 'items-start text-start')
@@ -936,7 +936,32 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
                         </button>
                       )}
                     </div>
-                    <div className="text-text-main leading-relaxed adaptive-response text-base space-y-4">
+                    <div className="relative p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-100/80 dark:border-slate-800 text-text-main leading-relaxed adaptive-response text-base space-y-4 shadow-sm w-full group/bubble">
+                      {('speechSynthesis' in window) && (
+                        <div className="flex justify-between items-center pb-2 mb-2 border-b border-slate-100/60 dark:border-slate-800">
+                          <div className="flex items-center gap-1.5 opacity-60">
+                            <Bot className="w-4 h-4 text-primary" />
+                            <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider">
+                              {profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya' ? 'إجابة كوجنيفي الذكية' : 'Cognify Guidance'}
+                            </span>
+                          </div>
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleSpeak(m);
+                            }}
+                            className={`px-2.5 py-1 rounded-lg border text-[10px] font-black transition-all flex items-center gap-1.5 ${
+                              speakingMessageId === m.id
+                                ? 'bg-rose-500 text-white border-rose-500 shadow-sm animate-pulse'
+                                : 'bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900 border-slate-200/60 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 dark:hover:bg-slate-700'
+                            }`}
+                            aria-label={speakingMessageId === m.id ? "Stop Reading" : "Read Aloud"}
+                          >
+                            <Volume2 className="w-3.5 h-3.5 animate-bounce" />
+                            <span>{speakingMessageId === m.id ? (profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya' ? 'إيقاف' : 'Stop') : (profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya' ? 'استماع بصوت عالٍ' : 'Read Aloud')}</span>
+                          </button>
+                        </div>
+                      )}
                       {(profile.accessibilityMode === 'Vocal-Deaf' || profile.accessibilityMode === 'Sign-Only') && (
                         <div className="mb-6 p-4 bg-slate-50 rounded-2xl border border-slate-100 flex items-center gap-4">
                            <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0 relative overflow-hidden">

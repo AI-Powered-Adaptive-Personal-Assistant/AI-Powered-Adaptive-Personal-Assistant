@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { UserProfile, Message } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
-import { Brain, Sparkles, Target, Zap, ChevronRight, HelpCircle, Lightbulb, Menu, Send, Loader2, ArrowLeft } from 'lucide-react';
+import { Brain, Sparkles, Target, Zap, ChevronRight, HelpCircle, Lightbulb, Menu, Send, Loader2, ArrowLeft, Volume2, VolumeX } from 'lucide-react';
 import { generateLogicResponse } from '../services/gemini';
 import Markdown from 'react-markdown';
 import { getTranslation } from '../lib/translations';
@@ -21,6 +21,59 @@ export default function LogicSandbox({ profile, onMenuClick }: LogicSandboxProps
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [speakingMessageId, setSpeakingMessageId] = useState<string | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+    };
+  }, []);
+
+  const handleSpeak = (m: Message) => {
+    if (speakingMessageId === m.id) {
+      window.speechSynthesis.cancel();
+      setSpeakingMessageId(null);
+    } else {
+      window.speechSynthesis.cancel();
+      setSpeakingMessageId(m.id);
+      
+      // Remove signs markdown and general coding symbols for cleaner speech
+      const cleanText = m.content.replace(/\[Signs:.*?\]/g, '').replace(/[*+#_`~\[\]()]/g, '');
+      const utterance = new SpeechSynthesisUtterance(cleanText);
+      
+      const hasArabic = /[\u0600-\u06FF]/.test(cleanText);
+      const langMap: Record<string, string> = {
+        'English': 'en-US',
+        'Arabic': 'ar-SA',
+        'Egyptian Ammiya': 'ar-EG',
+        'French': 'fr-FR',
+        'Spanish': 'es-ES',
+        'German': 'de-DE',
+        'Italian': 'it-IT',
+        'Portuguese': 'pt-BR',
+        'Russian': 'ru-RU',
+        'Chinese': 'zh-CN',
+        'Japanese': 'ja-JP'
+      };
+      
+      if (hasArabic) {
+        const isEgyptian = profile.language === 'Egyptian Ammiya' || 
+                           cleanText.includes('يا باشا') || 
+                           cleanText.includes('تمام') || 
+                           cleanText.includes('ازيك');
+        utterance.lang = isEgyptian ? 'ar-EG' : 'ar-SA';
+      } else {
+        utterance.lang = langMap[profile.language || 'English'] || 'en-US';
+      }
+      
+      utterance.onend = () => setSpeakingMessageId(null);
+      utterance.onerror = () => setSpeakingMessageId(null);
+      
+      window.speechSynthesis.speak(utterance);
+    }
+  };
 
   const modules = [
     {
@@ -294,11 +347,30 @@ export default function LogicSandbox({ profile, onMenuClick }: LogicSandboxProps
                 <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar bg-slate-50/50">
                   {messages.map((m) => (
                     <div key={m.id} className={`flex max-w-[85%] ${m.role === 'user' ? 'ml-auto justify-end' : 'mr-auto justify-start'}`}>
-                      <div className={`p-5 rounded-[24px] ${
+                      <div className={`p-5 rounded-[24px] relative group min-w-[200px] ${
                         m.role === 'user' 
                           ? 'bg-primary text-white rounded-br-sm shadow-md' 
                           : 'bg-white border border-slate-200 text-slate-700 rounded-bl-sm shadow-sm'
                       }`}>
+                        {m.role !== 'user' && ('speechSynthesis' in window) && (
+                          <div className="flex justify-between items-center mb-2.5 pb-1.5 border-b border-slate-100 dark:border-slate-800">
+                            <span className="text-[10px] font-black uppercase text-indigo-500 tracking-wider">
+                              AI Explanation
+                            </span>
+                            <button
+                              onClick={() => handleSpeak(m)}
+                              className={`px-2 py-1 rounded-lg border text-[10px] font-bold transition-all flex items-center gap-1.5 ${
+                                speakingMessageId === m.id
+                                  ? 'bg-rose-500 text-white border-rose-500 shadow-sm animate-pulse'
+                                  : 'bg-slate-50 text-slate-600 border-slate-200/60 hover:bg-slate-100 hover:text-slate-900 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
+                              }`}
+                              title={speakingMessageId === m.id ? "Stop Reading" : "Read Aloud"}
+                            >
+                              <Volume2 className="w-3.5 h-3.5 animate-bounce" />
+                              <span>{speakingMessageId === m.id ? (profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya' ? 'إيقاف' : 'Stop') : (profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya' ? 'استماع' : 'Speak')}</span>
+                            </button>
+                          </div>
+                        )}
                         <div className={`prose prose-sm max-w-none ${m.role === 'user' ? 'prose-invert' : ''}`}>
                           <Markdown>{m.content}</Markdown>
                         </div>

@@ -102,7 +102,7 @@ Provide your response in this EXACT format:
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-3.1-pro-preview",
+      model: "gemini-3.5-flash",
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
     });
     return response.text || "Failed to generate comparison. Please try again.";
@@ -126,7 +126,7 @@ Proactively generate 3 highly relevant study materials, actionable insights, or 
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-3.1-pro-preview",
+      model: "gemini-3.5-flash",
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
     });
     return response.text || "No insights available at the moment.";
