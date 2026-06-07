@@ -9,6 +9,7 @@ import { doc, setDoc, onSnapshot } from "firebase/firestore";
 import { ref as firebaseStorageRef, uploadString, getDownloadURL } from "firebase/storage";
 import { db, storage, handleFirestoreError, OperationType, cleanDataForFirestore } from "../lib/firebase";
 import { getTranslation } from "../lib/translations";
+import { toast } from "./Toast";
 
 const cleanMessagesForFirestore = (newHistory: Message[]) => {
   return newHistory.map(m => {
@@ -583,10 +584,25 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
       }
 
       onQuestionEvaluated(qualityScore, lastText.slice(0, 100));
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
       setMessages(messages);
       if (syncMessages) syncMessages(messages);
+
+      const isArabic = profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya';
+      toast.error(
+        isArabic
+          ? `عذراً، حدث خطأ أثناء الاتصال بالخادم: ${error.message || 'يرجى مراجعة حالة الاتصال وإعادة المحاولة'}`
+          : `Sorry, an error occurred communicating with the server: ${error.message || 'Please verify connection and retry'}`,
+        isArabic ? "فشل الاتصال بالذكاء الاصطناعي" : "AI Core Disconnection",
+        8000,
+        {
+          label: isArabic ? "إعادة المحاولة" : "Retry Now",
+          onClick: () => {
+            handleSubmit(undefined, submittedMessage, attachmentsToSubmit);
+          }
+        }
+      );
     } finally {
       setIsLoading(false);
       setStreamingText("");

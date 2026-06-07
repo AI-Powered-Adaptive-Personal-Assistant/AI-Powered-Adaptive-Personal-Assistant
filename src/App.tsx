@@ -24,6 +24,7 @@ import { auth, db, handleFirestoreError, OperationType, cleanDataForFirestore } 
 import { useAuthState } from "react-firebase-hooks/auth";
 import { doc, setDoc, onSnapshot, getDocFromServer } from "firebase/firestore";
 import { Loader2, Settings, Layers, Menu, Moon, Sun, AlertCircle, RefreshCw, Mail } from "lucide-react";
+import { ToastContainer } from "./components/Toast";
 
 import { isRTL, getTranslation } from "./lib/translations";
 
@@ -508,6 +509,7 @@ export default function App() {
         }`}
         dir={direction}
       >
+        <ToastContainer rtl={direction === 'rtl'} />
         
         {/* Mobile menu backdrop */}
         {isMobileMenuOpen && (

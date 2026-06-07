@@ -1,4 +1,5 @@
 import { UserProfile, Message } from "../types";
+import { toast } from "../components/Toast";
 
 export async function evaluateQuizPOV(question: string, pov: string): Promise<boolean> {
   try {
@@ -32,6 +33,14 @@ export async function generateBenchmarkComparison(
     });
     const isHtml = res.headers.get('Content-Type')?.includes('text/html');
     if (!res.ok || isHtml) {
+      if (!isHtml && res.status === 503) {
+        toast.warning(
+          profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya'
+            ? "خادم التقييمات مجهد حاليا (503). يتعذر إنشاء مقارنة النماذج."
+            : "Benchmark server overloaded (503). Unable to generate model comparison.",
+          profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya' ? "الخدمة مشغولة" : "Assessments Overloaded"
+        );
+      }
       return `### System Fallback (Static Web Warning)
 The benchmark feature requires the Express backend which is not running in this static deployment. 
 To use benchmarks, please visit our official full-stack deployment URL on Cloud Run or set up a server backend.`;
@@ -80,7 +89,6 @@ export async function generateLogicResponse(
     if (!res.ok || isHtml) {
       const apiKey = ((import.meta as any).env?.VITE_GEMINI_API_KEY as string) || "";
       if (apiKey) {
-        // Simple direct client-side fallback for logic response
         const prompt = `You are a Logic Tutor on ${moduleName}.\nUser Profile: ${JSON.stringify(profile)}\nUser: ${message}`;
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${apiKey}`, {
           method: "POST",
@@ -89,6 +97,16 @@ export async function generateLogicResponse(
             contents: [{ role: "user", parts: [{ text: prompt }] }]
           })
         });
+        if (!response.ok) {
+          if (response.status === 503) {
+            toast.error(
+              profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya'
+                ? "خادم المنطق واجه ضغطًا زائدًا (503). يرجى تكرار المحاولة."
+                : "Logic solver was overloaded (503). Please try again in a bit.",
+              "Logic Connection"
+            );
+          }
+        }
         const d = await response.json();
         return d.candidates?.[0]?.content?.parts?.[0]?.text || "Empty response from Gemini client backend.";
       }
@@ -194,6 +212,40 @@ ${otherThreadsSummary}
     })
   });
 
+  if (!res.ok) {
+    const isArabic = profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya';
+    if (res.status === 503) {
+      toast.error(
+        isArabic
+          ? "منصة Google Gemini غير متوفرة حالياً بسبب زيادة الضغط (رمز 503). يرجى المحاولة بعد لحظات."
+          : "Google Gemini is currently rate-limited or overloaded (503 Service Unavailable). Please try again shortly.",
+        isArabic ? "الخدمة مثقلة بالأحمال" : "Gemini Overloaded"
+      );
+      yield { 
+        text: isArabic 
+          ? "⚠️ منصة Google Gemini غير متوفرة حالياً بسبب زيادة الضغط (رمز 503)." 
+          : "⚠️ Google Gemini is currently overloaded (503 Service Unavailable).", 
+        done: true, 
+        error: true 
+      };
+    } else {
+      toast.error(
+        isArabic
+          ? `عذراً، فشل الاتصال بخوادم الذكاء الاصطناعي (رمز ${res.status}). تأكد من صحة مفتاح الـ API.`
+          : `AI gateway communication error (Status: ${res.status}). Please verify your custom API key.`,
+        isArabic ? "فشل بوابة الذكاء" : "Gateway Error"
+      );
+      yield { 
+        text: isArabic 
+          ? `⚠️ عذراً، فشل الاتصال بخوادم الذكاء الاصطناعي (رمز ${res.status}).` 
+          : `⚠️ AI gateway communication error (Status: ${res.status}).`, 
+        done: true, 
+        error: true 
+      };
+    }
+    return;
+  }
+
   if (!res.body) {
     yield { text: "Error communicating directly with Google AI.", done: true, error: true };
     return;
@@ -254,6 +306,32 @@ export async function* generateAdaptiveResponseStream(
       }
 
       const isArabic = profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya';
+      
+      if (!isHtml) {
+        if (res.status === 503) {
+          toast.error(
+            isArabic 
+              ? "فشل الاتصال: خادم الذكاء الاصطناعي مجهد ومثقل بطلبات الخدمة حالياً (503). يرجى المحاولة مرة أخرى."
+              : "Connection overload: The Google AI service is temporarily down or busy (503). Please try again shortly.",
+            isArabic ? "الخدمة مجهدة حالياً" : "AI Service Overloaded"
+          );
+        } else if (res.status >= 500) {
+          toast.error(
+            isArabic
+              ? `حدث خطأ تقني داخلي في خادم الاتصال (رمز ${res.status}).`
+              : `Internal gateway error occurred on the server (Status: ${res.status}).`,
+            isArabic ? "خطأ الاتصال مفقود" : "Internal Gateway Fault"
+          );
+        } else {
+          toast.warning(
+            isArabic
+              ? `لم تكتمل العملية بنجاح (رمز الاستجابة: ${res.status}).`
+              : `Request failed with response status: ${res.status}.`,
+            isArabic ? "فشل طلب الخدمة" : "Request Failure"
+          );
+        }
+      }
+
       const cloudRunUrl = "https://ais-pre-yrqajcztyb24fektpr6ddb-78152961995.europe-west1.run.app";
       const explanationText = isArabic 
         ? `⚠️ **تنبيه هام حول بيئة التشغيل من كوجنيفي:**
@@ -307,6 +385,13 @@ To experience Cognify's full-stack features, please use our fully integrated **C
       }
     }
   } catch (err: any) {
+    const isArabic = profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya';
+    toast.error(
+      isArabic
+        ? `تعذر إرسال الرسالة لعدم ثبات الشبكة: ${err.message || 'خطأ اتصال مجهول'}.`
+        : `Primary socket signal failed to reach the server: ${err.message || 'Connection lost'}.`,
+      isArabic ? "انقطاع الاتصال" : "Signal Loss"
+    );
     yield { text: `Error: ${err.message}`, done: true, error: true };
   }
 }
