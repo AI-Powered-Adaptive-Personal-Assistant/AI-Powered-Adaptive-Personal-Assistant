@@ -3,21 +3,25 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, lazy, Suspense } from "react";
 import Sidebar from "./components/Sidebar";
 import ChatInterface from "./components/ChatInterface";
 import RightPanel from "./components/RightPanel";
 import Onboarding from "./components/Onboarding";
-import IntelligenceHub from "./components/IntelligenceHub";
-import ProfilePage from "./components/ProfilePage";
-import LogicSandbox from "./components/LogicSandbox";
-import SignVideoStudio from "./components/SignVideoStudio";
 import Login from "./components/Login";
-import AdminDashboard from "./components/AdminDashboard";
-import AccessibilityOverlay from "./components/AccessibilityOverlay";
-import LiveCaptions from "./components/LiveCaptions";
-import DisabilityModeView from "./components/DisabilityModeView";
 import ErrorBoundary from "./components/ErrorBoundary";
+
+// Secondary / heavy views are code-split so the initial bundle stays small.
+// SignVideoStudio + DisabilityModeView pull in three.js, and AccessibilityOverlay
+// pulls in @mediapipe — none of these are needed on the critical path.
+const IntelligenceHub = lazy(() => import("./components/IntelligenceHub"));
+const ProfilePage = lazy(() => import("./components/ProfilePage"));
+const LogicSandbox = lazy(() => import("./components/LogicSandbox"));
+const SignVideoStudio = lazy(() => import("./components/SignVideoStudio"));
+const AdminDashboard = lazy(() => import("./components/AdminDashboard"));
+const AccessibilityOverlay = lazy(() => import("./components/AccessibilityOverlay"));
+const LiveCaptions = lazy(() => import("./components/LiveCaptions"));
+const DisabilityModeView = lazy(() => import("./components/DisabilityModeView"));
 import { motion, AnimatePresence } from "motion/react";
 import { Message, UserProfile } from "./types";
 import { auth, db, handleFirestoreError, OperationType, cleanDataForFirestore } from "./lib/firebase";
@@ -563,34 +567,44 @@ export default function App() {
         )}
 
         <main className="flex-1 relative overflow-hidden flex flex-col md:flex-row">
-          {renderView()}
+          <Suspense fallback={
+            <div className="flex-1 flex items-center justify-center">
+              <Loader2 className="w-8 h-8 text-primary animate-spin" />
+            </div>
+          }>
+            {renderView()}
+          </Suspense>
         </main>
 
         {profile && (
-          <AccessibilityOverlay 
-            mode={profile.accessibilityMode === 'None' ? 'Vocal-Deaf' : profile.accessibilityMode} 
-            profile={profile}
-            aiResponse={currentAIResponse}
-            isListening={isSTTActive}
-            onTranscription={(text) => {
-              setExternalMessage(text);
-              // Reset so it doesn't keep triggering if ChatInterface clears it
-              setTimeout(() => setExternalMessage(""), 500);
-            }} 
-            onToggleListening={() => {
-              if (chatRef.current) {
-                chatRef.current.toggleSTT();
-              }
-            }}
-          />
+          <Suspense fallback={null}>
+            <AccessibilityOverlay 
+              mode={profile.accessibilityMode === 'None' ? 'Vocal-Deaf' : profile.accessibilityMode} 
+              profile={profile}
+              aiResponse={currentAIResponse}
+              isListening={isSTTActive}
+              onTranscription={(text) => {
+                setExternalMessage(text);
+                // Reset so it doesn't keep triggering if ChatInterface clears it
+                setTimeout(() => setExternalMessage(""), 500);
+              }} 
+              onToggleListening={() => {
+                if (chatRef.current) {
+                  chatRef.current.toggleSTT();
+                }
+              }}
+            />
+          </Suspense>
         )}
 
         <AnimatePresence>
           {isLiveCaptionsOpen && (
-            <LiveCaptions 
-              language={profile?.language === 'Arabic' ? 'ar-SA' : 'en-US'}
-              onClose={() => setIsLiveCaptionsOpen(false)} 
-            />
+            <Suspense fallback={null}>
+              <LiveCaptions 
+                language={profile?.language === 'Arabic' ? 'ar-SA' : 'en-US'}
+                onClose={() => setIsLiveCaptionsOpen(false)} 
+              />
+            </Suspense>
           )}
         </AnimatePresence>
       </div>
