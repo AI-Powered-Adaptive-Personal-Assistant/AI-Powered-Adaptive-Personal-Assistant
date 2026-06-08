@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { UserProfile, EducationLevel } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
-import { User, Mail, Shield, Award, Languages, Globe, BookOpen, GraduationCap, Briefcase, MapPin, Calendar, Clock, MessageSquare, Edit3, Save, X, Camera, Eye, Brain as BrainIcon, Menu, Sprout, Heart } from 'lucide-react';
+import { User, Mail, Shield, Award, Languages, Globe, BookOpen, GraduationCap, Briefcase, MapPin, Calendar, Clock, MessageSquare, Edit3, Save, X, Camera, Eye, Brain as BrainIcon, Menu, Sprout, Heart, ThumbsUp, ThumbsDown, Loader2 } from 'lucide-react';
 import { formatDate } from '../lib/utils';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, collection, getDocs } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType, cleanDataForFirestore } from '../lib/firebase';
 import { getTranslation } from '../lib/translations';
 
@@ -24,6 +24,99 @@ export default function ProfilePage({ profile, onMenuClick, setProfile }: Profil
   const [isEditing, setIsEditing] = useState(false);
   const [editedProfile, setEditedProfile] = useState<UserProfile>(profile);
   const [saving, setSaving] = useState(false);
+
+  const [feedbackStats, setFeedbackStats] = useState<{
+    upvotes: number;
+    downvotes: number;
+    helpfulSnippets: string[];
+    improvementSnippets: string[];
+    loading: boolean;
+  }>({
+    upvotes: 0,
+    downvotes: 0,
+    helpfulSnippets: [],
+    improvementSnippets: [],
+    loading: true
+  });
+
+  React.useEffect(() => {
+    if (!profile.uid) return;
+    let isActive = true;
+
+    const fetchFeedback = async () => {
+      try {
+        let up = 0;
+        let down = 0;
+        const helpful: string[] = [];
+        const improvement: string[] = [];
+
+        // 1. Fetch from Chat Threads
+        const threadsRef = collection(db, `users/${profile.uid}/threads`);
+        const threadsSnap = await getDocs(threadsRef);
+        threadsSnap.forEach(docSnap => {
+          const messagesData = docSnap.data().messages || [];
+          messagesData.forEach((m: any) => {
+            if (m.role === 'assistant') {
+              if (m.reaction === 'up') {
+                up++;
+                if (helpful.length < 5 && m.content) {
+                  helpful.push(m.content);
+                }
+              } else if (m.reaction === 'down') {
+                down++;
+                if (improvement.length < 5 && m.content) {
+                  improvement.push(m.content);
+                }
+              }
+            }
+          });
+        });
+
+        // 2. Fetch from Sandbox Modules
+        const sandboxRef = collection(db, `users/${profile.uid}/sandbox`);
+        const sandboxSnap = await getDocs(sandboxRef);
+        sandboxSnap.forEach(docSnap => {
+          const messagesData = docSnap.data().messages || [];
+          messagesData.forEach((m: any) => {
+            if (m.role === 'assistant') {
+              if (m.reaction === 'up') {
+                up++;
+                if (helpful.length < 5 && m.content) {
+                  helpful.push(m.content);
+                }
+              } else if (m.reaction === 'down') {
+                down++;
+                if (improvement.length < 5 && m.content) {
+                  improvement.push(m.content);
+                }
+              }
+            }
+          });
+        });
+
+        if (isActive) {
+          setFeedbackStats({
+            upvotes: up,
+            downvotes: down,
+            helpfulSnippets: helpful,
+            improvementSnippets: improvement,
+            loading: false
+          });
+        }
+      } catch (err) {
+        console.error("Error fetching feedback on profile: ", err);
+        if (isActive) {
+          setFeedbackStats(prev => ({ ...prev, loading: false }));
+        }
+      }
+    };
+
+    fetchFeedback();
+
+    return () => {
+      isActive = false;
+    };
+  }, [profile.uid]);
 
   const stats = [
     { label: 'Cognitive Level', value: profile.level, icon: BrainIcon },
@@ -306,6 +399,112 @@ export default function ProfilePage({ profile, onMenuClick, setProfile }: Profil
                 ))
               )}
             </div>
+          </div>
+
+          {/* AI Guidance Feedback Hub */}
+          <div className="bg-white p-10 rounded-[40px] border border-slate-200 shadow-sm">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+              <div>
+                <h3 className="text-lg font-black text-slate-900 flex items-center gap-3">
+                  <BrainIcon className="w-5 h-5 text-primary" />
+                  {profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya' ? 'مؤشر تقييم الذكاء الاصطناعي' : 'AI Guidance Feedback Hub'}
+                </h3>
+                <p className="text-xs text-slate-500 font-medium italic mt-1">
+                  {profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya'
+                    ? 'تحليل الملاحظات والتقييمات التي قدمتها لإجابات المساعد الذكي.'
+                    : 'Analysis of helpful and flagged responses across your intellectual sessions.'}
+                </p>
+              </div>
+              
+              {!feedbackStats.loading && (feedbackStats.upvotes > 0 || feedbackStats.downvotes > 0) && (
+                <div className="flex items-center gap-2 bg-emerald-50 text-emerald-800 px-4 py-2 rounded-2xl border border-emerald-100">
+                  <span className="text-lg font-black">
+                    {Math.round((feedbackStats.upvotes / (feedbackStats.upvotes + feedbackStats.downvotes)) * 100)}%
+                  </span>
+                  <span className="text-[10px] uppercase font-black tracking-wider">
+                    {profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya' ? 'تقييم إيجابي' : 'Positive Rating'}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {feedbackStats.loading ? (
+              <div className="flex items-center justify-center py-10 gap-3 text-slate-400 font-bold text-xs uppercase tracking-widest">
+                <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                <span>{profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya' ? 'جاري تحميل التقييمات...' : 'Compiling intelligence feedback...'}</span>
+              </div>
+            ) : (
+              <div className="space-y-8">
+                {/* Metrics row */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="p-6 bg-gradient-to-br from-emerald-50/50 to-emerald-50/10 border border-emerald-100 rounded-3xl flex items-center justify-between">
+                    <div>
+                      <p className="text-[10px] font-black uppercase text-emerald-600 tracking-wider">
+                        {profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya' ? 'الإجابات المفيدة' : 'Helpful Responses'}
+                      </p>
+                      <h4 className="text-3xl font-black text-slate-900 mt-1">{feedbackStats.upvotes}</h4>
+                    </div>
+                    <div className="p-3 bg-emerald-100/80 rounded-2xl text-emerald-500">
+                      <ThumbsUp className="w-6 h-6" />
+                    </div>
+                  </div>
+
+                  <div className="p-6 bg-gradient-to-br from-rose-50/50 to-rose-50/10 border border-rose-100 rounded-3xl flex items-center justify-between">
+                    <div>
+                      <p className="text-[10px] font-black uppercase text-rose-600 tracking-wider">
+                        {profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya' ? 'تحتاج إلى تحسين' : 'Needs Improvement'}
+                      </p>
+                      <h4 className="text-3xl font-black text-slate-900 mt-1">{feedbackStats.downvotes}</h4>
+                    </div>
+                    <div className="p-3 bg-rose-100/80 rounded-2xl text-rose-500">
+                      <ThumbsDown className="w-6 h-6" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Helpful list */}
+                {feedbackStats.helpfulSnippets.length > 0 && (
+                  <div className="space-y-3">
+                    <h4 className="text-[11px] font-black tracking-wider uppercase text-slate-400 flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                      {profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya' ? 'نماذج الإجابات المفيدة والمدعومة' : 'Sample Commended Guidance'}
+                    </h4>
+                    <div className="space-y-3">
+                      {feedbackStats.helpfulSnippets.map((snippet, idx) => (
+                        <div key={idx} className="p-4 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-medium text-slate-700 leading-relaxed italic line-clamp-2 hover:line-clamp-none transition-all cursor-pointer">
+                          "{snippet}"
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Improvements list */}
+                {feedbackStats.improvementSnippets.length > 0 && (
+                  <div className="space-y-3">
+                    <h4 className="text-[11px] font-black tracking-wider uppercase text-slate-400 flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+                      {profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya' ? 'نقاط للتطوير والتحسين' : 'Identified Alignment Gaps'}
+                    </h4>
+                    <div className="space-y-3">
+                      {feedbackStats.improvementSnippets.map((snippet, idx) => (
+                        <div key={idx} className="p-4 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-medium text-slate-600 leading-relaxed italic line-clamp-2 hover:line-clamp-none transition-all cursor-pointer border-l-4 border-l-rose-400">
+                          "{snippet}"
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {feedbackStats.upvotes === 0 && feedbackStats.downvotes === 0 && (
+                  <div className="text-center py-10 text-slate-400 font-medium italic border-2 border-dashed border-slate-100 rounded-3xl">
+                    {profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya'
+                      ? 'لا توجد تقييمات لإجابات الذكاء الاصطناعي حتى الآن. يمكنك تقييم الإجابات داخل المحادثة بوضع علامة مفيد أو غير مفيد.'
+                      : 'No message ratings submitted yet. Commend or flag responses in the chat view to populate this analytics terminal.'}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>

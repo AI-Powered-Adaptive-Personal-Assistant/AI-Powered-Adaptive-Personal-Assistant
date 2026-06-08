@@ -11,6 +11,7 @@ export interface Message {
   role: 'user' | 'assistant';
   content: string;
   timestamp: string; // ISO string for better persistence
+  reaction?: 'up' | 'down';
   attachments?: {
     name: string;
     type: string;

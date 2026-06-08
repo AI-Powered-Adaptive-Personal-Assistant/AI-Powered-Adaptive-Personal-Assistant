@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { Message, UserProfile, Task } from "../types";
 import { generateAdaptiveResponseStream, generateBenchmarkComparison, generateProactiveInsights } from "../services/gemini";
 import { geminiService } from "../services/geminiService";
-import { Send, Bot, User, Loader2, Sparkles, BrainCircuit, Paperclip, ImageIcon, FileText, X, Accessibility, Menu, Download, Mic, MicOff, RefreshCw, Volume2, ListTodo, Plus, Trash2, CheckCircle2, Circle, Scale, Lightbulb } from "lucide-react";
+import { Send, Bot, User, Loader2, Sparkles, BrainCircuit, Paperclip, ImageIcon, FileText, X, Accessibility, Menu, Download, Mic, MicOff, RefreshCw, Volume2, ListTodo, Plus, Trash2, CheckCircle2, Circle, Scale, Lightbulb, ThumbsUp, ThumbsDown } from "lucide-react";
 import Markdown from 'react-markdown';
 import { motion, AnimatePresence } from "motion/react";
 import { doc, setDoc, onSnapshot } from "firebase/firestore";
@@ -19,6 +19,9 @@ const cleanMessagesForFirestore = (newHistory: Message[]) => {
       content: m.content || "",
       timestamp: m.timestamp
     };
+    if (m.reaction !== undefined && m.reaction !== null) {
+      item.reaction = m.reaction;
+    }
     if (m.attachments !== undefined && m.attachments !== null) {
       item.attachments = m.attachments.map((a: any) => {
         const att: any = { name: a.name || "", type: a.type || "" };
@@ -155,6 +158,18 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
     }
   }, [externalMessage]);
 
+  // Warm up Speech Synthesis voices list on mount
+  useEffect(() => {
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.getVoices();
+      const handleVoices = () => {
+        window.speechSynthesis.getVoices();
+      };
+      window.speechSynthesis.addEventListener('voiceschanged', handleVoices);
+      return () => window.speechSynthesis.removeEventListener('voiceschanged', handleVoices);
+    }
+  }, []);
+
   const [isLoading, setIsLoading] = useState(false);
   const [streamingText, setStreamingText] = useState("");
   const [selectedFiles, setSelectedFiles] = useState<{ name: string, type: string, data: string }[]>([]);
@@ -195,15 +210,47 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
                            cleanText.includes('يا باشا') || 
                            cleanText.includes('تمام') || 
                            cleanText.includes('ازيك');
-        utterance.lang = isEgyptian ? 'ar-EG' : 'ar-SA';
+        const defaultLang = isEgyptian ? 'ar-EG' : 'ar-SA';
+        utterance.lang = defaultLang;
+        
+        if ('speechSynthesis' in window) {
+          const voices = window.speechSynthesis.getVoices();
+          let voice = voices.find(v => v.lang.toLowerCase() === defaultLang.toLowerCase());
+          if (!voice) {
+            voice = voices.find(v => v.lang.toLowerCase() === 'ar-eg' || v.lang.toLowerCase() === 'ar-sa');
+          }
+          if (!voice) {
+            voice = voices.find(v => v.lang.toLowerCase().startsWith('ar'));
+          }
+          if (voice) {
+            utterance.voice = voice;
+            utterance.lang = voice.lang;
+          }
+        }
       } else {
-        utterance.lang = langMap[profile.language || 'English'] || 'en-US';
+        const defaultLang = langMap[profile.language || 'English'] || 'en-US';
+        utterance.lang = defaultLang;
+        
+        if ('speechSynthesis' in window) {
+          const voices = window.speechSynthesis.getVoices();
+          let voice = voices.find(v => v.lang.toLowerCase() === defaultLang.toLowerCase());
+          if (!voice) {
+            voice = voices.find(v => v.lang.toLowerCase().startsWith(defaultLang.split('-')[0].toLowerCase()));
+          }
+          if (voice) {
+            utterance.voice = voice;
+            utterance.lang = voice.lang;
+          }
+        }
       }
       
       utterance.onend = () => setSpeakingMessageId(null);
       utterance.onerror = () => setSpeakingMessageId(null);
       
-      window.speechSynthesis.speak(utterance);
+      // Safety delay to allow browser to clear audio queue before playing
+      setTimeout(() => {
+        window.speechSynthesis.speak(utterance);
+      }, 100);
     }
   };
 
@@ -653,6 +700,26 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
     });
   };
 
+  const handleReactToMessage = async (messageId: string, reactionType: 'up' | 'down') => {
+    if (!profile.uid || !profile.activeThreadId) return;
+
+    const updatedMessages = messages.map(m => {
+      if (m.id === messageId) {
+        const newReaction = m.reaction === reactionType ? undefined : reactionType;
+        return { ...m, reaction: newReaction };
+      }
+      return m;
+    });
+
+    setMessages(updatedMessages);
+
+    const threadPath = `users/${profile.uid}/threads/${profile.activeThreadId}`;
+    const historyToSave = cleanMessagesForFirestore(updatedMessages);
+    setDoc(doc(db, threadPath), { messages: historyToSave }, { merge: true }).catch(err => {
+        handleFirestoreError(err, OperationType.UPDATE, threadPath);
+    });
+  };
+
   const handleDownload = (file: {name: string, type: string, data: string}) => {
     if (!file || !file.data) return;
     const link = document.createElement("a");
@@ -1083,11 +1150,38 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
                       </div>
                     ))}
 
-                    <div className="mt-4 flex gap-2 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className={`mt-4 flex gap-3 items-center justify-end transition-opacity ${m.reaction ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+                      <div className="flex items-center gap-1.5 mr-auto">
+                        <button
+                          onClick={() => handleReactToMessage(m.id, 'up')}
+                          className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-1.5 rounded-lg border transition-all flex items-center gap-1.5 ${
+                            m.reaction === 'up'
+                              ? 'bg-emerald-500 text-white border-emerald-500 shadow-sm'
+                              : 'text-slate-500 bg-white dark:bg-slate-800 border-slate-200/60 dark:border-slate-700 hover:text-emerald-600 hover:bg-emerald-50 hover:border-emerald-100'
+                          }`}
+                          title="Thumbs Up / Helpful"
+                        >
+                          <ThumbsUp className="w-3.5 h-3.5" />
+                          <span>{profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya' ? 'مفيد' : 'Helpful'}</span>
+                        </button>
+                        <button
+                          onClick={() => handleReactToMessage(m.id, 'down')}
+                          className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-1.5 rounded-lg border transition-all flex items-center gap-1.5 ${
+                            m.reaction === 'down'
+                              ? 'bg-rose-500 text-white border-rose-500 shadow-sm'
+                              : 'text-slate-500 bg-white dark:bg-slate-800 border-slate-200/60 dark:border-slate-700 hover:text-rose-600 hover:bg-rose-50 hover:border-rose-100'
+                          }`}
+                          title="Thumbs Down / Unhelpful"
+                        >
+                          <ThumbsDown className="w-3.5 h-3.5" />
+                          <span>{profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya' ? 'غير مفيد' : 'Unhelpful'}</span>
+                        </button>
+                      </div>
+
                       <button 
                         onClick={() => handleCompareAI(m)}
                         disabled={comparingId === m.id}
-                        className="text-[10px] font-bold uppercase tracking-widest text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 px-3 py-1.5 rounded-lg border border-transparent hover:border-indigo-100 transition-all flex items-center gap-2 disabled:opacity-50"
+                        className="text-[10px] font-bold uppercase tracking-widest text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 px-3 py-1.5 rounded-lg border border-transparent hover:border-indigo-100 transition-all flex items-center gap-2 disabled:opacity-50"
                       >
                         {comparingId === m.id ? (
                           <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Benchmarking...</>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { UserProfile, Message } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
-import { Brain, Sparkles, Target, Zap, ChevronRight, HelpCircle, Lightbulb, Menu, Send, Loader2, ArrowLeft, Volume2, VolumeX } from 'lucide-react';
+import { Brain, Sparkles, Target, Zap, ChevronRight, HelpCircle, Lightbulb, Menu, Send, Loader2, ArrowLeft, Volume2, VolumeX, ThumbsUp, ThumbsDown } from 'lucide-react';
 import { generateLogicResponse } from '../services/gemini';
 import Markdown from 'react-markdown';
 import { getTranslation } from '../lib/translations';
@@ -24,11 +24,18 @@ export default function LogicSandbox({ profile, onMenuClick }: LogicSandboxProps
   const [speakingMessageId, setSpeakingMessageId] = useState<string | null>(null);
 
   useEffect(() => {
-    return () => {
-      if ('speechSynthesis' in window) {
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.getVoices();
+      const handleVoices = () => {
+        window.speechSynthesis.getVoices();
+      };
+      window.speechSynthesis.addEventListener('voiceschanged', handleVoices);
+      
+      return () => {
+        window.speechSynthesis.removeEventListener('voiceschanged', handleVoices);
         window.speechSynthesis.cancel();
-      }
-    };
+      };
+    }
   }, []);
 
   const handleSpeak = (m: Message) => {
@@ -63,15 +70,68 @@ export default function LogicSandbox({ profile, onMenuClick }: LogicSandboxProps
                            cleanText.includes('يا باشا') || 
                            cleanText.includes('تمام') || 
                            cleanText.includes('ازيك');
-        utterance.lang = isEgyptian ? 'ar-EG' : 'ar-SA';
+        const defaultLang = isEgyptian ? 'ar-EG' : 'ar-SA';
+        utterance.lang = defaultLang;
+        
+        if ('speechSynthesis' in window) {
+          const voices = window.speechSynthesis.getVoices();
+          let voice = voices.find(v => v.lang.toLowerCase() === defaultLang.toLowerCase());
+          if (!voice) {
+            voice = voices.find(v => v.lang.toLowerCase() === 'ar-eg' || v.lang.toLowerCase() === 'ar-sa');
+          }
+          if (!voice) {
+            voice = voices.find(v => v.lang.toLowerCase().startsWith('ar'));
+          }
+          if (voice) {
+            utterance.voice = voice;
+            utterance.lang = voice.lang;
+          }
+        }
       } else {
-        utterance.lang = langMap[profile.language || 'English'] || 'en-US';
+        const defaultLang = langMap[profile.language || 'English'] || 'en-US';
+        utterance.lang = defaultLang;
+        
+        if ('speechSynthesis' in window) {
+          const voices = window.speechSynthesis.getVoices();
+          let voice = voices.find(v => v.lang.toLowerCase() === defaultLang.toLowerCase());
+          if (!voice) {
+            voice = voices.find(v => v.lang.toLowerCase().startsWith(defaultLang.split('-')[0].toLowerCase()));
+          }
+          if (voice) {
+            utterance.voice = voice;
+            utterance.lang = voice.lang;
+          }
+        }
       }
       
       utterance.onend = () => setSpeakingMessageId(null);
       utterance.onerror = () => setSpeakingMessageId(null);
       
-      window.speechSynthesis.speak(utterance);
+      // Safety delay to allow browser to clear audio queue before playing
+      setTimeout(() => {
+        window.speechSynthesis.speak(utterance);
+      }, 100);
+    }
+  };
+
+  const handleReactToMessage = async (messageId: string, reactionType: 'up' | 'down') => {
+    if (!profile.uid || !selectedModule) return;
+
+    const updatedMessages = messages.map(m => {
+      if (m.id === messageId) {
+        const newReaction = m.reaction === reactionType ? undefined : reactionType;
+        return { ...m, reaction: newReaction };
+      }
+      return m;
+    });
+
+    setMessages(updatedMessages);
+
+    const docPath = `users/${profile.uid}/sandbox/${selectedModule}`;
+    try {
+      await setDoc(doc(db, docPath), { messages: updatedMessages }, { merge: true });
+    } catch (err) {
+      console.error("Error saving reaction in sandbox: ", err);
     }
   };
 
@@ -374,6 +434,36 @@ export default function LogicSandbox({ profile, onMenuClick }: LogicSandboxProps
                         <div className={`prose prose-sm max-w-none ${m.role === 'user' ? 'prose-invert' : ''}`}>
                           <Markdown>{m.content}</Markdown>
                         </div>
+                        {m.role !== 'user' && (
+                          <div className={`mt-3 pt-2.5 border-t border-slate-100 flex gap-2 items-center justify-end transition-opacity ${
+                            m.reaction ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                          }`}>
+                            <button
+                              onClick={() => handleReactToMessage(m.id, 'up')}
+                              className={`p-1.5 rounded-lg border transition-all flex items-center gap-1 text-[9px] font-black uppercase tracking-wider ${
+                                m.reaction === 'up'
+                                  ? 'bg-emerald-500 text-white border-emerald-500 shadow-sm'
+                                  : 'text-slate-500 bg-slate-50 border-slate-200/60 hover:text-emerald-600 hover:bg-emerald-50 hover:border-emerald-100'
+                              }`}
+                              title="Thumbs Up / Helpful"
+                            >
+                              <ThumbsUp className="w-3 h-3" />
+                              <span>{profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya' ? 'مفيد' : 'Helpful'}</span>
+                            </button>
+                            <button
+                              onClick={() => handleReactToMessage(m.id, 'down')}
+                              className={`p-1.5 rounded-lg border transition-all flex items-center gap-1 text-[9px] font-black uppercase tracking-wider ${
+                                m.reaction === 'down'
+                                  ? 'bg-rose-500 text-white border-rose-500 shadow-sm'
+                                  : 'text-slate-500 bg-slate-50 border-slate-200/60 hover:text-rose-600 hover:bg-rose-50 hover:border-rose-100'
+                              }`}
+                              title="Thumbs Down / Unhelpful"
+                            >
+                              <ThumbsDown className="w-3 h-3" />
+                              <span>{profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya' ? 'غير مفيد' : 'Unhelpful'}</span>
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}
