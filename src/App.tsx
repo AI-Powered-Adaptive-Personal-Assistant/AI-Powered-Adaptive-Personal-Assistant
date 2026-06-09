@@ -578,8 +578,8 @@ export default function App() {
 
         {profile && (
           <Suspense fallback={null}>
-            <AccessibilityOverlay 
-              mode={profile.accessibilityMode === 'None' ? 'Vocal-Deaf' : profile.accessibilityMode} 
+            <AccessibilityOverlay
+              mode={profile.accessibilityMode === 'None' ? 'Vocal-Deaf' : profile.accessibilityMode}
               profile={profile}
               aiResponse={currentAIResponse}
               isListening={isSTTActive}
@@ -587,7 +587,7 @@ export default function App() {
                 setExternalMessage(text);
                 // Reset so it doesn't keep triggering if ChatInterface clears it
                 setTimeout(() => setExternalMessage(""), 500);
-              }} 
+              }}
               onToggleListening={() => {
                 if (chatRef.current) {
                   chatRef.current.toggleSTT();
@@ -600,9 +600,9 @@ export default function App() {
         <AnimatePresence>
           {isLiveCaptionsOpen && (
             <Suspense fallback={null}>
-              <LiveCaptions 
+              <LiveCaptions
                 language={profile?.language === 'Arabic' ? 'ar-SA' : 'en-US'}
-                onClose={() => setIsLiveCaptionsOpen(false)} 
+                onClose={() => setIsLiveCaptionsOpen(false)}
               />
             </Suspense>
           )}
