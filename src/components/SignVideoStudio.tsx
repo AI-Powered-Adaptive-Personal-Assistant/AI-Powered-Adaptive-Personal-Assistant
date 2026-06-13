@@ -1,23 +1,14 @@
 import { useState, useEffect, useRef } from "react";
-import { UserProfile, Message } from "../types";
+import { UserProfile } from "../types";
 import { motion, AnimatePresence } from "motion/react";
-import { Mic, Square, Play, RefreshCw, Menu, Download, FileText, Settings, Video, Sparkles, Brain, Send } from "lucide-react";
+import { Mic, Square, Play, RefreshCw, Menu, Download, FileText, Settings, Video, Sparkles, Brain } from "lucide-react";
 import SignAvatar3D from "./SignAvatar3D";
-import { generateAdaptiveResponseStream } from "../services/gemini";
 
 interface SignVideoStudioProps {
   profile: UserProfile;
   onMenuClick: () => void;
   isEmbedded?: boolean;
 }
-
-// Strip markdown / punctuation so each token maps cleanly to a sign or fingerspelled letter.
-const toSignWords = (text: string): string[] =>
-  text
-    .replace(/[#*_`~>\[\]()]/g, " ")
-    .replace(/[.,/!$%^&;:{}=\-]/g, " ")
-    .split(/\s+/)
-    .filter(Boolean);
 
 export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: SignVideoStudioProps) {
   const [inputText, setInputText] = useState("");
@@ -27,19 +18,11 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
   const [sequence, setSequence] = useState<string[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [is3DActive, setIs3DActive] = useState(true); // real 3D engine is now the default
-  // AI Assistant mode: instead of signing the literal input, the AI replies and the avatar signs the REPLY.
-  const [aiMode, setAiMode] = useState(true);
-  const [isThinking, setIsThinking] = useState(false);
-  const [userMessage, setUserMessage] = useState(""); // what the user last asked
-  const [aiReply, setAiReply] = useState("");         // the AI's answer being signed
-  const historyRef = useRef<Message[]>([]);
   const prevInputRef = useRef("");
   const recognitionRef = useRef<any>(null);
 
   useEffect(() => {
-    // Literal-translation mode only: auto-sign the typed/spoken text after a short pause.
-    // In AI mode the avatar signs the AI's reply instead (see handleSend), so skip this.
-    if (aiMode) return;
+    // Auto-translate feature when typing or speaking
     const timer = setTimeout(() => {
       if (inputText.trim() !== prevInputRef.current) {
         prevInputRef.current = inputText.trim();
@@ -56,8 +39,7 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
     }, 1000);
 
     return () => clearTimeout(timer);
-  }, [inputText, aiMode]);
-
+  }, [inputText]);
 
   // Setup exact same getHandPose as overlay (used by the 2D fallback mode)
   const getHandPose = (word: string, side: 'left' | 'right') => {
@@ -160,53 +142,6 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
     }, 600);
   };
 
-  // AI mode: send the user's message to Gemini, then sign the REPLY (not the literal input).
-  const askAssistant = async () => {
-    const text = inputText.trim();
-    if (!text || isThinking) return;
-
-    if (isRecording) stopRecording();
-    setIsThinking(true);
-    setUserMessage(text);
-    setAiReply("");
-    setSequence([]);
-    setIsPlaying(false);
-    setInputText("");
-
-    try {
-      let full = "";
-      for await (const chunk of generateAdaptiveResponseStream(text, profile, historyRef.current)) {
-        full = chunk.text;
-        setAiReply(full);
-      }
-
-      const now = new Date().toISOString();
-      historyRef.current = [
-        ...historyRef.current,
-        { id: `u-${Date.now()}`, role: "user" as const, content: text, timestamp: now },
-        { id: `a-${Date.now() + 1}`, role: "assistant" as const, content: full, timestamp: now },
-      ].slice(-12); // keep recent context bounded
-
-      // Sign the reply
-      const words = toSignWords(full);
-      setSequence(words);
-      setPlaybackProgress(0);
-      setIsPlaying(words.length > 0);
-    } catch (e) {
-      console.error("Sign assistant error:", e);
-      setAiReply(
-        profile.language === "Arabic" || profile.language === "Egyptian Ammiya"
-          ? "تعذّر الوصول للمساعد. حاول تاني."
-          : "Couldn't reach the assistant. Please try again."
-      );
-    } finally {
-      setIsThinking(false);
-    }
-  };
-
-  // Single entry point for the primary action button (depends on the active mode).
-  const handlePrimaryAction = () => (aiMode ? askAssistant() : generateVideo());
-
   // 2D fallback timeline only — in 3D mode the avatar drives progress itself
   useEffect(() => {
     if (is3DActive) return;
@@ -271,59 +206,19 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
             {/* Input Section */}
             <div className="flex flex-col gap-6 w-full h-full">
                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 flex-1 flex flex-col">
-                  <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
+                  <div className="flex items-center justify-between mb-4">
                      <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
                        <FileText className="w-5 h-5 text-primary" />
-                       {aiMode ? 'Ask the Assistant' : 'Script Input'}
+                       Script Input
                      </h2>
-                     {/* Mode toggle: AI reply vs. literal translation */}
-                     <button
-                       onClick={() => setAiMode(m => !m)}
-                       className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all border ${
-                         aiMode
-                           ? 'bg-primary/10 text-primary border-primary/30'
-                           : 'bg-slate-100 text-slate-500 border-slate-200 hover:text-slate-700'
-                       }`}
-                       title={aiMode ? 'AI replies, then signs the answer' : 'Signs your text literally'}
-                     >
-                       <Brain className="w-3 h-3" />
-                       {aiMode ? 'AI Reply' : 'Literal'}
-                     </button>
                   </div>
 
                   <textarea
                     value={inputText}
                     onChange={(e) => setInputText(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (aiMode && e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        handlePrimaryAction();
-                      }
-                    }}
-                    placeholder={aiMode
-                      ? "Ask anything — the assistant replies and signs the answer for you..."
-                      : "Type or dictate the script you want to convert to sign language video..."}
+                    placeholder="Type or dictate the script you want to convert to sign language video..."
                     className="flex-1 w-full p-4 bg-slate-50 border border-slate-200 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-primary/50 text-slate-700"
                   />
-
-                  {/* AI conversation preview: what you asked + the answer being signed */}
-                  {aiMode && (userMessage || aiReply || isThinking) && (
-                    <div className="mt-4 space-y-2 max-h-40 overflow-y-auto">
-                      {userMessage && (
-                        <div className="text-sm text-slate-500">
-                          <span className="font-bold text-slate-400 uppercase text-[10px] tracking-widest mr-2">You</span>
-                          {userMessage}
-                        </div>
-                      )}
-                      <div className="p-3 bg-primary/5 border border-primary/15 rounded-xl text-sm text-slate-700 leading-relaxed">
-                        <span className="font-bold text-primary uppercase text-[10px] tracking-widest mr-2 inline-flex items-center gap-1">
-                          <Brain className="w-3 h-3" /> Assistant
-                        </span>
-                        {aiReply || (isThinking ? 'Thinking…' : '')}
-                        {isThinking && <span className="inline-block w-1.5 h-4 align-middle bg-primary/60 ml-0.5 animate-pulse" />}
-                      </div>
-                    </div>
-                  )}
 
                   <div className="mt-4 flex flex-col sm:flex-row gap-3">
                      {isRecording ? (
@@ -345,19 +240,12 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
                      )}
 
                      <button
-                       onClick={handlePrimaryAction}
-                       disabled={!inputText.trim() || isGenerating || isThinking}
+                       onClick={generateVideo}
+                       disabled={!inputText.trim() || isGenerating}
                        className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-primary hover:bg-blue-700 disabled:opacity-50 disabled:active:scale-100 active:scale-95 transform transition-all text-white font-bold rounded-xl shadow-lg shadow-primary/20"
                      >
-                        {aiMode ? (
-                          isThinking
-                            ? <><RefreshCw className="w-5 h-5 animate-spin" /> Thinking...</>
-                            : <><Send className="w-5 h-5" /> Ask &amp; Sign</>
-                        ) : (
-                          isGenerating
-                            ? <><RefreshCw className="w-5 h-5 animate-spin" /> Rendering Video...</>
-                            : <><Video className="w-5 h-5" /> Generate Video</>
-                        )}
+                        {isGenerating ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Video className="w-5 h-5" />}
+                        {isGenerating ? 'Rendering Video...' : 'Generate Video'}
                      </button>
                   </div>
                </div>
