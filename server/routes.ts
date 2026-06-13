@@ -71,3 +71,33 @@ geminiRouter.post('/generateSignSequence', async (req, res) => {
   const result = await geminiService.generateSignSequence(req.body.text, req.body.language);
   res.json({ result });
 });
+
+geminiRouter.post('/generateQuickReplies', async (req, res) => {
+  const result = await geminiService.generateQuickReplies(req.body.text, req.body.language);
+  res.json({ result });
+});
+
+geminiRouter.post('/decodeDysarthria', async (req, res) => {
+  const result = await geminiService.decodeDysarthria(
+    req.body.text, 
+    req.body.profile, 
+    req.body.language, 
+    req.body.customMappings || []
+  );
+  res.json({ result });
+});
+
+geminiRouter.post('/decodeEuphoniaAudio', async (req, res) => {
+  try {
+    const result = await geminiService.decodeEuphoniaAudio(
+      req.body.audioData, 
+      req.body.profile, 
+      req.body.language, 
+      req.body.customMappings || [],
+      req.body.mimeType || 'audio/webm'
+    );
+    res.json({ result });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
