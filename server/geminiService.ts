@@ -162,6 +162,72 @@ export const geminiService = {
   },
 
   /**
+   * Refines, translates, and structures any phrase (Arabic or English) into an optimized
+   * sequence of simple concept words perfect for the 3D Sign Language Avatar.
+   * Simplifies complex grammar, removes auxiliary words, and aligns slang/idioms to standard concepts.
+   */
+  async optimizeSignScript(text: string, language: string = "English") {
+    const prompt = `You are an expert Sign Language Translator. 
+    Your task is to take a spoken/written sentence in ${language} and optimize it into a sequence of simple concept words (Sign Language Gloss or tokens) to be signed by a 3D avatar.
+    
+    Input sentence: "${text}"
+    
+    Known major gesture keywords:
+    - hello, hi, hey, مرحبا, اهلا, سلام, ازيك, HELLO
+    - thanks, thank, شكرا, شكرًا, متشكر, THANK
+    - yes, ok, okay, نعم, ايوه, تمام, YES
+    - no, not, لا, كلا, NO
+    - me, i, انا, أنا, ME
+    - you, انت, أنت, انتي, YOU
+    - love, حب, بحبك, LOVE
+    - help, please, مساعدة, ساعدني, HELP
+    
+    Optimization directives:
+    1. Translate the sentence into a simplified conceptual sequence of sign gloss words space-separated.
+    2. Keep nouns (e.g. names like "Dimitri" or "Google") as is, as they will be fingerspelled.
+    3. Eliminate auxiliary words, articles, prepositions ("in", "to", "at", "في", "على", "من"), and passive conjugation sounds.
+    4. Choose words matching the known gesture keywords above whenever possible. E.g. simplify "إضافة إلى شكري لك" to "شكرا", or "هل يمكنك مساعدتي" to "ساعدني".
+    5. Reduce verbs to their core imperative or active infinitive state (e.g. "أنا ذاهب" to "أنا ذاهب").
+    
+    Return ONLY a single line of space-separated optimized words. No quotes, no explanations, no punctuation.`;
+
+    try {
+      const response = await ai.models.generateContent({
+        model: "gemini-3.5-flash",
+        contents: [{ text: prompt }]
+      });
+      return response.text?.trim() || text;
+    } catch (e) {
+      console.error("Optimize Sign Script Error:", e);
+      return text;
+    }
+  },
+
+  /**
+   * Answers a direct question from the user concisely.
+   */
+  async askGeneralQuestion(text: string, language: string = "English") {
+    const prompt = `You are a helpful conversational AI assistant.
+    The user is using a Sign Language transcription and translation applet. 
+    They have input or asked the following question:
+    "${text}"
+    
+    Please provide a very clear, highly informative, yet concise and simple response in ${language}.
+    Keep it to 1-3 short sentences. Avoid complex formatting, bullet points, or markdown blocks, so that the answer is highly readable and extremely easy to translate into sign language tokens afterwards.`;
+
+    try {
+      const response = await ai.models.generateContent({
+        model: "gemini-3.5-flash",
+        contents: [{ text: prompt }]
+      });
+      return response.text?.trim() || "";
+    } catch (e) {
+      console.error("Ask General Question Error:", e);
+      return "Error generating response from Gemini.";
+    }
+  },
+
+  /**
    * Generates predictive quick-reply suggestions based on a transcript.
    */
   async generateQuickReplies(text: string, language: string = "English") {
