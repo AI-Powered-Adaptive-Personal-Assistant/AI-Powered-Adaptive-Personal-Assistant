@@ -72,6 +72,16 @@ geminiRouter.post('/generateSignSequence', async (req, res) => {
   res.json({ result });
 });
 
+geminiRouter.post('/optimizeSignScript', async (req, res) => {
+  const result = await geminiService.optimizeSignScript(req.body.text, req.body.language);
+  res.json({ result });
+});
+
+geminiRouter.post('/askGeneralQuestion', async (req, res) => {
+  const result = await geminiService.askGeneralQuestion(req.body.text, req.body.language);
+  res.json({ result });
+});
+
 geminiRouter.post('/generateQuickReplies', async (req, res) => {
   const result = await geminiService.generateQuickReplies(req.body.text, req.body.language);
   res.json({ result });
