@@ -25,7 +25,7 @@ It acts not just as an answer bot, but as a dedicated, long-term cognitive mento
 ## 🛠 Technical Stack
 - **Frontend:** React 19, TypeScript, Tailwind CSS, Lucide Icons, Framer Motion
 - **Backend & Database:** Firebase Authentication, Cloud Firestore
-- **AI Brain:** Google Gemini 3.5 Flash Framework
+- **AI Brain:** Google Gemini 2.5 Flash Framework
 
 ## 💻 Run Locally
 
