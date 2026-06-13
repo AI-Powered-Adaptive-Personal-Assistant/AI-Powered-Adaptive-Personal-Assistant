@@ -159,5 +159,132 @@ export const geminiService = {
       console.error("Pro Sequence Generation Error:", e);
       return [];
     }
+  },
+
+  /**
+   * Generates predictive quick-reply suggestions based on a transcript.
+   */
+  async generateQuickReplies(text: string, language: string = "English") {
+    const prompt = `You are a real-time speech assistant for speech-impaired individuals. 
+    Review the following ongoing conversation transcript:
+    "${text}"
+    
+    Task: Suggest exactly 3 or 4 extremely brief, natural, conversational click-to-speak response options in ${language} that this speech-impaired person could tap to say immediately.
+    
+    Make the replies:
+    1. Short (usually 2-5 words e.g., "Yes, that works", "No, thank you", "One minute please").
+    2. Highly context-appropriate to what they heard above.
+    3. Diverse (at least one agreement/general, one question or clarification, one gentle boundary/next step).
+    4. Culturally natural in ${language}.
+    
+    Return the result as a raw JSON array of strings, for example: ["Yes, please", "Can you explain?", "Let me think about it"]. No markdown block syntax, no comments.`;
+
+    try {
+      const response = await ai.models.generateContent({
+        model: "gemini-3.5-flash",
+        contents: [{ text: prompt }],
+        config: {
+          responseMimeType: "application/json"
+        }
+      });
+      const parsed = JSON.parse(response.text?.trim() || "[]");
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+      console.error("Gemini QuickReplies Generation Error:", e);
+      return [];
+    }
+  },
+
+  /**
+   * Reconstructs/decodes distorted or slurred speech from speech-impaired individuals
+   */
+  async decodeDysarthria(text: string, profile: string = "General", language: string = "English", customMappings: Array<{ phrase: string; translation: string }> = []) {
+    let mappingsText = "";
+    if (customMappings && customMappings.length > 0) {
+      mappingsText = `Here is a set of customized/personalized training voice mapping examples configured by the user for Project Euphonia style matching:
+${customMappings.map(m => `- When standard ASR transcribes sounds like "${m.phrase}", they actually mean: "${m.translation}"`).join("\n")}
+
+Prioritize matching the input "${text}" against these custom trained patterns above with high tolerance. If the input heavily approximates, looks like, or phonetically resembles one of their custom sounds, output that mapped translation.`;
+    }
+
+    const prompt = `You are an expert speech therapy assistant and real-time communication decoder for speech-impaired individuals (e.g., dysarthria, cerebral palsy, stutter, or aphasia) functioning as a personalized Project Euphonia speech translator.
+    
+    The user has a speech-impairment profile of: "${profile}".
+    Standard automated speech-to-text tools transcribed their voice as:
+    "${text}"
+    
+    ${mappingsText}
+    
+    This transcription is likely highly distorted, containing slurred phonetic approximations, repeated syllables, stuttering fragments, or incomplete words (such as: "I wa baf roo" meaning "I want to go to the bathroom", "h-h-elp m" meaning "please help me", "wah-er" means "water").
+    
+    Your task: Contextually decode, reconstruct, and smooth out this garbled text into a natural, complete, clear statement they intended to speak in ${language}.
+    
+    Guidelines:
+    1. Preserve their exact semantic intent without fabricating complex stories. Keep it simple and helpful.
+    2. Correct stuttering, spelling/phonetic approximations, slurs, and missing particles.
+    3. If the input is already perfectly clear, just keep it, or refine slightly for high quality.
+    4. Return ONLY the reconstructed statement. No explanations, no "The user meant", no quotes. Just the simple clean result.`;
+
+    try {
+      const response = await ai.models.generateContent({
+        model: "gemini-3.5-flash",
+        contents: [{ text: prompt }]
+      });
+      return response.text?.trim() || text;
+    } catch (e) {
+      console.error("Gemini Dysarthria Decoding Error:", e);
+      return text;
+    }
+  },
+
+  /**
+   * Deep Learning Acoustic Model for raw atypical audio matching (Project Euphonia Core)
+   */
+  async decodeEuphoniaAudio(audioData: string, profile: string = "General", language: string = "English", customMappings: Array<{ phrase: string; translation: string }> = [], mimeType: string = "audio/webm") {
+    let mappingsText = "";
+    if (customMappings && customMappings.length > 0) {
+      mappingsText = `Here is a set of customized voice-mapping associations configured by the user for acoustic matching:
+${customMappings.map(m => `- Sound label/approximation: "${m.phrase}" ➜ Intended phrase: "${m.translation}"`).join("\n")}
+
+Prioritize looking for matching acoustic patterns in the audio clip corresponding to these mapped profiles. If the user's vocal sounds approximate one of these targets, translate it directly to the corresponding Intended phrase.`;
+    }
+
+    const prompt = `You are a state-of-the-art Project Euphonia Direct Multimodal Auditory Speech Recognition system (a deep learning acoustic recognition engine for atypical speech).
+    
+    Your mission is to decode a raw voice audio track recorded by an individual with a severe speech impairment, which standard speech recognition software fails to understand or register.
+    
+    Speaker Speech Profile Context: "${profile}" (e.g. Dysarthria/slurred speech, Stutter syllable repetition, Aphasia word-gaps).
+    Target Language: ${language}
+    
+    ${mappingsText}
+    
+    Deep Learning Acoustic Directives:
+    1. Listen directly to the raw tone, cadence, and phonetics in this audio stream.
+    2. If the auditory sounds approximate one of the user's custom mapped phrases (using phonetic matching or deep visual/lexical similarity), output their calibrated translation!
+    3. If no explicit mapping matches, use your advanced deep visual and audio generative comprehension layers to reconstruct the slurred vocalizations into the most accurate, grammatically perfect sentence intended in ${language}.
+    4. Keep the output clean, humble, and conversational.
+    5. Return ONLY the final translated sentence. Do NOT write notes, markdown backticks, prefix headers, or explanations.`;
+
+    try {
+      const response = await ai.models.generateContent({
+        model: "gemini-3.5-flash",
+        contents: {
+          parts: [
+            { text: prompt },
+            { 
+              inlineData: { 
+                data: audioData, 
+                mimeType: mimeType 
+              } 
+            }
+          ]
+        }
+      });
+
+      return response.text?.trim() || "";
+    } catch (error) {
+      console.error("Gemini Direct Euphonia Audio recognition failed:", error);
+      throw error;
+    }
   }
 };
