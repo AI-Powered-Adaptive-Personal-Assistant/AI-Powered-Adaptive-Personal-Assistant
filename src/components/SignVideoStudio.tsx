@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from "react";
 import { UserProfile } from "../types";
 import { motion, AnimatePresence } from "motion/react";
-import { Mic, Square, Play, RefreshCw, Menu, Download, FileText, Settings, Video, Sparkles, Brain } from "lucide-react";
+import { Mic, Square, Play, RefreshCw, Menu, Download, FileText, Settings, Video, Sparkles, Brain, Zap, Activity } from "lucide-react";
 import SignAvatar3D from "./SignAvatar3D";
+import { geminiService } from "../services/geminiService";
 
 interface SignVideoStudioProps {
   profile: UserProfile;
@@ -17,9 +18,72 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
   const [playbackProgress, setPlaybackProgress] = useState(0);
   const [sequence, setSequence] = useState<string[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isAnswering, setIsAnswering] = useState(false);
+  const [aiResponse, setAiResponse] = useState("");
   const [is3DActive, setIs3DActive] = useState(true); // real 3D engine is now the default
   const prevInputRef = useRef("");
   const recognitionRef = useRef<any>(null);
+
+  // Advanced speech impairment states for Dimitri Kanevsky and Project Euphonia
+  const [speechProfile, setSpeechProfile] = useState<'Standard' | 'Dysarthria' | 'Stutter' | 'Aphasia' | 'Kanevsky'>('Standard');
+  const [isEnhancing, setIsEnhancing] = useState(false);
+  const [euphoniaPatterns, setEuphoniaPatterns] = useState<Array<{ id: string; phrase: string; translation: string }>>([]);
+
+  const [isDirectAudioMode, setIsDirectAudioMode] = useState(false);
+  const [isRecordingDirectAudio, setIsRecordingDirectAudio] = useState(false);
+  const [directRecordingTime, setDirectRecordingTime] = useState(0);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const recordingTimerRef = useRef<any>(null);
+
+  const KANEVSKY_PRESETS = [
+    { id: 'ep_k1', phrase: "fanku", translation: "Thank you" },
+    { id: 'ep_k2', phrase: "tanku", translation: "Thank you" },
+    { id: 'ep_k3', phrase: "goo gu", translation: "Google" },
+    { id: 'ep_k4', phrase: "com pu ta", translation: "Computer" },
+    { id: 'ep_k5', phrase: "dee mee tree", translation: "Dimitri" },
+    { id: 'ep_k6', phrase: "ree shuch", translation: "Research" },
+    { id: 'ep_k7', phrase: "ha ha u", translation: "How are you?" },
+    { id: 'ep_k8', phrase: "peech", translation: "Speech" },
+    { id: 'ep_k9', phrase: "rec ni shun", translation: "Recognition" }
+  ];
+
+  const isArabic = profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya';
+  
+  const t = {
+    scriptInput: isArabic ? "مدخلات النص" : "Script Input",
+    placeholder: isArabic 
+      ? "اكتب أو تمتم النص الذي تريد تحويله إلى لغة الإشارة..." 
+      : "Type or dictate the script you want to convert to sign language video...",
+    recordSpeech: isArabic ? "تسجيل الصوت" : "Record Speech",
+    rawRecordingHint: isArabic ? "التقاط وتدقيق الصوت المباشر" : "Direct Acoustic AI (Euphonia)",
+    stopRecording: isArabic ? "إيقاف التسجيل" : "Stop Recording",
+    generating: isArabic ? "جاري معالجة الفيديو..." : "Rendering Video...",
+    generate: isArabic ? "إنتاج الفيديو" : "Generate Video",
+    decodingSpeech: isArabic ? "جاري فك تشفيرة النطق بـ AI..." : "AI reconstructing speech pattern...",
+    optimizingText: isArabic ? "جاري تحسين لغة الإشارة وإزالة الزوائد..." : "AI optimizing sign concepts...",
+    speechProfileTitle: isArabic ? "معايرة النطق والأصوات للمتحدث" : "Adaptive Vocal Speech Profile",
+    standard: isArabic ? "عادي" : "Standard",
+    dysarthria: isArabic ? "صعوبة نطق" : "Dysarthria",
+    stutter: isArabic ? "تأتأة" : "Stutter",
+    aphasia: isArabic ? "حبسة كلامية" : "Aphasia",
+    kanevsky: isArabic ? "د. ديمتري كانيفسكي (صوت أصم)" : "Dr. Dimitri Kanevsky (Severe Deaf-Dysarthria)",
+    askAI: isArabic ? "اسأل الذكاء الاصطناعي" : "Ask AI (Get Answer)",
+    aiResult: isArabic ? "نتيجة الإجابة (AI Answer)" : "AI Answer / Result",
+    useAnswer: isArabic ? "عرض بلغة الإشارة" : "Sign Answer",
+    asking: isArabic ? "جاري التفكير والتوليد..." : "AI thinking..."
+  };
+
+  useEffect(() => {
+    const saved = localStorage.getItem('cognify_euphonia_patterns');
+    if (saved) {
+      try {
+        setEuphoniaPatterns(JSON.parse(saved));
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  }, []);
 
   useEffect(() => {
     // Auto-translate feature when typing or speaking
@@ -100,20 +164,44 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
       const recognition = new SpeechRecognition();
-      recognition.continuous = true;
+      recognition.continuous = false;
       recognition.interimResults = true;
       recognition.lang = profile.language === 'Arabic' ? 'ar-SA' : profile.language === 'Egyptian Ammiya' ? 'ar-EG' : 'en-US';
+
+      let latestTranscript = "";
 
       recognition.onresult = (event: any) => {
         let fullTranscript = "";
         for (let i = 0; i < event.results.length; ++i) {
              fullTranscript += event.results[i][0].transcript;
         }
+        latestTranscript = fullTranscript;
         setInputText(fullTranscript);
       };
 
       recognition.onerror = () => { setIsRecording(false); };
-      recognition.onend = () => { setIsRecording(false); };
+      recognition.onend = async () => {
+        setIsRecording(false);
+        if (latestTranscript.trim() && speechProfile !== 'Standard') {
+          setIsEnhancing(true);
+          try {
+            const mappedPatterns = speechProfile === 'Kanevsky' ? KANEVSKY_PRESETS : euphoniaPatterns;
+            const enhanced = await geminiService.decodeDysarthria(
+              latestTranscript, 
+              speechProfile, 
+              profile.language || 'English', 
+              mappedPatterns
+            );
+            if (enhanced) {
+              setInputText(enhanced);
+            }
+          } catch (e) {
+            console.error("ASR rehabilitation failed:", e);
+          } finally {
+            setIsEnhancing(false);
+          }
+        }
+      };
 
       recognitionRef.current = recognition;
       recognition.start();
@@ -130,16 +218,116 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
     setIsRecording(false);
   };
 
-  const generateVideo = () => {
+  const startDirectAudioRecord = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioChunksRef.current = [];
+      const mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+      mediaRecorderRef.current = mediaRecorder;
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = async () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        const reader = new FileReader();
+        reader.readAsDataURL(audioBlob);
+        reader.onloadend = async () => {
+          const base64data = reader.result as string;
+          const base64Clean = base64data.split(',')[1];
+          setIsEnhancing(true);
+          try {
+            const mappedPatterns = speechProfile === 'Kanevsky' ? KANEVSKY_PRESETS : euphoniaPatterns;
+            const decoded = await geminiService.decodeEuphoniaAudio(
+              base64Clean,
+              speechProfile,
+              profile.language || 'English',
+              mappedPatterns,
+              'audio/webm'
+            );
+            if (decoded) {
+              setInputText(decoded);
+            }
+          } catch (err) {
+            console.error("Acoustic decode failed:", err);
+          } finally {
+            setIsEnhancing(false);
+          }
+        };
+        stream.getTracks().forEach(t => t.stop());
+      };
+
+      mediaRecorder.start();
+      setIsRecordingDirectAudio(true);
+      setDirectRecordingTime(0);
+
+      recordingTimerRef.current = setInterval(() => {
+        setDirectRecordingTime((prev) => {
+          if (prev >= 12) {
+            stopDirectAudioRecord();
+            return 12;
+          }
+          return prev + 1;
+        });
+      }, 1000);
+    } catch (e) {
+      console.error(e);
+      alert("Microphone connection failed.");
+    }
+  };
+
+  const stopDirectAudioRecord = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+    }
+    setIsRecordingDirectAudio(false);
+    if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+  };
+
+  const generateVideo = async () => {
     if (!inputText.trim()) return;
     setIsGenerating(true);
-    setTimeout(() => {
-      const words = inputText.trim().split(/\s+/).filter(Boolean);
-      setSequence(words);
-      setIsGenerating(false);
+    try {
+      // Intelligently optimize script into fluid sign concepts (Sign GLOSS tokens) via Gemini
+      const optimizedScript = await geminiService.optimizeSignScript(
+        inputText, 
+        profile.language || 'English'
+      );
+      const splitWords = (optimizedScript || inputText).trim().split(/\s+/).filter(Boolean);
+      setSequence(splitWords);
       setPlaybackProgress(0);
       setIsPlaying(true);
-    }, 600);
+    } catch (e) {
+      console.error("Gemini optimization failed, using standard words:", e);
+      const words = inputText.trim().split(/\s+/).filter(Boolean);
+      setSequence(words);
+      setPlaybackProgress(0);
+      setIsPlaying(true);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleAskAI = async () => {
+    if (!inputText.trim()) return;
+    setIsAnswering(true);
+    setAiResponse("");
+    try {
+      const language = profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya' ? "Arabic" : "English";
+      const answer = await geminiService.askGeneralQuestion(inputText, language);
+      setAiResponse(answer);
+    } catch (e) {
+      console.error("Failed to ask general question:", e);
+      setAiResponse(profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya' 
+        ? "حدث خطأ أثناء الاتصال بالذكاء الاصطناعي." 
+        : "Failed to connect to AI for answering."
+      );
+    } finally {
+      setIsAnswering(false);
+    }
   };
 
   // 2D fallback timeline only — in 3D mode the avatar drives progress itself
@@ -209,43 +397,191 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
                   <div className="flex items-center justify-between mb-4">
                      <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
                        <FileText className="w-5 h-5 text-primary" />
-                       Script Input
+                       {t.scriptInput}
                      </h2>
                   </div>
 
-                  <textarea
-                    value={inputText}
-                    onChange={(e) => setInputText(e.target.value)}
-                    placeholder="Type or dictate the script you want to convert to sign language video..."
-                    className="flex-1 w-full p-4 bg-slate-50 border border-slate-200 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-primary/50 text-slate-700"
-                  />
+                  {/* Vocal Calibration Profile of Sign Language Studio */}
+                  <div className="mb-4 bg-slate-50 p-3 rounded-xl border border-slate-200/60">
+                     <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                           <Brain className="w-3.5 h-3.5 text-primary" />
+                           {t.speechProfileTitle}
+                        </span>
+                        
+                        {/* Audio recording mode toggle: Continuous ASR vs Raw Acoustic AI */}
+                        <button
+                          onClick={() => {
+                            setIsDirectAudioMode(!isDirectAudioMode);
+                            if (isRecording) stopRecording();
+                            if (isRecordingDirectAudio) stopDirectAudioRecord();
+                          }}
+                          className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all border ${
+                            isDirectAudioMode
+                              ? 'bg-purple-50 text-purple-600 border-purple-200'
+                              : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'
+                          }`}
+                        >
+                           <Zap className="w-3 h-3 text-current" />
+                           {isDirectAudioMode ? (isArabic ? "فك التشفير المباشر" : "Acoustic Decrypt Mode") : (isArabic ? "التعرف المستمر (ASR)" : "Continuous ASR")}
+                        </button>
+                     </div>
+                     
+                     <div className="flex flex-wrap gap-1">
+                        {(['Standard', 'Dysarthria', 'Stutter', 'Aphasia', 'Kanevsky'] as const).map((profileOpt) => (
+                          <button
+                            key={profileOpt}
+                            onClick={() => {
+                              setSpeechProfile(profileOpt);
+                              if (profileOpt === 'Kanevsky') {
+                                alert(isArabic 
+                                  ? "تم تفعيل معايرة Dimitri Kanevsky المجهرية المتقدمة لفك تشفير وتصحيح نطق ديمتري الروسي والأصم." 
+                                  : "Activated advanced Dimitri Kanevsky severe deaf-dysarthria vocal calibration model."
+                                );
+                              }
+                            }}
+                            className={`text-[10px] font-bold py-1.5 px-2.5 rounded-lg transition-all ${
+                              speechProfile === profileOpt
+                                ? 'bg-primary text-white shadow-sm'
+                                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+                            }`}
+                          >
+                            {profileOpt === 'Standard' && t.standard}
+                            {profileOpt === 'Dysarthria' && t.dysarthria}
+                            {profileOpt === 'Stutter' && t.stutter}
+                            {profileOpt === 'Aphasia' && t.aphasia}
+                            {profileOpt === 'Kanevsky' && (isArabic ? "د. كانيفسكي" : "Dr. Kanevsky")}
+                          </button>
+                        ))}
+                     </div>
+                  </div>
+
+                  <div className="relative flex-1 min-h-[160px] flex flex-col">
+                     <textarea
+                       value={inputText}
+                       onChange={(e) => setInputText(e.target.value)}
+                       placeholder={t.placeholder}
+                       className="flex-1 w-full p-4 bg-slate-50 border border-slate-200 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-primary/50 text-slate-700 font-medium"
+                       disabled={isEnhancing}
+                     />
+                     <AnimatePresence>
+                        {isEnhancing && (
+                           <motion.div 
+                             initial={{ opacity: 0 }}
+                             animate={{ opacity: 1 }}
+                             exit={{ opacity: 0 }}
+                             className="absolute inset-0 bg-white/80 backdrop-blur-sm rounded-xl flex flex-col items-center justify-center gap-3 z-30"
+                           >
+                              <Activity className="w-8 h-8 text-primary animate-pulse" />
+                              <span className="text-xs font-bold text-slate-600 animate-bounce">{t.decodingSpeech}</span>
+                           </motion.div>
+                        )}
+                     </AnimatePresence>
+                  </div>
+
+                  {/* AI Answer / Result Output Box */}
+                  {(aiResponse || isAnswering) && (
+                    <motion.div 
+                      initial={{ opacity: 0, y: 12 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="mt-4 p-4 rounded-xl bg-gradient-to-br from-indigo-50/70 to-slate-100/50 border border-slate-200/80 shadow-sm flex flex-col gap-2.5"
+                    >
+                       <div className="flex items-center justify-between">
+                          <span className="text-xs font-black text-indigo-700 flex items-center gap-1.5 uppercase tracking-wider">
+                             <Sparkles className="w-4 h-4 text-emerald-500 animate-pulse" />
+                             {t.aiResult}
+                          </span>
+                       </div>
+                       <div className="text-sm text-slate-700 font-semibold leading-relaxed min-h-[50px] bg-white p-3.5 rounded-lg border border-slate-200/60 shadow-sm">
+                          {isAnswering ? (
+                            <div className="flex items-center gap-2 text-slate-500 text-xs font-bold">
+                              <RefreshCw className="w-4 h-4 animate-spin text-indigo-500" />
+                              {t.asking}
+                            </div>
+                          ) : (
+                            <div>
+                              <p className="mb-2 text-slate-800 leading-relaxed font-semibold">{aiResponse}</p>
+                              <div className="flex gap-2 justify-end mt-2">
+                                <button
+                                  onClick={() => {
+                                    setInputText(aiResponse);
+                                    // Trigger signing immediately
+                                    const words = aiResponse.trim().split(/\s+/).filter(Boolean);
+                                    setSequence(words);
+                                    setPlaybackProgress(0);
+                                    setIsPlaying(true);
+                                  }}
+                                  className="text-[10px] font-black text-white bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 px-3.5 py-2 rounded-lg flex items-center gap-1.5 transition-all shadow-md hover:shadow-indigo-500/20 active:scale-95"
+                                >
+                                  <Play className="w-3 h-3 fill-current text-white" />
+                                  {t.useAnswer}
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                       </div>
+                    </motion.div>
+                  )}
 
                   <div className="mt-4 flex flex-col sm:flex-row gap-3">
-                     {isRecording ? (
-                        <button
-                          onClick={stopRecording}
-                          className="flex items-center justify-center gap-2 px-6 py-3 bg-red-500 hover:bg-red-600 active:scale-95 transform transition-all text-white font-medium rounded-xl shadow-lg shadow-red-500/20"
-                        >
-                           <Square className="w-5 h-5 fill-current" />
-                           Stop Recording
-                        </button>
+                     {isDirectAudioMode ? (
+                        isRecordingDirectAudio ? (
+                           <button
+                             onClick={stopDirectAudioRecord}
+                             className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-purple-600 hover:bg-purple-700 active:scale-95 transform transition-all text-white font-bold rounded-xl shadow-lg shadow-purple-500/20"
+                           >
+                              <span className="relative flex h-3 w-3 mr-1">
+                                 <span className="absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75 animate-ping"></span>
+                                 <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                              </span>
+                              {isArabic ? `إيقاف وتسجيل (${directRecordingTime}ث)` : `Stop & Decode (${directRecordingTime}s)`}
+                           </button>
+                        ) : (
+                           <button
+                             onClick={startDirectAudioRecord}
+                             className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-tr from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 active:scale-95 transform transition-all text-white font-bold rounded-xl shadow-lg shadow-purple-500/20"
+                           >
+                              <Zap className="w-5 h-5 text-white animate-pulse" />
+                              {isArabic ? "التقاط صوت مجهري (Acoustic)" : "Acoustic AI Record"}
+                           </button>
+                        )
                      ) : (
-                        <button
-                          onClick={startRecording}
-                          className="flex items-center justify-center gap-2 px-6 py-3 bg-white border border-slate-200 hover:bg-slate-50 active:scale-95 transform transition-all text-slate-700 font-medium rounded-xl shadow-sm"
-                        >
-                           <Mic className="w-5 h-5 text-red-500" />
-                           Record Speech
-                        </button>
+                        isRecording ? (
+                           <button
+                             onClick={stopRecording}
+                             className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-red-500 hover:bg-red-600 active:scale-95 transform transition-all text-white font-medium rounded-xl shadow-lg shadow-red-500/20"
+                           >
+                              <Square className="w-5 h-5 fill-current" />
+                              {t.stopRecording}
+                           </button>
+                        ) : (
+                           <button
+                             onClick={startRecording}
+                             className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-white border border-slate-200 hover:bg-slate-50 active:scale-95 transform transition-all text-slate-700 font-medium rounded-xl shadow-sm"
+                           >
+                              <Mic className="w-5 h-5 text-red-500" />
+                              {t.recordSpeech}
+                           </button>
+                        )
                      )}
+
+                     {/* Ask AI Button to get answer result output */}
+                     <button
+                       onClick={handleAskAI}
+                       disabled={!inputText.trim() || isAnswering || isGenerating || isEnhancing}
+                       className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-tr from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 disabled:opacity-50 disabled:active:scale-100 active:scale-95 transform transition-all text-white font-bold rounded-xl shadow-lg shadow-emerald-500/20"
+                     >
+                        {isAnswering ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Brain className="w-5 h-5 text-white" />}
+                        {isAnswering ? t.asking : t.askAI}
+                     </button>
 
                      <button
                        onClick={generateVideo}
-                       disabled={!inputText.trim() || isGenerating}
+                       disabled={!inputText.trim() || isGenerating || isEnhancing || isAnswering}
                        className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-primary hover:bg-blue-700 disabled:opacity-50 disabled:active:scale-100 active:scale-95 transform transition-all text-white font-bold rounded-xl shadow-lg shadow-primary/20"
                      >
                         {isGenerating ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Video className="w-5 h-5" />}
-                        {isGenerating ? 'Rendering Video...' : 'Generate Video'}
+                        {isGenerating ? t.generating : t.generate}
                      </button>
                   </div>
                </div>
