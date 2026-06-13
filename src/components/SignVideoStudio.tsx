@@ -24,8 +24,8 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
   const prevInputRef = useRef("");
   const recognitionRef = useRef<any>(null);
 
-  // Advanced speech impairment states for Dimitri Kanevsky and Project Euphonia
-  const [speechProfile, setSpeechProfile] = useState<'Standard' | 'Dysarthria' | 'Stutter' | 'Aphasia' | 'Kanevsky'>('Standard');
+  // Advanced speech impairment states for project integrations
+  const [speechProfile, setSpeechProfile] = useState<string>('Multilingual');
   const [isEnhancing, setIsEnhancing] = useState(false);
   const [euphoniaPatterns, setEuphoniaPatterns] = useState<Array<{ id: string; phrase: string; translation: string }>>([]);
 
@@ -182,15 +182,14 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
       recognition.onerror = () => { setIsRecording(false); };
       recognition.onend = async () => {
         setIsRecording(false);
-        if (latestTranscript.trim() && speechProfile !== 'Standard') {
+        if (latestTranscript.trim()) {
           setIsEnhancing(true);
           try {
-            const mappedPatterns = speechProfile === 'Kanevsky' ? KANEVSKY_PRESETS : euphoniaPatterns;
             const enhanced = await geminiService.decodeDysarthria(
               latestTranscript, 
-              speechProfile, 
+              'Multilingual', 
               profile.language || 'English', 
-              mappedPatterns
+              euphoniaPatterns
             );
             if (enhanced) {
               setInputText(enhanced);
@@ -240,12 +239,11 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
           const base64Clean = base64data.split(',')[1];
           setIsEnhancing(true);
           try {
-            const mappedPatterns = speechProfile === 'Kanevsky' ? KANEVSKY_PRESETS : euphoniaPatterns;
             const decoded = await geminiService.decodeEuphoniaAudio(
               base64Clean,
-              speechProfile,
+              'Multilingual',
               profile.language || 'English',
-              mappedPatterns,
+              euphoniaPatterns,
               'audio/webm'
             );
             if (decoded) {
@@ -399,61 +397,23 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
                        <FileText className="w-5 h-5 text-primary" />
                        {t.scriptInput}
                      </h2>
-                  </div>
 
-                  {/* Vocal Calibration Profile of Sign Language Studio */}
-                  <div className="mb-4 bg-slate-50 p-3 rounded-xl border border-slate-200/60">
-                     <div className="flex items-center justify-between mb-2">
-                        <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-                           <Brain className="w-3.5 h-3.5 text-primary" />
-                           {t.speechProfileTitle}
-                        </span>
-                        
-                        {/* Audio recording mode toggle: Continuous ASR vs Raw Acoustic AI */}
-                        <button
-                          onClick={() => {
-                            setIsDirectAudioMode(!isDirectAudioMode);
-                            if (isRecording) stopRecording();
-                            if (isRecordingDirectAudio) stopDirectAudioRecord();
-                          }}
-                          className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all border ${
-                            isDirectAudioMode
-                              ? 'bg-purple-50 text-purple-600 border-purple-200'
-                              : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'
-                          }`}
-                        >
-                           <Zap className="w-3 h-3 text-current" />
-                           {isDirectAudioMode ? (isArabic ? "فك التشفير المباشر" : "Acoustic Decrypt Mode") : (isArabic ? "التعرف المستمر (ASR)" : "Continuous ASR")}
-                        </button>
-                     </div>
-                     
-                     <div className="flex flex-wrap gap-1">
-                        {(['Standard', 'Dysarthria', 'Stutter', 'Aphasia', 'Kanevsky'] as const).map((profileOpt) => (
-                          <button
-                            key={profileOpt}
-                            onClick={() => {
-                              setSpeechProfile(profileOpt);
-                              if (profileOpt === 'Kanevsky') {
-                                alert(isArabic 
-                                  ? "تم تفعيل معايرة Dimitri Kanevsky المجهرية المتقدمة لفك تشفير وتصحيح نطق ديمتري الروسي والأصم." 
-                                  : "Activated advanced Dimitri Kanevsky severe deaf-dysarthria vocal calibration model."
-                                );
-                              }
-                            }}
-                            className={`text-[10px] font-bold py-1.5 px-2.5 rounded-lg transition-all ${
-                              speechProfile === profileOpt
-                                ? 'bg-primary text-white shadow-sm'
-                                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
-                            }`}
-                          >
-                            {profileOpt === 'Standard' && t.standard}
-                            {profileOpt === 'Dysarthria' && t.dysarthria}
-                            {profileOpt === 'Stutter' && t.stutter}
-                            {profileOpt === 'Aphasia' && t.aphasia}
-                            {profileOpt === 'Kanevsky' && (isArabic ? "د. كانيفسكي" : "Dr. Kanevsky")}
-                          </button>
-                        ))}
-                     </div>
+                     {/* Audio recording mode toggle: Continuous ASR vs Raw Acoustic AI */}
+                     <button
+                       onClick={() => {
+                         setIsDirectAudioMode(!isDirectAudioMode);
+                         if (isRecording) stopRecording();
+                         if (isRecordingDirectAudio) stopDirectAudioRecord();
+                       }}
+                       className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider transition-all border ${
+                         isDirectAudioMode
+                           ? 'bg-purple-100 text-purple-700 border-purple-200'
+                           : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'
+                       }`}
+                     >
+                        <Zap className="w-3.5 h-3.5 text-current" />
+                        {isDirectAudioMode ? (isArabic ? "فك التشفير المباشر" : "Acoustic Decrypt") : (isArabic ? "إملاء مستمر" : "ASR Dictate")}
+                     </button>
                   </div>
 
                   <div className="relative flex-1 min-h-[160px] flex flex-col">

@@ -89,7 +89,7 @@ export default function LiveCaptions({ language = 'en-US', onClose }: LiveCaptio
   const [error, setError] = useState<string | null>(null);
 
   // Speech impaired vocal deck states
-  const [speechProfile, setSpeechProfile] = useState<'Standard' | 'Dysarthria' | 'Stutter' | 'Aphasia' | 'Kanevsky'>('Standard');
+  const [speechProfile, setSpeechProfile] = useState<string>('Multilingual');
   const [isDecodingSpeech, setIsDecodingSpeech] = useState(false);
   const [originalGarbledText, setOriginalGarbledText] = useState('');
 
@@ -732,7 +732,7 @@ export default function LiveCaptions({ language = 'en-US', onClose }: LiveCaptio
             <div className="flex flex-col items-center justify-center gap-2.5 text-purple-400 mt-6 bg-purple-500/5 border border-purple-500/10 p-4 rounded-2xl max-w-md mx-auto">
               <div className="flex items-center gap-2">
                 <RefreshCw className="w-4 h-4 animate-spin text-purple-400" />
-                <span className="text-[10px] font-black uppercase tracking-widest">{t.decodingSpeech} ({t.speechProfileShort[speechProfile]})</span>
+                <span className="text-[10px] font-black uppercase tracking-widest">{t.decodingSpeech}</span>
               </div>
               {originalGarbledText && (
                 <p className="text-[11px] text-neutral-400 italic">
@@ -741,55 +741,6 @@ export default function LiveCaptions({ language = 'en-US', onClose }: LiveCaptio
               )}
             </div>
           )}
-        </div>
-
-        {/* Speech Impairment Profile Selector */}
-        <div className="w-full max-w-xl mx-auto mb-6 px-4 py-3 bg-neutral-900/50 border border-white/5 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-3 shadow-md">
-          <div className="flex flex-col items-center sm:items-start text-center sm:text-left">
-            <span className="text-xs font-bold text-white flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-purple-400 animate-pulse" />
-              {t.speechProfileTitle}
-            </span>
-            <span className="text-[10px] text-neutral-400 leading-tight">
-              {t.speechProfileSubtitle}
-            </span>
-          </div>
-
-          <div className="flex flex-wrap items-center justify-center gap-1 bg-neutral-950 p-1 rounded-xl border border-white/5">
-            {(['Standard', 'Dysarthria', 'Stutter', 'Aphasia', 'Kanevsky'] as const).map((profileOpt) => (
-              <button
-                key={profileOpt}
-                onClick={() => {
-                  setSpeechProfile(profileOpt);
-                  setEnhancedText('');
-                  setTranscript('');
-                  setAiSmartReplies([]);
-                  if (profileOpt === 'Kanevsky') {
-                    // Seed Dr. Dimitri Kanevsky specific Project Euphonia voice training presets!
-                    setEuphoniaPatterns([
-                      { id: 'ep_k1', phrase: "fanku", translation: "Thank you" },
-                      { id: 'ep_k2', phrase: "tanku", translation: "Thank you" },
-                      { id: 'ep_k3', phrase: "goo gu", translation: "Google" },
-                      { id: 'ep_k4', phrase: "com pu ta", translation: "Computer" },
-                      { id: 'ep_k5', phrase: "dee mee tree", translation: "Dimitri" },
-                      { id: 'ep_k6', phrase: "ree shuch", translation: "Research" },
-                      { id: 'ep_k7', phrase: "ha ha u", translation: "How are you?" },
-                      { id: 'ep_k8', phrase: "peech", translation: "Speech" },
-                      { id: 'ep_k9', phrase: "rec ni shun", translation: "Recognition" }
-                    ]);
-                    setIsEuphoniaTrainingOpen(true);
-                  }
-                }}
-                className={`text-[10px] font-bold py-1.5 px-2.5 rounded-lg transition-all ${
-                  speechProfile === profileOpt
-                    ? 'bg-purple-600 text-white shadow-lg'
-                    : 'text-neutral-400 hover:text-white hover:bg-white/5'
-                }`}
-              >
-                {t.speechProfiles[profileOpt]}
-              </button>
-            ))}
-          </div>
         </div>
 
         {/* Waveform / Visualizer & Call Trigger */}

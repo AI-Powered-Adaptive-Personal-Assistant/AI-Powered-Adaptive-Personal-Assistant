@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Layers, Chrome, Mail, Lock, AlertCircle, Loader2, Eye, EyeOff, ArrowLeft, Brain, GraduationCap, Heart, CheckCircle, ArrowRight } from 'lucide-react';
 
 export default function Login() {
-  const [mode, setMode] = useState<'path-selection' | 'options' | 'email-login' | 'email-register' | 'reset-password'>('path-selection');
+  const [mode, setMode] = useState<'path-selection' | 'options' | 'email-login' | 'email-register' | 'reset-password'>('options');
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);

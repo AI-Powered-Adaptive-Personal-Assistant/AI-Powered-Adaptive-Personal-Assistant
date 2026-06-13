@@ -262,47 +262,36 @@ export const geminiService = {
   },
 
   /**
-   * Reconstructs/decodes distorted or slurred speech from speech-impaired individuals
+   * Reconstructs/decodes distorted or slurred speech from speech-impaired individuals.
+   * Auto-detects the source language (including full support for Arabic, Egyptian Ammiya, English, etc.)
+   * and smartly corrects spelling, stutters, slurs, and grammatical gaps.
    */
-  async decodeDysarthria(text: string, profile: string = "General", language: string = "English", customMappings: Array<{ phrase: string; translation: string }> = []) {
+  async decodeDysarthria(text: string, profile: string = "Multilingual", language: string = "Auto-Detect", customMappings: Array<{ phrase: string; translation: string }> = []) {
     let mappingsText = "";
     if (customMappings && customMappings.length > 0) {
-      mappingsText = `Here is a set of customized/personalized training voice mapping examples configured by the user for Project Euphonia style matching:
-${customMappings.map(m => `- When standard ASR transcribes sounds like "${m.phrase}", they actually mean: "${m.translation}"`).join("\n")}
+      mappingsText = `Here is a set of customized/personalized voice mapping examples configured by the user:
+${customMappings.map(m => `- When they say/sound like "${m.phrase}", they actually mean: "${m.translation}"`).join("\n")}
 
-Prioritize matching the input "${text}" against these custom trained patterns above with high tolerance. If the input heavily approximates, looks like, or phonetically resembles one of their custom sounds, output that mapped translation.`;
+Prioritize matching the input "${text}" against these patterns with high phonetic and semantic tolerance.`;
     }
 
-    let profileContext = `The user has a speech-impairment profile of: "${profile}".`;
-    if (profile === 'Kanevsky') {
-      profileContext = `The user is specifically Dr. Dimitri Kanevsky, a world-class deaf speech/ASR scientist. He has a Russian accent layered with profound deaf-accented dysarthric speech properties.
-      Common features of his spoken and transcribed words:
-      - Vowels are shortened, and final consonants are often unvoiced or omitted.
-      - specific phonetic substitutions (e.g. using "f" or "t" instead of "th" leading to soundings like "fanku" or "tanku" for "thank you").
-      - Distortions like "goo gu" or "gugu" for "Google", "com pu ta" or "com-pu-ta" for "computer", "p ee ch" or "peech" for "speech", "reg ni shun" or "rec-ni-shun" for "recognition", and "dee-mee-tree" or "di-mi-ti" for his own name "Dimitri".
-      - Brief "ha ha" or "ha ha u" for "hello, how are you".
-      - "ree shuch" or "ree-shuch" for "research".
-      Reconstruct his speech honoring these exact characteristics into highly articulate, professional, intellectual, and scientific English sentences.`;
-    }
-
-    const prompt = `You are an expert speech therapy assistant and real-time communication decoder for speech-impaired individuals (e.g., dysarthria, cerebral palsy, stutter, or aphasia) functioning as a personalized Project Euphonia speech translator.
+    const prompt = `You are a state-of-the-art Multilingual Speech Therapy and communication assistant.
+    Your mission is to contextually decode, reconstruct, and smooth out speech that is distorted, stuttered, slurred, or has word gaps.
     
-    ${profileContext}
+    The user can speak in ANY language (such as Arabic, Egyptian Ammiya, English, French, Spanish, etc.).
     
-    Standard automated speech-to-text tools transcribed their voice as:
+    Input text transcribed from speech:
     "${text}"
     
     ${mappingsText}
     
-    This transcription is likely highly distorted, containing slurred phonetic approximations, repeated syllables, stuttering fragments, or incomplete words.
+    Please analyze this input:
+    1. Auto-detect the spoken language (e.g., Arabic, English, or others) and keep the output in the same detected language.
+    2. Correct any stuttering repetitions, slurred pronunciation approximations, typings, grammar, or missing words.
+    3. If the input language is Egyptian Ammiya or general Arabic, render the output as highly clear, simple, and standard-aligned Arabic so it's clean for sign language translation.
+    4. Guard against extreme garbling or phonetic mutations. Keep the original intent fully intact.
     
-    Your task: Contextually decode, reconstruct, and smooth out this garbled text into a natural, complete, clear statement they intended to speak in ${language}.
-    
-    Guidelines:
-    1. Preserve their exact semantic intent without fabricating complex stories. Keep it simple and helpful.
-    2. Correct stuttering, spelling/phonetic approximations, slurs, and missing particles.
-    3. If the input is already perfectly clear, just keep it, or refine slightly for high quality.
-    4. Return ONLY the reconstructed statement. No explanations, no "The user meant", no quotes. Just the simple clean result.`;
+    Return ONLY the final reconstructed, cleaned statement. Do NOT include explanations, comments, quotes, or formatting backticks. Just the raw decoded text.`;
 
     try {
       const response = await ai.models.generateContent({
@@ -318,35 +307,29 @@ Prioritize matching the input "${text}" against these custom trained patterns ab
 
   /**
    * Deep Learning Acoustic Model for raw atypical audio matching (Project Euphonia Core)
+   * Auto-detects language and corrects atypical pronunciation.
    */
-  async decodeEuphoniaAudio(audioData: string, profile: string = "General", language: string = "English", customMappings: Array<{ phrase: string; translation: string }> = [], mimeType: string = "audio/webm") {
+  async decodeEuphoniaAudio(audioData: string, profile: string = "Multilingual", language: string = "Auto-Detect", customMappings: Array<{ phrase: string; translation: string }> = [], mimeType: string = "audio/webm") {
     let mappingsText = "";
     if (customMappings && customMappings.length > 0) {
-      mappingsText = `Here is a set of customized voice-mapping associations configured by the user for acoustic matching:
-${customMappings.map(m => `- Sound label/approximation: "${m.phrase}" ➜ Intended phrase: "${m.translation}"`).join("\n")}
+      mappingsText = `Here is a set of customized voice-mapping associations configured by the user:
+${customMappings.map(m => `- Sound approximation: "${m.phrase}" ➜ Intended phrase: "${m.translation}"`).join("\n")}
 
-Prioritize looking for matching acoustic patterns in the audio clip corresponding to these mapped profiles. If the user's vocal sounds approximate one of these targets, translate it directly to the corresponding Intended phrase.`;
+Prioritize looking for matching acoustic patterns corresponding to these mapped profiles.`;
     }
 
-    let profileContext = `Speaker Speech Profile Context: "${profile}" (e.g. Dysarthria/slurred speech, Stutter syllable repetition, Aphasia word-gaps).`;
-    if (profile === 'Kanevsky') {
-      profileContext = `Speaker Speech Profile Context: Dimitri Kanevsky, deaf speech and Google Research scientist (severe Russian-accented deaf dysarthria). His speech sounds are characterized by dropped final consonants, shortened vowels, Russian-slurred rhythm, and unique phonetic patterns (e.g. "fanku/tanku" for "thank you", "goo-gu" for "Google", "com-pu-ta" for "computer", "peech" for "speech", "rec-ni-shun" for "recognition", "dee-mee-tree" for "Dimitri", "ree-shuch" for "research"). Expect strong syllabic mutations and reconstruct them into fluent professional academic English.`;
-    }
-
-    const prompt = `You are a state-of-the-art Project Euphonia Direct Multimodal Auditory Speech Recognition system (a deep learning acoustic recognition engine for atypical speech).
+    const prompt = `You are a state-of-the-art Project Euphonia Direct Multimodal Auditory Speech Recognition system.
+    Your mission is to decode a raw voice audio track recorded by an individual with a severe speech impairment or atypical pronunciation.
     
-    Your mission is to decode a raw voice audio track recorded by an individual with a severe speech impairment, which standard speech recognition software fails to understand or register.
-    
-    ${profileContext}
-    Target Language: ${language}
+    Target or source language: The user can speak in ANY global language (e.g. Arabic, English, French, Spanish). Please auto-detect the spoken language and return the output in the same language.
     
     ${mappingsText}
     
-    Deep Learning Acoustic Directives:
-    1. Listen directly to the raw tone, cadence, and phonetics in this audio stream.
-    2. If the auditory sounds approximate one of the user's custom mapped phrases (using phonetic matching or deep visual/lexical similarity), output their calibrated translation!
-    3. If no explicit mapping matches, use your advanced deep visual and audio generative comprehension layers to reconstruct the slurred vocalizations into the most accurate, grammatically perfect sentence intended in ${language}.
-    4. Keep the output clean, humble, and conversational.
+    Directives:
+    1. Listen to the raw audio phonetics, rhythm, and tone.
+    2. If the user's vocal sound approximates any custom mapping or standard word, translate and resolve it immediately.
+    3. Reconstruct any slurred vocalizations, missing particles, or voice distortion into fluent, grammatically perfect sentences in the detected language.
+    4. For Arabic speech, output standard clear Arabic text.
     5. Return ONLY the final translated sentence. Do NOT write notes, markdown backticks, prefix headers, or explanations.`;
 
     try {
