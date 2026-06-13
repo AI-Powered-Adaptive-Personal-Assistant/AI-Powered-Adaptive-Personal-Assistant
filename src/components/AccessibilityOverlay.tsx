@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { AccessibilityMode, UserProfile } from "../types";
+import { geminiService } from "../services/geminiService";
 import {
   Mic,
   MicOff,
@@ -32,9 +33,6 @@ import {
 import { motion, AnimatePresence } from "motion/react";
 import { Hands, Results, HAND_CONNECTIONS } from "@mediapipe/hands";
 import { Camera as MediaPipeCamera } from "@mediapipe/camera_utils";
-// Type-only import keeps TensorFlow.js out of this chunk; the implementation is
-// dynamically imported in startVision so tfjs only loads when the camera is used.
-import type { SignClassifier } from "../lib/signClassifier";
 
 interface AccessibilityOverlayProps {
   mode: AccessibilityMode;
@@ -63,17 +61,6 @@ export default function AccessibilityOverlay({
   const streamRef = useRef<MediaStream | null>(null);
   const handsRef = useRef<Hands | null>(null);
   const cameraRef = useRef<MediaPipeCamera | null>(null);
-  // Local in-browser ASL fingerspelling recognizer (TF.js); loaded on demand.
-  const signClfRef = useRef<SignClassifier | null>(null);
-  const [liveLetter, setLiveLetter] = useState("");
-
-  // Free the recognizer (and its GPU tensors) when the overlay unmounts.
-  useEffect(() => {
-    return () => {
-      signClfRef.current?.dispose();
-      signClfRef.current = null;
-    };
-  }, []);
 
   const [currentWord, setCurrentWord] = useState("");
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -84,6 +71,12 @@ export default function AccessibilityOverlay({
     "https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&q=80&w=400&h=600",
   );
   const [signHistory, setSignHistory] = useState<string[]>([]);
+
+  // Sliding window for decision confirmation
+  const FRAME_BUFFER_SIZE = 15;
+  const CONFIRMATION_THRESHOLD = 0.65; // 65% of frames must match
+  const detectionBuffer = useRef<string[]>([]);
+  const lastEmittedGesture = useRef<string>("");
 
   // Update sign history when current word changes
   useEffect(() => {
@@ -248,67 +241,150 @@ export default function AccessibilityOverlay({
   const [visionStatus, setVisionStatus] = useState("Idle");
   const [transcription, setTranscription] = useState("");
 
-  // Per-frame hand results from MediaPipe. Recognition now runs fully locally
-  // via the TF.js fingerspelling model — no per-frame network calls to Gemini.
   const onResults = (results: Results) => {
-    const video = videoRef.current;
-    const clf = signClfRef.current;
-    if (!video || !clf) return;
+    if (!canvasRef.current || !videoRef.current) return;
 
-    const landmarks = results.multiHandLandmarks?.[0];
-    const handScore = results.multiHandedness?.[0]?.score ?? 0;
+    // Confidence Filter: Only process if both hands (or one) have high landmark trust
+    const hasHighConfidence =
+      results.multiHandLandmarks.length > 0 &&
+      results.multiHandedness.some((h) => h.score > 0.75);
 
-    // No reliable hand: let the smoother know so a repeated letter can re-fire.
-    if (!landmarks || landmarks.length === 0 || handScore <= 0.7) {
+    if (hasHighConfidence) {
+      setDetectionConfidence(
+        Math.max(...results.multiHandedness.map((h) => h.score)),
+      );
+      triggerAnalysis();
+    } else {
       setDetectionConfidence(0);
-      setLiveLetter("");
-      clf.smoother.handLost();
-      return;
+      detectionBuffer.current = []; // Clear buffer if no reliable hands
     }
+  };
 
-    setDetectionConfidence(handScore);
+  const triggerAnalysis = async () => {
+    if (
+      !isVisionActive ||
+      isVisionAnalyzing ||
+      !videoRef.current ||
+      !canvasRef.current
+    )
+      return;
 
-    // Local classification of the 24 static letters A–Y (~30fps, zero cost).
-    const pred = clf.classify(video, landmarks as any);
-    if (!pred) return;
+    const canvas = canvasRef.current;
+    const context = canvas.getContext("2d");
+    if (!context) return;
 
-    setLiveLetter(`${pred.letter} · ${(pred.confidence * 100).toFixed(0)}%`);
+    context.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+    const imageData = canvas.toDataURL("image/jpeg", 0.5).split(",")[1];
 
-    // Temporal smoother turns noisy per-frame predictions into committed letters.
-    const stable = clf.smoother.push(pred);
-    if (stable) {
-      // Build up the fingerspelled word; the user confirms it to send to the AI.
-      setTranscription((prev) => prev + stable);
+    setIsVisionAnalyzing(true);
+    try {
+      const text = await geminiService.translateSign(
+        imageData,
+        profile.language || "English",
+        profile.level || "Basic",
+      );
 
-      // Optional audio feedback for the committed letter.
-      if (
-        "speechSynthesis" in window &&
-        autoSpeak &&
-        (mode === "Sign-Only" || mode === "Vocal-Deaf")
-      ) {
-        const utterance = new SpeechSynthesisUtterance(stable);
-        utterance.lang =
-          profile.language === "Egyptian Ammiya"
-            ? "ar-EG"
-            : profile.language === "Arabic"
-              ? "ar-SA"
-              : "en-US";
-        setTimeout(() => window.speechSynthesis.speak(utterance), 50);
+      if (text && !text.toUpperCase().includes("[NO_SIGN]")) {
+        const cleanText = text
+          .replace(/[\[\]]/g, "")
+          .trim()
+          .toLowerCase();
+
+        // Frame Aggregation & Decision Confirmation
+        detectionBuffer.current.push(cleanText);
+        if (detectionBuffer.current.length > FRAME_BUFFER_SIZE) {
+          detectionBuffer.current.shift();
+        }
+
+        // Count occurrences in window
+        const counts = detectionBuffer.current.reduce((acc: any, val) => {
+          acc[val] = (acc[val] || 0) + 1;
+          return acc;
+        }, {});
+
+        const mostFrequent = Object.keys(counts).reduce(
+          (a, b) => (counts[a] > counts[b] ? a : b),
+          "",
+        );
+        const confidence =
+          counts[mostFrequent] / detectionBuffer.current.length;
+
+        // Confirmation Threshold: If gesture is sustained over 65% of buffer
+        if (
+          confidence >= CONFIRMATION_THRESHOLD &&
+          mostFrequent !== lastEmittedGesture.current
+        ) {
+          lastEmittedGesture.current = mostFrequent;
+          setTranscription(mostFrequent);
+          onTranscription(mostFrequent);
+
+          // Audio feedback
+          if (
+            "speechSynthesis" in window &&
+            autoSpeak &&
+            (mode === "Sign-Only" || mode === "Vocal-Deaf")
+          ) {
+            const utterance = new SpeechSynthesisUtterance(mostFrequent);
+            const isEgyptian = profile.language === "Egyptian Ammiya";
+            const isArabic = profile.language === "Arabic";
+            const defaultLang = isEgyptian
+              ? "ar-EG"
+              : isArabic
+                ? "ar-SA"
+                : "en-US";
+            utterance.lang = defaultLang;
+
+            if (isArabic || isEgyptian) {
+              const voices = window.speechSynthesis.getVoices();
+              let voice = voices.find(
+                (v) => v.lang.toLowerCase() === defaultLang.toLowerCase(),
+              );
+              if (!voice) {
+                voice = voices.find(
+                  (v) =>
+                    v.lang.toLowerCase() === "ar-eg" ||
+                    v.lang.toLowerCase() === "ar-sa",
+                );
+              }
+              if (!voice) {
+                voice = voices.find((v) =>
+                  v.lang.toLowerCase().startsWith("ar"),
+                );
+              }
+              if (voice) {
+                utterance.voice = voice;
+                utterance.lang = voice.lang;
+              } else {
+                utterance.lang = "ar";
+              }
+            } else {
+              const voices = window.speechSynthesis.getVoices();
+              let voice = voices.find(
+                (v) => v.lang.toLowerCase() === defaultLang.toLowerCase(),
+              );
+              if (voice) {
+                utterance.voice = voice;
+                utterance.lang = voice.lang;
+              }
+            }
+            setTimeout(() => {
+              window.speechSynthesis.speak(utterance);
+            }, 100);
+          }
+
+          // Reset buffer after strong confirmation to allow new words
+          detectionBuffer.current = [];
+        }
       }
+    } catch (e) {
+      console.error("Vision AI error", e);
+    } finally {
+      setIsVisionAnalyzing(false);
     }
   };
 
   const startVision = async () => {
     try {
-      // Lazy-load the recognizer (and TF.js) the first time the camera starts.
-      if (!signClfRef.current) {
-        setVisionStatus("Loading recognizer...");
-        const { SignClassifier } = await import("../lib/signClassifier");
-        const clf = new SignClassifier();
-        await clf.load("/models/sign/model.json");
-        signClfRef.current = clf;
-      }
-
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { width: 640, height: 480, facingMode: "user" },
       });
@@ -360,12 +436,10 @@ export default function AccessibilityOverlay({
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => track.stop());
     }
-    signClfRef.current?.smoother.reset();
     setIsVisionActive(false);
     setIsVisionAnalyzing(false);
     setVisionStatus("Idle");
     setDetectionConfidence(0);
-    setLiveLetter("");
   };
 
   // --- SIGNING VARIANTS ---
@@ -638,55 +712,27 @@ export default function AccessibilityOverlay({
             exit={{ opacity: 0, y: 20, scale: 0.9 }}
             className="flex flex-col items-start gap-3 pointer-events-auto cursor-grab active:cursor-grabbing"
           >
-            {(transcription || liveLetter) && (
+            {transcription && (
               <div className="bg-white/95 backdrop-blur-md p-4 rounded-2xl border border-emerald-200 shadow-2xl max-w-sm flex flex-col gap-3">
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex items-center gap-2">
                     <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                     <span className="text-[9px] font-black uppercase text-emerald-600 tracking-widest">
-                      Fingerspelling
+                      Sign Detected
                     </span>
-                    {liveLetter && (
-                      <span className="text-[9px] font-mono font-bold text-slate-400">
-                        {liveLetter}
-                      </span>
-                    )}
                   </div>
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      onClick={() => setTranscription((p) => p.slice(0, -1))}
-                      disabled={!transcription}
-                      title="Backspace"
-                      className="px-2 py-1 bg-slate-100 text-slate-500 text-[9px] font-black uppercase rounded-lg hover:bg-slate-200 disabled:opacity-40"
-                    >
-                      ⌫
-                    </button>
-                    <button
-                      onClick={() => {
-                        setTranscription("");
-                        signClfRef.current?.smoother.reset();
-                      }}
-                      disabled={!transcription}
-                      className="px-2 py-1 bg-slate-100 text-slate-500 text-[9px] font-black uppercase rounded-lg hover:bg-slate-200 disabled:opacity-40"
-                    >
-                      Clear
-                    </button>
-                    <button
-                      onClick={() => {
-                        if (!transcription.trim()) return;
-                        onTranscription(transcription.trim());
-                        setTranscription("");
-                        signClfRef.current?.smoother.reset();
-                      }}
-                      disabled={!transcription.trim()}
-                      className="px-2 py-1 bg-emerald-500 text-white text-[9px] font-black uppercase rounded-lg hover:bg-emerald-600 disabled:opacity-40"
-                    >
-                      Send
-                    </button>
-                  </div>
+                  <button
+                    onClick={() => {
+                      onTranscription(transcription);
+                      setTranscription("");
+                    }}
+                    className="px-2 py-1 bg-emerald-500 text-white text-[9px] font-black uppercase rounded-lg hover:bg-emerald-600"
+                  >
+                    Confirm
+                  </button>
                 </div>
-                <p className="text-sm font-bold text-slate-800 leading-relaxed italic capitalize min-h-[1.25rem]">
-                  {transcription ? `"${transcription}"` : <span className="text-slate-300 not-italic">Spell a word…</span>}
+                <p className="text-sm font-bold text-slate-800 leading-relaxed italic capitalize">
+                  "{transcription}"
                 </p>
               </div>
             )}
