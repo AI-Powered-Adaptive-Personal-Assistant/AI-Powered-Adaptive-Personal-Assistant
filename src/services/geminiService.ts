@@ -40,5 +40,38 @@ export const geminiService = {
     });
     const data = await res.json();
     return data.result;
+  },
+
+  async generateQuickReplies(text: string, language: string = "English") {
+    const res = await fetch('/api/gemini/generateQuickReplies', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, language })
+    });
+    const data = await res.json();
+    return data.result;
+  },
+
+  async decodeDysarthria(text: string, profile: string = "General", language: string = "English", customMappings: Array<{ phrase: string; translation: string }> = []) {
+    const res = await fetch('/api/gemini/decodeDysarthria', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, profile, language, customMappings })
+    });
+    const data = await res.json();
+    return data.result;
+  },
+
+  async decodeEuphoniaAudio(audioData: string, profile: string = "General", language: string = "English", customMappings: Array<{ phrase: string; translation: string }> = [], mimeType: string = "audio/webm") {
+    const res = await fetch('/api/gemini/decodeEuphoniaAudio', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ audioData, profile, language, customMappings, mimeType })
+    });
+    if (!res.ok) {
+        throw new Error("Failed to decode Euphonia raw audio");
+    }
+    const data = await res.json();
+    return data.result;
   }
 };
