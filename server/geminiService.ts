@@ -207,15 +207,28 @@ ${customMappings.map(m => `- When standard ASR transcribes sounds like "${m.phra
 Prioritize matching the input "${text}" against these custom trained patterns above with high tolerance. If the input heavily approximates, looks like, or phonetically resembles one of their custom sounds, output that mapped translation.`;
     }
 
+    let profileContext = `The user has a speech-impairment profile of: "${profile}".`;
+    if (profile === 'Kanevsky') {
+      profileContext = `The user is specifically Dr. Dimitri Kanevsky, a world-class deaf speech/ASR scientist. He has a Russian accent layered with profound deaf-accented dysarthric speech properties.
+      Common features of his spoken and transcribed words:
+      - Vowels are shortened, and final consonants are often unvoiced or omitted.
+      - specific phonetic substitutions (e.g. using "f" or "t" instead of "th" leading to soundings like "fanku" or "tanku" for "thank you").
+      - Distortions like "goo gu" or "gugu" for "Google", "com pu ta" or "com-pu-ta" for "computer", "p ee ch" or "peech" for "speech", "reg ni shun" or "rec-ni-shun" for "recognition", and "dee-mee-tree" or "di-mi-ti" for his own name "Dimitri".
+      - Brief "ha ha" or "ha ha u" for "hello, how are you".
+      - "ree shuch" or "ree-shuch" for "research".
+      Reconstruct his speech honoring these exact characteristics into highly articulate, professional, intellectual, and scientific English sentences.`;
+    }
+
     const prompt = `You are an expert speech therapy assistant and real-time communication decoder for speech-impaired individuals (e.g., dysarthria, cerebral palsy, stutter, or aphasia) functioning as a personalized Project Euphonia speech translator.
     
-    The user has a speech-impairment profile of: "${profile}".
+    ${profileContext}
+    
     Standard automated speech-to-text tools transcribed their voice as:
     "${text}"
     
     ${mappingsText}
     
-    This transcription is likely highly distorted, containing slurred phonetic approximations, repeated syllables, stuttering fragments, or incomplete words (such as: "I wa baf roo" meaning "I want to go to the bathroom", "h-h-elp m" meaning "please help me", "wah-er" means "water").
+    This transcription is likely highly distorted, containing slurred phonetic approximations, repeated syllables, stuttering fragments, or incomplete words.
     
     Your task: Contextually decode, reconstruct, and smooth out this garbled text into a natural, complete, clear statement they intended to speak in ${language}.
     
@@ -249,11 +262,16 @@ ${customMappings.map(m => `- Sound label/approximation: "${m.phrase}" ➜ Intend
 Prioritize looking for matching acoustic patterns in the audio clip corresponding to these mapped profiles. If the user's vocal sounds approximate one of these targets, translate it directly to the corresponding Intended phrase.`;
     }
 
+    let profileContext = `Speaker Speech Profile Context: "${profile}" (e.g. Dysarthria/slurred speech, Stutter syllable repetition, Aphasia word-gaps).`;
+    if (profile === 'Kanevsky') {
+      profileContext = `Speaker Speech Profile Context: Dimitri Kanevsky, deaf speech and Google Research scientist (severe Russian-accented deaf dysarthria). His speech sounds are characterized by dropped final consonants, shortened vowels, Russian-slurred rhythm, and unique phonetic patterns (e.g. "fanku/tanku" for "thank you", "goo-gu" for "Google", "com-pu-ta" for "computer", "peech" for "speech", "rec-ni-shun" for "recognition", "dee-mee-tree" for "Dimitri", "ree-shuch" for "research"). Expect strong syllabic mutations and reconstruct them into fluent professional academic English.`;
+    }
+
     const prompt = `You are a state-of-the-art Project Euphonia Direct Multimodal Auditory Speech Recognition system (a deep learning acoustic recognition engine for atypical speech).
     
     Your mission is to decode a raw voice audio track recorded by an individual with a severe speech impairment, which standard speech recognition software fails to understand or register.
     
-    Speaker Speech Profile Context: "${profile}" (e.g. Dysarthria/slurred speech, Stutter syllable repetition, Aphasia word-gaps).
+    ${profileContext}
     Target Language: ${language}
     
     ${mappingsText}
