@@ -1,24 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
-  Mic, 
-  MicOff, 
-  Sparkles, 
-  RefreshCw, 
-  X, 
-  Volume2, 
-  MessageSquare, 
-  History, 
-  AlertCircle, 
-  Maximize2, 
-  Trash2,
-  ChevronRight,
-  Heart,
-  Settings,
-  Plus,
-  Copy,
-  Check,
-  Zap,
-  Activity
+  Mic, MicOff, Sparkles, RefreshCw, X, Volume2, MessageSquare, 
+  History, Maximize2, Trash2, ChevronRight, Heart, Settings,
+  Plus, Copy, Check, Zap, Activity, Brain, Repeat2, Target,
+  ChevronDown, BarChart2, BookOpen, PlayCircle, StopCircle,
+  AlertTriangle, CheckCircle2, Clock, Waves
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { geminiService } from '../services/geminiService';
@@ -40,6 +26,36 @@ interface EuphoniaPattern {
   phrase: string;
   translation: string;
 }
+
+interface TranscriptSegment {
+  id: string;
+  raw: string;
+  decoded: string;
+  confidence: 'high' | 'medium' | 'low';
+  intent?: string;
+  timestamp: string;
+}
+
+interface CalibrationPhrase {
+  id: string;
+  text: string;
+  recorded: boolean;
+  audioBlob?: Blob;
+}
+
+// Training phrases modeled after Project Relate's onboarding approach
+const CALIBRATION_PHRASES: CalibrationPhrase[] = [
+  { id: 'c1', text: "Yes", recorded: false },
+  { id: 'c2', text: "No", recorded: false },
+  { id: 'c3', text: "Thank you", recorded: false },
+  { id: 'c4', text: "I need help", recorded: false },
+  { id: 'c5', text: "Please repeat that", recorded: false },
+  { id: 'c6', text: "I don't understand", recorded: false },
+  { id: 'c7', text: "Can you write it down?", recorded: false },
+  { id: 'c8', text: "I am in pain", recorded: false },
+  { id: 'c9', text: "Call a doctor", recorded: false },
+  { id: 'c10', text: "I want to go home", recorded: false },
+];
 
 const SOUNDBOARD_DATA: Record<'essentials' | 'needs' | 'social' | 'emergencies', SoundboardItem[]> = {
   essentials: [
@@ -64,7 +80,7 @@ const SOUNDBOARD_DATA: Record<'essentials' | 'needs' | 'social' | 'emergencies',
   social: [
     { id: 'meet', emoji: '😊', textEn: "Nice to meet you", textAr: "سعيد بلقائك" },
     { id: 'moment', emoji: '⏱️', textEn: "One moment, please", textAr: "لحظة واحدة من فضلك" },
-    { id: 'tool', emoji: '🗣️', textEn: "I am using this tablet tool to express myself", textAr: "أنا أستخدم هذه المنصة للنطق لتسهيل تواصلنا" },
+    { id: 'tool', emoji: '🗣️', textEn: "I am using this tool to communicate", textAr: "أنا أستخدم هذه المنصة للتواصل" },
     { id: 'slow', emoji: '🐢', textEn: "Could you speak a bit slower?", textAr: "تكلم ببطء أكثر من فضلك" },
     { id: 'how_are_you', emoji: '❤️', textEn: "How are you today?", textAr: "كيف حالك اليوم?" },
     { id: 'welcome', emoji: '🌸', textEn: "You are welcome", textAr: "على الرحب والسعة" }
@@ -79,65 +95,46 @@ const SOUNDBOARD_DATA: Record<'essentials' | 'needs' | 'social' | 'emergencies',
   ]
 };
 
+// ──────────────────────────────────────────────────────────────────────────
+// MAIN COMPONENT
+// ──────────────────────────────────────────────────────────────────────────
 export default function LiveCaptions({ language = 'en-US', onClose }: LiveCaptionsProps) {
+  // ── Core listening state
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [interimTranscript, setInterimTranscript] = useState('');
   const [volume, setVolume] = useState(0);
-  const [enhancedText, setEnhancedText] = useState('');
-  const [isEnhancing, setIsEnhancing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Speech impaired vocal deck states
-  const [speechProfile, setSpeechProfile] = useState<string>('Multilingual');
-  const [isDecodingSpeech, setIsDecodingSpeech] = useState(false);
-  const [originalGarbledText, setOriginalGarbledText] = useState('');
+  // ── Mode selector: 'listen' | 'euphonia' | 'calibrate' | 'board'
+  const [activeMode, setActiveMode] = useState<'listen' | 'euphonia' | 'calibrate' | 'board'>('listen');
 
-  const [activeTab, setActiveTab] = useState<'essentials' | 'needs' | 'social' | 'emergencies' | 'favorites'>('essentials');
-  const [customText, setCustomText] = useState('');
-  const [showBigMode, setShowBigMode] = useState(false);
-  const [aiSmartReplies, setAiSmartReplies] = useState<string[]>([]);
-  const [isGeneratingReplies, setIsGeneratingReplies] = useState(false);
-  const [speechHistory, setSpeechHistory] = useState<string[]>(() => {
-    try {
-      const saved = localStorage.getItem('cognify_speech_history');
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
+  // ── Segment history (Project Relate-style: each utterance becomes a card)
+  const [segments, setSegments] = useState<TranscriptSegment[]>([]);
+  const [isDecoding, setIsDecoding] = useState(false);
 
-  // Performance / Accessibility Calibration states
-  const [pauseThreshold, setPauseThreshold] = useState<number>(() => {
-    const saved = localStorage.getItem('cognify_pause_threshold');
-    return saved ? Number(saved) : 2500;
-  });
-  const [speechRate, setSpeechRate] = useState<number>(() => {
-    const saved = localStorage.getItem('cognify_speech_rate');
-    return saved ? Number(saved) : 1.0;
-  });
-  const [speechPitch, setSpeechPitch] = useState<number>(() => {
-    const saved = localStorage.getItem('cognify_speech_pitch');
-    return saved ? Number(saved) : 1.0;
-  });
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [copiedState, setCopiedState] = useState(false);
+  // ── Repeat mode: AI restates what it heard in clear synthesized voice
+  const [repeatModeOn, setRepeatModeOn] = useState(false);
+  const [lastRepeated, setLastRepeated] = useState('');
 
-  // Customized Saved Presets ("My Presets")
-  const [favorites, setFavorites] = useState<SoundboardItem[]>(() => {
-    try {
-      const saved = localStorage.getItem('cognify_speech_presets');
-      return saved ? JSON.parse(saved) : [
-        { id: 'fav1', emoji: '🏡', textEn: "I am ready to go home", textAr: "أنا جاهز للذهاب إلى المنزل" },
-        { id: 'fav2', emoji: '☕', textEn: "I would love some coffee", textAr: "أود بعض القهوة" },
-        { id: 'fav3', emoji: '⚕️', textEn: "May I have my medicine please?", textAr: "هل يمكنني الحصول على الدواء من فضلك؟" }
-      ];
-    } catch {
-      return [];
-    }
-  });
+  // ── Speech profile for impairment type
+  const [speechProfile, setSpeechProfile] = useState<string>(() =>
+    localStorage.getItem('cognify_speech_profile') || 'Standard'
+  );
 
-  // Project Euphonia Voice Training Deck states
+  // ── Euphonia (direct audio) state
+  const [isRecordingEuphonia, setIsRecordingEuphonia] = useState(false);
+  const [euphoniaTimer, setEuphoniaTimer] = useState(0);
+
+  // ── Calibration session state
+  const [calibrationPhrases, setCalibrationPhrases] = useState<CalibrationPhrase[]>(CALIBRATION_PHRASES);
+  const [calibrationIndex, setCalibrationIndex] = useState(0);
+  const [isCalibrationRecording, setIsCalibrationRecording] = useState(false);
+  const [calibrationTimer, setCalibrationTimer] = useState(0);
+  const [calibrationComplete, setCalibrationComplete] = useState(false);
+  const [calibrationAudioBlobs, setCalibrationAudioBlobs] = useState<{phraseId: string; blob: Blob}[]>([]);
+
+  // ── Phoneme pattern mappings
   const [euphoniaPatterns, setEuphoniaPatterns] = useState<EuphoniaPattern[]>(() => {
     try {
       const saved = localStorage.getItem('cognify_euphonia_patterns');
@@ -147,345 +144,166 @@ export default function LiveCaptions({ language = 'en-US', onClose }: LiveCaptio
         { id: 'ep3', phrase: "hoh", translation: "I want to go home" },
         { id: 'ep4', phrase: "hep me", translation: "Please help me" }
       ];
-    } catch {
-      return [];
-    }
+    } catch { return []; }
   });
-  const [newSoundPattern, setNewSoundPattern] = useState('');
+  const [newPattern, setNewPattern] = useState('');
   const [newTranslation, setNewTranslation] = useState('');
-  const [isEuphoniaTrainingOpen, setIsEuphoniaTrainingOpen] = useState(false);
+  const [showPatternsPanel, setShowPatternsPanel] = useState(false);
 
+  // ── Soundboard
+  const [activeTab, setActiveTab] = useState<'essentials' | 'needs' | 'social' | 'emergencies' | 'favorites'>('essentials');
+  const [favorites, setFavorites] = useState<SoundboardItem[]>(() => {
+    try {
+      const saved = localStorage.getItem('cognify_speech_presets');
+      return saved ? JSON.parse(saved) : [
+        { id: 'fav1', emoji: '🏡', textEn: "I am ready to go home", textAr: "أنا جاهز للذهاب إلى المنزل" },
+        { id: 'fav2', emoji: '☕', textEn: "I would love some coffee", textAr: "أود بعض القهوة" },
+        { id: 'fav3', emoji: '⚕️', textEn: "May I have my medicine please?", textAr: "هل يمكنني الحصول على الدواء من فضلك؟" }
+      ];
+    } catch { return []; }
+  });
+  const [customText, setCustomText] = useState('');
+  const [showBigMode, setShowBigMode] = useState(false);
+  const [aiSmartReplies, setAiSmartReplies] = useState<string[]>([]);
+  const [isGeneratingReplies, setIsGeneratingReplies] = useState(false);
+
+  // ── Settings
+  const [pauseThreshold, setPauseThreshold] = useState<number>(() =>
+    Number(localStorage.getItem('cognify_pause_threshold') || 2500)
+  );
+  const [speechRate, setSpeechRate] = useState<number>(() =>
+    Number(localStorage.getItem('cognify_speech_rate') || 1.0)
+  );
+  const [speechPitch, setSpeechPitch] = useState<number>(() =>
+    Number(localStorage.getItem('cognify_speech_pitch') || 1.0)
+  );
+  const [showSettings, setShowSettings] = useState(false);
+  const [copiedState, setCopiedState] = useState(false);
+  const [speechHistory, setSpeechHistory] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('cognify_speech_history');
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
+
+  // ── Refs
   const recognitionRef = useRef<any>(null);
   const silenceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const animationFrameRef = useRef<number | null>(null);
-
-  // Project Euphonia Direct Multimodal States
-  const [isDirectAudioMode, setIsDirectAudioMode] = useState(false);
-  const [isRecordingDirectAudio, setIsRecordingDirectAudio] = useState(false);
-  const [directRecordingTime, setDirectRecordingTime] = useState(0);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
-
-  const startDirectAudioRecord = async () => {
-    try {
-      if (isListening) {
-        // Stop standard continuous ASR to prevent mic resource locks
-        if (recognitionRef.current) {
-          recognitionRef.current.stop();
-        }
-        setIsListening(false);
-      }
-      setError(null);
-      audioChunksRef.current = [];
-
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      
-      // Select appropriate mic mime type
-      let options = {};
-      if (MediaRecorder.isTypeSupported('audio/webm')) {
-        options = { mimeType: 'audio/webm' };
-      } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
-        options = { mimeType: 'audio/mp4' };
-      }
-
-      const mediaRecorder = new MediaRecorder(stream, options);
-      mediaRecorderRef.current = mediaRecorder;
-
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          audioChunksRef.current.push(event.data);
-        }
-      };
-
-      mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: mediaRecorder.mimeType || 'audio/webm' });
-        
-        // Stop all track releases
-        stream.getTracks().forEach(track => track.stop());
-
-        setIsDecodingSpeech(true);
-        setOriginalGarbledText('Feeding raw vocal audio into Gemini Deep Learning Acoustic model descriptor...');
-
-        const reader = new FileReader();
-        reader.readAsDataURL(audioBlob);
-        reader.onloadend = async () => {
-          const base64data = reader.result as string;
-          const base64Content = base64data.split(',')[1];
-
-          try {
-            const decodedResult = await geminiService.decodeEuphoniaAudio(
-              base64Content,
-              speechProfile,
-              language,
-              euphoniaPatterns,
-              mediaRecorder.mimeType || 'audio/webm'
-            );
-            
-            if (decodedResult && decodedResult.trim() !== "") {
-              setEnhancedText(decodedResult);
-              setTranscript(decodedResult);
-              fetchSmartReplies(decodedResult);
-            } else {
-              setError("We couldn't decode any clear phrases from your recording. Please try repeating clearly.");
-            }
-          } catch (err: any) {
-            console.error("Direct audio recognition failed:", err);
-            setError("Direct voice decryption with Deep Learning failed. Double-check your microphone and try again.");
-          } finally {
-            setIsDecodingSpeech(false);
-          }
-        };
-      };
-
-      mediaRecorder.start();
-      setIsRecordingDirectAudio(true);
-      setDirectRecordingTime(0);
-
-      // Start volume level visualizer
-      startAudioLevelTracking();
-
-      recordingTimerRef.current = setInterval(() => {
-        setDirectRecordingTime(prev => {
-          if (prev >= 6) { // Auto cut-off at 6s
-            stopDirectAudioRecord();
-            return 6;
-          }
-          return prev + 1;
-        });
-      }, 1000);
-    } catch (err) {
-      console.error("Failed to access microphone for raw audio capture:", err);
-      setError("Cannot open raw recording mic. Verify browser permission in site setting.");
-    }
-  };
-
-  const stopDirectAudioRecord = () => {
-    if (recordingTimerRef.current) {
-      clearInterval(recordingTimerRef.current);
-      recordingTimerRef.current = null;
-    }
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-      mediaRecorderRef.current.stop();
-    }
-    setIsRecordingDirectAudio(false);
-    stopAudioLevelTracking();
-  };
+  const segmentsEndRef = useRef<HTMLDivElement | null>(null);
 
   const isArabic = language.startsWith('ar');
 
-  const t = {
-    listeningLive: isArabic ? "مساعد استماع مباشر" : "Listening Live",
-    standby: isArabic ? "مستعد للنطق والاستماع" : "Speech & Listen Standby",
-    waitingSpeech: isArabic ? "في انتظار سماع حديث مسموع..." : "Listening for voice to transcribe...",
-    aiSimplified: isArabic ? "تبسيط ذكي" : "AI Simplified",
-    clearAll: isArabic ? "مسح الكلام" : "Clear All",
-    optimizing: isArabic ? "تحسين بالذكاء الاصطناعي..." : "Optimizing text...",
-    tapToSpeak: isArabic ? "افتح الميكروفون" : "Tap to Speak",
-    tapToStop: isArabic ? "إيقاف الميكروفون" : "Tap to Stop",
-    speechProfileTitle: isArabic ? "تكييف نمط الكلام والصوت" : "AI Voice Capture Profile",
-    speechProfileSubtitle: isArabic ? "تخصيص الخوارزمية حسب طبيعة وصعوبة النطق لديك" : "Adapts Gemini's contextual decoding to your speech pattern",
-    speechProfiles: {
-      Standard: isArabic ? "صوت عادي (مستمع)" : "Ordinary/Standard Voice",
-      Dysarthria: isArabic ? "صعوبة نطق / تداخل" : "Slurred / Dysarthria",
-      Stutter: isArabic ? "تأتأة / تردد كلامي" : "Stutter / Syllables",
-      Aphasia: isArabic ? "حبسة / فجوات لفظية" : "Aphasia / Word-Gaps",
-      Kanevsky: isArabic ? "د. كانيفسكي (صوت أصم)" : "Dr. Dimitri Kanevsky (Severe Deaf-Dysarthria)"
-    },
-    speechProfileShort: {
-      Standard: isArabic ? "عادي" : "Ordinary",
-      Dysarthria: isArabic ? "صعوبة نطق" : "Dysarthria",
-      Stutter: isArabic ? "تأتأة" : "Stutter",
-      Aphasia: isArabic ? "حبسة كلامية" : "Aphasia",
-      Kanevsky: isArabic ? "كانيفسكي" : "Kanevsky"
-    },
-    decodingSpeech: isArabic ? "جاري فك تشبير النطق المريض..." : "AI reconstructing speech pattern...",
-    phoneticDetected: isArabic ? "النص الملتقط مجهرياً" : "Raw Phonetic Stream",
-    vocalDeckTitle: isArabic ? "مساعد النطق والتحدث" : "Vocal Speech Assistant",
-    aiSmartTitle: isArabic ? "الردود التفاعلية بالذكاء الاصطناعي" : "AI Smart Predictive Responses",
-    aiSmartDesc: isArabic ? "ردود سريعة ذكية مولدة بناءً على ما يقال الآن" : "Context-aware replies generated live from what you hear",
-    customInputPlaceholder: isArabic ? "اكتب هنا شيئاً لنطقه بالصوت أو عرضه..." : "Type custom sentence to speak, click Speak...",
-    speakBtnText: isArabic ? "انطق بصوت" : "Speak Voice",
-    showBigText: isArabic ? "تكبير الحجم" : "Show Massive",
-    categories: {
-      essentials: isArabic ? "أساسيات" : "Essentials",
-      needs: isArabic ? "احتياجات" : "Needs",
-      social: isArabic ? "تواصل واجتماع" : "Social",
-      emergencies: isArabic ? "حالات طارئة" : "Emergencies",
-      favorites: isArabic ? "مفضلتي" : "My Presets"
-    },
-    historyTitle: isArabic ? "العبارات الأخيرة" : "Speech History",
-    noHistory: isArabic ? "لا توجد عبارات سابقة" : "No recent custom phrases",
-    noReplies: isArabic ? "تحدث أولاً لرؤية الاقتراحات الذكية" : "No captions yet. Speak to generate AI predicted options"
+  // ── Persist settings
+  useEffect(() => { localStorage.setItem('cognify_speech_history', JSON.stringify(speechHistory)); }, [speechHistory]);
+  useEffect(() => { localStorage.setItem('cognify_speech_presets', JSON.stringify(favorites)); }, [favorites]);
+  useEffect(() => { localStorage.setItem('cognify_euphonia_patterns', JSON.stringify(euphoniaPatterns)); }, [euphoniaPatterns]);
+  useEffect(() => { localStorage.setItem('cognify_pause_threshold', String(pauseThreshold)); }, [pauseThreshold]);
+  useEffect(() => { localStorage.setItem('cognify_speech_rate', String(speechRate)); }, [speechRate]);
+  useEffect(() => { localStorage.setItem('cognify_speech_pitch', String(speechPitch)); }, [speechPitch]);
+  useEffect(() => { localStorage.setItem('cognify_speech_profile', speechProfile); }, [speechProfile]);
+
+  // Auto-scroll segments
+  useEffect(() => {
+    segmentsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [segments]);
+
+  // ──────────────────────────────────────────────────────────────────────
+  // AUDIO LEVEL TRACKING
+  // ──────────────────────────────────────────────────────────────────────
+  const startAudioLevelTracking = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const source = audioContextRef.current.createMediaStreamSource(stream);
+      analyserRef.current = audioContextRef.current.createAnalyser();
+      analyserRef.current.fftSize = 256;
+      source.connect(analyserRef.current);
+      const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
+      const updateLevel = () => {
+        if (!analyserRef.current) return;
+        analyserRef.current.getByteFrequencyData(dataArray);
+        const avg = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
+        setVolume(avg);
+        animationFrameRef.current = requestAnimationFrame(updateLevel);
+      };
+      updateLevel();
+    } catch (e) { console.error("Audio visualizer failed:", e); }
   };
 
-  // Safe Voice Synthesis Wrapper
-  const speakText = (textToSpeak: string) => {
-    if (!textToSpeak.trim()) return;
+  const stopAudioLevelTracking = () => {
+    if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+    if (audioContextRef.current) audioContextRef.current.close();
+    setVolume(0);
+  };
+
+  // ──────────────────────────────────────────────────────────────────────
+  // SPEECH SYNTHESIS (TTS)
+  // ──────────────────────────────────────────────────────────────────────
+  const speakText = useCallback((text: string) => {
+    if (!text.trim()) return;
     try {
       window.speechSynthesis.cancel();
       setTimeout(() => {
-        const utterance = new SpeechSynthesisUtterance(textToSpeak);
+        const utterance = new SpeechSynthesisUtterance(text);
         utterance.lang = language;
         utterance.rate = speechRate;
         utterance.pitch = speechPitch;
-        
         const voices = window.speechSynthesis.getVoices();
-        // Look for exact locale match or general language prefix (e.g. 'ar' or 'en')
-        const voice = voices.find(v => v.lang.startsWith(language.startsWith('ar') ? 'ar' : 'en'));
-        if (voice) {
-          utterance.voice = voice;
-        }
-        
+        const voice = voices.find(v => v.lang.startsWith(isArabic ? 'ar' : 'en'));
+        if (voice) utterance.voice = voice;
         window.speechSynthesis.speak(utterance);
       }, 50);
-    } catch (err) {
-      console.error("Speech synthesis failure:", err);
-    }
-  };
+    } catch (err) { console.error("TTS failure:", err); }
+  }, [language, speechRate, speechPitch, isArabic]);
 
-  const handleCustomSpeak = (textToSpeak: string) => {
-    if (!textToSpeak.trim()) return;
-    speakText(textToSpeak);
-    // Add to history
-    setSpeechHistory(prev => {
-      const filtered = prev.filter(item => item !== textToSpeak);
-      return [textToSpeak, ...filtered].slice(0, 8); // Keep last 8 unique
-    });
-  };
-
-  const handleAddCustomPreset = () => {
-    if (!customText.trim()) return;
-    const newPreset: SoundboardItem = {
-      id: 'user_' + Date.now(),
-      emoji: '⭐',
-      textEn: customText,
-      textAr: customText
-    };
-    setFavorites(prev => [...prev, newPreset]);
-    setCustomText('');
-  };
-
-  const clearHistory = () => {
-    setSpeechHistory([]);
-  };
-
-  const fetchSmartReplies = async (text: string) => {
-    if (!text.trim() || text.length < 10) return;
-    setIsGeneratingReplies(true);
-    try {
-      const suggestions = await geminiService.generateQuickReplies(text, language);
-      if (Array.isArray(suggestions) && suggestions.length > 0) {
-        setAiSmartReplies(suggestions);
-      }
-    } catch (e) {
-      console.error("Error generating quick replies:", e);
-    } finally {
-      setIsGeneratingReplies(false);
-    }
-  };
-
-  // Save history & calibration configuration to localStorage
+  // ──────────────────────────────────────────────────────────────────────
+  // CONTINUOUS SPEECH RECOGNITION
+  // ──────────────────────────────────────────────────────────────────────
   useEffect(() => {
-    localStorage.setItem('cognify_speech_history', JSON.stringify(speechHistory));
-  }, [speechHistory]);
-
-  useEffect(() => {
-    localStorage.setItem('cognify_favorites', JSON.stringify(favorites));
-  }, [favorites]);
-
-  useEffect(() => {
-    localStorage.setItem('cognify_euphonia_patterns', JSON.stringify(euphoniaPatterns));
-  }, [euphoniaPatterns]);
-
-  useEffect(() => {
-    localStorage.setItem('cognify_pause_threshold', String(pauseThreshold));
-  }, [pauseThreshold]);
-
-  useEffect(() => {
-    localStorage.setItem('cognify_speech_rate', String(speechRate));
-  }, [speechRate]);
-
-  useEffect(() => {
-    localStorage.setItem('cognify_speech_pitch', String(speechPitch));
-  }, [speechPitch]);
-
-  const copyToClipboard = () => {
-    const textToCopy = enhancedText || transcript || interimTranscript;
-    if (!textToCopy) return;
-    navigator.clipboard.writeText(textToCopy);
-    setCopiedState(true);
-    setTimeout(() => setCopiedState(false), 2000);
-  };
-
-  useEffect(() => {
-    // Check for Browser Speech Recognition Support
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) {
-      setError("Speech recognition is not fully supported in this browser. Please use Google Chrome.");
+      setError("Speech recognition requires Google Chrome.");
       return;
     }
-
     recognitionRef.current = new SpeechRecognition();
     const recognition = recognitionRef.current;
-
     recognition.continuous = true;
     recognition.interimResults = true;
     recognition.lang = language;
 
-    recognition.onstart = () => {
-      setIsListening(true);
-      setError(null);
-      startAudioLevelTracking();
-    };
-
+    recognition.onstart = () => { setIsListening(true); setError(null); startAudioLevelTracking(); };
     recognition.onerror = (event: any) => {
-      console.error("Speech Recognition Error:", event.error);
-      if (event.error === 'not-allowed') {
-        setError("Microphone access denied. Enable permissions in the browser bar.");
-      }
+      if (event.error === 'not-allowed') setError("Microphone access denied. Enable permissions in browser settings.");
       setIsListening(false);
       stopAudioLevelTracking();
     };
-
-    recognition.onend = () => {
-      setIsListening(false);
-      stopAudioLevelTracking();
-    };
+    recognition.onend = () => { setIsListening(false); stopAudioLevelTracking(); };
 
     recognition.onresult = (event: any) => {
       let finalStr = '';
       let interimStr = '';
-
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const text = event.results[i][0].transcript;
-        if (event.results[i].isFinal) {
-          finalStr += text;
-        } else {
-          interimStr += text;
-        }
+        if (event.results[i].isFinal) finalStr += text;
+        else interimStr += text;
       }
-
       if (finalStr) {
         setTranscript(prev => prev + ' ' + finalStr);
         setInterimTranscript('');
       } else {
         setInterimTranscript(interimStr);
       }
-
-      // Live predictive responses updates of transcript quiet period
       if (silenceTimeoutRef.current) clearTimeout(silenceTimeoutRef.current);
       silenceTimeoutRef.current = setTimeout(async () => {
-        const fullText = (transcript + ' ' + interimStr).trim();
+        const fullText = (transcript + ' ' + (finalStr || interimStr)).trim();
         if (fullText.length > 2) {
-          if (speechProfile !== 'Standard') {
-            handleDysarthriaCorrection(fullText);
-          } else {
-            handleEnhancement(fullText);
-            fetchSmartReplies(fullText);
-          }
+          await processUtterance(fullText);
         }
       }, pauseThreshold);
     };
@@ -496,805 +314,1020 @@ export default function LiveCaptions({ language = 'en-US', onClose }: LiveCaptio
     };
   }, [language, transcript, speechProfile, pauseThreshold]);
 
-  const startAudioLevelTracking = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const source = audioContextRef.current.createMediaStreamSource(stream);
-      analyserRef.current = audioContextRef.current.createAnalyser();
-      analyserRef.current.fftSize = 256;
-      source.connect(analyserRef.current);
-
-      const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
-      const updateLevel = () => {
-        if (!analyserRef.current) return;
-        analyserRef.current.getByteFrequencyData(dataArray);
-        const sum = dataArray.reduce((a, b) => a + b, 0);
-        const avg = sum / dataArray.length;
-        setVolume(avg);
-        animationFrameRef.current = requestAnimationFrame(updateLevel);
-      };
-      updateLevel();
-    } catch (e) {
-      console.error("Audio visualizer tracking failed:", e);
-    }
-  };
-
-  const stopAudioLevelTracking = () => {
-    if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
-    if (audioContextRef.current) audioContextRef.current.close();
-    setVolume(0);
-  };
-
   const toggleListening = () => {
     if (isListening) {
-      recognitionRef.current.stop();
+      recognitionRef.current?.stop();
     } else {
-      try {
-        recognitionRef.current.start();
-      } catch (e) {
-        console.error("Start microphone failed:", e);
-      }
+      try { recognitionRef.current?.start(); } catch (e) { console.error("Mic start failed:", e); }
     }
   };
 
-  const handleEnhancement = async (text: string) => {
-    setIsEnhancing(true);
+  // ──────────────────────────────────────────────────────────────────────
+  // PROCESS AN UTTERANCE → SEGMENT CARD
+  // Determines confidence, decodes if needed, optionally repeats
+  // ──────────────────────────────────────────────────────────────────────
+  const processUtterance = async (rawText: string) => {
+    if (!rawText.trim()) return;
+    setIsDecoding(true);
+
+    let decoded = rawText;
+    let confidence: 'high' | 'medium' | 'low' = 'high';
+    let intent: string | undefined;
+
     try {
-      const result = await geminiService.enhanceCaptions(text, language);
-      setEnhancedText(result);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setIsEnhancing(false);
-    }
-  };
-
-  const handleDysarthriaCorrection = async (text: string) => {
-    setIsDecodingSpeech(true);
-    setOriginalGarbledText(text);
-
-    // Fast, local client-side matching for trained soundboard triggers
-    const cleanIn = text.toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"']/g, "").trim();
-    if (cleanIn.length > 1) {
-      const matched = euphoniaPatterns.find(p => {
-        const cleanP = p.phrase.toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"']/g, "").trim();
+      // Step 1: Local pattern matching (instant)
+      const cleanIn = rawText.toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?\"']/g, "").trim();
+      const localMatch = euphoniaPatterns.find(p => {
+        const cleanP = p.phrase.toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?\"']/g, "").trim();
         return cleanIn === cleanP || cleanIn.includes(cleanP) || cleanP.includes(cleanIn);
       });
 
-      if (matched) {
-        setEnhancedText(matched.translation);
-        fetchSmartReplies(matched.translation);
-        setIsDecodingSpeech(false);
-        return;
+      if (localMatch) {
+        decoded = localMatch.translation;
+        confidence = 'high';
+      } else if (speechProfile !== 'Standard') {
+        // Step 2: Gemini dysarthria decoding
+        decoded = await geminiService.decodeDysarthria(rawText, speechProfile, language, euphoniaPatterns);
+        confidence = decoded.toLowerCase() === rawText.toLowerCase() ? 'low' : 'medium';
+        if (decoded !== rawText && decoded.length > rawText.length * 0.5) confidence = 'high';
+      } else {
+        // Step 3: Standard AI enhancement
+        decoded = await geminiService.enhanceCaptions(rawText, language);
+        confidence = 'high';
       }
+
+      // Step 4: Detect communicative intent (brief async call)
+      fetchIntent(decoded).then(i => {
+        if (i) {
+          setSegments(prev => prev.map(s => s.raw === rawText ? { ...s, intent: i } : s));
+        }
+      });
+
+      // Step 5: Auto-repeat if mode is on
+      if (repeatModeOn && decoded) {
+        setLastRepeated(decoded);
+        speakText(decoded);
+      }
+
+      // Step 6: Smart replies
+      if (decoded.length > 8) fetchSmartReplies(decoded);
+
+    } catch (e) {
+      console.error("Process utterance error:", e);
+      confidence = 'low';
+    } finally {
+      setIsDecoding(false);
     }
 
+    const newSegment: TranscriptSegment = {
+      id: Date.now().toString(),
+      raw: rawText,
+      decoded,
+      confidence,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    };
+
+    setSegments(prev => [...prev.slice(-20), newSegment]); // Keep last 20
+    setTranscript('');
+    setInterimTranscript('');
+  };
+
+  // ──────────────────────────────────────────────────────────────────────
+  // INTENT DETECTION (lightweight)
+  // ──────────────────────────────────────────────────────────────────────
+  const fetchIntent = async (text: string): Promise<string | null> => {
+    const lower = text.toLowerCase();
+    if (/help|emergency|pain|sick|call|urgent|danger/i.test(lower)) return '🚨 Urgent';
+    if (/\?|what|where|when|how|who|can you/i.test(lower)) return '❓ Question';
+    if (/yes|agree|ok|sure|please|thank/i.test(lower)) return '✅ Agreement';
+    if (/no|don\'t|won\'t|stop|wait/i.test(lower)) return '🚫 Refusal';
+    if (/feel|pain|hurt|sick|tired|hungry|thirsty/i.test(lower)) return '💬 Need';
+    return null;
+  };
+
+  // ──────────────────────────────────────────────────────────────────────
+  // SMART REPLIES
+  // ──────────────────────────────────────────────────────────────────────
+  const fetchSmartReplies = async (text: string) => {
+    if (text.length < 8) return;
+    setIsGeneratingReplies(true);
     try {
-      const result = await geminiService.decodeDysarthria(text, speechProfile, language, euphoniaPatterns);
-      setEnhancedText(result);
-      fetchSmartReplies(result);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setIsDecodingSpeech(false);
+      const suggestions = await geminiService.generateQuickReplies(text, language);
+      if (Array.isArray(suggestions) && suggestions.length > 0) setAiSmartReplies(suggestions);
+    } catch (e) { console.error("Quick replies error:", e); }
+    finally { setIsGeneratingReplies(false); }
+  };
+
+  // ──────────────────────────────────────────────────────────────────────
+  // PROJECT EUPHONIA: DIRECT AUDIO RECORDING
+  // ──────────────────────────────────────────────────────────────────────
+  const startEuphoniaRecord = async () => {
+    try {
+      if (isListening) { recognitionRef.current?.stop(); setIsListening(false); }
+      setError(null);
+      audioChunksRef.current = [];
+
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' :
+                       MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' : '';
+      const mediaRecorder = new MediaRecorder(stream, mimeType ? { mimeType } : {});
+      mediaRecorderRef.current = mediaRecorder;
+
+      mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunksRef.current.push(e.data); };
+      mediaRecorder.onstop = async () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: mediaRecorder.mimeType || 'audio/webm' });
+        stream.getTracks().forEach(t => t.stop());
+        setIsDecoding(true);
+        const reader = new FileReader();
+        reader.readAsDataURL(audioBlob);
+        reader.onloadend = async () => {
+          const base64Content = (reader.result as string).split(',')[1];
+          try {
+            const result = await geminiService.decodeEuphoniaAudio(
+              base64Content, speechProfile, language, euphoniaPatterns, mediaRecorder.mimeType || 'audio/webm'
+            );
+            if (result?.trim()) {
+              await processUtterance(result.trim());
+            } else {
+              setError("No speech detected. Try speaking more clearly or adjusting your speech profile.");
+            }
+          } catch (err) {
+            setError("Audio decoding failed. Check your microphone and try again.");
+          } finally { setIsDecoding(false); }
+        };
+      };
+
+      mediaRecorder.start();
+      setIsRecordingEuphonia(true);
+      setEuphoniaTimer(0);
+      startAudioLevelTracking();
+      recordingTimerRef.current = setInterval(() => {
+        setEuphoniaTimer(prev => {
+          if (prev >= 7) { stopEuphoniaRecord(); return 7; }
+          return prev + 1;
+        });
+      }, 1000);
+    } catch (err) {
+      setError("Cannot access microphone. Check browser permissions.");
     }
   };
 
+  const stopEuphoniaRecord = () => {
+    if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+    if (mediaRecorderRef.current?.state !== 'inactive') mediaRecorderRef.current?.stop();
+    setIsRecordingEuphonia(false);
+    stopAudioLevelTracking();
+  };
+
+  // ──────────────────────────────────────────────────────────────────────
+  // CALIBRATION SESSION (Project Relate-style guided phrase recording)
+  // ──────────────────────────────────────────────────────────────────────
+  const startCalibrationRecord = async () => {
+    if (calibrationIndex >= calibrationPhrases.length) return;
+    try {
+      audioChunksRef.current = [];
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' :
+                       MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' : '';
+      const mediaRecorder = new MediaRecorder(stream, mimeType ? { mimeType } : {});
+      mediaRecorderRef.current = mediaRecorder;
+
+      mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunksRef.current.push(e.data); };
+      mediaRecorder.onstop = async () => {
+        const blob = new Blob(audioChunksRef.current, { type: mediaRecorder.mimeType || 'audio/webm' });
+        stream.getTracks().forEach(t => t.stop());
+
+        // Save this phrase recording
+        const phrase = calibrationPhrases[calibrationIndex];
+        setCalibrationAudioBlobs(prev => [...prev, { phraseId: phrase.id, blob }]);
+
+        // Try to decode it and auto-register as a pattern
+        const reader = new FileReader();
+        reader.readAsDataURL(blob);
+        reader.onloadend = async () => {
+          const base64Content = (reader.result as string).split(',')[1];
+          try {
+            const decoded = await geminiService.decodeEuphoniaAudio(
+              base64Content, speechProfile, language, [], mediaRecorder.mimeType || 'audio/webm'
+            );
+            if (decoded && decoded.trim() && decoded !== phrase.text) {
+              // Auto-register: what AI heard → what was intended
+              const newPat: EuphoniaPattern = {
+                id: 'cal_' + phrase.id + '_' + Date.now(),
+                phrase: decoded.trim(),
+                translation: phrase.text
+              };
+              setEuphoniaPatterns(prev => {
+                const exists = prev.find(p => p.phrase.toLowerCase() === decoded.trim().toLowerCase());
+                return exists ? prev : [...prev, newPat];
+              });
+            }
+          } catch (e) { console.error("Calibration decode error:", e); }
+        };
+
+        // Mark phrase as recorded and advance
+        setCalibrationPhrases(prev => prev.map((p, i) => i === calibrationIndex ? { ...p, recorded: true } : p));
+        const nextIdx = calibrationIndex + 1;
+        if (nextIdx >= calibrationPhrases.length) {
+          setCalibrationComplete(true);
+        } else {
+          setCalibrationIndex(nextIdx);
+        }
+        setIsCalibrationRecording(false);
+        setCalibrationTimer(0);
+      };
+
+      mediaRecorder.start();
+      setIsCalibrationRecording(true);
+      setCalibrationTimer(0);
+      recordingTimerRef.current = setInterval(() => {
+        setCalibrationTimer(prev => {
+          if (prev >= 4) { stopCalibrationRecord(); return 4; }
+          return prev + 1;
+        });
+      }, 1000);
+    } catch (err) {
+      setError("Cannot access microphone for calibration.");
+    }
+  };
+
+  const stopCalibrationRecord = () => {
+    if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+    if (mediaRecorderRef.current?.state !== 'inactive') mediaRecorderRef.current?.stop();
+    setIsCalibrationRecording(false);
+  };
+
+  const resetCalibration = () => {
+    setCalibrationPhrases(CALIBRATION_PHRASES);
+    setCalibrationIndex(0);
+    setCalibrationComplete(false);
+    setCalibrationAudioBlobs([]);
+  };
+
+  // ──────────────────────────────────────────────────────────────────────
+  // SOUNDBOARD HELPERS
+  // ──────────────────────────────────────────────────────────────────────
+  const handleCustomSpeak = (text: string) => {
+    if (!text.trim()) return;
+    speakText(text);
+    setSpeechHistory(prev => [text, ...prev.filter(i => i !== text)].slice(0, 8));
+  };
+
+  const handleAddCustomPreset = () => {
+    if (!customText.trim()) return;
+    setFavorites(prev => [...prev, { id: 'user_' + Date.now(), emoji: '⭐', textEn: customText, textAr: customText }]);
+    setCustomText('');
+  };
+
+  const copyLatestCaption = () => {
+    const latest = segments[segments.length - 1];
+    if (!latest) return;
+    navigator.clipboard.writeText(latest.decoded);
+    setCopiedState(true);
+    setTimeout(() => setCopiedState(false), 2000);
+  };
+
+  // ──────────────────────────────────────────────────────────────────────
+  // CONFIDENCE BADGE
+  // ──────────────────────────────────────────────────────────────────────
+  const ConfidenceBadge = ({ level }: { level: 'high' | 'medium' | 'low' }) => {
+    const config = {
+      high: { color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20', label: 'Clear', icon: '●●●' },
+      medium: { color: 'text-yellow-400 bg-yellow-500/10 border-yellow-500/20', label: 'Decoded', icon: '●●○' },
+      low: { color: 'text-red-400 bg-red-500/10 border-red-500/20', label: 'Unclear', icon: '●○○' },
+    }[level];
+    return (
+      <span className={`inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border ${config.color}`}>
+        <span className="font-mono text-[8px]">{config.icon}</span>
+        {config.label}
+      </span>
+    );
+  };
+
+  // ──────────────────────────────────────────────────────────────────────
+  // RENDER
+  // ──────────────────────────────────────────────────────────────────────
+  const isActive = isListening || isRecordingEuphonia || isCalibrationRecording;
+  const currentModeIsEuphonia = activeMode === 'euphonia';
+  const currentModeIsListen = activeMode === 'listen';
+
   return (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       className="fixed inset-0 z-[100] bg-neutral-950 text-white flex flex-col lg:flex-row items-stretch overflow-hidden"
     >
-      {/* LEFT COLUMN: Deep Live Captions Viewer */}
-      <div className="flex-1 flex flex-col justify-between p-6 lg:p-8 relative bg-neutral-950 border-r border-white/5 order-1">
-        {/* Caption Header */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 mt-2 pb-4 border-b border-white/5">
-          <div className="flex flex-wrap items-center gap-2">
+      {/* ================================================================
+          LEFT COLUMN: Caption Display + Microphone Controls
+      ================================================================ */}
+      <div className="flex-1 flex flex-col bg-neutral-950 border-r border-white/5 overflow-hidden">
+
+        {/* ── Top bar: Mode Tabs ── */}
+        <div className="flex items-center justify-between gap-2 px-4 pt-4 pb-3 border-b border-white/5 flex-wrap">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {/* Continuous Listen */}
             <button
-              onClick={() => {
-                setIsDirectAudioMode(false);
-                if (isListening) toggleListening();
-                setEnhancedText('');
-                setTranscript('');
-                setAiSmartReplies([]);
-              }}
+              onClick={() => { setActiveMode('listen'); if (isRecordingEuphonia) stopEuphoniaRecord(); }}
               className={`text-[10px] md:text-[11px] font-black uppercase tracking-wider py-2 px-3 border rounded-xl transition-all flex items-center gap-1.5 cursor-pointer ${
-                !isDirectAudioMode 
-                  ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400' 
+                activeMode === 'listen'
+                  ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-400'
                   : 'border-transparent text-neutral-400 hover:text-white hover:bg-white/5'
               }`}
             >
               <Activity className="w-3.5 h-3.5" />
-              Continuous Captions
+              Live Listen
             </button>
+
+            {/* Euphonia Direct Audio */}
             <button
-              onClick={() => {
-                setIsDirectAudioMode(true);
-                if (isListening) {
-                  if (recognitionRef.current) recognitionRef.current.stop();
-                  setIsListening(false);
-                }
-                setEnhancedText('');
-                setTranscript('');
-                setAiSmartReplies([]);
-              }}
+              onClick={() => { setActiveMode('euphonia'); if (isListening) recognitionRef.current?.stop(); }}
               className={`text-[10px] md:text-[11px] font-black uppercase tracking-wider py-2 px-3 border rounded-xl transition-all flex items-center gap-1.5 cursor-pointer ${
-                isDirectAudioMode 
-                  ? 'border-purple-500/30 bg-purple-500/10 text-purple-400' 
+                activeMode === 'euphonia'
+                  ? 'border-purple-500/40 bg-purple-500/10 text-purple-400'
                   : 'border-transparent text-neutral-400 hover:text-white hover:bg-white/5'
               }`}
             >
-              <Zap className="w-3.5 h-3.5 animate-pulse text-purple-400" />
-              Project Euphonia Acoustic AI
+              <Zap className="w-3.5 h-3.5" />
+              Euphonia AI
+            </button>
+
+            {/* Calibration */}
+            <button
+              onClick={() => setActiveMode('calibrate')}
+              className={`text-[10px] md:text-[11px] font-black uppercase tracking-wider py-2 px-3 border rounded-xl transition-all flex items-center gap-1.5 cursor-pointer ${
+                activeMode === 'calibrate'
+                  ? 'border-sky-500/40 bg-sky-500/10 text-sky-400'
+                  : 'border-transparent text-neutral-400 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <Target className="w-3.5 h-3.5" />
+              Voice Training
+              {calibrationComplete && <CheckCircle2 className="w-3 h-3 text-emerald-400" />}
             </button>
           </div>
-          
-          <div className="flex items-center justify-between sm:justify-end gap-3 flex-1 sm:flex-none">
-            <div className="flex items-center gap-2.5">
-              <div className={`w-2.5 h-2.5 rounded-full ${isListening || isRecordingDirectAudio ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`} />
-              <span className="text-[10px] font-extrabold uppercase tracking-widest text-neutral-400">
-                {isRecordingDirectAudio ? "Recording Raw Wave..." : (isListening ? t.listeningLive : t.standby)}
+
+          <div className="flex items-center gap-3">
+            {/* Repeat Mode Toggle */}
+            <button
+              onClick={() => setRepeatModeOn(prev => !prev)}
+              title="Repeat Mode: AI speaks back what it hears in a clear voice"
+              className={`flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider py-1.5 px-3 border rounded-xl transition-all cursor-pointer ${
+                repeatModeOn
+                  ? 'border-orange-500/40 bg-orange-500/10 text-orange-400'
+                  : 'border-white/10 text-neutral-500 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <Repeat2 className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Repeat</span>
+            </button>
+
+            {/* Live status dot */}
+            <div className="flex items-center gap-2">
+              <div className={`w-2 h-2 rounded-full ${isActive ? 'bg-emerald-500 animate-pulse' : 'bg-neutral-600'}`} />
+              <span className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 hidden sm:block">
+                {isCalibrationRecording ? 'Recording…' : isRecordingEuphonia ? 'Decoding…' : isListening ? 'Listening' : 'Standby'}
               </span>
             </div>
-            
-            <button 
-              onClick={onClose}
-              className="lg:hidden p-2 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 transition-colors"
-            >
+
+            <button onClick={onClose} className="lg:hidden p-2 rounded-full bg-white/5 hover:bg-white/10 border border-white/10">
               <X className="w-4 h-4" />
             </button>
           </div>
         </div>
 
-        {/* Caption Display Space */}
-        <div className="my-auto py-12 max-w-2xl mx-auto text-center w-full">
-          <AnimatePresence mode="wait">
-            {enhancedText ? (
-              <motion.div
-                key="enhanced"
-                initial={{ opacity: 0, y: 15 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="relative"
-              >
-                <div className="inline-flex items-center gap-2 px-3 py-1 bg-yellow-500/10 border border-yellow-500/20 rounded-full mb-6">
-                  <Sparkles className="w-3.5 h-3.5 text-yellow-500 animate-pulse" />
-                  <span className="text-[10px] font-black uppercase tracking-widest text-yellow-500">{t.aiSimplified}</span>
-                </div>
-                <h1 className="text-3xl md:text-5xl lg:text-6xl font-extrabold leading-tight tracking-tight bg-gradient-to-r from-white via-white to-neutral-400 bg-clip-text text-transparent">
-                  "{enhancedText}"
-                </h1>
-                <div className="flex items-center justify-center gap-3 mt-8">
-                  <button 
-                    onClick={() => { setEnhancedText(''); setTranscript(''); setAiSmartReplies([]); }}
-                    className="text-[11px] font-black uppercase tracking-wider text-white/30 hover:text-white border border-white/10 px-4 py-2 rounded-full bg-white/5 hover:bg-white/10 transition-all"
+        {/* ── Speech Profile Selector (compact pill row) ── */}
+        <div className="px-4 py-2.5 border-b border-white/5 flex items-center gap-2 overflow-x-auto scrollbar-hide">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 whitespace-nowrap">Profile:</span>
+          {(['Standard', 'Dysarthria', 'Stutter', 'Aphasia', 'Kanevsky'] as const).map(p => (
+            <button
+              key={p}
+              onClick={() => setSpeechProfile(p)}
+              className={`text-[10px] font-bold px-3 py-1 rounded-full border whitespace-nowrap transition-all cursor-pointer ${
+                speechProfile === p
+                  ? 'border-purple-500/50 bg-purple-500/15 text-purple-300'
+                  : 'border-white/10 text-neutral-500 hover:text-white hover:border-white/20'
+              }`}
+            >
+              {p === 'Kanevsky' ? 'Severe Dysarthria' : p}
+            </button>
+          ))}
+        </div>
+
+        {/* ══════════════════════════════════════════════════════════════
+            LISTEN MODE: Transcript segments + live waveform
+        ══════════════════════════════════════════════════════════════ */}
+        {(activeMode === 'listen' || activeMode === 'euphonia') && (
+          <div className="flex-1 flex flex-col overflow-hidden">
+
+            {/* Segment history */}
+            <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+              <AnimatePresence initial={false}>
+                {segments.length === 0 && !isDecoding && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="flex flex-col items-center justify-center h-full text-center py-16 px-8"
                   >
-                    {t.clearAll}
-                  </button>
-                  <button 
-                    onClick={copyToClipboard}
-                    className="text-[11px] font-black uppercase tracking-wider text-white/30 hover:text-white border border-white/10 px-4 py-2 rounded-full bg-white/5 hover:bg-white/10 transition-all inline-flex items-center gap-1.5"
+                    {activeMode === 'listen' ? (
+                      <>
+                        <Waves className="w-10 h-10 text-neutral-700 mb-4" />
+                        <p className="text-neutral-400 text-sm font-semibold">Tap the microphone to start listening</p>
+                        <p className="text-neutral-600 text-xs mt-2 max-w-xs">
+                          Each utterance appears as a card with confidence scoring and AI decoding
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <Zap className="w-10 h-10 text-purple-700 mb-4" />
+                        <p className="text-neutral-400 text-sm font-semibold">Tap the record button below</p>
+                        <p className="text-neutral-600 text-xs mt-2 max-w-xs">
+                          Euphonia AI analyzes raw audio frame-by-frame, bypassing standard speech recognition
+                        </p>
+                      </>
+                    )}
+                  </motion.div>
+                )}
+
+                {segments.map((seg) => (
+                  <motion.div
+                    key={seg.id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="bg-neutral-900 border border-white/5 rounded-2xl p-4 group hover:border-white/10 transition-all"
                   >
-                    {copiedState ? <Check className="w-3.5 h-3.5 text-emerald-405 animate-pulse" /> : <Copy className="w-3.5 h-3.5 text-white/50" />}
-                    {copiedState ? "Copied!" : "Copy Caption"}
-                  </button>
-                </div>
-              </motion.div>
-            ) : (
-              <motion.div
-                key={isDirectAudioMode ? "euphonia_mode" : "transcript_mode"}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="w-full flex flex-col gap-6"
-              >
-                {isDirectAudioMode ? (
-                  <div className="max-w-md mx-auto bg-purple-950/25 border border-purple-500/15 p-6 rounded-2xl space-y-4 shadow-xl">
-                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-purple-500/10 border border-purple-500/20 rounded-full mx-auto">
-                      <Zap className="w-3.5 h-3.5 text-purple-400 animate-pulse" />
-                      <span className="text-[10px] font-black uppercase tracking-widest text-purple-400">Deep Learning Matcher</span>
-                    </div>
-                    <h3 className="text-base font-extrabold text-neutral-100 uppercase tracking-wider">Acoustic AI Decode</h3>
-                    <p className="text-xs text-neutral-300 leading-normal">
-                      Does standard speech-to-text ignore you or show silence? Project Euphonia bypasses standard word engines. Standard recordings are analyzed frame-by-frame by Gemini's deep hearing networks using your profile.
+                    {/* Decoded text — large and readable */}
+                    <p className="text-xl md:text-2xl font-bold text-white leading-snug mb-3">
+                      "{seg.decoded}"
                     </p>
-                    <div className="text-[11px] font-semibold text-neutral-300 py-2.5 px-3 bg-neutral-950 rounded-xl border border-white/5">
-                      {isRecordingDirectAudio ? (
-                        <span className="text-emerald-400 animate-pulse font-bold">
-                          🎙️ Acoustic matching ACTIVE: Speak now ({directRecordingTime}s)
-                        </span>
-                      ) : "Press the Microphone below & speak your custom sounds."}
+
+                    {/* Meta row */}
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <ConfidenceBadge level={seg.confidence} />
+                        {seg.intent && (
+                          <span className="text-[10px] font-bold text-neutral-400 bg-white/5 border border-white/10 px-2 py-0.5 rounded-full">
+                            {seg.intent}
+                          </span>
+                        )}
+                        <span className="text-[10px] text-neutral-600 font-mono">{seg.timestamp}</span>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                        {/* Show raw if different */}
+                        {seg.raw !== seg.decoded && (
+                          <span className="text-[10px] text-neutral-600 italic truncate max-w-[140px]">
+                            heard: "{seg.raw}"
+                          </span>
+                        )}
+                        <button
+                          onClick={() => speakText(seg.decoded)}
+                          className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-neutral-400 hover:text-white transition-all"
+                          title="Speak this aloud"
+                        >
+                          <Volume2 className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => { navigator.clipboard.writeText(seg.decoded); }}
+                          className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-neutral-400 hover:text-white transition-all"
+                          title="Copy"
+                        >
+                          <Copy className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                ) : (
-                  <>
-                    <h1 className="text-3xl md:text-5xl lg:text-6xl font-black leading-tight text-white/95 break-words">
-                      {transcript}
-                    </h1>
-                    <h2 className="text-2xl md:text-4xl text-neutral-500 font-medium italic leading-relaxed">
-                      {interimTranscript || (!transcript && t.waitingSpeech)}
-                    </h2>
-                  </>
+                  </motion.div>
+                ))}
+
+                {/* Live interim */}
+                {(interimTranscript || isDecoding) && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="bg-neutral-900/50 border border-white/5 border-dashed rounded-2xl p-4"
+                  >
+                    {isDecoding ? (
+                      <div className="flex items-center gap-2 text-purple-400">
+                        <Brain className="w-4 h-4 animate-pulse" />
+                        <span className="text-sm font-semibold">AI reconstructing speech…</span>
+                      </div>
+                    ) : (
+                      <p className="text-lg text-neutral-400 italic">{interimTranscript}</p>
+                    )}
+                  </motion.div>
                 )}
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {isEnhancing && (
-            <div className="flex items-center justify-center gap-2 text-yellow-500 mt-6">
-              <RefreshCw className="w-4 h-4 animate-spin" />
-              <span className="text-[10px] font-black uppercase tracking-widest">{t.optimizing}</span>
+              </AnimatePresence>
+              <div ref={segmentsEndRef} />
             </div>
-          )}
 
-          {isDecodingSpeech && (
-            <div className="flex flex-col items-center justify-center gap-2.5 text-purple-400 mt-6 bg-purple-500/5 border border-purple-500/10 p-4 rounded-2xl max-w-md mx-auto">
-              <div className="flex items-center gap-2">
-                <RefreshCw className="w-4 h-4 animate-spin text-purple-400" />
-                <span className="text-[10px] font-black uppercase tracking-widest">{t.decodingSpeech}</span>
+            {/* ── Repeat mode indicator ── */}
+            {repeatModeOn && lastRepeated && (
+              <div className="mx-4 mb-2 px-4 py-2.5 bg-orange-500/10 border border-orange-500/20 rounded-xl flex items-center gap-2">
+                <Repeat2 className="w-4 h-4 text-orange-400 flex-shrink-0" />
+                <p className="text-sm text-orange-200 truncate">Repeated: "{lastRepeated}"</p>
               </div>
-              {originalGarbledText && (
-                <p className="text-[11px] text-neutral-400 italic">
-                  {t.phoneticDetected}: "{originalGarbledText}"
-                </p>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Waveform / Visualizer & Call Trigger */}
-        <div className="flex flex-col items-center gap-4 py-4 mt-auto">
-          <div className="relative">
-            {/* Audio Pulsing Waves (Deep Mode vs Continuous Mode) */}
-            <AnimatePresence>
-              {((isListening || isRecordingDirectAudio) && volume > 5) && (
-                <>
-                  <motion.div 
-                    initial={{ scale: 1, opacity: 0.5 }}
-                    animate={{ scale: 1 + (volume / 90), opacity: 0 }}
-                    transition={{ duration: 0.45, repeat: Infinity }}
-                    className={`absolute inset-0 rounded-full -z-10 ${isDirectAudioMode ? 'bg-purple-500/35' : 'bg-emerald-500/30'}`}
-                  />
-                  <motion.div 
-                    initial={{ scale: 1, opacity: 0.3 }}
-                    animate={{ scale: 1 + (volume / 50), opacity: 0 }}
-                    transition={{ duration: 0.75, repeat: Infinity, delay: 0.15 }}
-                    className={`absolute inset-0 rounded-full -z-20 ${isDirectAudioMode ? 'bg-purple-500/20' : 'bg-emerald-500/20'}`}
-                  />
-                </>
-              )}
-            </AnimatePresence>
-
-            {isDirectAudioMode ? (
-              <button
-                onClick={isRecordingDirectAudio ? stopDirectAudioRecord : startDirectAudioRecord}
-                className={`w-16 h-16 md:w-20 md:h-20 rounded-full flex items-center justify-center transition-all shadow-xl z-20 relative cursor-pointer ${
-                  isRecordingDirectAudio 
-                  ? 'bg-purple-600 hover:bg-purple-700 text-white scale-108 shadow-purple-500/40 ring-4 ring-purple-500/20' 
-                  : 'bg-gradient-to-tr from-purple-500 to-indigo-600 text-white hover:from-purple-600 hover:to-indigo-750 hover:scale-103 shadow-purple-500/20'
-                }`}
-              >
-                {isRecordingDirectAudio ? (
-                  <span className="relative flex h-5 w-5 items-center justify-center">
-                    <span className="absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75 animate-ping"></span>
-                    <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-red-500"></span>
-                  </span>
-                ) : (
-                  <Zap className="w-7 md:w-8 h-7 md:h-8 text-white" />
-                )}
-              </button>
-            ) : (
-              <button
-                onClick={toggleListening}
-                className={`w-16 h-16 md:w-20 md:h-20 rounded-full flex items-center justify-center transition-all shadow-xl z-10 relative cursor-pointer ${
-                  isListening 
-                  ? 'bg-emerald-500 hover:bg-emerald-600 scale-105 shadow-emerald-500/40 text-black' 
-                  : 'bg-white text-black hover:bg-neutral-100 hover:scale-102 shadow-white/10'
-                }`}
-              >
-                {isListening ? <MicOff className="w-7 md:w-8 h-7 md:h-8" /> : <Mic className="w-7 md:w-8 h-7 md:h-8" />}
-              </button>
             )}
-          </div>
-          
-          <p className="text-[10px] font-black uppercase tracking-[0.25em] text-white/45">
-            {isDirectAudioMode 
-              ? (isRecordingDirectAudio ? `Tap to Stop & Decode (${directRecordingTime}s)` : "Tap for Multimodal Acoustic Decrypt")
-              : (isListening ? t.tapToStop : t.tapToSpeak)
-            }
-          </p>
-        </div>
-      </div>
 
-      {/* RIGHT COLUMN: Premium Soundboard & Speech Assistant */}
-      <div className="flex-1 lg:max-w-[480px] bg-neutral-900 border-l border-white/5 flex flex-col justify-between overflow-hidden order-2 relative">
-        
-        {/* Assistant Header */}
-        <div className="p-5 border-b border-white/5 flex items-center justify-between bg-neutral-900/50 sticky top-0 backdrop-blur-md z-20">
-          <div className="flex items-center gap-3">
-            <Volume2 className="w-5 h-5 text-primary" />
-            <div>
-              <h3 className="text-sm font-bold text-white leading-none mb-1">{t.vocalDeckTitle}</h3>
-              <p className="text-[11px] text-neutral-400 font-medium">{t.standby}</p>
-            </div>
-          </div>
-          <button 
-            onClick={onClose}
-            className="hidden lg:flex p-2 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 transition-colors"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
+            {/* ── Error banner ── */}
+            {error && (
+              <div className="mx-4 mb-2 px-4 py-2.5 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-red-400 flex-shrink-0" />
+                <p className="text-xs text-red-300">{error}</p>
+                <button onClick={() => setError(null)} className="ml-auto text-red-400 hover:text-white"><X className="w-3.5 h-3.5" /></button>
+              </div>
+            )}
 
-        {/* Scrollable assistant sections */}
-        <div className="flex-1 overflow-y-auto p-5 space-y-6">
+            {/* ── Microphone button + waveform ── */}
+            <div className="flex flex-col items-center gap-3 py-5 border-t border-white/5 bg-neutral-950/50">
+              <div className="relative">
+                {/* Pulse rings */}
+                <AnimatePresence>
+                  {isActive && volume > 5 && (
+                    <>
+                      <motion.div
+                        initial={{ scale: 1, opacity: 0.4 }}
+                        animate={{ scale: 1 + volume / 90, opacity: 0 }}
+                        transition={{ duration: 0.4, repeat: Infinity }}
+                        className={`absolute inset-0 rounded-full ${currentModeIsEuphonia ? 'bg-purple-500/30' : 'bg-emerald-500/25'}`}
+                      />
+                      <motion.div
+                        initial={{ scale: 1, opacity: 0.2 }}
+                        animate={{ scale: 1 + volume / 50, opacity: 0 }}
+                        transition={{ duration: 0.7, repeat: Infinity, delay: 0.15 }}
+                        className={`absolute inset-0 rounded-full ${currentModeIsEuphonia ? 'bg-purple-500/20' : 'bg-emerald-500/15'}`}
+                      />
+                    </>
+                  )}
+                </AnimatePresence>
 
-          {/* SECTION 1: Standard Custom Speech Input */}
-          <div className="space-y-3 bg-neutral-950/40 p-4 rounded-2xl border border-white/5">
-            <div className="flex items-center gap-2">
-              <MessageSquare className="w-4 h-4 text-purple-400" />
-              <span className="text-xs font-bold text-neutral-300 uppercase tracking-wider">Custom Speech</span>
-            </div>
-            
-            <div className="flex flex-col gap-2">
-              <textarea 
-                value={customText}
-                onChange={(e) => setCustomText(e.target.value)}
-                placeholder={t.customInputPlaceholder}
-                dir={isArabic ? "rtl" : "ltr"}
-                className="w-full text-sm bg-neutral-950 border border-white/10 rounded-xl p-3 focus:outline-none focus:border-primary/50 text-white placeholder-neutral-500 resize-none h-20"
-              />
-              <div className="flex flex-wrap items-center gap-2 justify-end">
-                {customText.trim() && (
-                  <button 
-                    onClick={() => setCustomText('')}
-                    className="text-xs text-neutral-400 hover:text-white px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 transition-colors"
+                {activeMode === 'listen' ? (
+                  <button
+                    onClick={toggleListening}
+                    className={`w-16 h-16 md:w-20 md:h-20 rounded-full flex items-center justify-center shadow-xl z-10 relative transition-all cursor-pointer ${
+                      isListening
+                        ? 'bg-emerald-500 text-black scale-105 shadow-emerald-500/40'
+                        : 'bg-white text-black hover:bg-neutral-100'
+                    }`}
+                  >
+                    {isListening ? <MicOff className="w-7 md:w-8 h-7 md:h-8" /> : <Mic className="w-7 md:w-8 h-7 md:h-8" />}
+                  </button>
+                ) : (
+                  <button
+                    onClick={isRecordingEuphonia ? stopEuphoniaRecord : startEuphoniaRecord}
+                    disabled={isDecoding}
+                    className={`w-16 h-16 md:w-20 md:h-20 rounded-full flex items-center justify-center shadow-xl z-10 relative transition-all cursor-pointer disabled:opacity-50 ${
+                      isRecordingEuphonia
+                        ? 'bg-red-600 text-white scale-105 shadow-red-500/40'
+                        : 'bg-gradient-to-tr from-purple-500 to-indigo-600 text-white hover:scale-102'
+                    }`}
+                  >
+                    {isRecordingEuphonia ? (
+                      <span className="relative flex h-5 w-5">
+                        <span className="absolute inline-flex h-full w-full rounded-full bg-red-300 opacity-75 animate-ping" />
+                        <span className="relative inline-flex rounded-full h-4 w-4 bg-white" />
+                      </span>
+                    ) : (
+                      <Zap className="w-7 md:w-8 h-7 md:h-8" />
+                    )}
+                  </button>
+                )}
+              </div>
+
+              <div className="flex items-center gap-3">
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/40">
+                  {activeMode === 'listen'
+                    ? (isListening ? 'Tap to stop' : 'Tap to listen')
+                    : (isRecordingEuphonia ? `Recording… ${euphoniaTimer}s / 7s` : (isDecoding ? 'Decoding audio…' : 'Tap for Euphonia decode'))
+                  }
+                </p>
+                {segments.length > 0 && (
+                  <button
+                    onClick={() => setSegments([])}
+                    className="text-[10px] text-neutral-600 hover:text-red-400 font-bold uppercase tracking-wider"
                   >
                     Clear
                   </button>
                 )}
-                <button 
-                  onClick={handleAddCustomPreset}
-                  disabled={!customText.trim()}
-                  className="flex items-center gap-1.5 text-xs font-semibold text-purple-400 bg-purple-500/10 disabled:opacity-40 hover:bg-purple-500/20 px-3 py-2 rounded-lg transition-all border border-purple-500/15"
-                  title="Bookmark phrase to My Presets"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  + Preset
-                </button>
-                <button 
-                  onClick={() => setShowBigMode(true)}
-                  disabled={!customText.trim()}
-                  className="flex items-center gap-1.5 text-xs font-bold text-neutral-200 bg-neutral-800 disabled:opacity-40 hover:bg-neutral-750 px-3 py-2 rounded-lg transition-colors border border-white/5"
-                >
-                  <Maximize2 className="w-3.5 h-3.5" />
-                  {t.showBigText}
-                </button>
-                <button 
-                  onClick={() => {
-                    handleCustomSpeak(customText);
-                    setCustomText('');
-                  }}
-                  disabled={!customText.trim()}
-                  className="flex items-center gap-1.5 text-xs font-black text-black bg-white hover:bg-neutral-150 disabled:opacity-45 px-4 py-2 rounded-lg transition-colors"
-                >
-                  <Volume2 className="w-3.5 h-3.5" />
-                  {t.speakBtnText}
-                </button>
               </div>
             </div>
           </div>
+        )}
 
-          {/* PROJECT EUPHONIA ACCOUSTIC TRAINING ACCORDION */}
-          <div className="bg-neutral-950/40 p-4 rounded-2xl border border-purple-500/15 space-y-3 shadow-md shadow-purple-500/2">
-            <button 
-              onClick={() => setIsEuphoniaTrainingOpen(!isEuphoniaTrainingOpen)}
-              className="flex items-center justify-between w-full hover:text-white transition-colors"
-            >
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-purple-400 animate-pulse" />
-                <span className="text-xs font-bold text-neutral-300 uppercase tracking-wider">Project Euphonia - AI Voice Training Deck</span>
-              </div>
-              <ChevronRight className={`w-4 h-4 text-neutral-400 transform transition-transform ${isEuphoniaTrainingOpen ? 'rotate-90' : ''}`} />
-            </button>
-
-            {isEuphoniaTrainingOpen && (
-              <motion.div 
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: "auto", opacity: 1 }}
-                className="space-y-4 pt-2 border-t border-white/5 overflow-hidden text-left"
-              >
-                <div className="bg-purple-500/5 rounded-xl p-3 border border-purple-500/10 text-[11px] text-neutral-300 leading-relaxed">
-                  <strong className="text-purple-300 font-bold block mb-1">How it works:</strong>
-                  Assign customized phonetic approximations (what standard dictation programs transcribed your atypical voice as) to your intended messages. Standard dictation transcriptions get translated immediately when detected!
+        {/* ══════════════════════════════════════════════════════════════
+            CALIBRATION MODE: Project Relate-style guided recording
+        ══════════════════════════════════════════════════════════════ */}
+        {activeMode === 'calibrate' && (
+          <div className="flex-1 flex flex-col overflow-y-auto px-4 py-6 space-y-6">
+            {calibrationComplete ? (
+              <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="text-center py-10 space-y-4">
+                <div className="w-16 h-16 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center mx-auto">
+                  <CheckCircle2 className="w-8 h-8 text-emerald-400" />
                 </div>
-
-                <div className="space-y-2 p-1">
-                  <label className="text-[10px] uppercase font-bold text-neutral-400 tracking-wider">Train Custom Vocal Pattern</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <span className="text-[10px] text-neutral-400 block mb-1">When ASR/Dictation Hears:</span>
-                      <input 
-                        type="text" 
-                        placeholder="e.g. wa wa"
-                        value={newSoundPattern}
-                        onChange={(e) => setNewSoundPattern(e.target.value)}
-                        className="w-full text-xs bg-neutral-950 border border-white/10 rounded-lg p-2 text-white focus:outline-none focus:border-purple-500 placeholder-neutral-650"
-                      />
-                    </div>
-                    <div>
-                      <span className="text-[10px] text-neutral-400 block mb-1">What You Intend to Say:</span>
-                      <input 
-                        type="text" 
-                        placeholder="e.g. Please give me some water"
-                        value={newTranslation}
-                        onChange={(e) => setNewTranslation(e.target.value)}
-                        className="w-full text-xs bg-neutral-950 border border-white/10 rounded-lg p-2 text-white focus:outline-none focus:border-purple-500 placeholder-neutral-650"
-                      />
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => {
-                      if (!newSoundPattern.trim() || !newTranslation.trim()) return;
-                      const newPat: EuphoniaPattern = {
-                        id: 'ep_' + Date.now(),
-                        phrase: newSoundPattern.trim(),
-                        translation: newTranslation.trim()
-                      };
-                      setEuphoniaPatterns(prev => [...prev, newPat]);
-                      setNewSoundPattern('');
-                      setNewTranslation('');
-                    }}
-                    disabled={!newSoundPattern.trim() || !newTranslation.trim()}
-                    className="text-[11px] font-bold text-white bg-purple-600 disabled:opacity-40 hover:bg-purple-500 transition-colors py-2 px-3.5 rounded-lg w-full mt-1.5 flex items-center justify-center gap-1.5 shadow-md shadow-purple-600/10 cursor-pointer"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    Save Voice Mapping
-                  </button>
-                </div>
-
-                {/* Trained items list */}
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] uppercase font-extrabold text-purple-400 tracking-wider">Trained Mappings ({euphoniaPatterns.length})</span>
-                    {euphoniaPatterns.length > 0 && (
-                      <button 
-                        onClick={() => {
-                          if (confirm("Reset and clear custom pattern dictionary?")) {
-                            setEuphoniaPatterns([]);
-                          }
-                        }}
-                        className="text-[9px] font-bold text-rose-400 hover:underline"
-                      >
-                        Reset Model
-                      </button>
-                    )}
-                  </div>
-                  <div className="space-y-1 max-h-[160px] overflow-y-auto pr-1">
-                    {euphoniaPatterns.map((pat) => (
-                      <div key={pat.id} className="flex items-center justify-between bg-neutral-950/80 p-2.5 border border-white/5 rounded-xl group/pat hover:border-purple-500/20 transition-all">
-                        <div className="text-[11px] leading-tight flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className="text-purple-300 font-mono font-medium">"{pat.phrase}"</span>
-                            <span className="text-neutral-400 text-[10px]">➜</span>
-                            <span className="text-emerald-400 font-semibold">{pat.translation}</span>
-                          </div>
-                        </div>
-                        <button 
-                          onClick={() => setEuphoniaPatterns(prev => prev.filter(p => p.id !== pat.id))}
-                          className="text-neutral-500 hover:text-rose-400 opacity-40 group-hover/pat:opacity-100 transition-opacity"
-                          title="Remove training"
-                        >
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    ))}
-                    {euphoniaPatterns.length === 0 && (
-                      <p className="text-[10px] text-neutral-500 italic text-center py-2">No custom patterns mapped yet.</p>
-                    )}
-                  </div>
-                </div>
+                <h2 className="text-2xl font-black text-white">Voice Profile Ready</h2>
+                <p className="text-neutral-400 text-sm max-w-xs mx-auto">
+                  AI-LA has learned your speech patterns. {calibrationAudioBlobs.length} phrases recorded and {euphoniaPatterns.filter(p => p.id.startsWith('cal_')).length} patterns auto-mapped.
+                </p>
+                <p className="text-xs text-emerald-400 font-semibold">Switch to Live Listen or Euphonia AI to start communicating.</p>
+                <button
+                  onClick={resetCalibration}
+                  className="text-xs text-neutral-500 hover:text-white border border-white/10 px-4 py-2 rounded-full"
+                >
+                  Retrain from Scratch
+                </button>
               </motion.div>
-            )}
-          </div>
-
-          {/* ADVANCED ACCESSIBILITY SETTINGS ACCORDION */}
-          <div className="bg-neutral-950/40 p-4 rounded-2xl border border-white/5 space-y-3">
-            <button 
-              onClick={() => setIsSettingsOpen(!isSettingsOpen)}
-              className="flex items-center justify-between w-full hover:text-white transition-colors"
-            >
-              <div className="flex items-center gap-2">
-                <Settings className="w-4 h-4 text-emerald-400" />
-                <span className="text-xs font-bold text-neutral-300 uppercase tracking-wider">Pronunciation & Capture Settings</span>
-              </div>
-              <ChevronRight className={`w-4 h-4 text-neutral-400 transform transition-transform ${isSettingsOpen ? 'rotate-90' : ''}`} />
-            </button>
-
-            {isSettingsOpen && (
-              <motion.div 
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: "auto", opacity: 1 }}
-                className="space-y-4 pt-2 border-t border-white/5 overflow-hidden"
-              >
-                {/* 1. Pause Timeout Slider */}
-                <div className="space-y-1.5 pt-1">
+            ) : (
+              <>
+                {/* Progress */}
+                <div className="space-y-2">
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-neutral-300 font-semibold">Speech Pause Threshold</span>
-                    <span className="text-emerald-450 font-bold bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded text-[10px]">{ (pauseThreshold / 1000).toFixed(1) }s</span>
+                    <span className="text-neutral-400 font-bold uppercase tracking-wider">Voice Training Session</span>
+                    <span className="text-sky-400 font-black">{calibrationIndex} / {calibrationPhrases.length}</span>
                   </div>
-                  <input 
-                    type="range"
-                    min="1000"
-                    max="6500"
-                    step="500"
-                    value={pauseThreshold}
-                    onChange={(e) => setPauseThreshold(Number(e.target.value))}
-                    className="w-full h-1 bg-neutral-850 rounded-lg appearance-none cursor-pointer accent-emerald-500"
-                  />
-                  <p className="text-[10px] text-neutral-400 leading-normal">
-                    Extend this time if you have blocks/stutters. It tells Gemini to wait longer before reconstructing your speech.
+                  <div className="w-full h-1.5 bg-neutral-800 rounded-full overflow-hidden">
+                    <motion.div
+                      className="h-full bg-sky-500 rounded-full"
+                      animate={{ width: `${(calibrationIndex / calibrationPhrases.length) * 100}%` }}
+                    />
+                  </div>
+                  <p className="text-[10px] text-neutral-500">
+                    Read each phrase aloud naturally — exactly as you speak. AI will learn your unique patterns.
                   </p>
                 </div>
 
-                {/* 2. Audio Vocal deck Rate and Pitch settings */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <div className="flex items-center justify-between text-[11px]">
-                      <span className="text-neutral-300">Speech Rate</span>
-                      <span className="text-purple-400 font-mono text-[10px]">{speechRate.toFixed(1)}x</span>
-                    </div>
-                    <input 
-                      type="range"
-                      min="0.5"
-                      max="1.8"
-                      step="0.1"
-                      value={speechRate}
-                      onChange={(e) => setSpeechRate(Number(e.target.value))}
-                      className="w-full h-1 bg-neutral-850 rounded-lg appearance-none cursor-pointer accent-purple-500"
-                    />
-                  </div>
+                {/* Current phrase */}
+                <div className="bg-sky-500/5 border border-sky-500/20 rounded-2xl p-6 text-center space-y-4">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-sky-500">Say this phrase</span>
+                  <h2 className="text-3xl md:text-4xl font-black text-white leading-tight">
+                    "{calibrationPhrases[calibrationIndex]?.text}"
+                  </h2>
 
-                  <div className="space-y-1.5">
-                    <div className="flex items-center justify-between text-[11px]">
-                      <span className="text-neutral-300">Voice Pitch</span>
-                      <span className="text-purple-400 font-mono text-[10px]">{speechPitch.toFixed(1)}</span>
+                  {isCalibrationRecording ? (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-center gap-2 text-red-400">
+                        <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
+                        <span className="font-bold text-sm">Recording… {calibrationTimer}s</span>
+                      </div>
+                      <button
+                        onClick={stopCalibrationRecord}
+                        className="w-14 h-14 rounded-full bg-red-600 text-white flex items-center justify-center mx-auto shadow-lg shadow-red-500/30"
+                      >
+                        <StopCircle className="w-7 h-7" />
+                      </button>
                     </div>
-                    <input 
-                      type="range"
-                      min="0.5"
-                      max="1.5"
-                      step="0.1"
-                      value={speechPitch}
-                      onChange={(e) => setSpeechPitch(Number(e.target.value))}
-                      className="w-full h-1 bg-neutral-850 rounded-lg appearance-none cursor-pointer accent-purple-500"
-                    />
-                  </div>
+                  ) : (
+                    <button
+                      onClick={startCalibrationRecord}
+                      className="w-16 h-16 rounded-full bg-sky-500 text-white flex items-center justify-center mx-auto hover:bg-sky-400 shadow-lg shadow-sky-500/30 transition-all"
+                    >
+                      <Mic className="w-7 h-7" />
+                    </button>
+                  )}
+                  <p className="text-xs text-neutral-500">
+                    {isCalibrationRecording ? 'Recording stops automatically after 4 seconds' : 'Tap the mic, speak, recording stops automatically'}
+                  </p>
                 </div>
-              </motion.div>
+
+                {/* Phrase list with checkmarks */}
+                <div className="space-y-1.5">
+                  {calibrationPhrases.map((phrase, idx) => (
+                    <div key={phrase.id} className={`flex items-center gap-3 px-3 py-2 rounded-xl border transition-all ${
+                      idx === calibrationIndex ? 'border-sky-500/30 bg-sky-500/5' :
+                      phrase.recorded ? 'border-emerald-500/15 bg-emerald-500/5' :
+                      'border-white/5 opacity-40'
+                    }`}>
+                      <span className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 text-[10px] font-black ${
+                        phrase.recorded ? 'bg-emerald-500/20 text-emerald-400' :
+                        idx === calibrationIndex ? 'bg-sky-500/20 text-sky-400' :
+                        'bg-white/5 text-neutral-600'
+                      }`}>
+                        {phrase.recorded ? '✓' : idx + 1}
+                      </span>
+                      <span className={`text-sm font-semibold ${
+                        phrase.recorded ? 'text-emerald-300' :
+                        idx === calibrationIndex ? 'text-white' : 'text-neutral-500'
+                      }`}>
+                        {phrase.text}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </>
             )}
           </div>
+        )}
+      </div>
 
-          {/* SECTION 2: AI Dynamic Predictive Responses */}
-          <div className="space-y-3 bg-neutral-950/40 p-4 rounded-2xl border border-white/5">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-yellow-400" />
-                <span className="text-xs font-bold text-neutral-300 uppercase tracking-wider">{t.aiSmartTitle}</span>
+      {/* ================================================================
+          RIGHT COLUMN: Vocal Assistant (Soundboard + Smart Replies)
+      ================================================================ */}
+      <div className="flex-1 lg:max-w-[460px] bg-neutral-900 border-l border-white/5 flex flex-col overflow-hidden">
+
+        {/* Header */}
+        <div className="px-5 py-4 border-b border-white/5 flex items-center justify-between bg-neutral-900 sticky top-0 z-20">
+          <div className="flex items-center gap-3">
+            <Volume2 className="w-5 h-5 text-purple-400" />
+            <div>
+              <h3 className="text-sm font-bold text-white">Vocal Speech Assistant</h3>
+              <p className="text-[11px] text-neutral-500">Tap any card to speak it aloud</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowSettings(!showSettings)}
+              className={`p-2 rounded-full border transition-colors ${showSettings ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-white/5 border-white/10 text-neutral-400 hover:text-white'}`}
+            >
+              <Settings className="w-4 h-4" />
+            </button>
+            <button onClick={onClose} className="hidden lg:flex p-2 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-neutral-400">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-4 space-y-5">
+
+          {/* ── Settings Panel ── */}
+          {showSettings && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              className="bg-neutral-950/60 p-4 rounded-2xl border border-white/5 space-y-4"
+            >
+              <span className="text-xs font-bold text-neutral-300 uppercase tracking-wider block">Pronunciation & Capture</span>
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-neutral-400">Silence Threshold</span>
+                  <span className="text-emerald-400 font-mono">{(pauseThreshold / 1000).toFixed(1)}s</span>
+                </div>
+                <input type="range" min="1000" max="6500" step="500" value={pauseThreshold}
+                  onChange={e => setPauseThreshold(Number(e.target.value))}
+                  className="w-full h-1 bg-neutral-800 rounded-lg appearance-none cursor-pointer accent-emerald-500" />
+                <p className="text-[10px] text-neutral-600">Extend for stutters/blocks</p>
               </div>
-              <button 
-                onClick={() => fetchSmartReplies(transcript || "Hello")}
-                disabled={isGeneratingReplies}
-                className="p-1 px-2 text-[10px] uppercase font-black tracking-widest text-white/40 hover:text-white flex items-center gap-1 bg-white/5 rounded-md hover:bg-white/10 disabled:opacity-50 transition-colors"
-              >
-                <RefreshCw className={`w-2.5 h-2.5 ${isGeneratingReplies ? 'animate-spin' : ''}`} />
-                Regen
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <div className="flex justify-between text-[11px]">
+                    <span className="text-neutral-400">Voice Rate</span>
+                    <span className="text-purple-400 font-mono">{speechRate.toFixed(1)}x</span>
+                  </div>
+                  <input type="range" min="0.5" max="1.8" step="0.1" value={speechRate}
+                    onChange={e => setSpeechRate(Number(e.target.value))}
+                    className="w-full h-1 bg-neutral-800 rounded-lg appearance-none cursor-pointer accent-purple-500" />
+                </div>
+                <div className="space-y-1.5">
+                  <div className="flex justify-between text-[11px]">
+                    <span className="text-neutral-400">Voice Pitch</span>
+                    <span className="text-purple-400 font-mono">{speechPitch.toFixed(1)}</span>
+                  </div>
+                  <input type="range" min="0.5" max="1.5" step="0.1" value={speechPitch}
+                    onChange={e => setSpeechPitch(Number(e.target.value))}
+                    className="w-full h-1 bg-neutral-800 rounded-lg appearance-none cursor-pointer accent-purple-500" />
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {/* ── Custom Speech Input ── */}
+          <div className="space-y-2 bg-neutral-950/40 p-4 rounded-2xl border border-white/5">
+            <div className="flex items-center gap-2 mb-1">
+              <MessageSquare className="w-4 h-4 text-purple-400" />
+              <span className="text-xs font-bold text-neutral-300 uppercase tracking-wider">Type to Speak</span>
+            </div>
+            <textarea
+              value={customText}
+              onChange={e => setCustomText(e.target.value)}
+              placeholder={isArabic ? "اكتب شيئاً لنطقه بالصوت…" : "Type a sentence to speak aloud…"}
+              dir={isArabic ? 'rtl' : 'ltr'}
+              className="w-full text-sm bg-neutral-950 border border-white/10 rounded-xl p-3 focus:outline-none focus:border-purple-500/50 text-white placeholder-neutral-600 resize-none h-16"
+            />
+            <div className="flex items-center gap-2 justify-end flex-wrap">
+              {customText.trim() && (
+                <button onClick={() => setCustomText('')} className="text-xs text-neutral-500 hover:text-white px-2 py-1.5 rounded-lg bg-white/5">
+                  Clear
+                </button>
+              )}
+              <button onClick={handleAddCustomPreset} disabled={!customText.trim()}
+                className="flex items-center gap-1 text-xs font-semibold text-purple-400 bg-purple-500/10 disabled:opacity-40 hover:bg-purple-500/20 px-3 py-1.5 rounded-lg border border-purple-500/15 transition-all">
+                <Plus className="w-3.5 h-3.5" /> Save
+              </button>
+              <button onClick={() => setShowBigMode(true)} disabled={!customText.trim()}
+                className="flex items-center gap-1 text-xs font-bold text-neutral-300 bg-neutral-800 disabled:opacity-40 hover:bg-neutral-700 px-3 py-1.5 rounded-lg border border-white/5 transition-all">
+                <Maximize2 className="w-3.5 h-3.5" /> Big
+              </button>
+              <button onClick={() => { handleCustomSpeak(customText); setCustomText(''); }} disabled={!customText.trim()}
+                className="flex items-center gap-1.5 text-xs font-black text-black bg-white hover:bg-neutral-100 disabled:opacity-40 px-4 py-1.5 rounded-lg transition-all">
+                <Volume2 className="w-3.5 h-3.5" /> Speak
               </button>
             </div>
-            <p className="text-[10px] text-neutral-400">{t.aiSmartDesc}</p>
+          </div>
 
-            <div className="flex flex-col gap-2 min-h-12 pt-1">
-              {isGeneratingReplies ? (
-                <div className="flex items-center gap-2 justify-center py-4 text-xs text-neutral-400">
-                  <RefreshCw className="w-3 h-3 animate-spin text-yellow-400" />
-                  <span>Generating adaptive replies...</span>
+          {/* ── AI Smart Replies ── */}
+          {(aiSmartReplies.length > 0 || isGeneratingReplies) && (
+            <div className="space-y-2 bg-neutral-950/40 p-4 rounded-2xl border border-white/5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-yellow-400" />
+                  <span className="text-xs font-bold text-neutral-300 uppercase tracking-wider">AI Suggested Replies</span>
                 </div>
-              ) : aiSmartReplies.length > 0 ? (
-                <div className="grid grid-cols-1 gap-2">
+                <button onClick={() => fetchSmartReplies(segments[segments.length - 1]?.decoded || 'Hello')}
+                  disabled={isGeneratingReplies}
+                  className="p-1 text-[10px] uppercase font-black text-neutral-500 hover:text-white bg-white/5 rounded-md hover:bg-white/10 disabled:opacity-40">
+                  <RefreshCw className={`w-3 h-3 ${isGeneratingReplies ? 'animate-spin' : ''}`} />
+                </button>
+              </div>
+              {isGeneratingReplies ? (
+                <div className="flex items-center gap-2 py-3 text-xs text-neutral-500">
+                  <RefreshCw className="w-3 h-3 animate-spin text-yellow-400" />
+                  Generating context-aware replies…
+                </div>
+              ) : (
+                <div className="grid gap-1.5">
                   {aiSmartReplies.map((reply, idx) => (
-                    <motion.button
-                      key={idx}
-                      whileHover={{ scale: 1.01 }}
-                      whileTap={{ scale: 0.99 }}
+                    <motion.button key={idx} whileTap={{ scale: 0.98 }}
                       onClick={() => handleCustomSpeak(reply)}
-                      className="text-left w-full p-2.5 rounded-xl bg-gradient-to-r from-yellow-500/10 to-yellow-500/5 hover:from-yellow-500/20 hover:to-yellow-500/10 border border-yellow-500/20 text-yellow-100 text-xs font-semibold transition-all flex items-center justify-between"
-                    >
-                      <span className="pr-2">{reply}</span>
-                      <Volume2 className="w-3.5 h-3.5 opacity-60 flex-shrink-0" />
+                      className="text-left w-full p-2.5 rounded-xl bg-yellow-500/8 hover:bg-yellow-500/15 border border-yellow-500/15 text-yellow-100 text-xs font-semibold transition-all flex items-center justify-between gap-2">
+                      <span>{reply}</span>
+                      <Volume2 className="w-3.5 h-3.5 opacity-50 flex-shrink-0" />
                     </motion.button>
                   ))}
                 </div>
-              ) : (
-                <div className="text-center py-4 text-[11px] text-neutral-500 italic">
-                  {t.noReplies}
-                </div>
               )}
             </div>
-          </div>
+          )}
 
-          {/* SECTION 3: Category Preset Soundboard (Quick Sound deck) */}
+          {/* ── Soundboard ── */}
           <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-neutral-300 uppercase tracking-wider">Preset Decks</span>
-              <span className="text-[10px] font-black uppercase text-neutral-500 tracking-widest">Tap to Speak</span>
-            </div>
-
-            {/* Quick Categories Navigation tabs */}
+            <span className="text-xs font-bold text-neutral-300 uppercase tracking-wider">Quick Phrase Deck</span>
             <div className="flex flex-wrap gap-1 p-1 bg-neutral-950 rounded-xl border border-white/5">
-              {(['essentials', 'needs', 'social', 'favorites', 'emergencies'] as const).map((cat) => (
-                <button
-                  key={cat}
-                  onClick={() => setActiveTab(cat)}
-                  className={`text-[10px] py-1.5 px-2.5 rounded-lg font-bold transition-all flex-1 text-center truncate ${
-                    activeTab === cat 
-                    ? 'bg-neutral-800 text-white shadow-md' 
-                    : 'text-neutral-400 hover:text-white'
-                  }`}
-                >
-                  {t.categories[cat]}
+              {(['essentials', 'needs', 'social', 'favorites', 'emergencies'] as const).map(cat => (
+                <button key={cat} onClick={() => setActiveTab(cat)}
+                  className={`text-[10px] py-1.5 px-2.5 rounded-lg font-bold transition-all flex-1 text-center truncate cursor-pointer ${
+                    activeTab === cat ? 'bg-neutral-800 text-white shadow' : 'text-neutral-500 hover:text-white'
+                  }`}>
+                  {cat === 'essentials' ? 'Basics' : cat === 'favorites' ? 'My Phrases' : cat.charAt(0).toUpperCase() + cat.slice(1)}
                 </button>
               ))}
             </div>
 
-            {/* SOUND GRID */}
-            <div className="grid grid-cols-2 gap-2 min-h-[140px] pt-1">
-              {((activeTab === 'favorites' ? favorites : SOUNDBOARD_DATA[activeTab as keyof typeof SOUNDBOARD_DATA]) || []).map((item) => {
+            <div className="grid grid-cols-2 gap-2">
+              {((activeTab === 'favorites' ? favorites : SOUNDBOARD_DATA[activeTab as keyof typeof SOUNDBOARD_DATA]) || []).map(item => {
                 const phrase = isArabic ? item.textAr : item.textEn;
-                const activeColor = activeTab === 'essentials' 
-                  ? 'hover:border-blue-500/40 hover:bg-blue-500/10 text-neutral-100' 
-                  : activeTab === 'needs'
-                  ? 'hover:border-orange-500/40 hover:bg-orange-500/10 text-neutral-100'
-                  : activeTab === 'social'
-                  ? 'hover:border-green-500/40 hover:bg-green-500/10 text-neutral-100'
-                  : activeTab === 'favorites'
-                  ? 'hover:border-purple-500/40 hover:bg-purple-500/10 text-neutral-100 border-purple-500/10'
-                  : 'hover:border-rose-500/40 hover:bg-rose-500/10 text-neutral-100';
-
+                const color = activeTab === 'emergencies' ? 'hover:border-rose-500/40 hover:bg-rose-500/8' :
+                              activeTab === 'needs' ? 'hover:border-orange-500/40 hover:bg-orange-500/8' :
+                              activeTab === 'social' ? 'hover:border-green-500/40 hover:bg-green-500/8' :
+                              activeTab === 'favorites' ? 'hover:border-purple-500/40 hover:bg-purple-500/8 border-purple-500/10' :
+                              'hover:border-blue-500/40 hover:bg-blue-500/8';
                 return (
-                  <motion.div
-                    key={item.id}
-                    className="relative group w-full"
-                  >
-                    <motion.button
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
+                  <div key={item.id} className="relative group">
+                    <motion.button whileTap={{ scale: 0.97 }}
                       onClick={() => speakText(phrase)}
-                      className={`w-full flex flex-col items-center justify-center p-3 text-center bg-neutral-950 hover:bg-neutral-950/80 border border-white/5 rounded-2xl transition-all cursor-pointer ${activeColor}`}
-                    >
-                      <span className="text-lg md:text-xl mb-1.5">{item.emoji}</span>
-                      <span className="text-xs font-bold leading-tight line-clamp-1">{phrase}</span>
+                      className={`w-full flex flex-col items-center justify-center p-3 text-center bg-neutral-950 border border-white/5 rounded-2xl transition-all cursor-pointer ${color}`}>
+                      <span className="text-xl mb-1.5">{item.emoji}</span>
+                      <span className="text-xs font-bold leading-tight line-clamp-2">{phrase}</span>
                     </motion.button>
                     {activeTab === 'favorites' && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setFavorites(prev => prev.filter(f => f.id !== item.id));
-                        }}
-                        className="absolute top-1 right-1 p-1 bg-rose-500/20 text-rose-455 hover:bg-rose-650 hover:text-white rounded-full transition-all opacity-0 group-hover:opacity-100 shadow-sm border border-rose-500/30 scale-90"
-                        title="Delete Preset"
-                      >
+                      <button onClick={e => { e.stopPropagation(); setFavorites(p => p.filter(f => f.id !== item.id)); }}
+                        className="absolute top-1 right-1 p-1 bg-rose-500/20 text-rose-400 hover:bg-rose-600 hover:text-white rounded-full opacity-0 group-hover:opacity-100 transition-all border border-rose-500/20">
                         <X className="w-2.5 h-2.5" />
                       </button>
                     )}
-                  </motion.div>
+                  </div>
                 );
               })}
               {activeTab === 'favorites' && favorites.length === 0 && (
-                <div className="col-span-2 text-center py-6 text-[11px] text-neutral-500 italic">
-                  No custom presets yet. Type in Custom Speech above and click "+ Preset" to add common sentences here!
+                <div className="col-span-2 text-center py-6 text-[11px] text-neutral-600 italic">
+                  Type a sentence above and tap "Save" to add your own phrases here
                 </div>
               )}
             </div>
           </div>
 
-          {/* SECTION 4: Recent History List */}
-          <div className="space-y-3 pt-2">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-neutral-400">
-                <History className="w-3.5 h-3.5" />
-                <span className="text-xs font-bold text-neutral-400 uppercase tracking-wider">{t.historyTitle}</span>
+          {/* ── Phoneme Pattern Training ── */}
+          <div className="bg-neutral-950/40 p-4 rounded-2xl border border-purple-500/15 space-y-3">
+            <button onClick={() => setShowPatternsPanel(!showPatternsPanel)}
+              className="flex items-center justify-between w-full">
+              <div className="flex items-center gap-2">
+                <BookOpen className="w-4 h-4 text-purple-400" />
+                <span className="text-xs font-bold text-neutral-300 uppercase tracking-wider">Phoneme Pattern Dictionary</span>
+                <span className="text-[10px] text-purple-400 bg-purple-500/10 border border-purple-500/20 px-1.5 py-0.5 rounded-full font-black">
+                  {euphoniaPatterns.length}
+                </span>
               </div>
-              {speechHistory.length > 0 && (
-                <button 
-                  onClick={clearHistory}
-                  className="test-xs text-[10px] text-neutral-500 hover:text-rose-400 transition-colors flex items-center gap-1"
-                >
-                  <Trash2 className="w-3 h-3" />
-                  Clear
-                </button>
-              )}
-            </div>
+              <ChevronDown className={`w-4 h-4 text-neutral-500 transition-transform ${showPatternsPanel ? 'rotate-180' : ''}`} />
+            </button>
 
-            <div className="space-y-1.5">
-              {speechHistory.length > 0 ? (
-                speechHistory.map((phrase, index) => (
-                  <motion.button
-                    key={index}
-                    whileHover={{ x: 2 }}
-                    onClick={() => speakText(phrase)}
-                    className="text-left w-full px-3 py-2 text-xs bg-neutral-950/30 hover:bg-neutral-950/70 border border-white/5 rounded-xl text-neutral-300 hover:text-white transition-all flex items-center justify-between"
-                  >
-                    <span className="truncate pr-4">{phrase}</span>
-                    <Volume2 className="w-3.5 h-3.5 text-neutral-500" />
-                  </motion.button>
-                ))
-              ) : (
-                <div className="text-center py-4 text-[11px] text-neutral-500 italic bg-white/2 rounded-xl">
-                  {t.noHistory}
+            {showPatternsPanel && (
+              <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} className="space-y-3 overflow-hidden">
+                <p className="text-[10px] text-neutral-500 leading-relaxed">
+                  Map what standard speech-to-text hears you say → what you actually mean. Matched instantly, no AI call needed.
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <span className="text-[10px] text-neutral-500 block mb-1">STT hears:</span>
+                    <input type="text" placeholder="e.g. wa wa" value={newPattern}
+                      onChange={e => setNewPattern(e.target.value)}
+                      className="w-full text-xs bg-neutral-950 border border-white/10 rounded-lg p-2 text-white focus:outline-none focus:border-purple-500 placeholder-neutral-700" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-neutral-500 block mb-1">You mean:</span>
+                    <input type="text" placeholder="e.g. I need water" value={newTranslation}
+                      onChange={e => setNewTranslation(e.target.value)}
+                      className="w-full text-xs bg-neutral-950 border border-white/10 rounded-lg p-2 text-white focus:outline-none focus:border-purple-500 placeholder-neutral-700" />
+                  </div>
                 </div>
-              )}
-            </div>
+                <button
+                  onClick={() => {
+                    if (!newPattern.trim() || !newTranslation.trim()) return;
+                    setEuphoniaPatterns(prev => [...prev, { id: 'ep_' + Date.now(), phrase: newPattern.trim(), translation: newTranslation.trim() }]);
+                    setNewPattern(''); setNewTranslation('');
+                  }}
+                  disabled={!newPattern.trim() || !newTranslation.trim()}
+                  className="w-full text-[11px] font-bold text-white bg-purple-600 disabled:opacity-40 hover:bg-purple-500 py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-all">
+                  <Plus className="w-3.5 h-3.5" /> Add Pattern
+                </button>
+                <div className="space-y-1 max-h-40 overflow-y-auto">
+                  {euphoniaPatterns.map(pat => (
+                    <div key={pat.id} className="flex items-center justify-between bg-neutral-950/80 p-2 border border-white/5 rounded-xl group/p">
+                      <div className="text-[11px] flex items-center gap-2 flex-1 min-w-0">
+                        <span className="text-purple-300 font-mono truncate">"{pat.phrase}"</span>
+                        <span className="text-neutral-600 flex-shrink-0">→</span>
+                        <span className="text-emerald-400 font-semibold truncate">{pat.translation}</span>
+                      </div>
+                      <button onClick={() => setEuphoniaPatterns(prev => prev.filter(p => p.id !== pat.id))}
+                        className="text-neutral-600 hover:text-rose-400 ml-2 flex-shrink-0 opacity-0 group-hover/p:opacity-100 transition-opacity">
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </motion.div>
+            )}
           </div>
 
+          {/* ── Speech History ── */}
+          {speechHistory.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-neutral-500">
+                  <History className="w-3.5 h-3.5" />
+                  <span className="text-xs font-bold uppercase tracking-wider">Recent Phrases</span>
+                </div>
+                <button onClick={() => setSpeechHistory([])} className="text-[10px] text-neutral-600 hover:text-rose-400 flex items-center gap-1">
+                  <Trash2 className="w-3 h-3" /> Clear
+                </button>
+              </div>
+              <div className="space-y-1">
+                {speechHistory.map((phrase, i) => (
+                  <motion.button key={i} whileHover={{ x: 2 }} onClick={() => speakText(phrase)}
+                    className="text-left w-full px-3 py-2 text-xs bg-neutral-950/30 hover:bg-neutral-950/70 border border-white/5 rounded-xl text-neutral-400 hover:text-white transition-all flex items-center justify-between">
+                    <span className="truncate pr-4">{phrase}</span>
+                    <Volume2 className="w-3 h-3 text-neutral-600 flex-shrink-0" />
+                  </motion.button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Dynamic decorative branding/credits for aesthetic feel */}
-        <div className="p-3 bg-neutral-950/20 border-t border-white/5 text-center flex items-center justify-center gap-1 text-[10px] text-neutral-500 italic">
-          <span>{isArabic ? "مصمم بكل فخر للدمج والتمكين الرقمي" : "Designed for independence & communication enablement"}</span>
-          <Heart className="w-2.5 h-2.5 text-rose-500/70 filled animate-pulse" />
+        <div className="p-3 border-t border-white/5 text-center text-[10px] text-neutral-600 flex items-center justify-center gap-1.5">
+          <span>Built for independence & inclusion</span>
+          <Heart className="w-2.5 h-2.5 text-rose-500/60 animate-pulse" />
         </div>
       </div>
 
-      {/* FULL-SCREEN MASSIVE TYPEWRITER BOARD (Show Big text mode) */}
+      {/* ══════════════════════════════════════════════════════════════
+          FULL-SCREEN BIG TEXT MODE
+      ══════════════════════════════════════════════════════════════ */}
       <AnimatePresence>
         {showBigMode && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[200] bg-neutral-950 flex flex-col justify-between p-8"
-          >
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[200] bg-neutral-950 flex flex-col justify-between p-8">
             <div className="flex items-center justify-between">
               <span className="text-xs font-black uppercase text-yellow-500 tracking-widest bg-yellow-500/10 border border-yellow-500/20 px-3 py-1 rounded-full">
-                {isArabic ? "لوحة الاتصال المباشرة" : "Visual Communication Board"}
+                Visual Board
               </span>
-              <button
-                onClick={() => setShowBigMode(false)}
-                className="p-3 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 transition-colors"
-              >
-                <X className="w-6 h-6 text-white" />
+              <button onClick={() => setShowBigMode(false)} className="p-3 rounded-full bg-white/5 hover:bg-white/10 border border-white/10">
+                <X className="w-6 h-6" />
               </button>
             </div>
-
-            <div className="flex-1 flex items-center justify-center text-center max-w-5xl mx-auto py-12 px-4">
-              <h1 
-                dir={isArabic ? "rtl" : "ltr"}
-                className="text-4xl md:text-6xl lg:text-8xl font-black font-sans leading-relaxed tracking-tight text-white select-none whitespace-pre-wrap break-words"
-              >
+            <div className="flex-1 flex items-center justify-center text-center px-4">
+              <h1 dir={isArabic ? 'rtl' : 'ltr'} className="text-5xl md:text-7xl lg:text-9xl font-black leading-relaxed text-white select-none break-words">
                 {customText}
               </h1>
             </div>
-
             <div className="flex items-center justify-center gap-4">
-              <button
-                onClick={() => speakText(customText)}
-                className="flex items-center gap-2 px-6 py-3 bg-white text-black font-black uppercase text-xs tracking-widest rounded-full hover:bg-neutral-100 shadow-2xl transition-all"
-              >
-                <Volume2 className="w-4 h-4" />
-                {t.speakBtnText}
+              <button onClick={() => speakText(customText)}
+                className="flex items-center gap-2 px-6 py-3 bg-white text-black font-black uppercase text-xs tracking-widest rounded-full hover:bg-neutral-100 shadow-2xl">
+                <Volume2 className="w-4 h-4" /> Speak Aloud
               </button>
-              <button
-                onClick={() => setShowBigMode(false)}
-                className="px-6 py-3 bg-neutral-800 text-white font-black uppercase text-xs tracking-widest rounded-full hover:bg-neutral-750 transition-colors"
-              >
-                Close View
+              <button onClick={() => setShowBigMode(false)}
+                className="px-6 py-3 bg-neutral-800 text-white font-black uppercase text-xs tracking-widest rounded-full hover:bg-neutral-700">
+                Close
               </button>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
-
     </motion.div>
   );
 }
