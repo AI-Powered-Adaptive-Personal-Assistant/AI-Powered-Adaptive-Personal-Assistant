@@ -18,6 +18,7 @@ import AdminDashboard from "./components/AdminDashboard";
 import AccessibilityOverlay from "./components/AccessibilityOverlay";
 import LiveCaptions from "./components/LiveCaptions";
 import DisabilityModeView from "./components/DisabilityModeView";
+import ReadAloudSelection from "./components/ReadAloudSelection";
 import { motion, AnimatePresence } from "motion/react";
 import { Message, UserProfile } from "./types";
 import { auth, db, handleFirestoreError, OperationType, cleanDataForFirestore } from "./lib/firebase";
@@ -510,7 +511,8 @@ export default function App() {
         dir={direction}
       >
         <ToastContainer rtl={direction === 'rtl'} />
-        
+        <ReadAloudSelection language={profile?.language} />
+
         {/* Mobile menu backdrop */}
         {isMobileMenuOpen && (
           <div 

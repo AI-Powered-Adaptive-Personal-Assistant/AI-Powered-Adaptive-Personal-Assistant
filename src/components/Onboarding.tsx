@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { Mail, GraduationCap, Briefcase, Brain, ArrowRight, CheckCircle, Trophy, Timer, AlertCircle, Quote, Sprout, Globe, Heart, LogOut } from "lucide-react";
 import { auth, logout } from "../lib/firebase";
 import { getTranslation, isRTL } from "../lib/translations";
-import { evaluateQuizPOV } from "../services/gemini";
+import { evaluateQuizPOV, translateQuiz, QuizItem } from "../services/gemini";
 
 interface OnboardingProps {
   onComplete: (data: Partial<UserProfile>) => void;
@@ -43,6 +43,24 @@ const MASTER_QUESTION_POOL: Question[] = [
   { id: 20, text: "Light is to Darkness as Knowledge is to:", options: ["Ignorance", "Intelligence", "Books", "School"], correctAnswer: "Ignorance" }
 ];
 
+// Merge AI-translated text/options back onto the original questions, preserving
+// id, isTricky, and a correctAnswer remapped by option POSITION so scoring stays correct.
+function applyTranslation(originals: Question[], translated: QuizItem[]): Question[] {
+  const byId = new Map(translated.map((t) => [t.id, t]));
+  return originals.map((orig) => {
+    const t = byId.get(orig.id);
+    if (!t || !Array.isArray(t.options) || t.options.length !== orig.options.length) {
+      return orig; // skip if the model changed the option count — keep English
+    }
+    let correctAnswer = orig.correctAnswer;
+    if (orig.correctAnswer && orig.correctAnswer !== "TRICK") {
+      const idx = orig.options.indexOf(orig.correctAnswer);
+      if (idx >= 0) correctAnswer = t.options[idx];
+    }
+    return { ...orig, text: t.text || orig.text, options: t.options, correctAnswer };
+  });
+}
+
 const QUESTION_TIMER = 60; // 60 seconds per question
 
 const UNIVERSITIES = [
@@ -77,6 +95,9 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
   const [questionTimeLeft, setQuestionTimeLeft] = useState(QUESTION_TIMER);
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [finalResults, setFinalResults] = useState<any>(null);
+  // Quiz is shown only once it's ready (translated into the chosen language).
+  const [quizReady, setQuizReady] = useState(false);
+  const quizPreparedRef = useRef(false);
   
   const [formData, setFormData] = useState<Partial<UserProfile>>({
     email: auth.currentUser?.email || "",
@@ -135,8 +156,43 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
     }
   }, [formData.accountPath]);
 
+  // Prepare the quiz when the user reaches it: translate the questions into the
+  // chosen language (text + options) while keeping option order so scoring by
+  // position still works. Falls back to English if translation is unavailable.
   useEffect(() => {
-    if (step === 4) {
+    if (step !== 4 || quizPreparedRef.current || !quizQuestions.length) return;
+    quizPreparedRef.current = true;
+
+    const lang = formData.language;
+    if (!lang || lang === "English") {
+      setQuizReady(true);
+      return;
+    }
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const translated = await translateQuiz(
+          quizQuestions.map((q) => ({ id: q.id, text: q.text, options: q.options })),
+          lang,
+        );
+        if (!cancelled && translated && translated.length) {
+          setQuizQuestions((prev) => applyTranslation(prev, translated));
+        }
+      } catch (e) {
+        console.error("Quiz translation failed; using English.", e);
+      } finally {
+        if (!cancelled) setQuizReady(true);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [step, quizQuestions.length, formData.language]);
+
+  useEffect(() => {
+    if (step === 4 && quizReady) {
       // Overall timer
       if (!quizStartTime) setQuizStartTime(Date.now());
       timerRef.current = setInterval(() => {
@@ -155,12 +211,12 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
         });
       }, 1000);
     }
-    
+
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
       if (questionTimerRef.current) clearInterval(questionTimerRef.current);
     };
-  }, [step, currentQIndex]);
+  }, [step, currentQIndex, quizReady]);
 
   const handleNextStep = () => setStep(step + 1);
 
@@ -570,6 +626,16 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
       );
     }
     if (!quizQuestions.length) return null;
+    if (!quizReady) {
+      const isRtl = formData.language === 'Arabic' || formData.language === 'Egyptian Ammiya';
+      return (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} dir={isRtl ? 'rtl' : 'ltr'} className="flex flex-col items-center justify-center p-20 w-full max-w-lg bg-white rounded-3xl shadow-2xl border border-border">
+          <div className="w-16 h-16 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-6" />
+          <h2 className="text-xl font-bold mb-2">{isRtl ? 'بنجهّز الاختبار بلغتك' : 'Preparing your test'}</h2>
+          <p className="text-slate-500 text-sm font-medium animate-pulse">{isRtl ? `بنترجم الأسئلة إلى ${formData.language === 'Egyptian Ammiya' ? 'العامية المصرية' : 'العربية'}...` : `Translating the questions into ${formData.language}...`}</p>
+        </motion.div>
+      );
+    }
     const q = quizQuestions[currentQIndex];
     if (!q) return null;
     const progress = ((currentQIndex + 1) / quizQuestions.length) * 100;

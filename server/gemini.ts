@@ -78,6 +78,63 @@ Reply with EXACTLY ONE WORD: either "YES" or "NO".`;
   }
 }
 
+interface QuizItem {
+  id: number;
+  text: string;
+  options: string[];
+}
+
+/** Extract the first JSON array from a model response (tolerates ``` fences). */
+function extractJsonArray(raw: string): any[] {
+  if (!raw) return [];
+  const start = raw.indexOf("[");
+  const end = raw.lastIndexOf("]");
+  if (start === -1 || end === -1 || end <= start) return [];
+  try {
+    return JSON.parse(raw.slice(start, end + 1));
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Translate quiz questions (text + options) into the target language while
+ * keeping the SAME number and ORDER of options so the caller can still score
+ * by position. Returns [{id, text, options}].
+ */
+export async function translateQuiz(
+  questions: QuizItem[],
+  language: string,
+): Promise<QuizItem[]> {
+  if (!language || language === "English" || !Array.isArray(questions)) {
+    return questions || [];
+  }
+  try {
+    const ai = getAI();
+    const dialect =
+      language === "Egyptian Ammiya" ? " (Egyptian colloquial Arabic)" : "";
+    const prompt = `Translate these IQ/logic quiz questions into ${language}${dialect}.
+Rules:
+- Keep the EXACT same number of options, in the SAME order.
+- Preserve numbers, sequences and proper nouns; translate naturally otherwise.
+- Keep each question solvable (do not reveal the answer).
+- Return ONLY a JSON array of {"id": number, "text": string, "options": string[]}. No markdown.
+
+Input: ${JSON.stringify(
+      questions.map((q) => ({ id: q.id, text: q.text, options: q.options })),
+    )}`;
+    const response = await ai.models.generateContent({
+      model: "gemini-3.5-flash",
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+    });
+    const parsed = extractJsonArray(response.text?.trim() || "");
+    return parsed.length ? (parsed as QuizItem[]) : questions;
+  } catch (error) {
+    console.error("Quiz translation error", error);
+    return questions; // graceful fallback to original (English)
+  }
+}
+
 export async function generateBenchmarkComparison(
   originalMessage: string,
   userMessage: string,

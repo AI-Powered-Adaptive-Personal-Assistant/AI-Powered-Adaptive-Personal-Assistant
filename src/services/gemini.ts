@@ -20,6 +20,102 @@ export async function evaluateQuizPOV(question: string, pov: string): Promise<bo
   }
 }
 
+export interface QuizItem {
+  id: number;
+  text: string;
+  options: string[];
+}
+
+function extractJsonArray(raw: string): any[] {
+  if (!raw) return [];
+  const start = raw.indexOf("[");
+  const end = raw.lastIndexOf("]");
+  if (start === -1 || end === -1 || end <= start) return [];
+  try {
+    return JSON.parse(raw.slice(start, end + 1));
+  } catch {
+    return [];
+  }
+}
+
+async function translateQuizDirect(
+  questions: QuizItem[],
+  language: string,
+  apiKey: string,
+): Promise<QuizItem[] | null> {
+  const model = "gemini-3.5-flash";
+  const dialect =
+    language === "Egyptian Ammiya" ? " (Egyptian colloquial Arabic)" : "";
+  const prompt = `Translate these IQ/logic quiz questions into ${language}${dialect}.
+Rules:
+- Keep the EXACT same number of options, in the SAME order.
+- Preserve numbers, sequences and proper nouns; translate naturally otherwise.
+- Keep each question solvable (do not reveal the answer).
+- Return ONLY a JSON array of {"id": number, "text": string, "options": string[]}. No markdown.
+
+Input: ${JSON.stringify(questions)}`;
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+      }),
+    },
+  );
+  if (!response.ok) return null;
+  const d = await response.json();
+  const txt = d.candidates?.[0]?.content?.parts?.[0]?.text || "";
+  const parsed = extractJsonArray(txt);
+  return parsed.length ? (parsed as QuizItem[]) : null;
+}
+
+/**
+ * Translate quiz questions into the target language (text + options, order
+ * preserved). Tries the Express backend first, then falls back to a direct
+ * in-browser Gemini call (static hosting). Returns null on total failure so
+ * the caller can keep the original English questions.
+ */
+export async function translateQuiz(
+  questions: QuizItem[],
+  language: string,
+): Promise<QuizItem[] | null> {
+  if (!language || language === "English") return questions;
+  const payload = questions.map((q) => ({
+    id: q.id,
+    text: q.text,
+    options: q.options,
+  }));
+  const apiKey =
+    ((import.meta as any).env?.VITE_GEMINI_API_KEY as string) || "";
+
+  try {
+    const res = await fetch("/api/gemini/translateQuiz", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ questions: payload, language }),
+    });
+    const isHtml = res.headers.get("Content-Type")?.includes("text/html");
+    if (res.ok && !isHtml) {
+      const data = await res.json();
+      if (Array.isArray(data.result) && data.result.length) return data.result;
+    }
+    if (apiKey) return await translateQuizDirect(payload, language, apiKey);
+    return null;
+  } catch (err) {
+    console.error("translateQuiz error:", err);
+    if (apiKey) {
+      try {
+        return await translateQuizDirect(payload, language, apiKey);
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  }
+}
+
 export async function generateBenchmarkComparison(
   originalMessage: string,
   userMessage: string,
