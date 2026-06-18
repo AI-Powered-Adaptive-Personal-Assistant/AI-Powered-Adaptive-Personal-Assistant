@@ -26,6 +26,102 @@ export interface QuizItem {
   options: string[];
 }
 
+export interface AssessmentQuestion {
+  id: number;
+  type: "mcq" | "open";
+  text: string;
+  options: string[];
+  correctAnswer: string;
+}
+
+function normalizeAssessment(parsed: any): AssessmentQuestion[] {
+  if (!Array.isArray(parsed)) return [];
+  return parsed
+    .map((q: any, i: number) => ({
+      id: typeof q.id === "number" ? q.id : i + 1,
+      type: q.type === "open" ? ("open" as const) : ("mcq" as const),
+      text: String(q.text || ""),
+      options: Array.isArray(q.options) ? q.options.map(String) : [],
+      correctAnswer: String(q.correctAnswer || ""),
+    }))
+    .filter((q) => q.text && (q.type === "open" || q.options.length >= 2));
+}
+
+async function generateAssessmentDirect(
+  field: string,
+  language: string,
+  level: string,
+  count: number,
+  apiKey: string,
+): Promise<AssessmentQuestion[]> {
+  const model = "gemini-3.5-flash";
+  const dialect =
+    language === "Egyptian Ammiya" ? " (Egyptian colloquial Arabic)" : "";
+  const mcqCount = Math.max(1, count - 1);
+  const prompt = `Generate a ${level}-level knowledge assessment for the field "${field}" to measure a learner's level in that field.
+Write EVERYTHING in ${language}${dialect}.
+Produce exactly ${count} questions: ${mcqCount} multiple-choice and 1 short open-ended question.
+- Multiple-choice: exactly 4 distinct options with EXACTLY ONE correct answer.
+- Keep them ${level}-appropriate, accurate and unambiguous.
+Return ONLY a JSON array; each item:
+{"id": number, "type": "mcq"|"open", "text": string, "options": string[] (4 for mcq, [] for open), "correctAnswer": string}`;
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        generationConfig: { responseMimeType: "application/json" },
+      }),
+    },
+  );
+  if (!response.ok) return [];
+  const d = await response.json();
+  const txt = d.candidates?.[0]?.content?.parts?.[0]?.text || "";
+  return normalizeAssessment(extractJsonArray(txt));
+}
+
+/**
+ * Generate a field-specific assessment (mixed MCQ + open). Tries the backend,
+ * then falls back to a direct in-browser Gemini call. Returns [] on failure so
+ * the caller can fall back to a static question set.
+ */
+export async function generateAssessment(
+  field: string,
+  language: string = "English",
+  level: string = "Basic",
+  count: number = 8,
+): Promise<AssessmentQuestion[]> {
+  const apiKey =
+    ((import.meta as any).env?.VITE_GEMINI_API_KEY as string) || "";
+  try {
+    const res = await fetch("/api/gemini/generateAssessment", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ field, language, level, count }),
+    });
+    const isHtml = res.headers.get("Content-Type")?.includes("text/html");
+    if (res.ok && !isHtml) {
+      const data = await res.json();
+      const qs = normalizeAssessment(data.result);
+      if (qs.length) return qs;
+    }
+    if (apiKey) return await generateAssessmentDirect(field, language, level, count, apiKey);
+    return [];
+  } catch (err) {
+    console.error("generateAssessment error:", err);
+    if (apiKey) {
+      try {
+        return await generateAssessmentDirect(field, language, level, count, apiKey);
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  }
+}
+
 function extractJsonArray(raw: string): any[] {
   if (!raw) return [];
   const start = raw.indexOf("[");

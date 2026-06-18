@@ -135,6 +135,62 @@ Input: ${JSON.stringify(
   }
 }
 
+export interface AssessmentQuestion {
+  id: number;
+  type: "mcq" | "open";
+  text: string;
+  options: string[];
+  correctAnswer: string;
+}
+
+/**
+ * Generate a field-specific knowledge assessment to measure a learner's level
+ * in their chosen domain. Returns a mix of multiple-choice and one short
+ * open-ended question, written directly in the requested language.
+ */
+export async function generateAssessment(
+  field: string,
+  language: string = "English",
+  level: string = "Basic",
+  count: number = 8,
+): Promise<AssessmentQuestion[]> {
+  const domain = (field || "").trim() || "General Knowledge";
+  try {
+    const ai = getAI();
+    const dialect =
+      language === "Egyptian Ammiya" ? " (Egyptian colloquial Arabic)" : "";
+    const mcqCount = Math.max(1, count - 1);
+    const prompt = `Generate a ${level}-level knowledge assessment for the field "${domain}" to measure a learner's actual level in that field.
+Write EVERYTHING (questions and options) in ${language}${dialect}.
+Produce exactly ${count} questions: ${mcqCount} multiple-choice and 1 short open-ended question.
+- Multiple-choice: exactly 4 distinct options with EXACTLY ONE correct answer.
+- Keep them ${level}-appropriate (foundational/easy for "Basic"), accurate, and unambiguous.
+- The open-ended question should require a 1-2 sentence answer.
+Return ONLY a JSON array; each item:
+{"id": number, "type": "mcq" | "open", "text": string, "options": string[] (4 for mcq, [] for open), "correctAnswer": string (the exact correct option for mcq, or a concise model answer for open)}`;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3.5-flash",
+      contents: [{ text: prompt }],
+      config: { responseMimeType: "application/json" },
+    });
+    const parsed = JSON.parse(response.text?.trim() || "[]");
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .map((q: any, i: number) => ({
+        id: typeof q.id === "number" ? q.id : i + 1,
+        type: q.type === "open" ? ("open" as const) : ("mcq" as const),
+        text: String(q.text || ""),
+        options: Array.isArray(q.options) ? q.options.map(String) : [],
+        correctAnswer: String(q.correctAnswer || ""),
+      }))
+      .filter((q) => q.text && (q.type === "open" || q.options.length >= 2));
+  } catch (e) {
+    console.error("generateAssessment error:", e);
+    return [];
+  }
+}
+
 export async function generateBenchmarkComparison(
   originalMessage: string,
   userMessage: string,

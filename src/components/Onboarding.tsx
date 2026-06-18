@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { Mail, GraduationCap, Briefcase, Brain, ArrowRight, CheckCircle, Trophy, Timer, AlertCircle, Quote, Sprout, Globe, Heart, LogOut } from "lucide-react";
 import { auth, logout } from "../lib/firebase";
 import { getTranslation, isRTL } from "../lib/translations";
-import { evaluateQuizPOV, translateQuiz, QuizItem } from "../services/gemini";
+import { evaluateQuizPOV, translateQuiz, QuizItem, generateAssessment } from "../services/gemini";
 
 interface OnboardingProps {
   onComplete: (data: Partial<UserProfile>) => void;
@@ -16,6 +16,7 @@ interface Question {
   options: string[];
   correctAnswer?: string;
   isTricky?: boolean;
+  type?: 'mcq' | 'open';
 }
 
 const MASTER_QUESTION_POOL: Question[] = [
@@ -97,6 +98,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
   const [finalResults, setFinalResults] = useState<any>(null);
   // Quiz is shown only once it's ready (translated into the chosen language).
   const [quizReady, setQuizReady] = useState(false);
+  const [quizDomain, setQuizDomain] = useState(''); // the field the assessment targets
   const quizPreparedRef = useRef(false);
   
   const [formData, setFormData] = useState<Partial<UserProfile>>({
@@ -125,9 +127,9 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
   const questionTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    // Shuffle and pick 15 questions
+    // Static fallback pool (used only if AI assessment generation fails).
     const shuffled = [...MASTER_QUESTION_POOL].sort(() => 0.5 - Math.random());
-    setQuizQuestions(shuffled.slice(0, 15));
+    setQuizQuestions(shuffled.slice(0, 8));
   }, []);
 
   useEffect(() => {
@@ -156,31 +158,47 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
     }
   }, [formData.accountPath]);
 
-  // Prepare the quiz when the user reaches it: translate the questions into the
-  // chosen language (text + options) while keeping option order so scoring by
-  // position still works. Falls back to English if translation is unavailable.
+  // Prepare the quiz when the user reaches it: generate a field-specific
+  // assessment (AI, in the user's language) to measure their level in their
+  // chosen domain. Falls back to the static pool (translated) if generation fails.
   useEffect(() => {
-    if (step !== 4 || quizPreparedRef.current || !quizQuestions.length) return;
+    if (step !== 4 || quizPreparedRef.current) return;
     quizPreparedRef.current = true;
 
-    const lang = formData.language;
-    if (!lang || lang === "English") {
-      setQuizReady(true);
-      return;
-    }
+    const lang = formData.language || 'English';
+    const domain = (formData.role === 'Professional'
+      ? (formData.jobTitle || formData.work)
+      : (formData.faculty || formData.field)) || 'General Knowledge';
+    setQuizDomain(domain);
 
     let cancelled = false;
     (async () => {
       try {
-        const translated = await translateQuiz(
-          quizQuestions.map((q) => ({ id: q.id, text: q.text, options: q.options })),
-          lang,
-        );
-        if (!cancelled && translated && translated.length) {
-          setQuizQuestions((prev) => applyTranslation(prev, translated));
+        const generated = await generateAssessment(domain, lang, 'Basic', 8);
+        if (!cancelled && generated.length >= 4) {
+          setQuizQuestions(
+            generated.map((q, i) => ({
+              id: q.id ?? i + 1,
+              text: q.text,
+              options: q.options,
+              correctAnswer: q.correctAnswer,
+              type: q.type,
+            })),
+          );
+          return; // generated questions are already in the user's language
+        }
+        // Fallback: static pool, translated if needed.
+        if (lang !== 'English') {
+          const translated = await translateQuiz(
+            quizQuestions.map((q) => ({ id: q.id, text: q.text, options: q.options })),
+            lang,
+          );
+          if (!cancelled && translated && translated.length) {
+            setQuizQuestions((prev) => applyTranslation(prev, translated));
+          }
         }
       } catch (e) {
-        console.error("Quiz translation failed; using English.", e);
+        console.error("Assessment generation failed; using fallback pool.", e);
       } finally {
         if (!cancelled) setQuizReady(true);
       }
@@ -189,7 +207,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
     return () => {
       cancelled = true;
     };
-  }, [step, quizQuestions.length, formData.language]);
+  }, [step]);
 
   useEffect(() => {
     if (step === 4 && quizReady) {
@@ -235,20 +253,25 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
     let correctCount = 0;
 
     for (const q of quizQuestions) {
-      if (userAnswers[q.id] === q.correctAnswer) {
+      const ans = userAnswers[q.id];
+      if (q.type === 'open') {
+        // Open-ended: give credit for a substantive answer (lenient, Basic level).
+        if (ans && ans !== 'TIMEOUT' && ans.trim().split(/\s+/).length >= 3) {
+          correctCount++;
+        }
+      } else if (ans === q.correctAnswer) {
         correctCount++;
-      } else if (userAnswers[q.id] === "TRICK" && userPOVs[q.id]) {
-        // AI Evaluation for POV
+      } else if (ans === "TRICK" && userPOVs[q.id]) {
+        // AI Evaluation for POV (legacy trick questions in the fallback pool)
         const isGood = await evaluateQuizPOV(q.text, userPOVs[q.id]);
         if (isGood) correctCount++;
       }
     }
 
-    const totalPossible = quizQuestions.length;
+    const totalPossible = quizQuestions.length || 1;
     const scorePercentage = (correctCount / totalPossible) * 100;
-    const baseIq = 70;
-    const iqPerQuestion = 5.5; 
-    const finalIq = Math.round(baseIq + (correctCount * iqPerQuestion));
+    // Map performance to an IQ-style score (70..135), independent of question count.
+    const finalIq = Math.round(70 + scorePercentage * 0.65);
 
     let finalLevel: CognitiveLevel = 'Basic';
     if (finalIq >= 135) finalLevel = 'Advanced';
@@ -631,8 +654,8 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
       return (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} dir={isRtl ? 'rtl' : 'ltr'} className="flex flex-col items-center justify-center p-20 w-full max-w-lg bg-white rounded-3xl shadow-2xl border border-border">
           <div className="w-16 h-16 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-6" />
-          <h2 className="text-xl font-bold mb-2">{isRtl ? 'بنجهّز الاختبار بلغتك' : 'Preparing your test'}</h2>
-          <p className="text-slate-500 text-sm font-medium animate-pulse">{isRtl ? `بنترجم الأسئلة إلى ${formData.language === 'Egyptian Ammiya' ? 'العامية المصرية' : 'العربية'}...` : `Translating the questions into ${formData.language}...`}</p>
+          <h2 className="text-xl font-bold mb-2">{isRtl ? 'بنجهّز اختبارك' : 'Building your assessment'}</h2>
+          <p className="text-slate-500 text-sm font-medium animate-pulse">{isRtl ? `بنولّد أسئلة في مجال ${quizDomain || 'تخصصك'}...` : `Generating questions for ${quizDomain || 'your field'}...`}</p>
         </motion.div>
       );
     }
@@ -650,7 +673,9 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
         
         <div className="flex justify-between items-start mb-4">
           <div className="space-y-1">
-            <span className="text-[10px] font-black text-primary uppercase tracking-[0.2em]">Quiz Question {currentQIndex + 1}/15</span>
+            <span className="text-[10px] font-black text-primary uppercase tracking-[0.2em]">
+              {quizDomain ? `${quizDomain} · ` : ''}Question {currentQIndex + 1}/{quizQuestions.length}
+            </span>
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2 text-text-muted text-xs font-bold">
                 <Timer className="w-3.5 h-3.5" />
@@ -672,44 +697,60 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
           {q.text}
         </h3>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6">
-          {q.options.map(opt => (
-            <button
-              key={opt}
-              onClick={() => handleAnswerSelect(opt)}
-              className={`text-left px-6 py-4 rounded-xl border-2 transition-all ${
-                userAnswers[q.id] === opt 
-                  ? 'border-primary bg-primary/5 text-primary font-bold shadow-md scale-[1.02]' 
-                  : 'border-border bg-white text-text-muted hover:border-primary/20 hover:bg-slate-50'
-              }`}
-            >
-              {opt}
-            </button>
-          ))}
-          <button
-            onClick={() => handleAnswerSelect("TRICK")}
-            className={`text-left px-6 py-4 rounded-xl border-2 transition-all flex items-center gap-3 ${
-              userAnswers[q.id] === "TRICK" 
-                ? 'border-purple-600 bg-purple-50 text-purple-700 font-bold' 
-                : 'border-dashed border-border bg-white text-slate-400 hover:border-purple-200'
-            }`}
-          >
-             <Brain className="w-4 h-4" /> Point of View Assessment
-          </button>
-        </div>
-
-        {userAnswers[q.id] === "TRICK" && (
-          <motion.div 
-            initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
-            className="space-y-3 mb-4"
-          >
+        {q.type === 'open' ? (
+          <div className="mb-6">
             <textarea
-              placeholder="Justify your identification of this logic anomaly..."
-              className="w-full bg-purple-50/50 border border-purple-100 rounded-xl p-4 text-sm text-purple-900 focus:ring-4 focus:ring-purple-100 focus:border-purple-300 outline-none transition-all min-h-[80px] resize-none"
-              value={userPOVs[q.id] || ""}
-              onChange={(e) => setUserPOVs({ ...userPOVs, [q.id]: e.target.value })}
+              autoFocus
+              placeholder={isRTL(formData.language) ? 'اكتب إجابتك هنا...' : 'Type your answer here...'}
+              className="w-full bg-slate-50 border-2 border-border rounded-xl p-4 text-base text-text-main focus:ring-4 focus:ring-primary/10 focus:border-primary/40 outline-none transition-all min-h-[120px] resize-none"
+              value={userAnswers[q.id] && userAnswers[q.id] !== 'TIMEOUT' ? userAnswers[q.id] : ''}
+              onChange={(e) => setUserAnswers({ ...userAnswers, [q.id]: e.target.value })}
             />
-          </motion.div>
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6">
+              {q.options.map(opt => (
+                <button
+                  key={opt}
+                  onClick={() => handleAnswerSelect(opt)}
+                  className={`text-left px-6 py-4 rounded-xl border-2 transition-all ${
+                    userAnswers[q.id] === opt
+                      ? 'border-primary bg-primary/5 text-primary font-bold shadow-md scale-[1.02]'
+                      : 'border-border bg-white text-text-muted hover:border-primary/20 hover:bg-slate-50'
+                  }`}
+                >
+                  {opt}
+                </button>
+              ))}
+              {q.isTricky && (
+                <button
+                  onClick={() => handleAnswerSelect("TRICK")}
+                  className={`text-left px-6 py-4 rounded-xl border-2 transition-all flex items-center gap-3 ${
+                    userAnswers[q.id] === "TRICK"
+                      ? 'border-purple-600 bg-purple-50 text-purple-700 font-bold'
+                      : 'border-dashed border-border bg-white text-slate-400 hover:border-purple-200'
+                  }`}
+                >
+                   <Brain className="w-4 h-4" /> Point of View Assessment
+                </button>
+              )}
+            </div>
+
+            {userAnswers[q.id] === "TRICK" && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
+                className="space-y-3 mb-4"
+              >
+                <textarea
+                  placeholder="Justify your identification of this logic anomaly..."
+                  className="w-full bg-purple-50/50 border border-purple-100 rounded-xl p-4 text-sm text-purple-900 focus:ring-4 focus:ring-purple-100 focus:border-purple-300 outline-none transition-all min-h-[80px] resize-none"
+                  value={userPOVs[q.id] || ""}
+                  onChange={(e) => setUserPOVs({ ...userPOVs, [q.id]: e.target.value })}
+                />
+              </motion.div>
+            )}
+          </>
         )}
 
         <button

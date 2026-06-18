@@ -1,4 +1,4 @@
-import { evaluateQuizPOV, generateBenchmarkComparison, generateProactiveInsights, generateLogicResponse, generateAdaptiveResponseStream, generateAdaptiveResponse, translateQuiz } from "./gemini";
+import { evaluateQuizPOV, generateBenchmarkComparison, generateProactiveInsights, generateLogicResponse, generateAdaptiveResponseStream, generateAdaptiveResponse, translateQuiz, generateAssessment } from "./gemini";
 import { geminiService } from "./geminiService";
 import express from "express";
 
@@ -11,6 +11,11 @@ geminiRouter.post('/evaluateQuizPOV', async (req, res) => {
 
 geminiRouter.post('/translateQuiz', async (req, res) => {
   const result = await translateQuiz(req.body.questions, req.body.language);
+  res.json({ result });
+});
+
+geminiRouter.post('/generateAssessment', async (req, res) => {
+  const result = await generateAssessment(req.body.field, req.body.language, req.body.level, req.body.count);
   res.json({ result });
 });
 
