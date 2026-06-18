@@ -102,6 +102,17 @@ geminiRouter.post('/decodeDysarthria', async (req, res) => {
   res.json({ result });
 });
 
+geminiRouter.post('/correctTranscript', async (req, res) => {
+  const result = await geminiService.correctTranscript(
+    req.body.text,
+    req.body.language,
+    req.body.profile,
+    req.body.customMappings || [],
+    req.body.context || []
+  );
+  res.json({ result });
+});
+
 geminiRouter.post('/decodeEuphoniaAudio', async (req, res) => {
   try {
     const result = await geminiService.decodeEuphoniaAudio(

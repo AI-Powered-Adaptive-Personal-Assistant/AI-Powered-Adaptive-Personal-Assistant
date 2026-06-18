@@ -82,6 +82,30 @@ export const geminiService = {
     return data.result;
   },
 
+  async correctTranscript(
+    text: string,
+    language: string = "Auto-Detect",
+    profile: string = "Standard",
+    customMappings: Array<{ phrase: string; translation: string }> = [],
+    context: string[] = []
+  ): Promise<{ corrected: string; confidence: number; alternatives: string[] }> {
+    try {
+      const res = await fetch('/api/gemini/correctTranscript', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, language, profile, customMappings, context })
+      });
+      const isHtml = res.headers.get('Content-Type')?.includes('text/html');
+      if (!res.ok || isHtml) {
+        return { corrected: text, confidence: 60, alternatives: [] };
+      }
+      const data = await res.json();
+      return data.result || { corrected: text, confidence: 60, alternatives: [] };
+    } catch {
+      return { corrected: text, confidence: 60, alternatives: [] };
+    }
+  },
+
   async decodeEuphoniaAudio(audioData: string, profile: string = "General", language: string = "English", customMappings: Array<{ phrase: string; translation: string }> = [], mimeType: string = "audio/webm") {
     const res = await fetch('/api/gemini/decodeEuphoniaAudio', {
       method: 'POST',

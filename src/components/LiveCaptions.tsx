@@ -37,6 +37,8 @@ interface TranscriptSegment {
   raw: string;
   decoded: string;
   confidence: 'high' | 'medium' | 'low';
+  confidencePct?: number;       // numeric confidence (0-100) from the AI corrector
+  alternatives?: string[];      // alternative interpretations for uncertain words
   intent?: string;
   timestamp: string;
 }
@@ -349,6 +351,8 @@ export default function LiveCaptions({ language = 'en-US', onClose }: LiveCaptio
 
     let decoded = adapted;
     let confidence: 'high' | 'medium' | 'low' = 'high';
+    let confidencePct = 100;
+    let alternatives: string[] = [];
     let intent: string | undefined;
 
     try {
@@ -362,15 +366,18 @@ export default function LiveCaptions({ language = 'en-US', onClose }: LiveCaptio
       if (localMatch) {
         decoded = localMatch.translation;
         confidence = 'high';
-      } else if (speechProfile !== 'Standard') {
-        // Step 2: Gemini dysarthria decoding
-        decoded = await geminiService.decodeDysarthria(adapted, speechProfile, language, mappings);
-        confidence = decoded.toLowerCase() === adapted.toLowerCase() ? 'low' : 'medium';
-        if (decoded !== adapted && decoded.length > adapted.length * 0.5) confidence = 'high';
+        confidencePct = 100;
       } else {
-        // Step 3: Standard AI enhancement
-        decoded = await geminiService.enhanceCaptions(adapted, language);
-        confidence = 'high';
+        // Step 2: Context-aware AI correction (returns confidence + alternatives).
+        // Recent decoded lines are passed as conversation context.
+        const context = segments.slice(-4).map(s => s.decoded);
+        const result = await geminiService.correctTranscript(
+          adapted, language, speechProfile, mappings, context,
+        );
+        decoded = result.corrected || adapted;
+        confidencePct = result.confidence;
+        alternatives = result.alternatives || [];
+        confidence = confidencePct >= 80 ? 'high' : confidencePct >= 55 ? 'medium' : 'low';
       }
 
       // Step 4: Detect communicative intent (brief async call)
@@ -401,6 +408,8 @@ export default function LiveCaptions({ language = 'en-US', onClose }: LiveCaptio
       raw: rawText,
       decoded,
       confidence,
+      confidencePct,
+      alternatives,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
 
@@ -417,16 +426,17 @@ export default function LiveCaptions({ language = 'en-US', onClose }: LiveCaptio
     setEditValue(seg.decoded);
   };
 
-  const saveEditSegment = (seg: TranscriptSegment) => {
-    const corrected = editValue.trim();
-    setEditingId(null);
+  // Apply a corrected decode to a segment and learn the word-level difference.
+  const commitCorrection = (seg: TranscriptSegment, corrected: string) => {
     if (!corrected || corrected === seg.decoded) return;
-
     setSegments(prev =>
-      prev.map(s => (s.id === seg.id ? { ...s, decoded: corrected, confidence: 'high' } : s)),
+      prev.map(s =>
+        s.id === seg.id
+          ? { ...s, decoded: corrected, confidence: 'high', confidencePct: 100, alternatives: [] }
+          : s,
+      ),
     );
 
-    // Learn from the difference between what was heard and the user's fix.
     const learned = learnFromCorrection(seg.raw, corrected);
     if (learned.length) {
       const { dict, added } = mergeMappings(pronDict, learned);
@@ -439,6 +449,15 @@ export default function LiveCaptions({ language = 'en-US', onClose }: LiveCaptio
       }
     }
   };
+
+  const saveEditSegment = (seg: TranscriptSegment) => {
+    const corrected = editValue.trim();
+    setEditingId(null);
+    commitCorrection(seg, corrected);
+  };
+
+  const applyAlternative = (seg: TranscriptSegment, alt: string) =>
+    commitCorrection(seg, alt.trim());
 
   // ──────────────────────────────────────────────────────────────────────
   // INTENT DETECTION (lightweight)
@@ -842,6 +861,11 @@ export default function LiveCaptions({ language = 'en-US', onClose }: LiveCaptio
                     <div className="flex items-center justify-between flex-wrap gap-2">
                       <div className="flex items-center gap-2 flex-wrap">
                         <ConfidenceBadge level={seg.confidence} />
+                        {typeof seg.confidencePct === 'number' && (
+                          <span className="text-[10px] font-mono font-bold text-neutral-500">
+                            {seg.confidencePct}%
+                          </span>
+                        )}
                         {seg.intent && (
                           <span className="text-[10px] font-bold text-neutral-400 bg-white/5 border border-white/10 px-2 py-0.5 rounded-full">
                             {seg.intent}
@@ -880,6 +904,25 @@ export default function LiveCaptions({ language = 'en-US', onClose }: LiveCaptio
                         </button>
                       </div>
                     </div>
+
+                    {/* Alternative interpretations for uncertain words */}
+                    {editingId !== seg.id && seg.alternatives && seg.alternatives.length > 0 && (
+                      <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                        <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider">
+                          Did you mean
+                        </span>
+                        {seg.alternatives.map((alt, i) => (
+                          <button
+                            key={i}
+                            onClick={() => applyAlternative(seg, alt)}
+                            title="Use this — the app learns from it"
+                            className="text-xs px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-neutral-300 hover:bg-emerald-500/20 hover:border-emerald-500/40 hover:text-emerald-300 transition-all"
+                          >
+                            {alt}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </motion.div>
                 ))}
 

@@ -353,5 +353,72 @@ Prioritize looking for matching acoustic patterns corresponding to these mapped 
       console.error("Gemini Direct Euphonia Audio recognition failed:", error);
       throw error;
     }
-  }
+  },
+
+  /**
+   * Accessibility speech corrector: cleans a raw transcript using the user's
+   * personalized pronunciation mappings AND recent conversation context, and
+   * returns a structured result with a confidence score and alternative
+   * interpretations for uncertain words.
+   */
+  async correctTranscript(
+    text: string,
+    language: string = "Auto-Detect",
+    profile: string = "Standard",
+    customMappings: Array<{ phrase: string; translation: string }> = [],
+    context: string[] = [],
+  ): Promise<{ corrected: string; confidence: number; alternatives: string[] }> {
+    const mappingsText = customMappings.length
+      ? `Personalized pronunciation mappings (heard → intended):\n${customMappings
+          .map((m) => `- "${m.phrase}" → "${m.translation}"`)
+          .join("\n")}\n`
+      : "";
+    const contextText = context.length
+      ? `Recent conversation context (most recent last), use it to resolve unclear words:\n${context
+          .map((c) => `- ${c}`)
+          .join("\n")}\n`
+      : "";
+    const profileText =
+      profile && profile !== "Standard"
+        ? `The speaker has a speech profile: "${profile}". Expect slurring, stutters or atypical pronunciation and reconstruct accordingly.`
+        : "";
+
+    const prompt = `You are an accessibility-focused speech-recognition corrector adapting to ONE specific user.
+Raw transcript from the speech engine: "${text}"
+Language: ${language}. ${profileText}
+${mappingsText}${contextText}
+Rules:
+- Apply the personalized mappings and fix spelling/grammar/slur/stutter errors.
+- Use the conversation context to resolve unclear words.
+- Preserve the user's intended meaning. Do NOT add content or rewrite unnecessarily.
+- Keep the SAME language as the input.
+Return ONLY JSON of the form:
+{"corrected": string, "confidence": number (0-100, how sure you are), "alternatives": string[] (0-3 alternative full-sentence interpretations for uncertain cases; empty if confident)}`;
+
+    try {
+      const response = await ai.models.generateContent({
+        model: "gemini-3.5-flash",
+        contents: [{ text: prompt }],
+        config: { responseMimeType: "application/json" },
+      });
+      const parsed = JSON.parse(response.text?.trim() || "{}");
+      const corrected =
+        typeof parsed.corrected === "string" && parsed.corrected.trim()
+          ? parsed.corrected.trim()
+          : text;
+      const confidence =
+        typeof parsed.confidence === "number"
+          ? Math.max(0, Math.min(100, Math.round(parsed.confidence)))
+          : 70;
+      const alternatives = Array.isArray(parsed.alternatives)
+        ? parsed.alternatives
+            .filter((a: any) => typeof a === "string" && a.trim())
+            .slice(0, 3)
+        : [];
+      return { corrected, confidence, alternatives };
+    } catch (e) {
+      console.error("Gemini correctTranscript Error:", e);
+      return { corrected: text, confidence: 50, alternatives: [] };
+    }
+  },
 };
