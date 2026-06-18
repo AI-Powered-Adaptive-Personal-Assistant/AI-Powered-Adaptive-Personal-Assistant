@@ -7,6 +7,7 @@ import Markdown from 'react-markdown';
 import { getTranslation } from '../lib/translations';
 import { db } from '../lib/firebase';
 import { doc, setDoc, onSnapshot } from 'firebase/firestore';
+import AssessmentQuiz, { type AssessmentResult } from './AssessmentQuiz';
 
 interface LogicSandboxProps {
   profile: UserProfile;
@@ -22,6 +23,30 @@ export default function LogicSandbox({ profile, onMenuClick }: LogicSandboxProps
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [speakingMessageId, setSpeakingMessageId] = useState<string | null>(null);
+
+  // One-time entrance test gating the whole sandbox; result enhances the IQ score.
+  const isAr = profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya';
+  const ENTRY_KEY = `cognify_logic_entry_${profile.uid || 'anon'}`;
+  const [entryDone, setEntryDone] = useState<boolean>(() => {
+    try { return localStorage.getItem(ENTRY_KEY) === '1'; } catch { return false; }
+  });
+
+  const handleEntryComplete = async (result: AssessmentResult) => {
+    try { localStorage.setItem(ENTRY_KEY, '1'); } catch { /* ignore */ }
+    // Enhance the user's IQ score from their performance (never decreases).
+    if (profile.uid && result.total > 0) {
+      const currentIq = profile.iqScore || 70;
+      const boosted = Math.round(currentIq + (result.percentage / 100) * 15);
+      const newIq = Math.max(currentIq, boosted);
+      const newPoints = (profile.points || 0) + result.correctCount * 5;
+      try {
+        await setDoc(doc(db, `users/${profile.uid}`), { iqScore: newIq, points: newPoints }, { merge: true });
+      } catch (e) {
+        console.error('Failed to persist entrance result', e);
+      }
+    }
+    setEntryDone(true);
+  };
 
   useEffect(() => {
     if ('speechSynthesis' in window) {
@@ -287,6 +312,36 @@ export default function LogicSandbox({ profile, onMenuClick }: LogicSandboxProps
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isLoading]);
+
+  // Gate: require the one-time entrance test before unlocking the modules.
+  if (!entryDone) {
+    return (
+      <div className="flex-1 h-screen overflow-y-auto bg-slate-50 flex flex-col custom-scrollbar p-6 md:p-10">
+        <header className="flex items-start gap-4 mb-4">
+          <button
+            onClick={onMenuClick}
+            className="lg:hidden p-2 mt-1 text-slate-500 bg-white shadow-sm border border-slate-200 hover:bg-slate-50 rounded-lg active:scale-95 shrink-0"
+          >
+            <Menu className="w-6 h-6" />
+          </button>
+          <div>
+            <h1 className="text-2xl md:text-4xl font-black text-slate-900 tracking-tighter uppercase">{getTranslation(profile.language, 'sandbox')}</h1>
+            <p className="text-xs md:text-sm text-slate-500 font-medium italic mt-1">
+              {isAr ? 'عدِّ اختبار دخول قصير الأول عشان تفتح الموديولات.' : 'Pass a short entrance test to unlock the training modules.'}
+            </p>
+          </div>
+        </header>
+        <AssessmentQuiz
+          field={isAr ? 'المنطق والاستدلال و الـ IQ' : 'Logic, Reasoning & IQ'}
+          language={profile.language || 'English'}
+          level={profile.level || 'Basic'}
+          title={isAr ? 'اختبار دخول المنطق' : 'Logic Entrance Test'}
+          subtitle={isAr ? 'نتيجتك هتحسّن سكور الـ IQ بتاعك.' : 'Your result enhances your IQ score.'}
+          onComplete={handleEntryComplete}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className={`flex-1 h-screen overflow-y-auto bg-slate-50 flex flex-col custom-scrollbar ${isTraining ? 'p-4 md:p-6 gap-4 md:gap-6' : 'p-6 md:p-10 gap-6 md:gap-10'}`}>
