@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { UserProfile, CognitiveLevel, UserRole, Field, AccessibilityMode, ChatThread } from "../types";
-import { User, Settings, Brain, Briefcase, GraduationCap, Accessibility, Layers, MessageSquare, BarChart3, AlertCircle, LogOut, Plus, ChevronRight, X, Moon, Sun, Video, Mic, Target, Calculator, CalendarCheck, LayoutDashboard } from "lucide-react";
+import { User, Settings, Brain, Briefcase, GraduationCap, Accessibility, Layers, MessageSquare, BarChart3, AlertCircle, LogOut, Plus, ChevronRight, X, Moon, Sun, Video, Mic, Target, Calculator, CalendarCheck, LayoutDashboard, CalendarDays } from "lucide-react";
 import { logout, db } from "../lib/firebase";
 import { deleteDoc, doc } from "firebase/firestore";
 import { getTranslation } from "../lib/translations";
@@ -8,8 +8,8 @@ import { getTranslation } from "../lib/translations";
 interface SidebarProps {
   profile: UserProfile;
   setProfile: (profile: UserProfile) => void;
-  currentView: 'chat' | 'hub' | 'profile' | 'settings' | 'logic' | 'video' | 'disability' | 'admin' | 'goals' | 'gpa' | 'attendance' | 'analytics';
-  setCurrentView: (view: 'chat' | 'hub' | 'profile' | 'settings' | 'logic' | 'video' | 'disability' | 'admin' | 'goals' | 'gpa' | 'attendance' | 'analytics') => void;
+  currentView: 'chat' | 'hub' | 'profile' | 'settings' | 'logic' | 'video' | 'disability' | 'admin' | 'goals' | 'gpa' | 'attendance' | 'analytics' | 'planner';
+  setCurrentView: (view: 'chat' | 'hub' | 'profile' | 'settings' | 'logic' | 'video' | 'disability' | 'admin' | 'goals' | 'gpa' | 'attendance' | 'analytics' | 'planner') => void;
   isDarkMode: boolean;
   toggleTheme: () => void;
   openLiveCaptions: () => void;
@@ -59,6 +59,7 @@ export default function Sidebar({ profile, setProfile, currentView, setCurrentVi
     { id: 'gpa', label: (profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya') ? 'حاسبة GPA' : 'GPA', icon: Calculator },
     { id: 'attendance', label: (profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya') ? 'الحضور' : 'Attendance', icon: CalendarCheck },
     { id: 'analytics', label: (profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya') ? 'تحليلاتي' : 'Analytics', icon: LayoutDashboard },
+    { id: 'planner', label: (profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya') ? 'المخطّط' : 'Planner', icon: CalendarDays },
     { id: 'profile', label: getTranslation(profile.language, 'myProfile'), icon: User },
     { id: 'settings', label: getTranslation(profile.language, 'settings'), icon: Settings },
   ] as const;

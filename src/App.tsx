@@ -32,13 +32,14 @@ import GoalTracker from "./components/Goaltracker";
 import GpaCalculator from "./components/GpaCalculator";
 import AttendanceTracker from "./components/AttendanceTracker";
 import StudentAnalytics from "./components/StudentAnalytics";
+import AcademicPlanner from "./components/AcademicPlanner";
 
 export default function App() {
   const [user, loading, authError] = useAuthState(auth);
   const chatRef = useRef<any>(null);
   
   const [currentView, setCurrentView] = useState<
-  'chat' | 'hub' | 'profile' | 'settings' | 'logic' | 'video' | 'disability' | 'admin' | 'goals' | 'gpa' | 'attendance' | 'analytics'
+  'chat' | 'hub' | 'profile' | 'settings' | 'logic' | 'video' | 'disability' | 'admin' | 'goals' | 'gpa' | 'attendance' | 'analytics' | 'planner'
 >('chat');
   
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -116,7 +117,7 @@ export default function App() {
 
     const handlePopState = () => {
       const hash = window.location.hash.replace('#', '');
-      if (['chat', 'hub', 'logic', 'profile', 'settings', 'video', 'disability', 'admin','goals','gpa','attendance','analytics'].includes(hash)) {
+      if (['chat', 'hub', 'logic', 'profile', 'settings', 'video', 'disability', 'admin','goals','gpa','attendance','analytics','planner'].includes(hash)) {
         setCurrentView(hash as any);
       } else {
         setCurrentView('chat');
@@ -427,6 +428,8 @@ export default function App() {
         return <AttendanceTracker profile={profile} onMenuClick={() => setIsMobileMenuOpen(true)} />;
       case 'analytics':
         return <StudentAnalytics profile={profile} onMenuClick={() => setIsMobileMenuOpen(true)} />;
+      case 'planner':
+        return <AcademicPlanner profile={profile} onMenuClick={() => setIsMobileMenuOpen(true)} />;
 
       case 'settings':
         return (

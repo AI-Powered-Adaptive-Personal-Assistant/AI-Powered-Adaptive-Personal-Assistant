@@ -119,3 +119,15 @@ export interface AttendanceSubject {
   createdAt: string;
 }
 
+// ─── Academic Planner ────────────────────────────────────────────────────────
+export type PlannerTaskType = 'assignment' | 'quiz' | 'midterm' | 'final' | 'project' | 'other';
+export interface PlannerTask {
+  id: string;
+  title: string;
+  type: PlannerTaskType;
+  course: string;          // optional course/subject name ('' if none)
+  dueDate: string;         // ISO date string (YYYY-MM-DD)
+  completed: boolean;
+  createdAt: string;
+}
+
