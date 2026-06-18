@@ -15,6 +15,27 @@ function getAI() {
   return aiInstance;
 }
 
+// Retry transient Gemini failures (503 overloaded / 429 rate-limited) with backoff.
+async function withRetry<T>(fn: () => Promise<T>, retries = 2): Promise<T> {
+  let lastErr: any;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      return await fn();
+    } catch (e: any) {
+      lastErr = e;
+      const msg = String(e?.message || e);
+      const transient = /503|overloaded|UNAVAILABLE|429|RESOURCE_EXHAUSTED|rate limit/i.test(msg);
+      if (!transient || attempt === retries) throw e;
+      await new Promise((r) => setTimeout(r, 700 * Math.pow(2, attempt)));
+    }
+  }
+  throw lastErr;
+}
+
+// Model-call wrappers with built-in transient-error retry.
+const genContent = (args: any) => withRetry(() => getAI().models.generateContent(args));
+const genContentStream = (args: any) => withRetry(() => getAI().models.generateContentStream(args));
+
 const getSystemInstruction = (profile: UserProfile, otherThreadsSummary: string = 'None') => `
 You are Cognify, an adaptive AI mentor. Your only goal: the most correct, useful answer possible, calibrated to THIS user.
 
@@ -67,7 +88,7 @@ Their custom reasoning: "${pov}"
 
 Is their reasoning somewhat logical, creative, or functionally identifying the trick/anomaly? 
 Reply with EXACTLY ONE WORD: either "YES" or "NO".`;
-    const response = await ai.models.generateContent({
+    const response = await genContent({
        model: "gemini-3.5-flash",
        contents: [{ role: 'user', parts: [{ text: prompt }] }],
     });
@@ -123,7 +144,7 @@ Rules:
 Input: ${JSON.stringify(
       questions.map((q) => ({ id: q.id, text: q.text, options: q.options })),
     )}`;
-    const response = await ai.models.generateContent({
+    const response = await genContent({
       model: "gemini-3.5-flash",
       contents: [{ role: "user", parts: [{ text: prompt }] }],
     });
@@ -169,7 +190,7 @@ Produce exactly ${count} questions: ${mcqCount} multiple-choice and 1 short open
 Return ONLY a JSON array; each item:
 {"id": number, "type": "mcq" | "open", "text": string, "options": string[] (4 for mcq, [] for open), "correctAnswer": string (the exact correct option for mcq, or a concise model answer for open)}`;
 
-    const response = await ai.models.generateContent({
+    const response = await genContent({
       model: "gemini-3.5-flash",
       contents: [{ text: prompt }],
       config: { responseMimeType: "application/json" },
@@ -214,7 +235,7 @@ Provide your response in this EXACT format:
 `;
 
   try {
-    const response = await ai.models.generateContent({
+    const response = await genContent({
       model: "gemini-3.5-flash",
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
     });
@@ -238,7 +259,7 @@ ${context || 'No recent conversation.'}
 Proactively generate 3 highly relevant study materials, actionable insights, or next steps tailored specifically to their profile and current focus. Format as a concise, engaging markdown list.`;
 
   try {
-    const response = await ai.models.generateContent({
+    const response = await genContent({
       model: "gemini-3.5-flash",
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
     });
@@ -312,7 +333,7 @@ Make the experience feel like sitting with a brilliant, patient mentor who is st
       parts: h.parts
     }));
 
-    const response = await ai.models.generateContent({
+    const response = await genContent({
       model,
       contents: [
         ...chatHistory,
@@ -369,7 +390,7 @@ export async function* generateAdaptiveResponseStream(
 
     const cleanHistory = historyForModel[0]?.role === 'model' ? historyForModel.slice(1) : historyForModel;
 
-    const stream = await ai.models.generateContentStream({
+    const stream = await genContentStream({
       model,
       contents: [
         ...cleanHistory,
@@ -412,7 +433,7 @@ export async function* generateAdaptiveResponseStream(
          const prompt = args.prompt;
          yield { text: `جاري توليد الصورة: "${prompt}"...`, done: false, isGeneratingImage: true };
          
-         const imageResponse = await ai.models.generateContent({
+         const imageResponse = await genContent({
            model: 'gemini-2.5-flash-image',
            contents: { parts: [{ text: prompt }] },
            config: {
@@ -485,7 +506,7 @@ export async function generateAdaptiveResponse(
 
     const cleanHistory = historyForModel[0]?.role === 'model' ? historyForModel.slice(1) : historyForModel;
 
-    const response = await ai.models.generateContent({
+    const response = await genContent({
       model,
       contents: [
         ...cleanHistory,
@@ -524,7 +545,7 @@ export async function generateAdaptiveResponse(
       const prompt = args.prompt;
       
       try {
-        const imageResponse = await ai.models.generateContent({
+        const imageResponse = await genContent({
           model: 'gemini-2.5-flash-image',
           contents: { parts: [{ text: prompt }] },
           config: {

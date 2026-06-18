@@ -1,6 +1,23 @@
 import { UserProfile, Message } from "../types";
 import { toast } from "../components/Toast";
 
+// Retry transient Gemini errors (503 overloaded / 429 rate-limited) with
+// exponential backoff before giving up.
+async function fetchGeminiWithRetry(
+  url: string,
+  init: RequestInit,
+  retries = 2,
+): Promise<Response> {
+  let res = await fetch(url, init);
+  let attempt = 0;
+  while ((res.status === 503 || res.status === 429) && attempt < retries) {
+    await new Promise((r) => setTimeout(r, 700 * Math.pow(2, attempt)));
+    attempt++;
+    res = await fetch(url, init);
+  }
+  return res;
+}
+
 export async function evaluateQuizPOV(question: string, pov: string): Promise<boolean> {
   try {
     const res = await fetch('/api/gemini/evaluateQuizPOV', {
@@ -65,7 +82,7 @@ Produce exactly ${count} questions: ${mcqCount} multiple-choice and 1 short open
 - Keep them ${level}-appropriate, accurate and unambiguous.
 Return ONLY a JSON array; each item:
 {"id": number, "type": "mcq"|"open", "text": string, "options": string[] (4 for mcq, [] for open), "correctAnswer": string}`;
-  const response = await fetch(
+  const response = await fetchGeminiWithRetry(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
     {
       method: "POST",
@@ -150,7 +167,7 @@ Rules:
 - Return ONLY a JSON array of {"id": number, "text": string, "options": string[]}. No markdown.
 
 Input: ${JSON.stringify(questions)}`;
-  const response = await fetch(
+  const response = await fetchGeminiWithRetry(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
     {
       method: "POST",
@@ -282,7 +299,7 @@ export async function generateLogicResponse(
       const apiKey = ((import.meta as any).env?.VITE_GEMINI_API_KEY as string) || "";
       if (apiKey) {
         const prompt = `You are a Logic Tutor on ${moduleName}.\nUser Profile: ${JSON.stringify(profile)}\nUser: ${message}`;
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${apiKey}`, {
+        const response = await fetchGeminiWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${apiKey}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -391,7 +408,7 @@ ${otherThreadsSummary}
   });
   contents.push({ role: 'user', parts: currentParts });
 
-  const res = await fetch(url, {
+  const res = await fetchGeminiWithRetry(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
