@@ -73,3 +73,28 @@ export interface UserProfile {
   tasks?: Task[];
   lastActiveDate?: string;
 }
+
+// ─── PATCH: Add these types to src/types.ts ───────────────────────────────────
+// Place AFTER the existing UserProfile interface
+
+export type GoalPriority = 'low' | 'medium' | 'high';
+export type GoalStatus = 'not-started' | 'in-progress' | 'completed';
+
+export interface Milestone {
+  id: string;
+  title: string;
+  completed: boolean;
+}
+
+export interface Goal {
+  id: string;
+  title: string;
+  description: string;
+  priority: GoalPriority;
+  status: GoalStatus;
+  progress: number;        // 0–100, auto-calculated from milestones
+  deadline: string;        // ISO date string (YYYY-MM-DD)
+  createdAt: string;       // ISO date string
+  milestones: Milestone[];
+}
+

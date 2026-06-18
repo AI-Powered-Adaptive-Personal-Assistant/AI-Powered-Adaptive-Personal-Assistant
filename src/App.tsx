@@ -28,15 +28,15 @@ import { Loader2, Settings, Layers, Menu, Moon, Sun, AlertCircle, RefreshCw, Mai
 import { ToastContainer } from "./components/Toast";
 
 import { isRTL, getTranslation } from "./lib/translations";
+import GoalTracker from "./components/Goaltracker";
 
 export default function App() {
   const [user, loading, authError] = useAuthState(auth);
   const chatRef = useRef<any>(null);
   
-  const [currentView, setCurrentView] = useState<'chat' | 'hub' | 'profile' | 'settings' | 'logic' | 'video' | 'disability' | 'admin'>(() => {
-    const hash = window.location.hash.replace('#', '');
-    return ['chat', 'hub', 'logic', 'profile', 'settings', 'video', 'disability', 'admin'].includes(hash) ? hash as any : 'chat';
-  });
+  const [currentView, setCurrentView] = useState<
+  'chat' | 'hub' | 'profile' | 'settings' | 'logic' | 'video' | 'disability' | 'admin' | 'goals'
+>('chat');
   
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
@@ -113,7 +113,7 @@ export default function App() {
 
     const handlePopState = () => {
       const hash = window.location.hash.replace('#', '');
-      if (['chat', 'hub', 'logic', 'profile', 'settings', 'video', 'disability', 'admin'].includes(hash)) {
+      if (['chat', 'hub', 'logic', 'profile', 'settings', 'video', 'disability', 'admin','goals'].includes(hash)) {
         setCurrentView(hash as any);
       } else {
         setCurrentView('chat');
@@ -126,13 +126,13 @@ export default function App() {
   }, []);
 
   // Custom navigation function that updates URL and state
-  const navigateTo = (view: 'chat' | 'hub' | 'logic' | 'profile' | 'settings' | 'video' | 'disability' | 'admin') => {
-    if (view !== currentView) {
-      window.history.pushState(null, '', `#${view}`);
-      setCurrentView(view);
-    }
-    setIsMobileMenuOpen(false);
-  };
+ const navigateTo = (
+  view: 'chat' | 'hub' | 'profile' | 'settings' | 'logic' | 'video' | 'disability' | 'admin' | 'goals'
+) => {
+  window.history.pushState(null, '', `#${view}`);
+  setCurrentView(view);
+  setIsMobileMenuOpen(false);
+};
 
   // Sync profile from Firestore
   useEffect(() => {
@@ -410,6 +410,15 @@ export default function App() {
         return <LogicSandbox profile={profile} onMenuClick={() => setIsMobileMenuOpen(true)} />;
       case 'admin':
         return <AdminDashboard profile={profile} onMenuClick={() => setIsMobileMenuOpen(true)} />;
+
+        case 'goals':
+  return (
+    <GoalTracker
+      profile={profile}
+      onMenuClick={() => setIsMobileMenuOpen(true)}
+    />
+  );
+
       case 'settings':
         return (
           <div className="flex-1 flex flex-col bg-slate-50 relative overflow-hidden">
