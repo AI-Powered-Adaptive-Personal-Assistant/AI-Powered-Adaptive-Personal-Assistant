@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { UserProfile, CognitiveLevel, UserRole, Field, AccessibilityMode, ChatThread } from "../types";
-import { User, Settings, Brain, Briefcase, GraduationCap, Accessibility, Layers, MessageSquare, BarChart3, AlertCircle, LogOut, Plus, ChevronRight, X, Moon, Sun, Video, Mic } from "lucide-react";
+import { User, Settings, Brain, Briefcase, GraduationCap, Accessibility, Layers, MessageSquare, BarChart3, AlertCircle, LogOut, Plus, ChevronRight, X, Moon, Sun, Video, Mic, Target } from "lucide-react";
 import { logout, db } from "../lib/firebase";
 import { deleteDoc, doc } from "firebase/firestore";
 import { getTranslation } from "../lib/translations";
@@ -8,8 +8,8 @@ import { getTranslation } from "../lib/translations";
 interface SidebarProps {
   profile: UserProfile;
   setProfile: (profile: UserProfile) => void;
-  currentView: 'chat' | 'hub' | 'profile' | 'settings' | 'logic' | 'video' | 'disability' | 'admin';
-  setCurrentView: (view: 'chat' | 'hub' | 'profile' | 'settings' | 'logic' | 'video' | 'disability' | 'admin') => void;
+  currentView: 'chat' | 'hub' | 'profile' | 'settings' | 'logic' | 'video' | 'disability' | 'admin' | 'goals';
+  setCurrentView: (view: 'chat' | 'hub' | 'profile' | 'settings' | 'logic' | 'video' | 'disability' | 'admin' | 'goals') => void;
   isDarkMode: boolean;
   toggleTheme: () => void;
   openLiveCaptions: () => void;
@@ -55,6 +55,7 @@ export default function Sidebar({ profile, setProfile, currentView, setCurrentVi
     { id: 'chat', label: getTranslation(profile.language, 'chatSession'), icon: MessageSquare },
     { id: 'hub', label: getTranslation(profile.language, 'dashboard'), icon: BarChart3 },
     { id: 'logic', label: getTranslation(profile.language, 'logicTraining'), icon: Brain },
+    { id: 'goals', label: (profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya') ? 'الأهداف' : 'Goals', icon: Target },
     { id: 'profile', label: getTranslation(profile.language, 'myProfile'), icon: User },
     { id: 'settings', label: getTranslation(profile.language, 'settings'), icon: Settings },
   ] as const;
