@@ -98,3 +98,13 @@ export interface Goal {
   milestones: Milestone[];
 }
 
+// ─── GPA Calculator ──────────────────────────────────────────────────────────
+export interface Course {
+  id: string;
+  name: string;
+  credits: number;         // credit hours
+  grade: string;           // letter grade key (A, A-, B+, ... F)
+  semester: string;        // e.g. "Fall 2026" — groups courses for GPA vs CGPA
+  createdAt: string;       // ISO date string
+}
+

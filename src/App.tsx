@@ -29,13 +29,14 @@ import { ToastContainer } from "./components/Toast";
 
 import { isRTL, getTranslation } from "./lib/translations";
 import GoalTracker from "./components/Goaltracker";
+import GpaCalculator from "./components/GpaCalculator";
 
 export default function App() {
   const [user, loading, authError] = useAuthState(auth);
   const chatRef = useRef<any>(null);
   
   const [currentView, setCurrentView] = useState<
-  'chat' | 'hub' | 'profile' | 'settings' | 'logic' | 'video' | 'disability' | 'admin' | 'goals'
+  'chat' | 'hub' | 'profile' | 'settings' | 'logic' | 'video' | 'disability' | 'admin' | 'goals' | 'gpa'
 >('chat');
   
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -113,7 +114,7 @@ export default function App() {
 
     const handlePopState = () => {
       const hash = window.location.hash.replace('#', '');
-      if (['chat', 'hub', 'logic', 'profile', 'settings', 'video', 'disability', 'admin','goals'].includes(hash)) {
+      if (['chat', 'hub', 'logic', 'profile', 'settings', 'video', 'disability', 'admin','goals','gpa'].includes(hash)) {
         setCurrentView(hash as any);
       } else {
         setCurrentView('chat');
@@ -418,6 +419,8 @@ export default function App() {
       onMenuClick={() => setIsMobileMenuOpen(true)}
     />
   );
+      case 'gpa':
+        return <GpaCalculator profile={profile} onMenuClick={() => setIsMobileMenuOpen(true)} />;
 
       case 'settings':
         return (

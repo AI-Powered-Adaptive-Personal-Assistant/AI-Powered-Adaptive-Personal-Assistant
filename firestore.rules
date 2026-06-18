@@ -70,8 +70,14 @@ service cloud.firestore {
       match /threads/{threadId} {
         allow read, write: if isOwner(userId) || isAdmin();
       }
-      
+
       match /sandbox/{sandboxId} {
+        allow read, write: if isOwner(userId) || isAdmin();
+      }
+
+      // Owner-scoped access to all per-user academic subcollections
+      // (goals, courses, attendance, planner, notes, etc.).
+      match /{document=**} {
         allow read, write: if isOwner(userId) || isAdmin();
       }
     }
