@@ -172,7 +172,7 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
 
   const [isLoading, setIsLoading] = useState(false);
   const [streamingText, setStreamingText] = useState("");
-  const [selectedFiles, setSelectedFiles] = useState<{ name: string, type: string, data: string }[]>([]);
+  const [selectedFiles, setSelectedFiles] = useState<{ name: string, type: string, data: string, url?: string }[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [previewFile, setPreviewFile] = useState<{ name: string, type: string, data: string } | null>(null);
@@ -444,7 +444,7 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
     const newFiles: { name: string, type: string, data: string, url?: string }[] = [];
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
-      
+
       // Limit file size to 5MB to prevent memory crashes (System Sync Errors)
       if (file.size > 5 * 1024 * 1024) {
         alert(`الملف "${file.name}" كبير جداً، الحد الأقصى 5 ميجا.`);
@@ -454,28 +454,35 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
       const base64 = await new Promise<string>((resolve) => {
         const reader = new FileReader();
         reader.onload = () => resolve(reader.result as string);
+        reader.onerror = () => resolve("");
         reader.readAsDataURL(file);
       });
       const dataStr = base64.split(',')[1];
-      
-      let downloadUrl = "";
-      try {
-        const storageRef = firebaseStorageRef(storage, `users/${profile.uid}/attachments/${Date.now()}_${file.name}`);
-        await uploadString(storageRef, dataStr, 'base64', { contentType: file.type });
-        downloadUrl = await getDownloadURL(storageRef);
-      } catch (err) {
-        console.error("Storage upload error", err);
+      if (!dataStr) {
+        alert(`تعذّر قراءة الملف "${file.name}".`);
+        continue;
       }
 
-      newFiles.push({
-        name: file.name,
-        type: file.type,
-        data: dataStr,
-        url: downloadUrl
-      });
+      newFiles.push({ name: file.name, type: file.type, data: dataStr, url: "" });
     }
+
+    // Show the files and make them available to the AI IMMEDIATELY — the base64
+    // `data` is all Gemini needs. Cloud Storage must never block this.
     setSelectedFiles(prev => [...prev, ...newFiles]);
-    if (fileInputRef.current) fileInputRef.current.value = ''; // Reset input to allow adding same file if needed
+    if (fileInputRef.current) fileInputRef.current.value = ''; // Reset input to allow re-adding the same file
+
+    // Best-effort: upload to Firebase Storage in the background for cross-device
+    // persistence. If Storage is misconfigured/blocked, the attachment still works.
+    newFiles.forEach(async (att) => {
+      try {
+        const storageRef = firebaseStorageRef(storage, `users/${profile.uid}/attachments/${Date.now()}_${att.name}`);
+        await uploadString(storageRef, att.data, 'base64', { contentType: att.type });
+        const url = await getDownloadURL(storageRef);
+        setSelectedFiles(prev => prev.map(f => (f.data === att.data && !f.url ? { ...f, url } : f)));
+      } catch (err) {
+        console.error("Storage upload error (non-blocking):", err);
+      }
+    });
   };
 
   const removeFile = (index: number) => {
@@ -586,7 +593,11 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
       });
     }
     
-    const submittedMessage = finalInput;
+    // If the user only attached files with no text, give the model a clear instruction.
+    const submittedMessage = finalInput.trim()
+      || (finalAttachments.length
+        ? "Please analyze the attached file(s) and describe or extract their key content."
+        : finalInput);
     setInput("");
     setIsLoading(true);
     setStreamingText("");
