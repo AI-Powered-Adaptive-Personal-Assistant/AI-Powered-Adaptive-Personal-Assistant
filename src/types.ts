@@ -108,3 +108,14 @@ export interface Course {
   createdAt: string;       // ISO date string
 }
 
+// ─── Attendance Tracker ──────────────────────────────────────────────────────
+export interface AttendanceSubject {
+  id: string;
+  name: string;
+  attended: number;        // sessions attended
+  absent: number;          // sessions missed
+  totalPlanned: number;    // total scheduled sessions for the course (0 = unknown)
+  threshold: number;       // required attendance % (e.g. 75)
+  createdAt: string;
+}
+
