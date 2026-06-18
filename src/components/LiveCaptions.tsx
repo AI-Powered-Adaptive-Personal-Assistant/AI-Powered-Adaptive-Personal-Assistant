@@ -1,13 +1,18 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { 
-  Mic, MicOff, Sparkles, RefreshCw, X, Volume2, MessageSquare, 
+import {
+  Mic, MicOff, Sparkles, RefreshCw, X, Volume2, MessageSquare,
   History, Maximize2, Trash2, ChevronRight, Heart, Settings,
   Plus, Copy, Check, Zap, Activity, Brain, Repeat2, Target,
   ChevronDown, BarChart2, BookOpen, PlayCircle, StopCircle,
-  AlertTriangle, CheckCircle2, Clock, Waves
+  AlertTriangle, CheckCircle2, Clock, Waves, Pencil
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { geminiService } from '../services/geminiService';
+import { toast } from './Toast';
+import {
+  loadPronDict, savePronDict, applyPronunciation, learnFromCorrection,
+  mergeMappings, dictToMappings, type PronDict,
+} from '../lib/adaptiveSpeech';
 
 interface LiveCaptionsProps {
   language?: string;
@@ -113,6 +118,11 @@ export default function LiveCaptions({ language = 'en-US', onClose }: LiveCaptio
   const [segments, setSegments] = useState<TranscriptSegment[]>([]);
   const [isDecoding, setIsDecoding] = useState(false);
 
+  // ── Adaptive pronunciation: a per-user word dictionary that grows from edits
+  const [pronDict, setPronDict] = useState<PronDict>(() => loadPronDict());
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState('');
+
   // ── Repeat mode: AI restates what it heard in clear synthesized voice
   const [repeatModeOn, setRepeatModeOn] = useState(false);
   const [lastRepeated, setLastRepeated] = useState('');
@@ -203,6 +213,7 @@ export default function LiveCaptions({ language = 'en-US', onClose }: LiveCaptio
   useEffect(() => { localStorage.setItem('cognify_speech_history', JSON.stringify(speechHistory)); }, [speechHistory]);
   useEffect(() => { localStorage.setItem('cognify_speech_presets', JSON.stringify(favorites)); }, [favorites]);
   useEffect(() => { localStorage.setItem('cognify_euphonia_patterns', JSON.stringify(euphoniaPatterns)); }, [euphoniaPatterns]);
+  useEffect(() => { savePronDict(pronDict); }, [pronDict]);
   useEffect(() => { localStorage.setItem('cognify_pause_threshold', String(pauseThreshold)); }, [pauseThreshold]);
   useEffect(() => { localStorage.setItem('cognify_speech_rate', String(speechRate)); }, [speechRate]);
   useEffect(() => { localStorage.setItem('cognify_speech_pitch', String(speechPitch)); }, [speechPitch]);
@@ -330,13 +341,19 @@ export default function LiveCaptions({ language = 'en-US', onClose }: LiveCaptio
     if (!rawText.trim()) return;
     setIsDecoding(true);
 
-    let decoded = rawText;
+    // Step 0: Apply the user's learned pronunciation dictionary instantly
+    // (offline, free) before any AI step. `rawText` stays the original "heard".
+    const adapted = applyPronunciation(rawText, pronDict);
+    // Merge learned words into the personalization signals handed to the model.
+    const mappings = [...euphoniaPatterns, ...dictToMappings(pronDict)];
+
+    let decoded = adapted;
     let confidence: 'high' | 'medium' | 'low' = 'high';
     let intent: string | undefined;
 
     try {
       // Step 1: Local pattern matching (instant)
-      const cleanIn = rawText.toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?\"']/g, "").trim();
+      const cleanIn = adapted.toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?\"']/g, "").trim();
       const localMatch = euphoniaPatterns.find(p => {
         const cleanP = p.phrase.toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?\"']/g, "").trim();
         return cleanIn === cleanP || cleanIn.includes(cleanP) || cleanP.includes(cleanIn);
@@ -347,12 +364,12 @@ export default function LiveCaptions({ language = 'en-US', onClose }: LiveCaptio
         confidence = 'high';
       } else if (speechProfile !== 'Standard') {
         // Step 2: Gemini dysarthria decoding
-        decoded = await geminiService.decodeDysarthria(rawText, speechProfile, language, euphoniaPatterns);
-        confidence = decoded.toLowerCase() === rawText.toLowerCase() ? 'low' : 'medium';
-        if (decoded !== rawText && decoded.length > rawText.length * 0.5) confidence = 'high';
+        decoded = await geminiService.decodeDysarthria(adapted, speechProfile, language, mappings);
+        confidence = decoded.toLowerCase() === adapted.toLowerCase() ? 'low' : 'medium';
+        if (decoded !== adapted && decoded.length > adapted.length * 0.5) confidence = 'high';
       } else {
         // Step 3: Standard AI enhancement
-        decoded = await geminiService.enhanceCaptions(rawText, language);
+        decoded = await geminiService.enhanceCaptions(adapted, language);
         confidence = 'high';
       }
 
@@ -390,6 +407,37 @@ export default function LiveCaptions({ language = 'en-US', onClose }: LiveCaptio
     setSegments(prev => [...prev.slice(-20), newSegment]); // Keep last 20
     setTranscript('');
     setInterimTranscript('');
+  };
+
+  // ──────────────────────────────────────────────────────────────────────
+  // USER CORRECTION → LEARN (continuously updates the pronunciation dictionary)
+  // ──────────────────────────────────────────────────────────────────────
+  const startEditSegment = (seg: TranscriptSegment) => {
+    setEditingId(seg.id);
+    setEditValue(seg.decoded);
+  };
+
+  const saveEditSegment = (seg: TranscriptSegment) => {
+    const corrected = editValue.trim();
+    setEditingId(null);
+    if (!corrected || corrected === seg.decoded) return;
+
+    setSegments(prev =>
+      prev.map(s => (s.id === seg.id ? { ...s, decoded: corrected, confidence: 'high' } : s)),
+    );
+
+    // Learn from the difference between what was heard and the user's fix.
+    const learned = learnFromCorrection(seg.raw, corrected);
+    if (learned.length) {
+      const { dict, added } = mergeMappings(pronDict, learned);
+      if (added.length) {
+        setPronDict(dict);
+        toast.success(
+          added.map(m => `"${m.from}" → "${m.to}"`).join('  ·  '),
+          `Learned ${added.length} pronunciation${added.length > 1 ? 's' : ''}`,
+        );
+      }
+    }
   };
 
   // ──────────────────────────────────────────────────────────────────────
@@ -756,10 +804,39 @@ export default function LiveCaptions({ language = 'en-US', onClose }: LiveCaptio
                     animate={{ opacity: 1, y: 0 }}
                     className="bg-neutral-900 border border-white/5 rounded-2xl p-4 group hover:border-white/10 transition-all"
                   >
-                    {/* Decoded text — large and readable */}
-                    <p className="text-xl md:text-2xl font-bold text-white leading-snug mb-3">
-                      "{seg.decoded}"
-                    </p>
+                    {/* Decoded text — large and readable, or an inline editor */}
+                    {editingId === seg.id ? (
+                      <div className="flex items-center gap-2 mb-3">
+                        <input
+                          autoFocus
+                          value={editValue}
+                          onChange={(e) => setEditValue(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') saveEditSegment(seg);
+                            if (e.key === 'Escape') setEditingId(null);
+                          }}
+                          className="flex-1 bg-neutral-800 border border-emerald-500/40 rounded-xl px-3 py-2 text-lg md:text-xl font-bold text-white outline-none focus:border-emerald-500"
+                        />
+                        <button
+                          onClick={() => saveEditSegment(seg)}
+                          title="Save & learn"
+                          className="p-2 rounded-lg bg-emerald-500 text-white hover:bg-emerald-600"
+                        >
+                          <Check className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => setEditingId(null)}
+                          title="Cancel"
+                          className="p-2 rounded-lg bg-white/5 text-neutral-400 hover:text-white"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ) : (
+                      <p className="text-xl md:text-2xl font-bold text-white leading-snug mb-3">
+                        "{seg.decoded}"
+                      </p>
+                    )}
 
                     {/* Meta row */}
                     <div className="flex items-center justify-between flex-wrap gap-2">
@@ -780,6 +857,13 @@ export default function LiveCaptions({ language = 'en-US', onClose }: LiveCaptio
                             heard: "{seg.raw}"
                           </span>
                         )}
+                        <button
+                          onClick={() => startEditSegment(seg)}
+                          className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-neutral-400 hover:text-emerald-400 transition-all"
+                          title="Fix this — the app learns your pronunciation"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
                         <button
                           onClick={() => speakText(seg.decoded)}
                           className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-neutral-400 hover:text-white transition-all"
