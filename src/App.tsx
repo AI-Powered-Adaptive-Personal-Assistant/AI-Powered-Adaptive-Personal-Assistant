@@ -526,7 +526,7 @@ export default function App() {
   return (
     <ErrorBoundary>
       <div 
-        className={`flex w-full h-[100dvh] bg-slate-950 font-sans overflow-hidden selection:bg-blue-500/30 transition-all duration-500 ${
+        className={`flex w-full h-[100dvh] bg-slate-50 font-sans overflow-hidden selection:bg-blue-500/30 transition-all duration-500 ${
           profile?.accessibilityMode === 'Visual' ? 'text-lg contrast-125' : ''
         }`}
         dir={direction}

@@ -381,6 +381,25 @@ export async function generateProactiveInsights(
   }
 }
 
+// Non-streaming Groq completion → returns the full text ("" on failure).
+async function groqChat(
+  messages: { role: string; content: string }[],
+  apiKey: string,
+): Promise<string> {
+  try {
+    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({ model: "llama-3.3-70b-versatile", messages, temperature: 0.7 }),
+    });
+    if (!res.ok) return "";
+    const d = await res.json();
+    return d.choices?.[0]?.message?.content || "";
+  } catch {
+    return "";
+  }
+}
+
 export async function generateLogicResponse(
   message: string,
   profile: UserProfile,
@@ -394,38 +413,48 @@ export async function generateLogicResponse(
       body: JSON.stringify({ message, profile, moduleName, history })
     });
     const isHtml = res.headers.get('Content-Type')?.includes('text/html');
+    const isAr = profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya';
     if (!res.ok || isHtml) {
+      let text = "";
       const apiKey = geminiPrimaryKey();
       if (apiKey) {
-        const prompt = `You are a Logic Tutor on ${moduleName}.\nUser Profile: ${JSON.stringify(profile)}\nUser: ${message}`;
-        const response = await fetchGeminiWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${apiKey}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [{ role: "user", parts: [{ text: prompt }] }]
-          })
-        });
-        if (!response.ok) {
-          if (response.status === 503) {
-            toast.error(
-              profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya'
-                ? "خادم المنطق واجه ضغطًا زائدًا (503). يرجى تكرار المحاولة."
-                : "Logic solver was overloaded (503). Please try again in a bit.",
-              "Logic Connection"
-            );
+        try {
+          const prompt = `You are a Logic Tutor on ${moduleName}.\nUser Profile: ${JSON.stringify(profile)}\nUser: ${message}`;
+          const response = await fetchGeminiWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${apiKey}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{ role: "user", parts: [{ text: prompt }] }]
+            })
+          });
+          if (response.ok) {
+            const d = await response.json();
+            text = d.candidates?.[0]?.content?.parts?.[0]?.text || "";
           }
-        }
-        const d = await response.json();
-        return d.candidates?.[0]?.content?.parts?.[0]?.text || "Empty response from Gemini client backend.";
+        } catch { /* fall through to Groq */ }
       }
-      return profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya'
-        ? "⚠️ خادم المنطق غير متاح في النسخة الساكنة. من فضلك استخدم نسخة الـ Cloud Run الكاملة لتشغيل اختبارات المنطق بالكامل."
-        : "⚠️ Logic server is unavailable in static deployment. Please use our official Cloud Run URL for full logic exercises.";
+      // Fallback to Groq if Gemini failed/returned nothing.
+      if (!text) {
+        const groqKey = groqPrimaryKey();
+        if (groqKey) {
+          text = await groqChat([
+            { role: "system", content: `You are a Logic Tutor for the "${moduleName}" module. ${buildPersona(profile)}` },
+            { role: "user", content: message },
+          ], groqKey);
+        }
+      }
+      if (text) return text;
+      return isAr
+        ? "⚠️ الذكاء مشغول دلوقتي بسبب الضغط. جرّب كمان شوية 🙏"
+        : "⚠️ The AI is busy right now. Please try again in a moment 🙏";
     }
     const data = await res.json();
     return data.result;
   } catch (err: any) {
-    return `Tutor uplink error: ${err.message}`;
+    const isAr = profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya';
+    return isAr
+      ? "⚠️ حصلت مشكلة في الاتصال. جرّب تاني 🙏"
+      : "⚠️ Connection issue — please try again 🙏";
   }
 }
 
