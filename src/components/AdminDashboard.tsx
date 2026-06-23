@@ -171,7 +171,7 @@ export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardP
                        <th className="p-4">User</th>
                        <th className="p-4">Role & Level</th>
                        <th className="p-4">Points</th>
-                       <th className="p-4">IQ Score</th>
+                       <th className="p-4">Score</th>
                        <th className="p-4">Last Active</th>
                        <th className="p-4">Email</th>
                        <th className="p-4 text-right">Actions</th>

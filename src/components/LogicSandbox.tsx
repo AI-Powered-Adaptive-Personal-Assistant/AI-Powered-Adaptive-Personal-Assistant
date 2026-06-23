@@ -179,7 +179,7 @@ export default function LogicSandbox({ profile, onMenuClick }: LogicSandboxProps
     },
     {
       id: 3,
-      title: 'Advanced IQ Prep',
+      title: 'Advanced Reasoning',
       description: 'Train on high-level riddles, logical deductions, and test puzzles.',
       iqRequirement: 80,
       intensity: 'Extreme',
@@ -354,7 +354,7 @@ export default function LogicSandbox({ profile, onMenuClick }: LogicSandboxProps
         </button>
         <div>
           <h1 className="text-2xl md:text-4xl font-black text-slate-900 tracking-tighter uppercase">{getTranslation(profile.language, 'sandbox')}</h1>
-          <p className="text-xs md:text-sm text-slate-500 font-medium italic mt-1">Training modules calibrated for your IQ Score: {profile.iqScore || 0}</p>
+          <p className="text-xs md:text-sm text-slate-500 font-medium italic mt-1">Training modules calibrated for your Cognify Score: {profile.iqScore || 0}</p>
         </div>
       </header>
 
@@ -385,7 +385,7 @@ export default function LogicSandbox({ profile, onMenuClick }: LogicSandboxProps
                       <div className="flex-1 space-y-1">
                         <div className="flex items-center justify-between">
                           <h4 className="font-black text-sm uppercase tracking-widest">{m.title}</h4>
-                          {isLocked && <div className="text-[9px] font-black bg-slate-200 text-slate-500 px-2 py-0.5 rounded-full uppercase">IQ {m.iqRequirement}+ Required</div>}
+                          {isLocked && <div className="text-[9px] font-black bg-slate-200 text-slate-500 px-2 py-0.5 rounded-full uppercase">Score {m.iqRequirement}+ Required</div>}
                         </div>
                         <p className={`text-xs leading-relaxed ${selectedModule === m.id ? 'text-slate-300' : 'text-slate-500'}`}>
                           {m.description}
@@ -565,7 +565,7 @@ export default function LogicSandbox({ profile, onMenuClick }: LogicSandboxProps
             </div>
             <div className="space-y-1">
               <h4 className="text-base md:text-lg font-black uppercase tracking-tighter">Logic Level: {profile.iqScore ? (profile.iqScore > 120 ? 'Savant' : profile.iqScore > 100 ? 'Analytical' : 'Standard') : 'Initializing'}</h4>
-              <p className="text-white/50 text-[10px] md:text-xs font-medium italic">Based on your integrated IQ score: {profile.iqScore || 'N/A'}</p>
+              <p className="text-white/50 text-[10px] md:text-xs font-medium italic">Based on your integrated Cognify score: {profile.iqScore || 'N/A'}</p>
             </div>
           </div>
           <div className="flex items-center gap-3">

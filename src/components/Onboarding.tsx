@@ -356,11 +356,11 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
 
         <div className="grid grid-cols-2 gap-4 w-full">
           <div className="bg-bg-main p-6 rounded-2xl border border-border flex flex-col items-center">
-            <span className="text-[10px] uppercase font-black text-text-muted tracking-widest mb-1">IQ Score</span>
+            <span className="text-[10px] uppercase font-black text-text-muted tracking-widest mb-1">Cognify Score</span>
             <span className="text-3xl font-black text-primary">{results.score}</span>
           </div>
           <div className="bg-bg-main p-6 rounded-2xl border border-border flex flex-col items-center">
-            <span className="text-[10px] uppercase font-black text-text-muted tracking-widest mb-1">Intelligence Level</span>
+            <span className="text-[10px] uppercase font-black text-text-muted tracking-widest mb-1">Level</span>
             <span className={`text-xl font-bold uppercase ${
               results.level === 'Advanced' ? 'text-purple-600' : 
               results.level === 'Intermediate' ? 'text-blue-600' : 'text-orange-600'
