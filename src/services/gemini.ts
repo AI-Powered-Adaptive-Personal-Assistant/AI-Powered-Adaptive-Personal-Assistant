@@ -14,6 +14,86 @@ function geminiPrimaryKey(): string {
   return GEMINI_KEYS[0] || "";
 }
 
+// Groq is used as an automatic fallback when Gemini is rate-limited/overloaded.
+// Set VITE_GROQ_API_KEY (one or several comma-separated keys) to enable it.
+const GROQ_KEYS: string[] = (((import.meta as any).env?.VITE_GROQ_API_KEY as string) || "")
+  .split(/[,\s]+/)
+  .map((k: string) => k.trim())
+  .filter(Boolean);
+function groqPrimaryKey(): string {
+  return GROQ_KEYS[0] || "";
+}
+
+/** Compact adaptive system prompt (shared by the Groq fallback). */
+function buildPersona(profile: UserProfile): string {
+  return `You are Cognify, an adaptive AI mentor. Answer the most correct, useful answer calibrated to THIS user.
+- Level: ${profile.level} | Role: ${profile.role} | Field: ${profile.field}
+- Reply in the SAME language/dialect as the user's last message (incl. Egyptian Arabic if they use it).
+- Basic: simple, analogies, no jargon. Intermediate: normal, brief reasoning. Advanced: rigorous, direct.
+- Answer first, no filler openers. Be honest if unsure; never invent facts.`;
+}
+
+// Stream a chat completion from Groq (OpenAI-compatible). Yields {text, done}.
+async function* generateGroqStream(
+  message: string,
+  profile: UserProfile,
+  history: Message[],
+  apiKey: string,
+) {
+  const messages = [
+    { role: "system", content: buildPersona(profile) },
+    ...history
+      .filter((m) => m.id !== "welcome" && m.content?.trim())
+      .map((m) => ({ role: m.role === "user" ? "user" : "assistant", content: m.content })),
+    { role: "user", content: message },
+  ];
+
+  const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+    body: JSON.stringify({
+      model: "llama-3.3-70b-versatile",
+      messages,
+      temperature: 0.7,
+      stream: true,
+    }),
+  });
+
+  if (!res.ok || !res.body) {
+    yield { text: "⚠️ AI is busy right now. Please try again in a moment.", done: true, error: true };
+    return;
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder("utf-8");
+  let buffer = "";
+  let fullText = "";
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() || "";
+    for (const line of lines) {
+      const t = line.trim();
+      if (!t.startsWith("data:")) continue;
+      const payload = t.slice(5).trim();
+      if (payload === "[DONE]") continue;
+      try {
+        const json = JSON.parse(payload);
+        const chunk = json.choices?.[0]?.delta?.content || "";
+        if (chunk) {
+          fullText += chunk;
+          yield { text: fullText, done: false };
+        }
+      } catch {
+        /* ignore partial json */
+      }
+    }
+  }
+  yield { text: fullText, done: true };
+}
+
 // Retry transient Gemini errors (503 overloaded / 429 rate-limited) with
 // exponential backoff, rotating across keys if more than one is configured.
 async function fetchGeminiWithRetry(
@@ -441,6 +521,12 @@ ${otherThreadsSummary}
   });
 
   if (!res.ok) {
+    // Gemini failed (overloaded/rate-limited) → automatically fall back to Groq.
+    const groqKey = groqPrimaryKey();
+    if (groqKey) {
+      yield* generateGroqStream(message, profile, history, groqKey);
+      return;
+    }
     const isArabic = profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya';
     if (res.status === 503) {
       toast.error(
@@ -530,6 +616,12 @@ export async function* generateAdaptiveResponseStream(
       const apiKey = geminiPrimaryKey();
       if (apiKey) {
         yield* generateAdaptiveResponseStreamClient(message, profile, history, attachments, apiKey);
+        return;
+      }
+      // No Gemini key configured → use Groq directly if available.
+      const groqKey = groqPrimaryKey();
+      if (groqKey) {
+        yield* generateGroqStream(message, profile, history, groqKey);
         return;
       }
 
