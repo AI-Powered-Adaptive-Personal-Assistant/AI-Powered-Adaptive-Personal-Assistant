@@ -9,6 +9,7 @@ import {
   Sparkles,
   MessageSquare,
   Eye,
+  EyeOff,
   Camera,
   RefreshCw,
   Hand,
@@ -56,6 +57,14 @@ export default function AccessibilityOverlay({
 }: AccessibilityOverlayProps) {
   const [isVisionActive, setIsVisionActive] = useState(false);
   const [isVisionAnalyzing, setIsVisionAnalyzing] = useState(false);
+  // Lets the user hide the floating mic / camera / voice controls (remembered).
+  const [controlsHidden, setControlsHidden] = useState<boolean>(() => {
+    try { return localStorage.getItem("cognify_a11y_hidden") === "1"; } catch { return false; }
+  });
+  const toggleControlsHidden = (next: boolean) => {
+    setControlsHidden(next);
+    try { localStorage.setItem("cognify_a11y_hidden", next ? "1" : "0"); } catch { /* ignore */ }
+  };
   const [isAvatarSigning, setIsAvatarSigning] = useState(false);
   const [detectionConfidence, setDetectionConfidence] = useState(0);
 
@@ -579,6 +588,19 @@ export default function AccessibilityOverlay({
     },
   };
 
+  // Collapsed: show only a tiny pill to bring the controls back.
+  if (controlsHidden) {
+    return (
+      <button
+        onClick={() => toggleControlsHidden(false)}
+        title="Show accessibility controls"
+        className="fixed bottom-32 left-4 md:left-8 z-50 w-12 h-12 rounded-full bg-slate-900 text-white shadow-xl border-2 border-slate-700 flex items-center justify-center hover:bg-slate-800 active:scale-95 pointer-events-auto"
+      >
+        <Eye className="w-5 h-5" />
+      </button>
+    );
+  }
+
   return (
     <motion.div
       drag
@@ -587,6 +609,14 @@ export default function AccessibilityOverlay({
       dragMomentum={false}
       className="fixed bottom-32 left-4 md:left-8 z-50 flex flex-col gap-6 pointer-events-none"
     >
+      {/* Hide all accessibility controls */}
+      <button
+        onClick={() => toggleControlsHidden(true)}
+        title="Hide accessibility controls"
+        className="self-start pointer-events-auto w-9 h-9 rounded-full bg-white/90 backdrop-blur border border-slate-200 text-slate-500 shadow flex items-center justify-center hover:text-slate-800 active:scale-95"
+      >
+        <EyeOff className="w-4 h-4" />
+      </button>
       <AnimatePresence>
         {(mode === "Vocal-Deaf" ||
           mode === "Sign-Only" ||
