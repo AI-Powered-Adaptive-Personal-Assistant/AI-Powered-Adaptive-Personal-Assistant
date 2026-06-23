@@ -166,9 +166,12 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
     quizPreparedRef.current = true;
 
     const lang = formData.language || 'English';
-    const domain = (formData.role === 'Professional'
-      ? (formData.jobTitle || formData.work)
-      : (formData.faculty || formData.field)) || 'General Knowledge';
+    // Build the most specific track possible so questions target the person's
+    // actual field (e.g. "Computer Science & IT — AI") rather than generic trivia.
+    const parts = formData.role === 'Professional'
+      ? [formData.jobTitle, formData.work, formData.field]
+      : [formData.faculty, formData.department, formData.field];
+    const domain = parts.map((p) => (p || '').trim()).filter(Boolean).join(' — ') || 'General Knowledge';
     setQuizDomain(domain);
 
     let cancelled = false;

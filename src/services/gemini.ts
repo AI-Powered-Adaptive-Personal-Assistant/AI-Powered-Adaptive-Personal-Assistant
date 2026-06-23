@@ -174,11 +174,14 @@ async function generateAssessmentDirect(
   const dialect =
     language === "Egyptian Ammiya" ? " (Egyptian colloquial Arabic)" : "";
   const mcqCount = Math.max(1, count - 1);
-  const prompt = `Generate a ${level}-level knowledge assessment for the field "${field}" to measure a learner's level in that field.
-Write EVERYTHING in ${language}${dialect}.
-Produce exactly ${count} questions: ${mcqCount} multiple-choice and 1 short open-ended question.
-- Multiple-choice: exactly 4 distinct options with EXACTLY ONE correct answer.
-- Keep them ${level}-appropriate, accurate and unambiguous.
+  const prompt = `You are an expert examiner creating a focused assessment for a learner whose field/track is: "${field}".
+Generate exactly ${count} questions that test REAL core knowledge, concepts and terminology SPECIFIC to "${field}".
+STRICT rules:
+- Every question MUST be clearly about "${field}".
+- DO NOT use generic IQ, riddles, trick questions, math puzzles or general trivia.
+- Level: ${level} (foundational core concepts for "Basic").
+- Write EVERYTHING in ${language}${dialect}.
+- ${mcqCount} multiple-choice (exactly 4 options, ONE correct) + 1 short open-ended question to explain a key concept in "${field}".
 Return ONLY a JSON array; each item:
 {"id": number, "type": "mcq"|"open", "text": string, "options": string[] (4 for mcq, [] for open), "correctAnswer": string}`;
   const response = await fetchGeminiWithRetry(
@@ -203,14 +206,41 @@ Return ONLY a JSON array; each item:
  * then falls back to a direct in-browser Gemini call. Returns [] on failure so
  * the caller can fall back to a static question set.
  */
+async function generateAssessmentGroq(
+  field: string,
+  language: string,
+  level: string,
+  count: number,
+  groqKey: string,
+): Promise<AssessmentQuestion[]> {
+  const dialect = language === "Egyptian Ammiya" ? " (Egyptian colloquial Arabic)" : "";
+  const mcqCount = Math.max(1, count - 1);
+  const prompt = `You are an expert examiner creating a focused assessment for a learner whose field/track is: "${field}".
+Generate exactly ${count} questions testing REAL core knowledge SPECIFIC to "${field}". DO NOT use generic IQ/riddles/trivia.
+Level: ${level}. Write everything in ${language}${dialect}.
+${mcqCount} multiple-choice (4 options, ONE correct) + 1 short open-ended question about "${field}".
+Return ONLY a JSON array: [{"id": number, "type": "mcq"|"open", "text": string, "options": string[], "correctAnswer": string}]`;
+  const txt = await groqChat([{ role: "user", content: prompt }], groqKey);
+  return normalizeAssessment(extractJsonArray(txt));
+}
+
 export async function generateAssessment(
   field: string,
   language: string = "English",
   level: string = "Basic",
   count: number = 8,
 ): Promise<AssessmentQuestion[]> {
-  const apiKey =
-    geminiPrimaryKey();
+  const apiKey = geminiPrimaryKey();
+  const groqKey = groqPrimaryKey();
+  const direct = async (): Promise<AssessmentQuestion[]> => {
+    if (apiKey) {
+      const qs = await generateAssessmentDirect(field, language, level, count, apiKey);
+      if (qs.length) return qs;
+    }
+    // Gemini unavailable/empty → try Groq so the field quiz still works.
+    if (groqKey) return await generateAssessmentGroq(field, language, level, count, groqKey);
+    return [];
+  };
   try {
     const res = await fetch("/api/gemini/generateAssessment", {
       method: "POST",
@@ -223,18 +253,14 @@ export async function generateAssessment(
       const qs = normalizeAssessment(data.result);
       if (qs.length) return qs;
     }
-    if (apiKey) return await generateAssessmentDirect(field, language, level, count, apiKey);
-    return [];
+    return await direct();
   } catch (err) {
     console.error("generateAssessment error:", err);
-    if (apiKey) {
-      try {
-        return await generateAssessmentDirect(field, language, level, count, apiKey);
-      } catch {
-        return [];
-      }
+    try {
+      return await direct();
+    } catch {
+      return [];
     }
-    return [];
   }
 }
 

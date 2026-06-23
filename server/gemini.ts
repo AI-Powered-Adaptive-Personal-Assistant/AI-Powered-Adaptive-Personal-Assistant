@@ -181,12 +181,15 @@ export async function generateAssessment(
     const dialect =
       language === "Egyptian Ammiya" ? " (Egyptian colloquial Arabic)" : "";
     const mcqCount = Math.max(1, count - 1);
-    const prompt = `Generate a ${level}-level knowledge assessment for the field "${domain}" to measure a learner's actual level in that field.
-Write EVERYTHING (questions and options) in ${language}${dialect}.
-Produce exactly ${count} questions: ${mcqCount} multiple-choice and 1 short open-ended question.
-- Multiple-choice: exactly 4 distinct options with EXACTLY ONE correct answer.
-- Keep them ${level}-appropriate (foundational/easy for "Basic"), accurate, and unambiguous.
-- The open-ended question should require a 1-2 sentence answer.
+    const prompt = `You are an expert examiner creating a focused assessment for a learner whose field/track is: "${domain}".
+Generate exactly ${count} questions that test REAL core knowledge, concepts and terminology SPECIFIC to "${domain}".
+STRICT rules:
+- Every question MUST be clearly about "${domain}" — its concepts, tools, theories or practice.
+- DO NOT use generic IQ, riddles, trick questions, math puzzles or general trivia.
+- Level: ${level} (foundational core concepts of the field for "Basic").
+- Write EVERYTHING (questions and options) in ${language}${dialect}.
+- ${mcqCount} multiple-choice (exactly 4 distinct options, EXACTLY ONE correct) + 1 short open-ended question asking them to explain a key concept in "${domain}".
+- Accurate and unambiguous.
 Return ONLY a JSON array; each item:
 {"id": number, "type": "mcq" | "open", "text": string, "options": string[] (4 for mcq, [] for open), "correctAnswer": string (the exact correct option for mcq, or a concise model answer for open)}`;
 
