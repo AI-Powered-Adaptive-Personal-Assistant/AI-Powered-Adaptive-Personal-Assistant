@@ -1,18 +1,37 @@
 import { UserProfile, Message } from "../types";
 import { toast } from "../components/Toast";
 
+// Supports ONE or MANY keys: set VITE_GEMINI_API_KEY to a single key, or several
+// comma/space-separated keys to multiply the free-tier quota. On 429/503 the
+// retry rotates to the next key.
+const GEMINI_KEYS: string[] = (((import.meta as any).env?.VITE_GEMINI_API_KEY as string) || "")
+  .split(/[,\s]+/)
+  .map((k: string) => k.trim())
+  .filter(Boolean);
+
+/** First key (used to build the initial request URL). "" if none configured. */
+function geminiPrimaryKey(): string {
+  return GEMINI_KEYS[0] || "";
+}
+
 // Retry transient Gemini errors (503 overloaded / 429 rate-limited) with
-// exponential backoff before giving up.
+// exponential backoff, rotating across keys if more than one is configured.
 async function fetchGeminiWithRetry(
   url: string,
   init: RequestInit,
-  retries = 2,
+  retries = 3,
 ): Promise<Response> {
   let res = await fetch(url, init);
   let attempt = 0;
+  let keyIdx = 0;
   while ((res.status === 503 || res.status === 429) && attempt < retries) {
-    await new Promise((r) => setTimeout(r, 700 * Math.pow(2, attempt)));
+    await new Promise((r) => setTimeout(r, 500 * Math.pow(2, attempt)));
     attempt++;
+    // Rotate to the next key on rate-limit/overload (helps if several are set).
+    if (GEMINI_KEYS.length > 1) {
+      keyIdx = (keyIdx + 1) % GEMINI_KEYS.length;
+      url = url.replace(/([?&]key=)[^&]+/, `$1${GEMINI_KEYS[keyIdx]}`);
+    }
     res = await fetch(url, init);
   }
   return res;
@@ -111,7 +130,7 @@ export async function generateAssessment(
   count: number = 8,
 ): Promise<AssessmentQuestion[]> {
   const apiKey =
-    ((import.meta as any).env?.VITE_GEMINI_API_KEY as string) || "";
+    geminiPrimaryKey();
   try {
     const res = await fetch("/api/gemini/generateAssessment", {
       method: "POST",
@@ -201,7 +220,7 @@ export async function translateQuiz(
     options: q.options,
   }));
   const apiKey =
-    ((import.meta as any).env?.VITE_GEMINI_API_KEY as string) || "";
+    geminiPrimaryKey();
 
   try {
     const res = await fetch("/api/gemini/translateQuiz", {
@@ -296,7 +315,7 @@ export async function generateLogicResponse(
     });
     const isHtml = res.headers.get('Content-Type')?.includes('text/html');
     if (!res.ok || isHtml) {
-      const apiKey = ((import.meta as any).env?.VITE_GEMINI_API_KEY as string) || "";
+      const apiKey = geminiPrimaryKey();
       if (apiKey) {
         const prompt = `You are a Logic Tutor on ${moduleName}.\nUser Profile: ${JSON.stringify(profile)}\nUser: ${message}`;
         const response = await fetchGeminiWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${apiKey}`, {
@@ -508,7 +527,7 @@ export async function* generateAdaptiveResponseStream(
     const isHtml = res.headers.get('Content-Type')?.includes('text/html') || false;
 
     if (!res.ok || isHtml) {
-      const apiKey = ((import.meta as any).env?.VITE_GEMINI_API_KEY as string) || "";
+      const apiKey = geminiPrimaryKey();
       if (apiKey) {
         yield* generateAdaptiveResponseStreamClient(message, profile, history, attachments, apiKey);
         return;
@@ -619,7 +638,7 @@ export async function generateAdaptiveResponse(
     });
     const isHtml = res.headers.get('Content-Type')?.includes('text/html');
     if (!res.ok || isHtml) {
-      const apiKey = ((import.meta as any).env?.VITE_GEMINI_API_KEY as string) || "";
+      const apiKey = geminiPrimaryKey();
       if (apiKey) {
         let text = "";
         const clientStream = generateAdaptiveResponseStreamClient(message, profile, history, attachments, apiKey);
