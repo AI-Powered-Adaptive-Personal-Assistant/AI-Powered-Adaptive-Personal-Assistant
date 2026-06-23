@@ -25,6 +25,30 @@ interface AssessmentQuizProps {
  * questions for `field` in the user's language, scores them, and reports an
  * IQ-style score. Used to gate sectors (e.g. the Logic Sandbox entrance test).
  */
+// Built-in questions used when the AI is unavailable (e.g. rate-limited) so the
+// test ALWAYS works — never blocks the user with a "skip" screen.
+function fallbackQuestions(isAr: boolean): AssessmentQuestion[] {
+  const en: AssessmentQuestion[] = [
+    { id: 1, type: 'mcq', text: 'Continue the pattern: 2, 4, 8, 16, ?', options: ['20', '24', '32', '30'], correctAnswer: '32' },
+    { id: 2, type: 'mcq', text: 'Which one is the odd one out?', options: ['Dog', 'Cat', 'Lion', 'Rose'], correctAnswer: 'Rose' },
+    { id: 3, type: 'mcq', text: 'If A is greater than B, and B is greater than C, then:', options: ['A > C', 'C > A', 'A = C', 'Cannot tell'], correctAnswer: 'A > C' },
+    { id: 4, type: 'mcq', text: 'Complete: Monday, Tuesday, Wednesday, ?', options: ['Friday', 'Thursday', 'Sunday', 'Saturday'], correctAnswer: 'Thursday' },
+    { id: 5, type: 'mcq', text: 'Which number is the largest?', options: ['0.50', '0.45', '0.55', '0.5'], correctAnswer: '0.55' },
+    { id: 6, type: 'mcq', text: 'Continue: 5, 10, 15, 20, ?', options: ['22', '25', '30', '24'], correctAnswer: '25' },
+    { id: 7, type: 'open', text: 'In one sentence, what is one strength you have as a learner?', options: [], correctAnswer: '' },
+  ];
+  const ar: AssessmentQuestion[] = [
+    { id: 1, type: 'mcq', text: 'كمّل النمط: ٢، ٤، ٨، ١٦، ؟', options: ['٢٠', '٢٤', '٣٢', '٣٠'], correctAnswer: '٣٢' },
+    { id: 2, type: 'mcq', text: 'أنهي واحد مختلف عن الباقي؟', options: ['كلب', 'قطة', 'أسد', 'وردة'], correctAnswer: 'وردة' },
+    { id: 3, type: 'mcq', text: 'لو أ أكبر من ب، و ب أكبر من ج، يبقى:', options: ['أ أكبر من ج', 'ج أكبر من أ', 'أ يساوي ج', 'مش معروف'], correctAnswer: 'أ أكبر من ج' },
+    { id: 4, type: 'mcq', text: 'كمّل: الاثنين، الثلاثاء، الأربعاء، ؟', options: ['الجمعة', 'الخميس', 'الأحد', 'السبت'], correctAnswer: 'الخميس' },
+    { id: 5, type: 'mcq', text: 'أنهي رقم أكبر؟', options: ['٠.٥٠', '٠.٤٥', '٠.٥٥', '٠.٥'], correctAnswer: '٠.٥٥' },
+    { id: 6, type: 'mcq', text: 'كمّل: ٥، ١٠، ١٥، ٢٠، ؟', options: ['٢٢', '٢٥', '٣٠', '٢٤'], correctAnswer: '٢٥' },
+    { id: 7, type: 'open', text: 'في جملة واحدة، إيه نقطة قوة عندك كمتعلّم؟', options: [], correctAnswer: '' },
+  ];
+  return isAr ? ar : en;
+}
+
 export default function AssessmentQuiz({
   field, language = "English", level = "Basic", count = 8, title, subtitle, onComplete,
 }: AssessmentQuizProps) {
@@ -42,7 +66,8 @@ export default function AssessmentQuiz({
     (async () => {
       const qs = await generateAssessment(field, language, level, count);
       if (!cancelled) {
-        setQuestions(qs);
+        // Fall back to built-in questions if the AI returned nothing (rate-limited/offline).
+        setQuestions(qs.length ? qs : fallbackQuestions(isAr));
         setLoading(false);
       }
     })();
