@@ -393,8 +393,8 @@ export default function LiveCaptions({ language = 'en-US', onClose }: LiveCaptio
         speakText(decoded);
       }
 
-      // Step 6: Smart replies
-      if (decoded.length > 8) fetchSmartReplies(decoded);
+      // Step 6: Smart replies — on-demand only (via the button) to save API quota.
+      // (was auto-firing on every utterance)
 
     } catch (e) {
       console.error("Process utterance error:", e);
