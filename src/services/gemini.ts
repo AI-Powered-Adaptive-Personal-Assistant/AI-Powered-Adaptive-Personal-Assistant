@@ -390,6 +390,15 @@ export async function generateProactiveInsights(
   profile: UserProfile,
   recentMessages: Message[]
 ): Promise<string> {
+  const isAr = profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya';
+  const recent = recentMessages
+    .filter((m) => m.content?.trim())
+    .slice(-6)
+    .map((m) => `${m.role}: ${m.content}`)
+    .join('\n');
+  const prompt = `Based on this learner (level: ${profile.level}, field: ${profile.field}, role: ${profile.role}) and their recent conversation, give 2-4 SHORT, specific, encouraging proactive study insights to help them grow. Write in ${profile.language || 'English'}. Each line starts with "* ". No preamble.\n\nRecent conversation:\n${recent || '(none yet)'}`;
+
+  // 1) Backend (if available)
   try {
     const res = await fetch('/api/gemini/generateProactiveInsights', {
       method: 'POST',
@@ -397,14 +406,42 @@ export async function generateProactiveInsights(
       body: JSON.stringify({ profile, recentMessages })
     });
     const isHtml = res.headers.get('Content-Type')?.includes('text/html');
-    if (!res.ok || isHtml) {
-      return "* Connect to full-stack Cloud Run build to view proactive study insights.";
+    if (res.ok && !isHtml) {
+      const data = await res.json();
+      if (data.result) return data.result;
     }
-    const data = await res.json();
-    return data.result;
-  } catch (err) {
-    return "Insights unavailable.";
+  } catch { /* fall through */ }
+
+  // 2) Direct Gemini (static hosting)
+  const apiKey = geminiPrimaryKey();
+  if (apiKey) {
+    try {
+      const response = await fetchGeminiWithRetry(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${apiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: prompt }] }] }),
+        },
+      );
+      if (response.ok) {
+        const d = await response.json();
+        const txt = d.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (txt) return txt;
+      }
+    } catch { /* fall through */ }
   }
+
+  // 3) Groq fallback
+  const groqKey = groqPrimaryKey();
+  if (groqKey) {
+    const txt = await groqChat([{ role: 'user', content: prompt }], groqKey);
+    if (txt) return txt;
+  }
+
+  return isAr
+    ? '* ركّز على نقاط ضعفك واعمل تمارين منتظمة في مجالك.\n* راجع آخر اللي اتعلمته كل أسبوع.'
+    : '* Keep practicing regularly in your field and target your weak spots.\n* Review what you learned each week.';
 }
 
 // Non-streaming Groq completion → returns the full text ("" on failure).
