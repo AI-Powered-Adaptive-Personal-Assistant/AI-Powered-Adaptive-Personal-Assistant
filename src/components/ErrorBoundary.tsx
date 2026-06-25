@@ -22,6 +22,15 @@ class ErrorBoundary extends Component<Props, State> {
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('Uncaught error:', error, errorInfo);
+    // Report to Sentry only if it's configured — lazy-loaded so it never bloats
+    // the initial bundle. No-op when VITE_SENTRY_DSN isn't set.
+    if ((import.meta as any).env?.VITE_SENTRY_DSN) {
+      import('@sentry/react')
+        .then((Sentry) =>
+          Sentry.captureException(error, { extra: { componentStack: errorInfo.componentStack } }),
+        )
+        .catch(() => { /* tracking optional */ });
+    }
   }
 
   private handleReset = () => {

@@ -15,6 +15,7 @@
     "@google/genai": "^1.50.1",
     "@mediapipe/camera_utils": "^0.3.1675466862",
     "@mediapipe/hands": "^0.4.1675469240",
+    "@sentry/react": "^10.61.0",
     "@tailwindcss/vite": "^4.1.14",
     "@tensorflow/tfjs": "^4.22.0",
     "@tensorflow/tfjs-backend-webgl": "^4.22.0",

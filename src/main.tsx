@@ -5,6 +5,22 @@ import ErrorBoundary from './components/ErrorBoundary.tsx';
 import {toast} from './components/Toast';
 import './index.css';
 
+// Real error tracking — lazy-loaded so it never bloats the initial bundle, and
+// only active if VITE_SENTRY_DSN is configured. The DSN is a public client key.
+const SENTRY_DSN = (import.meta as any).env?.VITE_SENTRY_DSN as string | undefined;
+if (SENTRY_DSN) {
+  import('@sentry/react')
+    .then((Sentry) => {
+      Sentry.init({
+        dsn: SENTRY_DSN,
+        environment: (import.meta as any).env?.MODE || 'production',
+        tracesSampleRate: 0.1,
+        sendDefaultPii: false, // don't attach user PII to events
+      });
+    })
+    .catch(() => { /* tracking optional */ });
+}
+
 // ── Global safety net ───────────────────────────────────────────────────────
 // Catches any uncaught async error (failed fetches, rejected promises) that an
 // individual try/catch might miss, and shows ONE friendly toast instead of
