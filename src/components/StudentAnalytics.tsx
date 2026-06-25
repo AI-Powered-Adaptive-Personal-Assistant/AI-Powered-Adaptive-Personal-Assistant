@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
-import { UserProfile, Course, AttendanceSubject, Goal } from '../types';
+import { UserProfile, Course, AttendanceSubject, Goal, PlannerTask } from '../types';
 import { Menu, LayoutDashboard, GraduationCap, CalendarCheck, Target, AlertTriangle, Clock } from 'lucide-react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell } from 'recharts';
 import { subscribeToCourses, calculateCGPA, calculateGPA, semestersOf } from '../lib/gpa';
 import { subscribeToAttendance, attendancePct, isDeprived } from '../lib/attendance';
 import { subscribeToGoals } from '../lib/goals';
+import { subscribeToTasks } from '../lib/planner';
+import AcademicCommandCenter from './AcademicCommandCenter';
+import { MetricsInput } from '../lib/studentMetrics';
 
 interface StudentAnalyticsProps {
   profile: UserProfile;
@@ -18,14 +21,23 @@ export default function StudentAnalytics({ profile, onMenuClick }: StudentAnalyt
   const [courses, setCourses] = useState<Course[]>([]);
   const [subjects, setSubjects] = useState<AttendanceSubject[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
+  const [tasks, setTasks] = useState<PlannerTask[]>([]);
 
   useEffect(() => {
     if (!profile.uid) return;
     const u1 = subscribeToCourses(profile.uid, setCourses);
     const u2 = subscribeToAttendance(profile.uid, setSubjects);
     const u3 = subscribeToGoals(profile.uid, setGoals);
-    return () => { u1(); u2(); u3(); };
+    const u4 = subscribeToTasks(profile.uid, setTasks);
+    return () => { u1(); u2(); u3(); u4(); };
   }, [profile.uid]);
+
+  // Build the deterministic-metrics input from live academic data + the user's
+  // question history. Powers the Executive Command Center (S1) + Explainable AI.
+  const metricsInput = useMemo<MetricsInput>(() => ({
+    courses, subjects, goals, tasks,
+    questionHistory: profile.questionHistory || [],
+  }), [courses, subjects, goals, tasks, profile.questionHistory]);
 
   const cgpa = useMemo(() => calculateCGPA(courses), [courses]);
   const gpaTrend = useMemo(
@@ -79,6 +91,9 @@ export default function StudentAnalytics({ profile, onMenuClick }: StudentAnalyt
       </header>
 
       <div className="max-w-6xl w-full space-y-6 pb-10">
+        {/* S1 · Executive Command Center — the headline "what to do next" card */}
+        <AcademicCommandCenter input={metricsInput} isAr={isAr} />
+
         {/* Stat cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <Stat icon={<GraduationCap className="w-6 h-6 text-primary" />} tone="bg-primary/10" label={t('Cumulative GPA', 'المعدل التراكمي')} value={cgpa.toFixed(2)} />
