@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { UserProfile, CognitiveLevel, UserRole, Field, AccessibilityMode, ChatThread } from "../types";
-import { User, Settings, Accessibility, Layers, MessageSquare, BarChart3, AlertCircle, LogOut, Plus, ChevronRight, X, Moon, Sun, Mic, Target, Calculator, CalendarCheck, LayoutDashboard, CalendarDays } from "lucide-react";
+import { User, Settings, GraduationCap, Accessibility, Layers, MessageSquare, BarChart3, AlertCircle, LogOut, Plus, ChevronRight, X, Moon, Sun, Mic, Target, Calculator, CalendarCheck, LayoutDashboard, CalendarDays } from "lucide-react";
 import { logout, db } from "../lib/firebase";
 import { deleteDoc, doc } from "firebase/firestore";
 import { getTranslation } from "../lib/translations";
@@ -51,20 +51,25 @@ export default function Sidebar({ profile, setProfile, currentView, setCurrentVi
     setCurrentView('chat');
   };
 
-    const navItems = [
+  const isAr = profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya';
+
+  // Two always-visible primary items; the academic utilities are grouped under a
+  // collapsible section so the sidebar isn't an overwhelming 9-item wall.
+  const primaryItems = [
     { id: 'chat', label: getTranslation(profile.language, 'chatSession'), icon: MessageSquare },
     { id: 'hub', label: getTranslation(profile.language, 'dashboard'), icon: BarChart3 },
-    { id: 'goals', label: (profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya') ? 'الأهداف' : 'Goals', icon: Target },
-    { id: 'gpa', label: (profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya') ? 'حاسبة GPA' : 'GPA', icon: Calculator },
-    { id: 'attendance', label: (profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya') ? 'الحضور' : 'Attendance', icon: CalendarCheck },
-    { id: 'analytics', label: (profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya') ? 'تحليلاتي' : 'Analytics', icon: LayoutDashboard },
-    { id: 'planner', label: (profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya') ? 'المخطّط' : 'Planner', icon: CalendarDays },
-    { id: 'profile', label: getTranslation(profile.language, 'myProfile'), icon: User },
-    { id: 'settings', label: getTranslation(profile.language, 'settings'), icon: Settings },
+  ] as const;
+
+  const academicItems = [
+    { id: 'goals', label: isAr ? 'الأهداف' : 'Goals', icon: Target },
+    { id: 'gpa', label: isAr ? 'حاسبة GPA' : 'GPA', icon: Calculator },
+    { id: 'attendance', label: isAr ? 'الحضور' : 'Attendance', icon: CalendarCheck },
+    { id: 'analytics', label: isAr ? 'تحليلاتي' : 'Analytics', icon: LayoutDashboard },
+    { id: 'planner', label: isAr ? 'المخطّط' : 'Planner', icon: CalendarDays },
   ] as const;
 
   const isAdmin = [
-    'pro.mahmoud.h@gmail.com', 
+    'pro.mahmoud.h@gmail.com',
     'modyhashim2006@gmail.com',
     'marwaneltaweel0@gmail.com',
     'its.alkhateeb@gmail.com',
@@ -73,7 +78,18 @@ export default function Sidebar({ profile, setProfile, currentView, setCurrentVi
     'mariemsayedr33@gmail.com'
   ].includes(profile.email?.toLowerCase() || '');
 
-  const actualNavItems = isAdmin ? [...navItems, { id: 'admin', label: 'Admin Dashboard', icon: AlertCircle }] : navItems;
+  const accountItems = [
+    { id: 'profile', label: getTranslation(profile.language, 'myProfile'), icon: User },
+    { id: 'settings', label: getTranslation(profile.language, 'settings'), icon: Settings },
+    ...(isAdmin ? [{ id: 'admin', label: isAr ? 'لوحة الأدمن' : 'Admin', icon: AlertCircle }] : []),
+  ] as const;
+
+  // Auto-open the academics group if the user is currently inside one of its screens.
+  const academicIds = academicItems.map((i) => i.id) as readonly string[];
+  const [academicsOpen, setAcademicsOpen] = useState(academicIds.includes(currentView));
+
+  const itemClass = (active: boolean) =>
+    `flex items-center gap-3 px-5 py-3.5 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all ${active ? 'bg-slate-900 text-white shadow-xl shadow-slate-200' : 'text-slate-400 hover:text-slate-900 hover:bg-slate-50'}`;
 
   return (
     <div className="w-[300px] h-full bg-white text-text-main border-e border-slate-100 p-8 flex flex-col gap-6 overflow-y-auto custom-scrollbar shadow-sm z-20">
@@ -94,11 +110,46 @@ export default function Sidebar({ profile, setProfile, currentView, setCurrentVi
       <div className="flex flex-col gap-6">
         <nav className="flex flex-col gap-1.5">
           <div className="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-1 ms-2">{getTranslation(profile.language, 'mainNavigation')}</div>
-          {actualNavItems.map((item) => (
-            <button 
+
+          {primaryItems.map((item) => (
+            <button
               key={item.id}
               onClick={() => setCurrentView(item.id as any)}
-              className={`flex items-center gap-3 px-5 py-3.5 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all ${currentView === item.id ? 'bg-slate-900 text-white shadow-xl shadow-slate-200' : 'text-slate-400 hover:text-slate-900 hover:bg-slate-50'}`}
+              className={itemClass(currentView === item.id)}
+            >
+              <item.icon className={`w-3.5 h-3.5 ${currentView === item.id ? 'text-primary' : ''}`} /> {item.label}
+            </button>
+          ))}
+
+          {/* Collapsible Academics group */}
+          <button
+            onClick={() => setAcademicsOpen((v) => !v)}
+            className={`flex items-center justify-between gap-3 px-5 py-3.5 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all ${academicIds.includes(currentView) && !academicsOpen ? 'text-slate-900 bg-slate-50' : 'text-slate-400 hover:text-slate-900 hover:bg-slate-50'}`}
+          >
+            <span className="flex items-center gap-3"><GraduationCap className="w-3.5 h-3.5" /> {isAr ? 'الأكاديميات' : 'Academics'}</span>
+            <ChevronRight className={`w-3.5 h-3.5 transition-transform ${academicsOpen ? 'rotate-90' : (isAr ? 'rotate-180' : '')}`} />
+          </button>
+          {academicsOpen && (
+            <div className="flex flex-col gap-1.5 ms-3 ps-2 border-s border-slate-100">
+              {academicItems.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => setCurrentView(item.id as any)}
+                  className={itemClass(currentView === item.id)}
+                >
+                  <item.icon className={`w-3.5 h-3.5 ${currentView === item.id ? 'text-primary' : ''}`} /> {item.label}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Account group */}
+          <div className="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-1 mt-3 ms-2">{isAr ? 'الحساب' : 'Account'}</div>
+          {accountItems.map((item) => (
+            <button
+              key={item.id}
+              onClick={() => setCurrentView(item.id as any)}
+              className={itemClass(currentView === item.id)}
             >
               <item.icon className={`w-3.5 h-3.5 ${currentView === item.id ? 'text-primary' : ''}`} /> {item.label}
             </button>
