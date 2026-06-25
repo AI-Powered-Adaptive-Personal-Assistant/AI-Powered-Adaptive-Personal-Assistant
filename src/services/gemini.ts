@@ -264,6 +264,72 @@ export async function generateAssessment(
   }
 }
 
+// ─── Professional IQ / cognitive-ability test ────────────────────────────────
+function iqPrompt(language: string, count: number): string {
+  const dialect = language === "Egyptian Ammiya" ? " (Egyptian colloquial Arabic)" : "";
+  return `Create a professional, standardized IQ / cognitive-ability test of exactly ${count} multiple-choice questions, in the style of real IQ assessments (Raven / Wechsler-inspired, text-based).
+Mix these reasoning categories across the questions (vary the type):
+- Number sequences / numerical patterns
+- Verbal analogies (A is to B as C is to ?)
+- Logical deduction / syllogisms
+- Odd-one-out / classification
+- Arithmetic word problems
+- Letter or symbol sequences
+Vary difficulty from easy to hard. Each question has EXACTLY 4 options and EXACTLY ONE correct, unambiguous answer.
+Write EVERYTHING in ${language}${dialect}.
+Return ONLY a JSON array: [{"id": number, "type": "mcq", "text": string, "options": string[], "correctAnswer": string}]`;
+}
+
+async function generateIqDirect(language: string, count: number, apiKey: string): Promise<AssessmentQuestion[]> {
+  const response = await fetchGeminiWithRetry(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${apiKey}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ role: "user", parts: [{ text: iqPrompt(language, count) }] }],
+        generationConfig: { responseMimeType: "application/json" },
+      }),
+    },
+  );
+  if (!response.ok) return [];
+  const d = await response.json();
+  return normalizeAssessment(extractJsonArray(d.candidates?.[0]?.content?.parts?.[0]?.text || ""));
+}
+
+/** Generate a professional IQ-style test. Backend → Gemini → Groq. */
+export async function generateIqTest(
+  language: string = "English",
+  count: number = 10,
+): Promise<AssessmentQuestion[]> {
+  const apiKey = geminiPrimaryKey();
+  const groqKey = groqPrimaryKey();
+  try {
+    const res = await fetch("/api/gemini/generateIqTest", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ language, count }),
+    });
+    const isHtml = res.headers.get("Content-Type")?.includes("text/html");
+    if (res.ok && !isHtml) {
+      const data = await res.json();
+      const qs = normalizeAssessment(data.result);
+      if (qs.length) return qs;
+    }
+  } catch { /* fall through */ }
+  if (apiKey) {
+    try {
+      const qs = await generateIqDirect(language, count, apiKey);
+      if (qs.length) return qs;
+    } catch { /* fall through */ }
+  }
+  if (groqKey) {
+    const qs = normalizeAssessment(extractJsonArray(await groqChat([{ role: "user", content: iqPrompt(language, count) }], groqKey)));
+    if (qs.length) return qs;
+  }
+  return [];
+}
+
 function extractJsonArray(raw: string): any[] {
   if (!raw) return [];
   const start = raw.indexOf("[");

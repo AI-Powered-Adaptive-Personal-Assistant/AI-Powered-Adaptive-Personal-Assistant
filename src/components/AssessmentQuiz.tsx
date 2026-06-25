@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { motion } from "motion/react";
 import { Brain, ArrowRight, RefreshCw, Trophy } from "lucide-react";
-import { generateAssessment, type AssessmentQuestion } from "../services/gemini";
+import { generateAssessment, generateIqTest, type AssessmentQuestion } from "../services/gemini";
 
 export interface AssessmentResult {
   score: number; // 70-135 IQ-style
@@ -17,6 +17,7 @@ interface AssessmentQuizProps {
   count?: number;
   title?: string;
   subtitle?: string;
+  mode?: 'field' | 'iq';   // 'iq' = professional cognitive test; 'field' = field-knowledge
   onComplete: (result: AssessmentResult) => void;
 }
 
@@ -50,7 +51,7 @@ function fallbackQuestions(isAr: boolean): AssessmentQuestion[] {
 }
 
 export default function AssessmentQuiz({
-  field, language = "English", level = "Basic", count = 8, title, subtitle, onComplete,
+  field, language = "English", level = "Basic", count = 8, title, subtitle, mode = 'field', onComplete,
 }: AssessmentQuizProps) {
   const isAr = language === "Arabic" || language === "Egyptian Ammiya";
   const [questions, setQuestions] = useState<AssessmentQuestion[]>([]);
@@ -64,7 +65,9 @@ export default function AssessmentQuiz({
     startedRef.current = true;
     let cancelled = false;
     (async () => {
-      const qs = await generateAssessment(field, language, level, count);
+      const qs = mode === 'iq'
+        ? await generateIqTest(language, count)
+        : await generateAssessment(field, language, level, count);
       if (!cancelled) {
         // Fall back to built-in questions if the AI returned nothing (rate-limited/offline).
         setQuestions(qs.length ? qs : fallbackQuestions(isAr));

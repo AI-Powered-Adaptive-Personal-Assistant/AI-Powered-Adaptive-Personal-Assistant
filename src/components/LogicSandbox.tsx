@@ -332,11 +332,13 @@ export default function LogicSandbox({ profile, onMenuClick }: LogicSandboxProps
           </div>
         </header>
         <AssessmentQuiz
-          field={isAr ? 'المنطق والاستدلال و الـ IQ' : 'Logic, Reasoning & IQ'}
+          mode="iq"
+          count={10}
+          field={isAr ? 'القدرات المعرفية' : 'Cognitive Ability'}
           language={profile.language || 'English'}
           level={profile.level || 'Basic'}
-          title={isAr ? 'اختبار دخول المنطق' : 'Logic Entrance Test'}
-          subtitle={isAr ? 'نتيجتك هتحسّن سكور الـ IQ بتاعك.' : 'Your result enhances your IQ score.'}
+          title={isAr ? 'اختبار القدرات المعرفية' : 'Cognitive Ability Test'}
+          subtitle={isAr ? 'أسئلة استدلال وأنماط — نتيجتك بتحسّن درجتك في كوجنيفاي.' : 'Reasoning & pattern questions — your result improves your Cognify score.'}
           onComplete={handleEntryComplete}
         />
       </div>
