@@ -54,7 +54,7 @@ class ErrorBoundary extends Component<Props, State> {
               <AlertTriangle className="w-8 h-8 text-red-500" />
             </div>
             
-            <h1 className="text-xl font-semibold text-white mb-2">System Sync Error Detected</h1>
+            <h1 className="text-xl font-semibold text-white mb-2">Something went wrong</h1>
             <p className="text-slate-400 text-sm mb-6 leading-relaxed">
               {errorMessage}
             </p>
@@ -64,11 +64,11 @@ class ErrorBoundary extends Component<Props, State> {
               className="w-full py-3 px-4 bg-red-600 hover:bg-red-500 text-white rounded-xl font-medium transition-all flex items-center justify-center gap-2"
             >
               <RefreshCcw className="w-4 h-4" />
-              Re-establish Uplink
+              Reload
             </button>
-            
-            <p className="mt-6 text-[10px] text-slate-600 uppercase tracking-widest font-mono">
-              System Error Code: {this.state.error?.name || "CORE_FAILURE"}
+
+            <p className="mt-6 text-[10px] text-slate-600 tracking-wide font-mono">
+              Reference: {this.state.error?.name || "APP_ERROR"}
             </p>
           </div>
         </div>

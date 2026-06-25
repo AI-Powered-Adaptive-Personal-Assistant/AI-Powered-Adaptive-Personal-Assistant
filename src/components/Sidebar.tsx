@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { UserProfile, CognitiveLevel, UserRole, Field, AccessibilityMode, ChatThread } from "../types";
-import { User, Settings, Briefcase, GraduationCap, Accessibility, Layers, MessageSquare, BarChart3, AlertCircle, LogOut, Plus, ChevronRight, X, Moon, Sun, Video, Mic, Target, Calculator, CalendarCheck, LayoutDashboard, CalendarDays } from "lucide-react";
+import { User, Settings, Accessibility, Layers, MessageSquare, BarChart3, AlertCircle, LogOut, Plus, ChevronRight, X, Moon, Sun, Mic, Target, Calculator, CalendarCheck, LayoutDashboard, CalendarDays } from "lucide-react";
 import { logout, db } from "../lib/firebase";
 import { deleteDoc, doc } from "firebase/firestore";
 import { getTranslation } from "../lib/translations";
@@ -81,7 +81,7 @@ export default function Sidebar({ profile, setProfile, currentView, setCurrentVi
         <div className="p-3 bg-slate-900 rounded-2xl shadow-xl shadow-slate-200">
           <Layers className="w-6 h-6 text-white" />
         </div>
-        <h1 className="text-2xl font-black tracking-tighter text-slate-900 uppercase leading-none">Cognify<br/><span className="text-[10px] text-primary tracking-widest italic">C.O.G.N.I.F.Y</span></h1>
+        <h1 className="text-2xl font-black tracking-tighter text-slate-900 leading-none">Cognify<br/><span className="text-[10px] text-primary tracking-wide font-bold not-italic">Adaptive AI Mentor</span></h1>
       </div>
 
       <button 
@@ -171,17 +171,7 @@ export default function Sidebar({ profile, setProfile, currentView, setCurrentVi
 
       <div className="flex flex-col gap-4">
          <div className="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-1 ms-2">{getTranslation(profile.language, 'features')}</div>
-         <div className="px-5 py-4 rounded-2xl bg-slate-50 border border-slate-100 relative group overflow-hidden">
-           <div className="relative z-10">
-             <p className="text-[10px] font-black text-slate-900 uppercase tracking-widest mb-1 group-hover:text-primary transition-colors">Graduation Project</p>
-             <p className="text-[9px] text-slate-400 font-bold italic">Coming Soon</p>
-           </div>
-           <div className="absolute right-[-10px] bottom-[-10px] opacity-5">
-             <GraduationCap className="w-16 h-16 text-slate-900" />
-           </div>
-         </div>
-         
-         <button 
+         <button
            onClick={() => setCurrentView('disability')}
            className={`px-5 py-4 rounded-2xl bg-slate-50 border transition-all relative group overflow-hidden ${currentView === 'disability' ? 'border-primary ring-1 ring-primary/20 shadow-md shadow-primary/10' : 'border-slate-100 hover:border-primary/30 active:scale-[0.98]'}`}
          >
@@ -218,70 +208,61 @@ export default function Sidebar({ profile, setProfile, currentView, setCurrentVi
         </div>
       </div>
 
-      <div className="flex flex-col gap-4">
-        <div className="flex items-center justify-between">
-          <span className="text-[11px] font-bold text-text-muted uppercase tracking-[0.05em]">{getTranslation(profile.language, 'academicProfile')}</span>
-          <div className={`flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded-full border ${isAdmin ? 'text-emerald-600 bg-emerald-50 border-emerald-100' : 'text-amber-600 bg-amber-50 border-amber-100'}`}>
-            <AlertCircle className="w-3 h-3" /> {isAdmin ? 'ADMIN' : 'LOCKED'}
+      {/* Admin-only overrides for Level & Role. Regular users see a clean read-only
+          summary instead of locked, non-functional controls. */}
+      {isAdmin ? (
+        <>
+          <div className="flex flex-col gap-4">
+            <span className="text-[11px] font-bold text-text-muted uppercase tracking-[0.05em]">{getTranslation(profile.language, 'difficultyLevel')}</span>
+            <div className="grid grid-cols-1 gap-1.5">
+              {(['Advanced', 'Basic', 'Intermediate'] as CognitiveLevel[]).map((l) => (
+                <button
+                  key={l}
+                  onClick={() => handleChange('level', l)}
+                  className={`text-left px-4 py-2 rounded-lg text-sm border transition-all cursor-pointer hover:border-primary/30 ${
+                    profile.level === l
+                      ? 'bg-primary/5 border-primary text-primary font-bold'
+                      : 'bg-white border-border text-text-muted'
+                  }`}
+                >
+                  {l}
+                </button>
+              ))}
+            </div>
           </div>
+
+          <div className="flex flex-col gap-2">
+            <label className="text-[11px] font-bold text-text-muted uppercase">{getTranslation(profile.language, 'userRole')}</label>
+            <div className="flex gap-2">
+              {(['Professional', 'Student'] as UserRole[]).map((r) => (
+                <button
+                  key={r}
+                  onClick={() => handleChange('role', r)}
+                  className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm border transition-all cursor-pointer hover:border-primary/30 ${
+                    profile.role === r
+                      ? 'bg-primary/5 border-primary text-primary font-bold'
+                      : 'bg-white border-border text-text-muted'
+                  }`}
+                >
+                  {r}
+                </button>
+              ))}
+            </div>
+          </div>
+        </>
+      ) : (
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] font-bold px-3 py-1 rounded-full bg-slate-50 border border-slate-100 text-text-muted">
+            {profile.level || 'Intermediate'}
+          </span>
+          <span className="text-[11px] font-bold px-3 py-1 rounded-full bg-slate-50 border border-slate-100 text-text-muted">
+            {profile.role || 'Student'}
+          </span>
         </div>
-        
+      )}
+
+      <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-3">
-          <label className="text-[11px] font-bold text-text-muted uppercase">{getTranslation(profile.language, 'difficultyLevel')}</label>
-          <div className="grid grid-cols-1 gap-1.5 opacity-80">
-            {(['Advanced', 'Basic', 'Intermediate'] as CognitiveLevel[]).map((l) => (
-              <button
-                key={l}
-                disabled={!isAdmin}
-                onClick={() => isAdmin && handleChange('level', l)}
-                className={`text-left px-4 py-2 rounded-lg text-sm border transition-all ${isAdmin ? 'cursor-pointer hover:border-primary/30' : 'cursor-not-allowed'} ${
-                  profile.level === l 
-                    ? 'bg-primary/5 border-primary text-primary font-bold' 
-                    : 'bg-white border-border text-text-muted'
-                }`}
-              >
-                {l}
-              </button>
-            ))}
-          </div>
-          <p className="text-[9px] text-slate-400 italic font-medium -mt-1 px-1">
-            {isAdmin ? 'Admin override active.' : 'Recalibration available every 30 terrestrial days.'}
-          </p>
-        </div>
-      </div>
-
-      <div className="flex flex-col gap-4">
-        <div className="flex items-center justify-between">
-          <span className="text-[11px] font-bold text-text-muted uppercase tracking-[0.05em]">{getTranslation(profile.language, 'accountDetails')}</span>
-          <div className={`flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded-full border ${isAdmin ? 'text-emerald-600 bg-emerald-50 border-emerald-100' : 'text-amber-600 bg-amber-50 border-amber-100'}`}>
-            <AlertCircle className="w-3 h-3" /> {isAdmin ? "ADMIN CONTROL" : "VERIFIED"}
-          </div>
-        </div>
-        
-        <div className="flex flex-col gap-2">
-          <label className="text-[11px] font-bold text-text-muted uppercase">{getTranslation(profile.language, 'userRole')}</label>
-          <div className="flex gap-2 opacity-80">
-            {(['Professional', 'Student'] as UserRole[]).map((r) => (
-              <button
-                key={r}
-                disabled={!isAdmin}
-                onClick={() => isAdmin && handleChange('role', r)}
-                className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm border transition-all ${isAdmin ? 'cursor-pointer hover:border-primary/30' : 'cursor-not-allowed'} ${
-                  profile.role === r 
-                    ? 'bg-primary/5 border-primary text-primary font-bold' 
-                    : 'bg-white border-border text-text-muted'
-                }`}
-              >
-                {r}
-              </button>
-            ))}
-          </div>
-          <p className="text-[9px] text-slate-400 italic font-medium -mt-1 px-1">
-            {isAdmin ? 'Admin role override active.' : 'Identity validation required for role modification.'}
-          </p>
-        </div>
-
-        <div className="flex flex-col gap-3 mt-2">
           <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{getTranslation(profile.language, 'language')}</label>
           <select
             value={profile.language || 'English'}
@@ -325,8 +306,8 @@ export default function Sidebar({ profile, setProfile, currentView, setCurrentVi
           <LogOut className="w-4 h-4" /> {getTranslation(profile.language, 'logout')}
         </button>
 
-        <div className="text-slate-500 text-[10px] uppercase tracking-[0.2em] font-bold">
-          Cognify Engine v2.0
+        <div className="text-slate-400 text-[10px] tracking-wide font-bold">
+          Cognify · v2.0
         </div>
       </div>
     </div>

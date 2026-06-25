@@ -436,7 +436,7 @@ ${otherThreadsSummary}
   }
 
   if (!res.body) {
-    yield { text: "Error communicating directly with Google AI.", done: true, error: true };
+    yield { text: "Couldn't connect to the AI. Please try again.", done: true, error: true };
     return;
   }
 
@@ -551,7 +551,7 @@ To experience Cognify's full-stack features, please use our fully integrated **C
     }
 
     if (!res.body) {
-      yield { text: "Error communicating with intelligence core.", done: true, error: true };
+      yield { text: "Couldn't connect to the AI. Please try again.", done: true, error: true };
       return;
     }
 
@@ -583,9 +583,9 @@ To experience Cognify's full-stack features, please use our fully integrated **C
     const isArabic = profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya';
     toast.error(
       isArabic
-        ? `تعذر إرسال الرسالة لعدم ثبات الشبكة: ${err.message || 'خطأ اتصال مجهول'}.`
-        : `Primary socket signal failed to reach the server: ${err.message || 'Connection lost'}.`,
-      isArabic ? "انقطاع الاتصال" : "Signal Loss"
+        ? "تعذّر الاتصال بالخادم. تأكّد من اتصالك بالإنترنت وحاول مرة أخرى."
+        : "Couldn't reach the server. Check your connection and try again.",
+      isArabic ? "خطأ في الاتصال" : "Connection Error"
     );
     yield { text: `Error: ${err.message}`, done: true, error: true };
   }

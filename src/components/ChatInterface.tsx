@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { Message, UserProfile, Task } from "../types";
 import { generateAdaptiveResponseStream, generateBenchmarkComparison, generateProactiveInsights } from "../services/gemini";
 import { geminiService } from "../services/geminiService";
-import { Send, Bot, User, Loader2, Sparkles, BrainCircuit, Paperclip, ImageIcon, FileText, X, Accessibility, Menu, Download, Mic, MicOff, RefreshCw, Volume2, ListTodo, Plus, Trash2, CheckCircle2, Circle, Scale, Lightbulb, ThumbsUp, ThumbsDown } from "lucide-react";
+import { Send, Bot, User, Loader2, Sparkles, BrainCircuit, Paperclip, ImageIcon, FileText, X, Accessibility, Menu, Download, Mic, MicOff, RefreshCw, Volume2, ListTodo, Plus, Trash2, CheckCircle2, Circle, Scale, Lightbulb, ThumbsUp, ThumbsDown, Copy } from "lucide-react";
 import Markdown from 'react-markdown';
 import { motion, AnimatePresence } from "motion/react";
 import { doc, setDoc, onSnapshot } from "firebase/firestore";
@@ -1187,6 +1187,21 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
                           <ThumbsDown className="w-3.5 h-3.5" />
                           <span>{profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya' ? 'غير مفيد' : 'Unhelpful'}</span>
                         </button>
+                        <button
+                          onClick={() => {
+                            navigator.clipboard?.writeText(m.content).then(
+                              () => toast.success(
+                                profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya' ? 'تم النسخ' : 'Copied',
+                              ),
+                              () => {},
+                            );
+                          }}
+                          className="text-[10px] font-black uppercase tracking-wider px-2.5 py-1.5 rounded-lg border transition-all flex items-center gap-1.5 text-slate-500 bg-white dark:bg-slate-800 border-slate-200/60 dark:border-slate-700 hover:text-primary hover:bg-primary/5 hover:border-primary/20"
+                          title="Copy answer"
+                        >
+                          <Copy className="w-3.5 h-3.5" />
+                          <span>{profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya' ? 'نسخ' : 'Copy'}</span>
+                        </button>
                       </div>
 
                       <button 
@@ -1206,6 +1221,29 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
               </motion.div>
             ))}
           </AnimatePresence>
+
+          {/* Starter prompts — shown on a fresh chat to beat the blank-page problem. */}
+          {!isLoading && messages.filter((m) => m.role === 'user').length === 0 && (() => {
+            const ar = profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya';
+            const f = profile.field || (ar ? 'مجالك' : 'your field');
+            const chips = ar
+              ? [`اشرح لي مفهوم مهم في ${f} ببساطة`, `اعمللي خطة مذاكرة لأسبوع`, `لخّص لي المقال أو ملف PDF`, `اسألني أسئلة عشان أراجع`]
+              : [`Explain a key ${f} concept simply`, `Make me a 1-week study plan`, `Summarize an article or PDF`, `Quiz me to review`];
+            return (
+              <div className="flex flex-wrap gap-2 pt-2">
+                {chips.map((p) => (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => handleSubmit(undefined, p)}
+                    className="text-start text-sm px-4 py-2.5 rounded-xl border border-border bg-white hover:border-primary hover:bg-primary/5 text-text-muted hover:text-primary transition-all shadow-sm active:scale-[0.98]"
+                  >
+                    {p}
+                  </button>
+                ))}
+              </div>
+            );
+          })()}
 
           {isLoading && (
             <motion.div
@@ -1422,13 +1460,25 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
                  </button>
               </div>
 
-              <input
-                type="text"
+              <textarea
+                rows={1}
                 value={input + (interimTranscript ? (input ? " " : "") + interimTranscript : "")}
                 onChange={(e) => setInput(e.target.value)}
+                onInput={(e) => {
+                  const el = e.currentTarget;
+                  el.style.height = 'auto';
+                  el.style.height = Math.min(el.scrollHeight, 160) + 'px';
+                }}
+                onKeyDown={(e) => {
+                  // Enter sends, Shift+Enter inserts a newline (ChatGPT/Claude behavior).
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    if (!isLoading && (input.trim() || selectedFiles.length > 0)) handleSubmit();
+                  }
+                }}
                 disabled={isLoading}
                 placeholder={isListening ? (profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya' ? 'جاري الاستماع...' : "Listening...") : getTranslation(profile.language, 'typeMessage')}
-                className={`w-full bg-white border border-border rounded-2xl ps-24 py-4 pe-14 shadow-md focus:ring-4 focus:ring-primary/5 focus:border-primary outline-none transition-all placeholder:text-text-muted/50 disabled:opacity-50 relative z-0 ${isListening ? 'border-primary outline-primary ring-4 ring-primary/5' : ''}`}
+                className={`w-full bg-white border border-border rounded-2xl ps-24 py-4 pe-14 shadow-md focus:ring-4 focus:ring-primary/5 focus:border-primary outline-none transition-all placeholder:text-text-muted/50 disabled:opacity-50 relative z-0 resize-none max-h-40 leading-relaxed custom-scrollbar ${isListening ? 'border-primary outline-primary ring-4 ring-primary/5' : ''}`}
               />
               {interimTranscript && (
                 <div className="absolute end-14 top-1/2 -translate-y-1/2 pointer-events-none z-10">
@@ -1447,6 +1497,11 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
               </button>
             </div>
           </form>
+          <p className="text-center text-[11px] text-text-muted/70 mt-2 px-2">
+            {profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya'
+              ? 'كوجنيفاي ممكن يخطئ. راجِع المعلومات المهمة.'
+              : 'Cognify can make mistakes. Check important information.'}
+          </p>
         </div>
       </div>
     </div>
