@@ -95,20 +95,15 @@ interface FirestoreErrorInfo {
 }
 
 export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
-  const errInfo: FirestoreErrorInfo = {
-    error: error instanceof Error ? error.message : String(error),
-    authInfo: {
-      userId: auth.currentUser?.uid,
-      email: auth.currentUser?.email,
-      emailVerified: auth.currentUser?.emailVerified,
-      isAnonymous: auth.currentUser?.isAnonymous,
-      tenantId: auth.currentUser?.tenantId,
-    },
+  // Developer log only (console). Avoid leaking PII (email/uid) into thrown errors/UI.
+  console.error('Firestore Error:', {
     operationType,
-    path
-  };
-  console.error('Firestore Error: ', JSON.stringify(errInfo));
-  throw new Error(JSON.stringify(errInfo));
+    path,
+    message: error instanceof Error ? error.message : String(error),
+    uid: auth.currentUser?.uid,
+  });
+  // Throw a clean, user-safe error — no internal details, no PII.
+  throw new Error('A data sync error occurred. Please try again.');
 }
 
 export const signInWithGoogle = () => signInWithPopup(auth, googleProvider);

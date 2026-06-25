@@ -33,18 +33,10 @@ class ErrorBoundary extends Component<Props, State> {
     if (this.state.hasError) {
       if (this.props.fallback) return this.props.fallback;
 
-      let errorMessage = "An unexpected error occurred.";
-      try {
-        if (this.state.error?.message) {
-          const parsed = JSON.parse(this.state.error.message);
-          if (parsed.error) {
-            errorMessage = `System Error: ${parsed.error}`;
-          }
-        }
-      } catch (e) {
-        // Not a JSON error
-        errorMessage = this.state.error?.message || errorMessage;
-      }
+      // Always show a friendly, non-technical message to users.
+      // (Full details are logged to the console for developers.)
+      const errorMessage =
+        "Something went wrong on our side. Please reload and try again.";
 
       return (
         <div className="min-h-screen bg-slate-950 flex items-center justify-center p-6 font-sans">
