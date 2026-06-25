@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { Message, UserProfile, Task } from "../types";
 import { generateAdaptiveResponseStream, generateBenchmarkComparison, generateProactiveInsights } from "../services/gemini";
 import { geminiService } from "../services/geminiService";
-import { Send, Bot, User, Loader2, Sparkles, BrainCircuit, Paperclip, ImageIcon, FileText, X, Accessibility, Menu, Download, Mic, MicOff, RefreshCw, Volume2, ListTodo, Plus, Trash2, CheckCircle2, Circle, Scale, Lightbulb, ThumbsUp, ThumbsDown, Copy } from "lucide-react";
+import { Send, Bot, User, Loader2, Sparkles, BrainCircuit, Paperclip, ImageIcon, FileText, X, Accessibility, Menu, Download, Mic, MicOff, RefreshCw, Volume2, ListTodo, Plus, Trash2, CheckCircle2, Circle, Scale, Lightbulb, ThumbsUp, ThumbsDown, Copy, Square } from "lucide-react";
 import Markdown from 'react-markdown';
 import { motion, AnimatePresence } from "motion/react";
 import { doc, setDoc, onSnapshot } from "firebase/firestore";
@@ -171,6 +171,7 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
   }, []);
 
   const [isLoading, setIsLoading] = useState(false);
+  const stopRef = useRef(false);
   const [streamingText, setStreamingText] = useState("");
   const [selectedFiles, setSelectedFiles] = useState<{ name: string, type: string, data: string, url?: string }[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -600,17 +601,19 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
         : finalInput);
     setInput("");
     setIsLoading(true);
+    stopRef.current = false;
     setStreamingText("");
     const attachmentsToSubmit = [...finalAttachments];
     if (!overrideAttachments) setSelectedFiles([]);
 
     try {
       const stream = generateAdaptiveResponseStream(submittedMessage, profile, newHistory, attachmentsToSubmit);
-      
+
       let lastText = "";
       let finalAttachments: any[] = [];
-      
+
       for await (const chunk of stream) {
+        if (stopRef.current) break; // user pressed Stop — keep what's generated so far
         if (chunk.text) {
           lastText = chunk.text;
           setStreamingText(lastText);
@@ -1436,9 +1439,11 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
             
             <div className="relative w-full">
               <div className="absolute start-4 top-1/2 -translate-y-1/2 flex items-center gap-1 z-10">
-                 <button 
+                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
+                  aria-label="Attach a file"
+                  title="Attach a file"
                   className="p-2 text-slate-400 hover:text-primary transition-colors rounded-lg hover:bg-slate-50"
                  >
                    <Paperclip className="w-5 h-5" />
@@ -1447,6 +1452,7 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
                  <button
                    type="button"
                    onClick={toggleListening}
+                   aria-label={isListening ? "Stop voice input" : "Start voice input"}
                    className={`p-2 transition-colors rounded-lg ${
                      isListening ? 'text-rose-500 bg-rose-50 hover:bg-rose-100 animate-pulse' : 'text-slate-400 hover:text-primary hover:bg-slate-50'
                    }`}
@@ -1488,13 +1494,26 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
                   </span>
                 </div>
               )}
-              <button
-                type="submit"
-                disabled={(!input.trim() && selectedFiles.length === 0) || isLoading}
-                className="absolute end-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-primary text-white rounded-lg flex items-center justify-center hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400 transition-all shadow-md active:scale-95 z-10"
-              >
-                <Send className="w-5 h-5" />
-              </button>
+              {isLoading ? (
+                <button
+                  type="button"
+                  onClick={() => { stopRef.current = true; }}
+                  title="Stop generating"
+                  aria-label="Stop generating"
+                  className="absolute end-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-slate-900 text-white rounded-lg flex items-center justify-center hover:bg-black transition-all shadow-md active:scale-95 z-10"
+                >
+                  <Square className="w-4 h-4 fill-current" />
+                </button>
+              ) : (
+                <button
+                  type="submit"
+                  disabled={!input.trim() && selectedFiles.length === 0}
+                  aria-label="Send message"
+                  className="absolute end-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-primary text-white rounded-lg flex items-center justify-center hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400 transition-all shadow-md active:scale-95 z-10"
+                >
+                  <Send className="w-5 h-5" />
+                </button>
+              )}
             </div>
           </form>
           <p className="text-center text-[11px] text-text-muted/70 mt-2 px-2">
