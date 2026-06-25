@@ -392,9 +392,10 @@ export default function SignAvatar3D({ words, playing, onProgress, onDone, class
     if (!container) return;
 
     const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 20);
-    camera.position.set(0, 1.3, 1.95);
-    camera.lookAt(0, 1.22, 0);
+    const camera = new THREE.PerspectiveCamera(34, 1, 0.1, 20);
+    // Pulled back and centred lower so the whole avatar fits (was cropping it).
+    camera.position.set(0, 1.15, 2.55);
+    camera.lookAt(0, 1.0, 0);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setClearColor(0x000000, 0);

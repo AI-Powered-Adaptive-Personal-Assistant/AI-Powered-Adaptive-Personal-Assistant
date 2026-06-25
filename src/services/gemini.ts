@@ -14,14 +14,31 @@ function geminiPrimaryKey(): string {
   return GEMINI_KEYS[0] || "";
 }
 
-// Groq is used as an automatic fallback when Gemini is rate-limited/overloaded.
-// Set VITE_GROQ_API_KEY (one or several comma-separated keys) to enable it.
+// OpenAI-compatible fallback providers (used when Gemini is rate-limited/overloaded):
+//  - Groq:  VITE_GROQ_API_KEY  (keys start with "gsk_")  — free, fast
+//  - xAI/Grok: VITE_XAI_API_KEY (keys start with "xai-")
+// One or several comma-separated keys each.
 const GROQ_KEYS: string[] = (((import.meta as any).env?.VITE_GROQ_API_KEY as string) || "")
   .split(/[,\s]+/)
   .map((k: string) => k.trim())
   .filter(Boolean);
+const XAI_KEYS: string[] = (((import.meta as any).env?.VITE_XAI_API_KEY as string) || "")
+  .split(/[,\s]+/)
+  .map((k: string) => k.trim())
+  .filter(Boolean);
+
+/** First available fallback key (Groq or xAI). "" if none. */
 function groqPrimaryKey(): string {
-  return GROQ_KEYS[0] || "";
+  return [...GROQ_KEYS, ...XAI_KEYS][0] || "";
+}
+
+/** Resolve the OpenAI-compatible endpoint + model for a key, by its prefix. */
+function providerFor(key: string): { url: string; model: string } {
+  if (key.startsWith("xai-")) {
+    return { url: "https://api.x.ai/v1/chat/completions", model: "grok-2-latest" };
+  }
+  // default: Groq
+  return { url: "https://api.groq.com/openai/v1/chat/completions", model: "llama-3.3-70b-versatile" };
 }
 
 /** Compact adaptive system prompt (shared by the Groq fallback). */
@@ -48,11 +65,12 @@ async function* generateGroqStream(
     { role: "user", content: message },
   ];
 
-  const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+  const { url, model } = providerFor(apiKey);
+  const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
     body: JSON.stringify({
-      model: "llama-3.3-70b-versatile",
+      model,
       messages,
       temperature: 0.7,
       stream: true,
@@ -517,10 +535,11 @@ async function groqChat(
   apiKey: string,
 ): Promise<string> {
   try {
-    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    const { url, model } = providerFor(apiKey);
+    const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({ model: "llama-3.3-70b-versatile", messages, temperature: 0.7 }),
+      body: JSON.stringify({ model, messages, temperature: 0.7 }),
     });
     if (!res.ok) return "";
     const d = await res.json();
