@@ -366,8 +366,8 @@ export default function ProfilePage({ profile, onMenuClick, setProfile }: Profil
                 onChange={(v) => handleChange(profile.role === 'Student' ? 'faculty' : 'jobTitle', v)}
               />
               <DataField label="Location" value="Cairo_Hub" icon={MapPin} />
-              <DataField label="Last Test Date" value={formatDate(profile.lastQuizDate || new Date())} icon={Calendar} />
-              <DataField label="Average Score" value={`${(profile.points / 10).toFixed(1)}%`} icon={Award} />
+              <DataField label="Member Since" value={formatDate(profile.lastQuizDate || new Date())} icon={Calendar} />
+              <DataField label="Points" value={`${profile.points ?? 0}`} icon={Award} />
             </div>
           </div>
 
