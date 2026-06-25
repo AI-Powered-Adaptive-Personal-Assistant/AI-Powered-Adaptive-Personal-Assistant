@@ -109,7 +109,7 @@ export default function Sidebar({ profile, setProfile, currentView, setCurrentVi
 
       <div className="flex flex-col gap-6">
         <nav className="flex flex-col gap-1.5">
-          <div className="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-1 ms-2">{getTranslation(profile.language, 'mainNavigation')}</div>
+          <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 ms-2">{getTranslation(profile.language, 'mainNavigation')}</div>
 
           {primaryItems.map((item) => (
             <button
@@ -144,7 +144,7 @@ export default function Sidebar({ profile, setProfile, currentView, setCurrentVi
           )}
 
           {/* Account group */}
-          <div className="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-1 mt-3 ms-2">{isAr ? 'الحساب' : 'Account'}</div>
+          <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 mt-3 ms-2">{isAr ? 'الحساب' : 'Account'}</div>
           {accountItems.map((item) => (
             <button
               key={item.id}
@@ -159,7 +159,7 @@ export default function Sidebar({ profile, setProfile, currentView, setCurrentVi
         {(profile.chatThreads?.length || 0) > 0 && (
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between mb-1 ms-2 me-2">
-              <div className="text-[10px] font-black text-slate-300 uppercase tracking-widest">{getTranslation(profile.language, 'chatHistory')}</div>
+              <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{getTranslation(profile.language, 'chatHistory')}</div>
               <button 
                 onClick={() => {
                   const threadsToDelete = profile.chatThreads || [];
@@ -221,7 +221,7 @@ export default function Sidebar({ profile, setProfile, currentView, setCurrentVi
       </div>
 
       <div className="flex flex-col gap-4">
-         <div className="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-1 ms-2">{getTranslation(profile.language, 'features')}</div>
+         <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 ms-2">{getTranslation(profile.language, 'features')}</div>
          <button
            onClick={() => setCurrentView('disability')}
            className={`px-5 py-4 rounded-2xl bg-slate-50 border transition-all relative group overflow-hidden ${currentView === 'disability' ? 'border-primary ring-1 ring-primary/20 shadow-md shadow-primary/10' : 'border-slate-100 hover:border-primary/30 active:scale-[0.98]'}`}
