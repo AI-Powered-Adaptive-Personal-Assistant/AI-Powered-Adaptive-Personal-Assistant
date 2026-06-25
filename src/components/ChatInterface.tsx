@@ -10,6 +10,7 @@ import { ref as firebaseStorageRef, uploadString, getDownloadURL } from "firebas
 import { db, storage, handleFirestoreError, OperationType, cleanDataForFirestore } from "../lib/firebase";
 import { getTranslation } from "../lib/translations";
 import { toast } from "./Toast";
+import MarkdownMessage from "./MarkdownMessage";
 
 const cleanMessagesForFirestore = (newHistory: Message[]) => {
   return newHistory.map(m => {
@@ -172,6 +173,22 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
 
   const [isLoading, setIsLoading] = useState(false);
   const stopRef = useRef(false);
+
+  // iOS soft-keyboard fix: bind the chat shell height to the visual viewport so
+  // the composer stays above the keyboard instead of being hidden behind it.
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const apply = () => document.documentElement.style.setProperty('--app-h', `${vv.height}px`);
+    apply();
+    vv.addEventListener('resize', apply);
+    vv.addEventListener('scroll', apply);
+    return () => {
+      vv.removeEventListener('resize', apply);
+      vv.removeEventListener('scroll', apply);
+      document.documentElement.style.removeProperty('--app-h');
+    };
+  }, []);
   const [streamingText, setStreamingText] = useState("");
   const [selectedFiles, setSelectedFiles] = useState<{ name: string, type: string, data: string, url?: string }[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -745,7 +762,7 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
   };
 
   return (
-    <div className={`flex-1 flex flex-col bg-bg-card overflow-hidden relative ${isEmbedded ? 'h-full' : 'h-[100dvh]'}`}>
+    <div className={`flex-1 flex flex-col bg-bg-card overflow-hidden relative ${isEmbedded ? 'h-full' : 'h-[var(--app-h,100dvh)]'}`}>
       {/* File Preview Modal */}
       <AnimatePresence>
         {previewFile && (
@@ -903,9 +920,7 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
               >
                 {m.role === 'user' ? (
                   <div className="space-y-4 max-w-[90%] md:max-w-[80%]">
-                    <div className={`${
-                      profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya' ? 'border-e-4' : 'border-s-4'
-                    } bg-[#f1f5f9] p-6 rounded-xl border-primary italic text-text-main shadow-sm flex flex-col gap-2`}>
+                    <div className="bg-primary text-white p-5 rounded-2xl shadow-md shadow-primary/20 not-italic flex flex-col gap-2">
                        {m.content.split('\n').map((line, i) => {
                           if (line.match(/^\[Signs:\s(.+)\]$/)) {
                             const signsMatch = line.match(/^\[Signs:\s(.+)\]$/);
@@ -915,7 +930,7 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
                                </div>
                             );
                           }
-                          return <span key={i}>"{line}"</span>;
+                          return <span key={i}>{line}</span>;
                        })}
                     </div>
                     {m.attachments?.length ? m.attachments.map((file, idx) => (
@@ -1069,23 +1084,7 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
                            </motion.div>
                         </div>
                       )}
-                      {m.content.split('\n').map((line, i) => {
-                        const lineKey = `${m.id}-line-${i}`;
-                        if (line.startsWith('## ')) return <h2 key={lineKey} className="text-xl font-bold text-primary border-b-2 border-primary/5 pb-1 mb-2 pt-4">{line.replace('## ', '')}</h2>;
-                        if (line.startsWith('* ')) return <li key={lineKey} className="ml-5 list-square marker:text-primary mb-1">{line.replace('* ', '')}</li>;
-                        
-                        if (line.match(/^\[Signs:\s(.+)\]$/)) {
-                           const signsMatch = line.match(/^\[Signs:\s(.+)\]$/);
-                           return (
-                             <div key={lineKey} className="flex flex-col gap-2 mt-4 pt-4 border-t border-slate-200/60 not-italic">
-                               <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Sign Translation</span>
-                               <span className="text-3xl bg-slate-50 border border-slate-100 p-3 rounded-xl inline-flex w-max">{signsMatch![1]}</span>
-                             </div>
-                           );
-                        }
-
-                        return <p key={lineKey} className="mb-4">{line}</p>;
-                      })}
+                      <MarkdownMessage content={m.content} />
                     </div>
                     
                     {/* Assistant Attachments (Generated Images/Videos) */}
@@ -1267,27 +1266,15 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
               
               {streamingText ? (
                 <div className="text-text-main leading-relaxed adaptive-response text-base space-y-4">
-                  {streamingText.split('\n').map((line, i) => {
-                    const lineKey = `streaming-line-${i}`;
-                    if (line.startsWith('## ')) return <h2 key={lineKey} className="text-xl font-bold text-primary border-b-2 border-primary/5 pb-1 mb-2 pt-4">{line.replace('## ', '')}</h2>;
-                    if (line.startsWith('* ')) return <li key={lineKey} className="ml-5 list-square marker:text-primary mb-1">{line.replace('* ', '')}</li>;
-                    
-                    if (line.match(/^\[Signs:\s(.+)\]$/)) {
-                       const signsMatch = line.match(/^\[Signs:\s(.+)\]$/);
-                       return (
-                         <div key={lineKey} className="flex flex-col gap-2 mt-4 pt-4 border-t border-slate-200/60 not-italic">
-                           <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Sign Translation</span>
-                           <span className="text-3xl bg-slate-50 border border-slate-100 p-3 rounded-xl inline-flex w-max">{signsMatch![1]}</span>
-                         </div>
-                       );
-                    }
-
-                    return <p key={lineKey} className="mb-4">{line}</p>;
-                  })}
+                  <MarkdownMessage content={streamingText} />
                 </div>
               ) : (
                 <div className="flex items-center gap-3 p-6 bg-bg-main rounded-xl border border-border italic text-text-muted">
-                  <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                  <span className="flex items-center gap-1.5" aria-label="Assistant is typing">
+                    <span className="w-2 h-2 rounded-full bg-primary/70 animate-bounce [animation-delay:-0.3s]" />
+                    <span className="w-2 h-2 rounded-full bg-primary/70 animate-bounce [animation-delay:-0.15s]" />
+                    <span className="w-2 h-2 rounded-full bg-primary/70 animate-bounce" />
+                  </span>
                   <span>{getTranslation(profile.language, 'analyzing')}</span>
                 </div>
               )}
