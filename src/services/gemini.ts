@@ -105,7 +105,8 @@ async function fetchGeminiWithRetry(
   let attempt = 0;
   let keyIdx = 0;
   while ((res.status === 503 || res.status === 429) && attempt < retries) {
-    await new Promise((r) => setTimeout(r, 500 * Math.pow(2, attempt)));
+    // Short wait — we rotate to a fresh key each retry, so no long backoff is needed.
+    await new Promise((r) => setTimeout(r, 250));
     attempt++;
     // Rotate to the next key on rate-limit/overload (helps if several are set).
     if (GEMINI_KEYS.length > 1) {
