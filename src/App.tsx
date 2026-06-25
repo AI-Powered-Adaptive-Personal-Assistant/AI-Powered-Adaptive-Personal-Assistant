@@ -3,21 +3,15 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, lazy, Suspense } from "react";
 import Sidebar from "./components/Sidebar";
 import ChatInterface from "./components/ChatInterface";
 import RightPanel from "./components/RightPanel";
 import Onboarding from "./components/Onboarding";
 import Login from "./components/Login";
 import ErrorBoundary from "./components/ErrorBoundary";
-import IntelligenceHub from "./components/IntelligenceHub";
-import ProfilePage from "./components/ProfilePage";
-import LogicSandbox from "./components/LogicSandbox";
-import SignVideoStudio from "./components/SignVideoStudio";
-import AdminDashboard from "./components/AdminDashboard";
 import AccessibilityOverlay from "./components/AccessibilityOverlay";
 import LiveCaptions from "./components/LiveCaptions";
-import DisabilityModeView from "./components/DisabilityModeView";
 import ReadAloudSelection from "./components/ReadAloudSelection";
 import { motion, AnimatePresence } from "motion/react";
 import { Message, UserProfile } from "./types";
@@ -28,18 +22,27 @@ import { Loader2, Settings, Layers, Menu, Moon, Sun, AlertCircle, RefreshCw, Mai
 import { ToastContainer } from "./components/Toast";
 
 import { isRTL, getTranslation } from "./lib/translations";
-import GoalTracker from "./components/Goaltracker";
-import GpaCalculator from "./components/GpaCalculator";
-import AttendanceTracker from "./components/AttendanceTracker";
-import StudentAnalytics from "./components/StudentAnalytics";
-import AcademicPlanner from "./components/AcademicPlanner";
+
+// Heavy, route-specific views are code-split so they don't bloat the initial
+// bundle. They load on demand the first time a user opens that screen, which
+// keeps the app fast to start (important on mobile / slow connections).
+const IntelligenceHub = lazy(() => import("./components/IntelligenceHub"));
+const ProfilePage = lazy(() => import("./components/ProfilePage"));
+const SignVideoStudio = lazy(() => import("./components/SignVideoStudio"));
+const AdminDashboard = lazy(() => import("./components/AdminDashboard"));
+const DisabilityModeView = lazy(() => import("./components/DisabilityModeView"));
+const GoalTracker = lazy(() => import("./components/Goaltracker"));
+const GpaCalculator = lazy(() => import("./components/GpaCalculator"));
+const AttendanceTracker = lazy(() => import("./components/AttendanceTracker"));
+const StudentAnalytics = lazy(() => import("./components/StudentAnalytics"));
+const AcademicPlanner = lazy(() => import("./components/AcademicPlanner"));
 
 export default function App() {
   const [user, loading, authError] = useAuthState(auth);
   const chatRef = useRef<any>(null);
   
   const [currentView, setCurrentView] = useState<
-  'chat' | 'hub' | 'profile' | 'settings' | 'logic' | 'video' | 'disability' | 'admin' | 'goals' | 'gpa' | 'attendance' | 'analytics' | 'planner'
+  'chat' | 'hub' | 'profile' | 'settings' | 'video' | 'disability' | 'admin' | 'goals' | 'gpa' | 'attendance' | 'analytics' | 'planner'
 >('chat');
   
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -117,7 +120,7 @@ export default function App() {
 
     const handlePopState = () => {
       const hash = window.location.hash.replace('#', '');
-      if (['chat', 'hub', 'logic', 'profile', 'settings', 'video', 'disability', 'admin','goals','gpa','attendance','analytics','planner'].includes(hash)) {
+      if (['chat', 'hub', 'profile', 'settings', 'video', 'disability', 'admin','goals','gpa','attendance','analytics','planner'].includes(hash)) {
         setCurrentView(hash as any);
       } else {
         setCurrentView('chat');
@@ -131,7 +134,7 @@ export default function App() {
 
   // Custom navigation function that updates URL and state
  const navigateTo = (
-  view: 'chat' | 'hub' | 'profile' | 'settings' | 'logic' | 'video' | 'disability' | 'admin' | 'goals'
+  view: 'chat' | 'hub' | 'profile' | 'settings' | 'video' | 'disability' | 'admin' | 'goals'
 ) => {
   window.history.pushState(null, '', `#${view}`);
   setCurrentView(view);
@@ -410,8 +413,6 @@ export default function App() {
         />;
       case 'profile':
         return <ProfilePage profile={profile} onMenuClick={() => setIsMobileMenuOpen(true)} />;
-      case 'logic':
-        return <LogicSandbox profile={profile} onMenuClick={() => setIsMobileMenuOpen(true)} />;
       case 'admin':
         return <AdminDashboard profile={profile} onMenuClick={() => setIsMobileMenuOpen(true)} />;
 
@@ -586,7 +587,15 @@ export default function App() {
         )}
 
         <main className="flex-1 relative overflow-hidden flex flex-col md:flex-row">
-          {renderView()}
+          <Suspense
+            fallback={
+              <div className="flex-1 flex items-center justify-center bg-slate-50 dark:bg-slate-950">
+                <Loader2 className="w-8 h-8 text-primary animate-spin" />
+              </div>
+            }
+          >
+            {renderView()}
+          </Suspense>
         </main>
 
         {profile && (

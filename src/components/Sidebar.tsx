@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { UserProfile, CognitiveLevel, UserRole, Field, AccessibilityMode, ChatThread } from "../types";
-import { User, Settings, Brain, Briefcase, GraduationCap, Accessibility, Layers, MessageSquare, BarChart3, AlertCircle, LogOut, Plus, ChevronRight, X, Moon, Sun, Video, Mic, Target, Calculator, CalendarCheck, LayoutDashboard, CalendarDays } from "lucide-react";
+import { User, Settings, Briefcase, GraduationCap, Accessibility, Layers, MessageSquare, BarChart3, AlertCircle, LogOut, Plus, ChevronRight, X, Moon, Sun, Video, Mic, Target, Calculator, CalendarCheck, LayoutDashboard, CalendarDays } from "lucide-react";
 import { logout, db } from "../lib/firebase";
 import { deleteDoc, doc } from "firebase/firestore";
 import { getTranslation } from "../lib/translations";
@@ -8,8 +8,8 @@ import { getTranslation } from "../lib/translations";
 interface SidebarProps {
   profile: UserProfile;
   setProfile: (profile: UserProfile) => void;
-  currentView: 'chat' | 'hub' | 'profile' | 'settings' | 'logic' | 'video' | 'disability' | 'admin' | 'goals' | 'gpa' | 'attendance' | 'analytics' | 'planner';
-  setCurrentView: (view: 'chat' | 'hub' | 'profile' | 'settings' | 'logic' | 'video' | 'disability' | 'admin' | 'goals' | 'gpa' | 'attendance' | 'analytics' | 'planner') => void;
+  currentView: 'chat' | 'hub' | 'profile' | 'settings' | 'video' | 'disability' | 'admin' | 'goals' | 'gpa' | 'attendance' | 'analytics' | 'planner';
+  setCurrentView: (view: 'chat' | 'hub' | 'profile' | 'settings' | 'video' | 'disability' | 'admin' | 'goals' | 'gpa' | 'attendance' | 'analytics' | 'planner') => void;
   isDarkMode: boolean;
   toggleTheme: () => void;
   openLiveCaptions: () => void;
@@ -54,7 +54,6 @@ export default function Sidebar({ profile, setProfile, currentView, setCurrentVi
     const navItems = [
     { id: 'chat', label: getTranslation(profile.language, 'chatSession'), icon: MessageSquare },
     { id: 'hub', label: getTranslation(profile.language, 'dashboard'), icon: BarChart3 },
-    { id: 'logic', label: getTranslation(profile.language, 'logicTraining'), icon: Brain },
     { id: 'goals', label: (profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya') ? 'الأهداف' : 'Goals', icon: Target },
     { id: 'gpa', label: (profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya') ? 'حاسبة GPA' : 'GPA', icon: Calculator },
     { id: 'attendance', label: (profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya') ? 'الحضور' : 'Attendance', icon: CalendarCheck },
