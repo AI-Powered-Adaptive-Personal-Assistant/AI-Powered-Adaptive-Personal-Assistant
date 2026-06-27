@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { AccessibilityMode, UserProfile } from "../types";
+import { toast } from "./Toast";
 import {
   Mic,
   MicOff,
@@ -77,11 +78,20 @@ export default function AccessibilityOverlay({
   const signClfRef = useRef<SignClassifier | null>(null);
   const [liveLetter, setLiveLetter] = useState("");
 
-  // Free the recognizer (and its GPU tensors) when the overlay unmounts.
+  // Free the recognizer AND stop the camera + any speech when the overlay
+  // unmounts — otherwise the webcam light stays on (privacy) and TTS bleeds
+  // into the next screen. Critical for a trusted hospital deployment.
   useEffect(() => {
     return () => {
       signClfRef.current?.dispose();
       signClfRef.current = null;
+      try { cameraRef.current?.stop(); } catch { /* ignore */ }
+      try { handsRef.current?.close(); } catch { /* ignore */ }
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+      if ("speechSynthesis" in window) {
+        try { window.speechSynthesis.cancel(); } catch { /* ignore */ }
+      }
     };
   }, []);
 
@@ -309,13 +319,26 @@ export default function AccessibilityOverlay({
   };
 
   const startVision = async () => {
+    // Feature-detect: on http origins or old browsers mediaDevices is undefined.
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setVisionStatus("Camera not supported");
+      toast.error(
+        "Camera isn't available on this browser/connection. A modern browser over HTTPS is required.",
+        "Camera unavailable",
+      );
+      return;
+    }
     try {
       // Lazy-load the recognizer (and TF.js) the first time the camera starts.
       if (!signClfRef.current) {
         setVisionStatus("Loading recognizer...");
         const { SignClassifier } = await import("../lib/signClassifier");
         const clf = new SignClassifier();
-        await clf.load("/models/sign/model.json");
+        // Don't hang forever on weak hospital wifi — bound the model load.
+        await Promise.race([
+          clf.load("/models/sign/model.json"),
+          new Promise((_, reject) => setTimeout(() => reject(new Error("model-timeout")), 20000)),
+        ]);
         signClfRef.current = clf;
       }
 
@@ -358,9 +381,22 @@ export default function AccessibilityOverlay({
         setIsVisionActive(true);
         setVisionStatus("Live Tracking...");
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Camera access failed", err);
+      // Translate the failure into a clear, actionable message (shown as a toast
+      // so it's visible even though the status pill only renders when active).
+      const name = err?.name || "";
+      let msg = "Couldn't start the camera. Please try again.";
+      if (name === "NotAllowedError" || name === "SecurityError") msg = "Camera permission was blocked. Enable camera access in your browser settings, then try again.";
+      else if (name === "NotFoundError" || name === "DevicesNotFoundError") msg = "No camera was found on this device.";
+      else if (name === "NotReadableError" || name === "TrackStartError") msg = "The camera is in use by another app. Close it and try again.";
+      else if (err?.message === "model-timeout") msg = "The sign recognizer took too long to load — check the internet connection and try again.";
       setVisionStatus("Camera Error");
+      toast.error(msg, "Camera");
+      // Clean up any partial stream so the light doesn't stay on.
+      try { cameraRef.current?.stop(); } catch { /* ignore */ }
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
     }
   };
 

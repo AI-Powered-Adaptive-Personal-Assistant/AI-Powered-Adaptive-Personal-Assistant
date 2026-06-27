@@ -428,6 +428,7 @@ export default function SignAvatar3D({ words, playing, onProgress, onDone, class
   const containerRef = useRef<HTMLDivElement>(null);
   const [glyph, setGlyph] = useState("");
   const [ready, setReady] = useState(false);
+  const [webglError, setWebglError] = useState(false);
 
   // mutable target the animation loop chases
   const target = useRef({
@@ -467,7 +468,16 @@ export default function SignAvatar3D({ words, playing, onProgress, onDone, class
     camera.position.set(0, 1.15, 2.55);
     camera.lookAt(0, 1.0, 0);
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    // Some hospital/locked-down devices have no GPU or blocked WebGL. Fail
+    // gracefully to a visible message instead of a permanent black "loading" box.
+    let renderer: THREE.WebGLRenderer;
+    try {
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    } catch (e) {
+      console.error("WebGL unavailable — 3D avatar disabled", e);
+      setWebglError(true);
+      return;
+    }
     renderer.setClearColor(0x000000, 0);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     container.appendChild(renderer.domElement);
@@ -657,7 +667,13 @@ export default function SignAvatar3D({ words, playing, onProgress, onDone, class
           <span className="text-2xl font-black text-white tracking-widest">{glyph}</span>
         </div>
       )}
-      {!ready && (
+      {webglError ? (
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-center px-4">
+          <span className="text-3xl">🤟</span>
+          <span className="text-slate-500 text-xs font-bold">3D avatar isn't supported on this device.</span>
+          <span className="text-slate-400 text-[11px]">The signed text still appears below.</span>
+        </div>
+      ) : !ready && (
         <div className="absolute inset-0 flex items-center justify-center text-slate-500 text-xs font-bold uppercase tracking-widest">
           Loading 3D engine…
         </div>

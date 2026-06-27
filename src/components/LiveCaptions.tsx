@@ -260,9 +260,13 @@ export default function LiveCaptions({ language = 'en-US', onClose }: LiveCaptio
   // ──────────────────────────────────────────────────────────────────────
   const speakText = useCallback((text: string) => {
     if (!text.trim()) return;
+    if (!('speechSynthesis' in window)) {
+      setError("Speech output isn't supported on this browser.");
+      return;
+    }
     try {
       window.speechSynthesis.cancel();
-      setTimeout(() => {
+      const run = () => {
         const utterance = new SpeechSynthesisUtterance(text);
         utterance.lang = language;
         utterance.rate = speechRate;
@@ -271,9 +275,27 @@ export default function LiveCaptions({ language = 'en-US', onClose }: LiveCaptio
         const voice = voices.find(v => v.lang.startsWith(isArabic ? 'ar' : 'en'));
         if (voice) utterance.voice = voice;
         window.speechSynthesis.speak(utterance);
-      }, 50);
+      };
+      // Voices load asynchronously on first use — if we speak before they're
+      // ready, the first (possibly emergency) phrase is silent. Wait for them.
+      if (window.speechSynthesis.getVoices().length === 0) {
+        let spoken = false;
+        const fire = () => { if (!spoken) { spoken = true; run(); } window.speechSynthesis.onvoiceschanged = null; };
+        window.speechSynthesis.onvoiceschanged = fire;
+        setTimeout(fire, 300); // fallback if the event never fires
+      } else {
+        setTimeout(run, 50);
+      }
     } catch (err) { console.error("TTS failure:", err); }
   }, [language, speechRate, speechPitch, isArabic]);
+
+  // Stop any in-progress speech and pending timers when the panel closes, so
+  // TTS doesn't keep talking over the next screen and no callback fires after
+  // unmount.
+  useEffect(() => () => {
+    if ('speechSynthesis' in window) { try { window.speechSynthesis.cancel(); } catch { /* ignore */ } }
+    if (silenceTimeoutRef.current) clearTimeout(silenceTimeoutRef.current);
+  }, []);
 
   // ──────────────────────────────────────────────────────────────────────
   // CONTINUOUS SPEECH RECOGNITION
@@ -281,7 +303,7 @@ export default function LiveCaptions({ language = 'en-US', onClose }: LiveCaptio
   useEffect(() => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) {
-      setError("Speech recognition requires Google Chrome.");
+      setError("Live captions need a supported browser such as Chrome, Edge, or Safari.");
       return;
     }
     recognitionRef.current = new SpeechRecognition();
@@ -292,7 +314,14 @@ export default function LiveCaptions({ language = 'en-US', onClose }: LiveCaptio
 
     recognition.onstart = () => { setIsListening(true); setError(null); startAudioLevelTracking(); };
     recognition.onerror = (event: any) => {
-      if (event.error === 'not-allowed') setError("Microphone access denied. Enable permissions in browser settings.");
+      // Map every error code to a clear message — otherwise captions just stop
+      // mid-conversation with no explanation (common on hospital networks).
+      const code = event?.error;
+      if (code === 'not-allowed' || code === 'service-not-allowed') setError("Microphone access denied. Enable permissions in your browser settings.");
+      else if (code === 'audio-capture') setError("No microphone found. Please connect one and try again.");
+      else if (code === 'network') setError("Speech service unreachable — check the internet connection.");
+      else if (code === 'no-speech' || code === 'aborted') { /* benign — no message */ }
+      else setError("Speech recognition stopped. Tap the mic to retry.");
       setIsListening(false);
       stopAudioLevelTracking();
     };
