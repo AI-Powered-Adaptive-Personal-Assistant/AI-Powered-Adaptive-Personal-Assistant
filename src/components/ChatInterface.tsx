@@ -848,8 +848,8 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
               <Menu className="w-5 h-5" />
             </button>
             <div className="flex items-center gap-2">
-              <span className="text-lg font-extrabold text-primary tracking-tight">Cognify</span>
-              <span className="text-sm md:text-lg font-light text-text-muted truncate max-w-[120px] md:max-w-xs">| {activeThread?.title || 'AI Session'}</span>
+              <span className="font-display text-base font-semibold text-text-main tracking-tight">Cognify</span>
+              <span className="text-sm md:text-base font-normal text-text-muted truncate max-w-[120px] md:max-w-xs">· {activeThread?.title || 'AI Session'}</span>
             </div>
             {profile.accessibilityMode !== 'None' && (
               <div className="hidden sm:flex items-center gap-1.5 px-3 py-1 bg-primary/5 text-primary border border-primary/10 rounded-full text-[10px] font-black uppercase tracking-wider">
@@ -920,7 +920,7 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
               >
                 {m.role === 'user' ? (
                   <div className="space-y-4 max-w-[90%] md:max-w-[80%]">
-                    <div className="bg-primary text-white p-5 rounded-2xl shadow-md shadow-primary/20 not-italic flex flex-col gap-2">
+                    <div className="bg-surface-3 border border-border text-text-main px-4 py-3 rounded-[18px] rounded-ee-[5px] not-italic flex flex-col gap-2 text-[15px] leading-relaxed">
                        {m.content.split('\n').map((line, i) => {
                           if (line.match(/^\[Signs:\s(.+)\]$/)) {
                             const signsMatch = line.match(/^\[Signs:\s(.+)\]$/);
@@ -1471,7 +1471,7 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
                 }}
                 disabled={isLoading}
                 placeholder={isListening ? (profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya' ? 'جاري الاستماع...' : "Listening...") : getTranslation(profile.language, 'typeMessage')}
-                className={`w-full bg-white border border-border rounded-2xl ps-24 py-4 pe-14 shadow-md focus:ring-4 focus:ring-primary/5 focus:border-primary outline-none transition-all placeholder:text-text-muted/50 disabled:opacity-50 relative z-0 resize-none max-h-40 leading-relaxed custom-scrollbar ${isListening ? 'border-primary outline-primary ring-4 ring-primary/5' : ''}`}
+                className={`w-full bg-bg-card border border-border-2 rounded-[20px] ps-24 py-4 pe-14 shadow focus:border-primary outline-none transition-all placeholder:text-text-muted/50 disabled:opacity-50 relative z-0 resize-none max-h-40 leading-relaxed custom-scrollbar ${isListening ? 'border-primary ring-4 ring-primary/10' : ''}`}
               />
               {interimTranscript && (
                 <div className="absolute end-14 top-1/2 -translate-y-1/2 pointer-events-none z-10">
