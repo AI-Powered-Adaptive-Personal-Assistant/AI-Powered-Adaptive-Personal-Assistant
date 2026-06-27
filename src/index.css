@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Alexandria:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Hanken+Grotesk:wght@400;500;600;700;800&family=Alexandria:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
 @import "tailwindcss";
 
 /* Make `dark:` variants follow the app's theme toggle (.dark class) instead of
@@ -6,18 +6,29 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  --font-sans: "Inter", "Alexandria", ui-sans-serif, system-ui, sans-serif;
+  /* Cognify design system (from Cognify.dc.html): warm paper + forest green. */
+  --font-sans: "Hanken Grotesk", "Alexandria", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Space Grotesk", "Alexandria", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
 
-  --color-primary: #2563eb;
-  --color-secondary: #64748b;
-  --color-success: #059669;
-  --color-warning: #d97706;
-  --color-bg-main: #f8fafc;
-  --color-bg-card: #ffffff;
-  --color-text-main: #1e293b;
-  --color-text-muted: #64748b;
-  --color-border: #e2e8f0;
+  --color-primary: #1E7A53;
+  --color-primary-soft: #E5F0E9;
+  --color-secondary: #6E6B61;
+  --color-success: #1E7A53;
+  --color-warning: #B07914;
+  --color-accent: #B07914;
+  --color-accent-soft: #F3EAD6;
+  --color-danger: #B4452F;
+  --color-danger-soft: #F6E6E0;
+  --color-bg-main: #F4F2EC;
+  --color-bg-card: #FFFFFF;
+  --color-surface-2: #FBFAF6;
+  --color-surface-3: #EFECE2;
+  --color-text-main: #1B1A16;
+  --color-text-muted: #6E6B61;
+  --color-faint: #9C998C;
+  --color-border: #E8E4D9;
+  --color-border-2: #D9D4C5;
 }
 
 @layer base {
@@ -40,28 +51,28 @@
 
 /* --- Dark Theme Overrides --- */
 .dark body {
-  background-color: #020617 !important; /* slate-950 */
+  background-color: #0D0E0A !important; /* slate-950 */
 }
 
 /* Backgrounds */
 .dark .bg-slate-50,
 .dark .bg-bg-main {
-  background-color: #020617 !important;
-  color: #f8fafc !important;
+  background-color: #0D0E0A !important;
+  color: #F1EFE6 !important;
 }
 
 .dark .bg-white,
 .dark .bg-bg-card {
-  background-color: #0f172a !important; /* slate-900 */
+  background-color: #17180F !important; /* slate-900 */
   border-color: #1e293b !important;
-  color: #f8fafc !important;
+  color: #F1EFE6 !important;
 }
 
 .dark .bg-slate-100,
 .dark .bg-\[\#f1f5f9\] {
   background-color: #1e293b !important; /* slate-800 */
   border-color: #334155 !important;
-  color: #f8fafc !important;
+  color: #F1EFE6 !important;
 }
 
 .dark .bg-slate-200 {
@@ -72,7 +83,7 @@
 .dark .text-slate-900,
 .dark .text-black,
 .dark .text-text-main {
-  color: #f8fafc !important; /* slate-50 */
+  color: #F1EFE6 !important; /* slate-50 */
 }
 
 .dark .text-slate-800,
@@ -105,10 +116,10 @@
 /* Exception: Special cases where we don't want inversion (like buttons that are already dark in light mode) */
 .dark .bg-slate-900,
 .dark .bg-slate-950 {
-  background-color: #0f172a !important;
+  background-color: #17180F !important;
 }
 .dark .bg-slate-900.text-white {
-  background-color: #2563eb !important; /* Make primary button blue in dark mode to stand out */
+  background-color: #3CBC83 !important; /* Make primary button blue in dark mode to stand out */
 }
 
 
