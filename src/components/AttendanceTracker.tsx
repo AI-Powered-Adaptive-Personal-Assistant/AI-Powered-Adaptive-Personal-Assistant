@@ -100,7 +100,7 @@ export default function AttendanceTracker({ profile, onMenuClick }: AttendanceTr
           const deprived = isDeprived(s);
           const held = s.attended + s.absent;
           return (
-            <div key={s.id} className={`bg-bg-card rounded-3xl p-6 border shadow-sm ${deprived ? 'border-red-200' : 'border-border'}`}>
+            <div key={s.id} className={`bg-bg-card rounded-3xl p-6 border shadow-sm ${deprived ? 'border-danger/20' : 'border-border'}`}>
               <div className="flex items-start justify-between gap-3 mb-4">
                 <div>
                   <h3 className="font-black text-text-main">{s.name}</h3>
@@ -113,7 +113,7 @@ export default function AttendanceTracker({ profile, onMenuClick }: AttendanceTr
 
               {/* Percentage bar */}
               <div className="flex items-center gap-3 mb-3">
-                <span className={`text-3xl font-black ${deprived ? 'text-red-600' : pct >= s.threshold + 10 ? 'text-emerald-600' : 'text-amber-600'}`}>{pct}%</span>
+                <span className={`text-3xl font-black ${deprived ? 'text-danger' : pct >= s.threshold + 10 ? 'text-primary' : 'text-accent'}`}>{pct}%</span>
                 <div className="flex-1 h-2.5 bg-surface-3 rounded-full overflow-hidden">
                   <div className={`h-full ${deprived ? 'bg-red-500' : 'bg-primary'}`} style={{ width: `${Math.min(100, pct)}%` }} />
                 </div>
@@ -121,11 +121,11 @@ export default function AttendanceTracker({ profile, onMenuClick }: AttendanceTr
 
               {/* Status */}
               {deprived ? (
-                <p className="text-xs font-bold text-red-600 flex items-center gap-1.5 mb-4">
+                <p className="text-xs font-bold text-danger flex items-center gap-1.5 mb-4">
                   <AlertTriangle className="w-4 h-4" /> {t('Below required attendance!', 'تحت نسبة الحضور المطلوبة!')}
                 </p>
               ) : remaining !== null ? (
-                <p className={`text-xs font-bold mb-4 ${remaining <= 2 ? 'text-amber-600' : 'text-text-muted'}`}>
+                <p className={`text-xs font-bold mb-4 ${remaining <= 2 ? 'text-accent' : 'text-text-muted'}`}>
                   {remaining} {t('absences left before deprivation', 'غياب فاضل قبل الحرمان')}
                 </p>
               ) : <div className="mb-4" />}
@@ -133,11 +133,11 @@ export default function AttendanceTracker({ profile, onMenuClick }: AttendanceTr
               {/* Counters */}
               <div className="flex items-center gap-3">
                 <button onClick={() => mark(s, 'attended', 1)}
-                  className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl font-bold text-sm hover:bg-emerald-100 active:scale-95">
+                  className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-primary-soft text-primary border border-emerald-200 rounded-xl font-bold text-sm hover:bg-emerald-100 active:scale-95">
                   <CheckCircle2 className="w-4 h-4" /> {t('Present', 'حاضر')} ({s.attended})
                 </button>
                 <button onClick={() => mark(s, 'absent', 1)}
-                  className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-red-50 text-red-700 border border-red-200 rounded-xl font-bold text-sm hover:bg-red-100 active:scale-95">
+                  className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-danger-soft text-danger border border-danger/20 rounded-xl font-bold text-sm hover:bg-red-100 active:scale-95">
                   <XCircle className="w-4 h-4" /> {t('Absent', 'غائب')} ({s.absent})
                 </button>
               </div>

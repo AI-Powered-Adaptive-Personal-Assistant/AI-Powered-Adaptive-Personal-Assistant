@@ -728,7 +728,7 @@ export default function LiveCaptions({ language = 'en-US', onClose }: LiveCaptio
               className={`text-[10px] md:text-[11px] font-black uppercase tracking-wider py-2 px-3 border rounded-xl transition-all flex items-center gap-1.5 cursor-pointer ${
                 activeMode === 'listen'
                   ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-400'
-                  : 'border-transparent text-neutral-400 hover:text-white hover:bg-white/5'
+                  : 'border-transparent text-neutral-400 hover:text-white hover:bg-bg-card/5'
               }`}
             >
               <Activity className="w-3.5 h-3.5" />
@@ -741,7 +741,7 @@ export default function LiveCaptions({ language = 'en-US', onClose }: LiveCaptio
               className={`text-[10px] md:text-[11px] font-black uppercase tracking-wider py-2 px-3 border rounded-xl transition-all flex items-center gap-1.5 cursor-pointer ${
                 activeMode === 'euphonia'
                   ? 'border-purple-500/40 bg-purple-500/10 text-purple-400'
-                  : 'border-transparent text-neutral-400 hover:text-white hover:bg-white/5'
+                  : 'border-transparent text-neutral-400 hover:text-white hover:bg-bg-card/5'
               }`}
             >
               <Zap className="w-3.5 h-3.5" />
@@ -754,7 +754,7 @@ export default function LiveCaptions({ language = 'en-US', onClose }: LiveCaptio
               className={`text-[10px] md:text-[11px] font-black uppercase tracking-wider py-2 px-3 border rounded-xl transition-all flex items-center gap-1.5 cursor-pointer ${
                 activeMode === 'calibrate'
                   ? 'border-sky-500/40 bg-sky-500/10 text-sky-400'
-                  : 'border-transparent text-neutral-400 hover:text-white hover:bg-white/5'
+                  : 'border-transparent text-neutral-400 hover:text-white hover:bg-bg-card/5'
               }`}
             >
               <Target className="w-3.5 h-3.5" />
@@ -771,7 +771,7 @@ export default function LiveCaptions({ language = 'en-US', onClose }: LiveCaptio
               className={`flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider py-1.5 px-3 border rounded-xl transition-all cursor-pointer ${
                 repeatModeOn
                   ? 'border-orange-500/40 bg-orange-500/10 text-orange-400'
-                  : 'border-white/10 text-neutral-500 hover:text-white hover:bg-white/5'
+                  : 'border-white/10 text-neutral-500 hover:text-white hover:bg-bg-card/5'
               }`}
             >
               <Repeat2 className="w-3.5 h-3.5" />
@@ -786,7 +786,7 @@ export default function LiveCaptions({ language = 'en-US', onClose }: LiveCaptio
               </span>
             </div>
 
-            <button onClick={onClose} className="lg:hidden p-2 rounded-full bg-white/5 hover:bg-white/10 border border-white/10">
+            <button onClick={onClose} className="lg:hidden p-2 rounded-full bg-bg-card/5 hover:bg-bg-card/10 border border-white/10">
               <X className="w-4 h-4" />
             </button>
           </div>
@@ -875,7 +875,7 @@ export default function LiveCaptions({ language = 'en-US', onClose }: LiveCaptio
                         <button
                           onClick={() => setEditingId(null)}
                           title="Cancel"
-                          className="p-2 rounded-lg bg-white/5 text-neutral-400 hover:text-white"
+                          className="p-2 rounded-lg bg-bg-card/5 text-neutral-400 hover:text-white"
                         >
                           <X className="w-4 h-4" />
                         </button>
@@ -896,7 +896,7 @@ export default function LiveCaptions({ language = 'en-US', onClose }: LiveCaptio
                           </span>
                         )}
                         {seg.intent && (
-                          <span className="text-[10px] font-bold text-neutral-400 bg-white/5 border border-white/10 px-2 py-0.5 rounded-full">
+                          <span className="text-[10px] font-bold text-neutral-400 bg-bg-card/5 border border-white/10 px-2 py-0.5 rounded-full">
                             {seg.intent}
                           </span>
                         )}
@@ -912,21 +912,21 @@ export default function LiveCaptions({ language = 'en-US', onClose }: LiveCaptio
                         )}
                         <button
                           onClick={() => startEditSegment(seg)}
-                          className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-neutral-400 hover:text-emerald-400 transition-all"
+                          className="p-1.5 rounded-lg bg-bg-card/5 hover:bg-bg-card/10 text-neutral-400 hover:text-emerald-400 transition-all"
                           title="Fix this — the app learns your pronunciation"
                         >
                           <Pencil className="w-3.5 h-3.5" />
                         </button>
                         <button
                           onClick={() => speakText(seg.decoded)}
-                          className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-neutral-400 hover:text-white transition-all"
+                          className="p-1.5 rounded-lg bg-bg-card/5 hover:bg-bg-card/10 text-neutral-400 hover:text-white transition-all"
                           title="Speak this aloud"
                         >
                           <Volume2 className="w-3.5 h-3.5" />
                         </button>
                         <button
                           onClick={() => { navigator.clipboard.writeText(seg.decoded); }}
-                          className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-neutral-400 hover:text-white transition-all"
+                          className="p-1.5 rounded-lg bg-bg-card/5 hover:bg-bg-card/10 text-neutral-400 hover:text-white transition-all"
                           title="Copy"
                         >
                           <Copy className="w-3.5 h-3.5" />
@@ -945,7 +945,7 @@ export default function LiveCaptions({ language = 'en-US', onClose }: LiveCaptio
                             key={i}
                             onClick={() => applyAlternative(seg, alt)}
                             title="Use this — the app learns from it"
-                            className="text-xs px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-neutral-300 hover:bg-emerald-500/20 hover:border-emerald-500/40 hover:text-emerald-300 transition-all"
+                            className="text-xs px-2.5 py-1 rounded-full bg-bg-card/5 border border-white/10 text-neutral-300 hover:bg-emerald-500/20 hover:border-emerald-500/40 hover:text-emerald-300 transition-all"
                           >
                             {alt}
                           </button>
@@ -1022,7 +1022,7 @@ export default function LiveCaptions({ language = 'en-US', onClose }: LiveCaptio
                     className={`w-16 h-16 md:w-20 md:h-20 rounded-full flex items-center justify-center shadow-xl z-10 relative transition-all cursor-pointer ${
                       isListening
                         ? 'bg-emerald-500 text-black scale-105 shadow-emerald-500/40'
-                        : 'bg-white text-black hover:bg-neutral-100'
+                        : 'bg-bg-card text-black hover:bg-neutral-100'
                     }`}
                   >
                     {isListening ? <MicOff className="w-7 md:w-8 h-7 md:h-8" /> : <Mic className="w-7 md:w-8 h-7 md:h-8" />}
@@ -1040,7 +1040,7 @@ export default function LiveCaptions({ language = 'en-US', onClose }: LiveCaptio
                     {isRecordingEuphonia ? (
                       <span className="relative flex h-5 w-5">
                         <span className="absolute inline-flex h-full w-full rounded-full bg-red-300 opacity-75 animate-ping" />
-                        <span className="relative inline-flex rounded-full h-4 w-4 bg-white" />
+                        <span className="relative inline-flex rounded-full h-4 w-4 bg-bg-card" />
                       </span>
                     ) : (
                       <Zap className="w-7 md:w-8 h-7 md:h-8" />
@@ -1154,7 +1154,7 @@ export default function LiveCaptions({ language = 'en-US', onClose }: LiveCaptio
                       <span className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 text-[10px] font-black ${
                         phrase.recorded ? 'bg-emerald-500/20 text-emerald-400' :
                         idx === calibrationIndex ? 'bg-sky-500/20 text-sky-400' :
-                        'bg-white/5 text-neutral-600'
+                        'bg-bg-card/5 text-neutral-600'
                       }`}>
                         {phrase.recorded ? '✓' : idx + 1}
                       </span>
@@ -1190,11 +1190,11 @@ export default function LiveCaptions({ language = 'en-US', onClose }: LiveCaptio
           <div className="flex items-center gap-2">
             <button
               onClick={() => setShowSettings(!showSettings)}
-              className={`p-2 rounded-full border transition-colors ${showSettings ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-white/5 border-white/10 text-neutral-400 hover:text-white'}`}
+              className={`p-2 rounded-full border transition-colors ${showSettings ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-bg-card/5 border-white/10 text-neutral-400 hover:text-white'}`}
             >
               <Settings className="w-4 h-4" />
             </button>
-            <button onClick={onClose} className="hidden lg:flex p-2 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-neutral-400">
+            <button onClick={onClose} className="hidden lg:flex p-2 rounded-full bg-bg-card/5 hover:bg-bg-card/10 border border-white/10 text-neutral-400">
               <X className="w-4 h-4" />
             </button>
           </div>
@@ -1258,7 +1258,7 @@ export default function LiveCaptions({ language = 'en-US', onClose }: LiveCaptio
             />
             <div className="flex items-center gap-2 justify-end flex-wrap">
               {customText.trim() && (
-                <button onClick={() => setCustomText('')} className="text-xs text-neutral-500 hover:text-white px-2 py-1.5 rounded-lg bg-white/5">
+                <button onClick={() => setCustomText('')} className="text-xs text-neutral-500 hover:text-white px-2 py-1.5 rounded-lg bg-bg-card/5">
                   Clear
                 </button>
               )}
@@ -1271,7 +1271,7 @@ export default function LiveCaptions({ language = 'en-US', onClose }: LiveCaptio
                 <Maximize2 className="w-3.5 h-3.5" /> Big
               </button>
               <button onClick={() => { handleCustomSpeak(customText); setCustomText(''); }} disabled={!customText.trim()}
-                className="flex items-center gap-1.5 text-xs font-black text-black bg-white hover:bg-neutral-100 disabled:opacity-40 px-4 py-1.5 rounded-lg transition-all">
+                className="flex items-center gap-1.5 text-xs font-black text-black bg-bg-card hover:bg-neutral-100 disabled:opacity-40 px-4 py-1.5 rounded-lg transition-all">
                 <Volume2 className="w-3.5 h-3.5" /> Speak
               </button>
             </div>
@@ -1287,7 +1287,7 @@ export default function LiveCaptions({ language = 'en-US', onClose }: LiveCaptio
                 </div>
                 <button onClick={() => fetchSmartReplies(segments[segments.length - 1]?.decoded || 'Hello')}
                   disabled={isGeneratingReplies}
-                  className="p-1 text-[10px] uppercase font-black text-neutral-500 hover:text-white bg-white/5 rounded-md hover:bg-white/10 disabled:opacity-40">
+                  className="p-1 text-[10px] uppercase font-black text-neutral-500 hover:text-white bg-bg-card/5 rounded-md hover:bg-bg-card/10 disabled:opacity-40">
                   <RefreshCw className={`w-3 h-3 ${isGeneratingReplies ? 'animate-spin' : ''}`} />
                 </button>
               </div>
@@ -1462,7 +1462,7 @@ export default function LiveCaptions({ language = 'en-US', onClose }: LiveCaptio
               <span className="text-xs font-black uppercase text-yellow-500 tracking-widest bg-yellow-500/10 border border-yellow-500/20 px-3 py-1 rounded-full">
                 Visual Board
               </span>
-              <button onClick={() => setShowBigMode(false)} className="p-3 rounded-full bg-white/5 hover:bg-white/10 border border-white/10">
+              <button onClick={() => setShowBigMode(false)} className="p-3 rounded-full bg-bg-card/5 hover:bg-bg-card/10 border border-white/10">
                 <X className="w-6 h-6" />
               </button>
             </div>
@@ -1473,7 +1473,7 @@ export default function LiveCaptions({ language = 'en-US', onClose }: LiveCaptio
             </div>
             <div className="flex items-center justify-center gap-4">
               <button onClick={() => speakText(customText)}
-                className="flex items-center gap-2 px-6 py-3 bg-white text-black font-black uppercase text-xs tracking-widest rounded-full hover:bg-neutral-100 shadow-2xl">
+                className="flex items-center gap-2 px-6 py-3 bg-bg-card text-black font-black uppercase text-xs tracking-widest rounded-full hover:bg-neutral-100 shadow-2xl">
                 <Volume2 className="w-4 h-4" /> Speak Aloud
               </button>
               <button onClick={() => setShowBigMode(false)}

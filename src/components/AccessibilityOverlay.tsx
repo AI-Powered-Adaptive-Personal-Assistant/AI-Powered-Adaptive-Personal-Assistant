@@ -649,7 +649,7 @@ export default function AccessibilityOverlay({
       <button
         onClick={() => toggleControlsHidden(true)}
         title="Hide accessibility controls"
-        className="self-start pointer-events-auto w-9 h-9 rounded-full bg-white/90 backdrop-blur border border-slate-200 text-slate-500 shadow flex items-center justify-center hover:text-slate-800 active:scale-95"
+        className="self-start pointer-events-auto w-9 h-9 rounded-full bg-bg-card/90 backdrop-blur border border-slate-200 text-slate-500 shadow flex items-center justify-center hover:text-slate-800 active:scale-95"
       >
         <EyeOff className="w-4 h-4" />
       </button>
@@ -681,8 +681,8 @@ export default function AccessibilityOverlay({
                   }}
                   className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-xl transition-all active:scale-95 border-2 ${
                     autoSpeak
-                      ? "bg-indigo-50 border-indigo-200 text-indigo-600"
-                      : "bg-white border-slate-200 text-slate-400 hover:text-slate-600"
+                      ? "bg-primary-soft border-indigo-200 text-primary"
+                      : "bg-bg-card border-slate-200 text-slate-400 hover:text-slate-600"
                   }`}
                   title={
                     autoSpeak
@@ -740,11 +740,11 @@ export default function AccessibilityOverlay({
             className="flex flex-col items-start gap-3 pointer-events-auto cursor-grab active:cursor-grabbing"
           >
             {(transcription || liveLetter || isVisionActive) && (
-              <div className="bg-white/95 backdrop-blur-md p-4 rounded-2xl border border-emerald-200 shadow-2xl max-w-sm flex flex-col gap-3">
+              <div className="bg-bg-card/95 backdrop-blur-md p-4 rounded-2xl border border-emerald-200 shadow-2xl max-w-sm flex flex-col gap-3">
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex items-center gap-2">
                     <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                    <span className="text-[9px] font-black uppercase text-emerald-600 tracking-widest">
+                    <span className="text-[9px] font-black uppercase text-primary tracking-widest">
                       Fingerspelling
                     </span>
                     {liveLetter && (
@@ -889,7 +889,7 @@ export default function AccessibilityOverlay({
                     // We rely on the existing loop or can trigger one-off if needed
                     // But for simplicity, we just show feedback
                   }}
-                  className="p-4 bg-white/10 hover:bg-white/20 text-white rounded-3xl backdrop-blur-md transition-all active:scale-95 border border-white/5"
+                  className="p-4 bg-bg-card/10 hover:bg-bg-card/20 text-white rounded-3xl backdrop-blur-md transition-all active:scale-95 border border-white/5"
                   title="Force Analysis"
                 >
                   <Brain className="w-5 h-5" />

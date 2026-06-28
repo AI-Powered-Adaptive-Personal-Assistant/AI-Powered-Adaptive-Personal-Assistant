@@ -129,7 +129,7 @@ export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardP
         <div className="flex-1 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="p-3 bg-red-100 rounded-xl">
-              <Users className="w-6 h-6 text-red-600" />
+              <Users className="w-6 h-6 text-danger" />
             </div>
             <div>
               <h2 className="text-xl md:text-2xl font-black text-text-main uppercase tracking-tighter leading-none">Admin Dashboard</h2>

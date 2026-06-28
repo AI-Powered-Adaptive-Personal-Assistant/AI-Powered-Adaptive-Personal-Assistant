@@ -97,14 +97,14 @@ export default function StudentAnalytics({ profile, onMenuClick }: StudentAnalyt
         {/* Stat cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <Stat icon={<GraduationCap className="w-6 h-6 text-primary" />} tone="bg-primary/10" label={t('Cumulative GPA', 'المعدل التراكمي')} value={cgpa.toFixed(2)} />
-          <Stat icon={<CalendarCheck className="w-6 h-6 text-emerald-600" />} tone="bg-emerald-50" label={t('Avg Attendance', 'متوسط الحضور')} value={`${avgAttendance}%`} />
-          <Stat icon={<Target className="w-6 h-6 text-indigo-600" />} tone="bg-indigo-50" label={t('Active Goals', 'أهداف نشطة')} value={String(activeGoals.length)} />
+          <Stat icon={<CalendarCheck className="w-6 h-6 text-primary" />} tone="bg-primary-soft" label={t('Avg Attendance', 'متوسط الحضور')} value={`${avgAttendance}%`} />
+          <Stat icon={<Target className="w-6 h-6 text-primary" />} tone="bg-primary-soft" label={t('Active Goals', 'أهداف نشطة')} value={String(activeGoals.length)} />
           <Stat icon={<Target className="w-6 h-6 text-text-muted" />} tone="bg-surface-3" label={t('Completed Goals', 'أهداف مكتملة')} value={String(completedGoals.length)} />
         </div>
 
         {/* At-risk attendance alert */}
         {atRisk.length > 0 && (
-          <div className="bg-red-50 border border-red-200 rounded-2xl p-4 flex items-center gap-3 text-red-700">
+          <div className="bg-danger-soft border border-danger/20 rounded-2xl p-4 flex items-center gap-3 text-danger">
             <AlertTriangle className="w-5 h-5 shrink-0" />
             <span className="text-sm font-bold">
               {t('At risk of deprivation in:', 'معرّض للحرمان في:')} {atRisk.map((s) => s.name).join('، ')}
@@ -126,7 +126,7 @@ export default function StudentAnalytics({ profile, onMenuClick }: StudentAnalyt
                     <Tooltip />
                     <Bar dataKey="gpa" radius={[6, 6, 0, 0]}>
                       {gpaTrend.map((d, i) => (
-                        <Cell key={i} fill={d.gpa >= 3.5 ? '#10b981' : d.gpa >= 2.5 ? '#3b82f6' : '#f59e0b'} />
+                        <Cell key={i} fill={d.gpa >= 3.5 ? '#1E7A53' : d.gpa >= 2.5 ? '#1E7A53' : '#B07914'} />
                       ))}
                     </Bar>
                   </BarChart>
@@ -149,7 +149,7 @@ export default function StudentAnalytics({ profile, onMenuClick }: StudentAnalyt
                     <div key={s.id}>
                       <div className="flex justify-between text-xs font-bold mb-1">
                         <span className="text-text-main">{s.name}</span>
-                        <span className={deprived ? 'text-red-600' : 'text-text-muted'}>{pct}%</span>
+                        <span className={deprived ? 'text-danger' : 'text-text-muted'}>{pct}%</span>
                       </div>
                       <div className="h-2 bg-surface-3 rounded-full overflow-hidden">
                         <div className={`h-full ${deprived ? 'bg-red-500' : 'bg-emerald-500'}`} style={{ width: `${Math.min(100, pct)}%` }} />
@@ -198,7 +198,7 @@ export default function StudentAnalytics({ profile, onMenuClick }: StudentAnalyt
                   return (
                     <div key={g.id} className="flex items-center justify-between gap-3 p-3 bg-bg-main rounded-xl">
                       <span className="text-sm font-bold text-text-main truncate">{g.title}</span>
-                      <span className={`text-[11px] font-black px-2 py-0.5 rounded-lg ${d < 0 ? 'bg-red-100 text-red-600' : d <= 3 ? 'bg-amber-100 text-amber-700' : 'bg-slate-200 text-text-muted'}`}>
+                      <span className={`text-[11px] font-black px-2 py-0.5 rounded-lg ${d < 0 ? 'bg-red-100 text-danger' : d <= 3 ? 'bg-amber-100 text-accent' : 'bg-slate-200 text-text-muted'}`}>
                         {d < 0 ? t('overdue', 'متأخر') : `${d} ${t('days', 'يوم')}`}
                       </span>
                     </div>

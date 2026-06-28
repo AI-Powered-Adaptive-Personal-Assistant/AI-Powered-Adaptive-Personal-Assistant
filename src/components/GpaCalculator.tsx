@@ -13,10 +13,10 @@ interface GpaCalculatorProps {
 
 const gradeColor = (grade: string) => {
   const p = GRADE_POINTS[grade] ?? 0;
-  if (p >= 3.7) return 'text-emerald-600 bg-emerald-50 border-emerald-200';
+  if (p >= 3.7) return 'text-primary bg-primary-soft border-emerald-200';
   if (p >= 3.0) return 'text-blue-600 bg-blue-50 border-blue-200';
-  if (p >= 2.0) return 'text-amber-600 bg-amber-50 border-amber-200';
-  return 'text-red-600 bg-red-50 border-red-200';
+  if (p >= 2.0) return 'text-accent bg-accent-soft border-amber-200';
+  return 'text-danger bg-danger-soft border-danger/20';
 };
 
 export default function GpaCalculator({ profile, onMenuClick }: GpaCalculatorProps) {
@@ -117,7 +117,7 @@ export default function GpaCalculator({ profile, onMenuClick }: GpaCalculatorPro
               </div>
             </div>
             {projected !== null && (
-              <span className={`text-xs font-bold ${projected >= cgpa ? 'text-emerald-600' : 'text-red-600'}`}>
+              <span className={`text-xs font-bold ${projected >= cgpa ? 'text-primary' : 'text-danger'}`}>
                 {projected >= cgpa ? '▲' : '▼'} {Math.abs(projected - cgpa).toFixed(2)}
               </span>
             )}

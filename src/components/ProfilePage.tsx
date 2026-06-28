@@ -316,7 +316,7 @@ export default function ProfilePage({ profile, onMenuClick, setProfile }: Profil
 
           <div className="bg-bg-card p-8 rounded-[40px] border border-border shadow-sm">
              <h3 className="text-sm font-black uppercase tracking-[0.2em] text-text-main mb-4 flex items-center gap-2">
-                <currentGoal.icon className="w-4 h-4 text-emerald-600" /> Sustainability Goal
+                <currentGoal.icon className="w-4 h-4 text-primary" /> Sustainability Goal
              </h3>
              {isEditing ? (
                 <div className="space-y-3">
@@ -325,7 +325,7 @@ export default function ProfilePage({ profile, onMenuClick, setProfile }: Profil
                       key={goal.id}
                       onClick={() => handleChange('sustainabilityGoal', goal.id)}
                       className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-all text-xs font-bold ${
-                        editedProfile.sustainabilityGoal === goal.id ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-bg-card border-border text-faint'
+                        editedProfile.sustainabilityGoal === goal.id ? 'bg-primary-soft border-emerald-200 text-primary' : 'bg-bg-card border-border text-faint'
                       }`}
                     >
                       <goal.icon className="w-4 h-4" /> {goal.label}
@@ -417,7 +417,7 @@ export default function ProfilePage({ profile, onMenuClick, setProfile }: Profil
               </div>
               
               {!feedbackStats.loading && (feedbackStats.upvotes > 0 || feedbackStats.downvotes > 0) && (
-                <div className="flex items-center gap-2 bg-emerald-50 text-emerald-800 px-4 py-2 rounded-2xl border border-emerald-100">
+                <div className="flex items-center gap-2 bg-primary-soft text-emerald-800 px-4 py-2 rounded-2xl border border-emerald-100">
                   <span className="text-lg font-black">
                     {Math.round((feedbackStats.upvotes / (feedbackStats.upvotes + feedbackStats.downvotes)) * 100)}%
                   </span>
@@ -439,7 +439,7 @@ export default function ProfilePage({ profile, onMenuClick, setProfile }: Profil
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="p-6 bg-gradient-to-br from-emerald-50/50 to-emerald-50/10 border border-emerald-100 rounded-3xl flex items-center justify-between">
                     <div>
-                      <p className="text-[10px] font-black uppercase text-emerald-600 tracking-wider">
+                      <p className="text-[10px] font-black uppercase text-primary tracking-wider">
                         {profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya' ? 'الإجابات المفيدة' : 'Helpful Responses'}
                       </p>
                       <h4 className="text-3xl font-black text-text-main mt-1">{feedbackStats.upvotes}</h4>

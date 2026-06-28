@@ -81,7 +81,7 @@ const IntelligenceHub = React.memo(({ profile, onMenuClick }: IntelligenceHubPro
             value={profile.iqScore || 0} 
             icon={Target} 
             color="text-indigo-500" 
-            bg="bg-indigo-50 dark:bg-indigo-500/10" 
+            bg="bg-primary-soft dark:bg-indigo-500/10" 
             trend={`+${(profile.questionHistory.length * 0.5).toFixed(1)} pts`} 
           />
           <BentoMetric 
@@ -89,7 +89,7 @@ const IntelligenceHub = React.memo(({ profile, onMenuClick }: IntelligenceHubPro
             value={profile.points} 
             icon={Star} 
             color="text-amber-500" 
-            bg="bg-amber-50 dark:bg-amber-500/10" 
+            bg="bg-accent-soft dark:bg-amber-500/10" 
             trend="Rank Up" 
           />
           <BentoMetric 
@@ -97,7 +97,7 @@ const IntelligenceHub = React.memo(({ profile, onMenuClick }: IntelligenceHubPro
             value={`${growthIndex}%`} 
             icon={TrendingUp} 
             color="text-emerald-500" 
-            bg="bg-emerald-50 dark:bg-emerald-500/10" 
+            bg="bg-primary-soft dark:bg-emerald-500/10" 
             trend="Optimal" 
           />
           <BentoMetric 

@@ -10,10 +10,10 @@ interface AcademicPlannerProps {
 
 const TYPE_META: Record<PlannerTaskType, { en: string; ar: string; color: string }> = {
   assignment: { en: 'Assignment', ar: 'تكليف', color: 'bg-blue-50 text-blue-600 border-blue-200' },
-  quiz: { en: 'Quiz', ar: 'كويز', color: 'bg-amber-50 text-amber-600 border-amber-200' },
+  quiz: { en: 'Quiz', ar: 'كويز', color: 'bg-accent-soft text-accent border-amber-200' },
   midterm: { en: 'Midterm', ar: 'ميدتيرم', color: 'bg-purple-50 text-purple-600 border-purple-200' },
-  final: { en: 'Final', ar: 'فاينال', color: 'bg-red-50 text-red-600 border-red-200' },
-  project: { en: 'Project', ar: 'مشروع', color: 'bg-emerald-50 text-emerald-600 border-emerald-200' },
+  final: { en: 'Final', ar: 'فاينال', color: 'bg-danger-soft text-danger border-danger/20' },
+  project: { en: 'Project', ar: 'مشروع', color: 'bg-primary-soft text-primary border-emerald-200' },
   other: { en: 'Other', ar: 'أخرى', color: 'bg-surface-3 text-text-muted border-border' },
 };
 
@@ -67,10 +67,10 @@ export default function AcademicPlanner({ profile, onMenuClick }: AcademicPlanne
 
   const countdown = (task: PlannerTask) => {
     const d = daysUntilDue(task);
-    if (d < 0) return { label: t('overdue', 'متأخر'), color: 'bg-red-100 text-red-600' };
-    if (d === 0) return { label: t('today', 'النهاردة'), color: 'bg-red-100 text-red-600' };
-    if (d === 1) return { label: t('tomorrow', 'بكرة'), color: 'bg-amber-100 text-amber-700' };
-    if (d <= 3) return { label: `${d} ${t('days', 'أيام')}`, color: 'bg-amber-100 text-amber-700' };
+    if (d < 0) return { label: t('overdue', 'متأخر'), color: 'bg-red-100 text-danger' };
+    if (d === 0) return { label: t('today', 'النهاردة'), color: 'bg-red-100 text-danger' };
+    if (d === 1) return { label: t('tomorrow', 'بكرة'), color: 'bg-amber-100 text-accent' };
+    if (d <= 3) return { label: `${d} ${t('days', 'أيام')}`, color: 'bg-amber-100 text-accent' };
     return { label: `${d} ${t('days', 'يوم')}`, color: 'bg-slate-200 text-text-muted' };
   };
 

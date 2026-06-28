@@ -781,17 +781,17 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
                   <button 
                     title="Narrate Document (Blind Accessibility)" 
                     onClick={() => readDocument(previewFile)} 
-                    className="text-white hover:text-emerald-400 transition-colors bg-white/10 hover:bg-white/20 p-2 rounded-full backdrop-blur border border-white/20 flex items-center gap-2 px-4"
+                    className="text-white hover:text-emerald-400 transition-colors bg-bg-card/10 hover:bg-bg-card/20 p-2 rounded-full backdrop-blur border border-white/20 flex items-center gap-2 px-4"
                   >
                     <Volume2 className="w-6 h-6" />
                     <span className="text-[10px] font-black uppercase tracking-widest hidden sm:inline">Hear Content</span>
                   </button>
-                  <button title="Download" onClick={() => handleDownload(previewFile)} className="text-white hover:text-primary transition-colors bg-white/10 hover:bg-white/20 p-2 rounded-full backdrop-blur">
+                  <button title="Download" onClick={() => handleDownload(previewFile)} className="text-white hover:text-primary transition-colors bg-bg-card/10 hover:bg-bg-card/20 p-2 rounded-full backdrop-blur">
                     <Download className="w-8 h-8" />
                   </button>
                 </>
               )}
-              <button title="Close" onClick={() => setPreviewFile(null)} className="text-white hover:text-primary transition-colors bg-white/10 hover:bg-white/20 p-2 rounded-full backdrop-blur">
+              <button title="Close" onClick={() => setPreviewFile(null)} className="text-white hover:text-primary transition-colors bg-bg-card/10 hover:bg-bg-card/20 p-2 rounded-full backdrop-blur">
                 <X className="w-8 h-8" />
               </button>
             </div>
@@ -809,7 +809,7 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
                 className="max-w-full max-h-full shadow-2xl rounded-lg"
               />
             ) : (
-              <div className="bg-white p-12 rounded-[40px] max-w-2xl w-full text-center space-y-6">
+              <div className="bg-bg-card p-12 rounded-[40px] max-w-2xl w-full text-center space-y-6">
                 <div className="relative inline-block">
                   <FileText className="w-20 h-20 text-primary mx-auto" />
                   <motion.div 
@@ -857,7 +857,7 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
               </div>
             )}
             {(profile.accessibilityMode === 'Vocal-Deaf' || profile.accessibilityMode === 'Sign-Only') && (
-              <div className="flex items-center gap-2 px-3 py-1 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-xl text-[10px] font-black uppercase tracking-wider animate-pulse">
+              <div className="flex items-center gap-2 px-3 py-1 bg-primary-soft text-primary border border-emerald-100 rounded-xl text-[10px] font-black uppercase tracking-wider animate-pulse">
                  <Sparkles className="w-3 h-3" /> Sign Interpretation Active
               </div>
             )}
@@ -869,7 +869,7 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
                 if (!insights && !showInsights) handleGenerateInsights();
               }}
               className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-[11px] font-bold uppercase transition-colors ${
-                showInsights ? 'bg-amber-500 text-white shadow-md shadow-amber-500/20' : 'bg-slate-100 text-amber-600 hover:bg-amber-50'
+                showInsights ? 'bg-amber-500 text-white shadow-md shadow-amber-500/20' : 'bg-slate-100 text-accent hover:bg-accent-soft'
               }`}
             >
               <Lightbulb className={`w-4 h-4 ${showInsights ? 'text-white' : 'text-amber-500'}`} />
@@ -885,10 +885,10 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
               <ListTodo className="w-4 h-4" />
               <span className="hidden sm:inline">{getTranslation(profile.language, 'tasks')}</span>
               {currentThreadTasks.length > 0 && (
-                <span className="bg-white/20 px-1.5 rounded-md">{currentThreadTasks.length}</span>
+                <span className="bg-bg-card/20 px-1.5 rounded-md">{currentThreadTasks.length}</span>
               )}
             </button>
-            <span className="hidden sm:flex text-[11px] font-bold uppercase py-1 px-3 bg-emerald-50 text-emerald-700 rounded-full border border-emerald-100 items-center gap-2">
+            <span className="hidden sm:flex text-[11px] font-bold uppercase py-1 px-3 bg-primary-soft text-primary rounded-full border border-emerald-100 items-center gap-2">
               <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
               AI Assistant v1.5
             </span>
@@ -926,7 +926,7 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
                             const signsMatch = line.match(/^\[Signs:\s(.+)\]$/);
                             return (
                                <div key={i} className="flex flex-col gap-2 mt-2 pt-2 border-t border-slate-200/60 not-italic">
-                                 <span className="text-3xl bg-white border border-slate-100 p-2 rounded-xl inline-flex w-max shadow-sm">{signsMatch![1]}</span>
+                                 <span className="text-3xl bg-bg-card border border-slate-100 p-2 rounded-xl inline-flex w-max shadow-sm">{signsMatch![1]}</span>
                                </div>
                             );
                           }
@@ -937,7 +937,7 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
                       <div key={`${m.id}-att-${idx}`} className="relative group max-w-sm">
                         <button 
                           onClick={() => file.data && setPreviewFile(file)}
-                          className={`w-full flex items-center gap-3 p-3 bg-white border border-slate-200 rounded-xl transition-all ${file.data ? 'hover:border-primary hover:shadow-md cursor-pointer' : 'opacity-80 cursor-default'}`}
+                          className={`w-full flex items-center gap-3 p-3 bg-bg-card border border-slate-200 rounded-xl transition-all ${file.data ? 'hover:border-primary hover:shadow-md cursor-pointer' : 'opacity-80 cursor-default'}`}
                         >
                            {!file.data ? (
                              <div className="w-10 h-10 shrink-0 rounded-lg bg-orange-50 flex items-center justify-center border border-orange-100">
@@ -973,7 +973,7 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
                                 e.stopPropagation();
                                 readDocument(file);
                               }}
-                              className="bg-emerald-50 text-emerald-600 hover:bg-emerald-500 hover:text-white p-2 rounded-full transition-all"
+                              className="bg-primary-soft text-primary hover:bg-emerald-500 hover:text-white p-2 rounded-full transition-all"
                               title={getTranslation(profile.language, 'hearContent')}
                             >
                               <Volume2 className="w-4 h-4" />
@@ -994,8 +994,8 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
                     )) : null}
                     <div className="flex items-center gap-2 mt-1">
                       <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded border shadow-sm ${
-                        evaluateQuestionQuality(m.content) >= 8 ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
-                        evaluateQuestionQuality(m.content) >= 5 ? 'bg-amber-50 text-amber-700 border-amber-100' :
+                        evaluateQuestionQuality(m.content) >= 8 ? 'bg-primary-soft text-primary border-emerald-100' :
+                        evaluateQuestionQuality(m.content) >= 5 ? 'bg-accent-soft text-accent border-amber-100' :
                         'bg-slate-50 text-slate-500 border-slate-100'
                       }`}>
                         {evaluateQuestionQuality(m.content) >= 8 ? getTranslation(profile.language, 'excellentQuestion') :
@@ -1016,7 +1016,7 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
                       {('speechSynthesis' in window) && (
                         <button 
                           onClick={() => handleSpeak(m)}
-                          className={`text-[10px] font-bold uppercase transition-colors px-2 py-0.5 rounded border flex items-center gap-1.5 ${speakingMessageId === m.id ? 'bg-rose-50 text-rose-700 border-rose-100 hover:bg-rose-100' : 'bg-indigo-50 text-indigo-700 border-indigo-100 hover:bg-indigo-100'}`}
+                          className={`text-[10px] font-bold uppercase transition-colors px-2 py-0.5 rounded border flex items-center gap-1.5 ${speakingMessageId === m.id ? 'bg-rose-50 text-rose-700 border-rose-100 hover:bg-rose-100' : 'bg-primary-soft text-primary border-indigo-100 hover:bg-indigo-100'}`}
                         >
                           {speakingMessageId === m.id ? (
                             <>
@@ -1032,7 +1032,7 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
                         </button>
                       )}
                     </div>
-                    <div className="relative p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-100/80 dark:border-slate-800 text-text-main leading-relaxed adaptive-response text-base space-y-4 shadow-sm w-full group/bubble">
+                    <div className="relative p-6 rounded-2xl bg-bg-card dark:bg-slate-900 border border-slate-100/80 dark:border-slate-800 text-text-main leading-relaxed adaptive-response text-base space-y-4 shadow-sm w-full group/bubble">
                       {('speechSynthesis' in window) && (
                         <div className="flex justify-between items-center pb-2 mb-2 border-b border-slate-100/60 dark:border-slate-800">
                           <div className="flex items-center gap-1.5 opacity-60">
@@ -1094,7 +1094,7 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
                           <div key={`${m.id}-gen-att-${idx}`} className="relative group">
                             <button 
                               onClick={() => file.data && setPreviewFile(file)}
-                              className={`flex flex-col items-center gap-2 p-2 bg-white border border-slate-200 rounded-xl transition-all overflow-hidden ${file.data ? 'hover:border-primary hover:shadow-md cursor-pointer' : 'opacity-80 cursor-default'}`}                             >
+                              className={`flex flex-col items-center gap-2 p-2 bg-bg-card border border-slate-200 rounded-xl transition-all overflow-hidden ${file.data ? 'hover:border-primary hover:shadow-md cursor-pointer' : 'opacity-80 cursor-default'}`}                             >
                                {!file.data ? (
                                  <div className="w-48 h-48 rounded-lg bg-orange-50 flex items-center justify-center border border-orange-100 flex-col gap-2">
                                    <FileText className="w-10 h-10 text-orange-400" />
@@ -1170,7 +1170,7 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
                           className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-1.5 rounded-lg border transition-all flex items-center gap-1.5 ${
                             m.reaction === 'up'
                               ? 'bg-emerald-500 text-white border-emerald-500 shadow-sm'
-                              : 'text-slate-500 bg-white dark:bg-slate-800 border-slate-200/60 dark:border-slate-700 hover:text-emerald-600 hover:bg-emerald-50 hover:border-emerald-100'
+                              : 'text-slate-500 bg-bg-card dark:bg-slate-800 border-slate-200/60 dark:border-slate-700 hover:text-primary hover:bg-primary-soft hover:border-emerald-100'
                           }`}
                           title="Thumbs Up / Helpful"
                         >
@@ -1182,7 +1182,7 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
                           className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-1.5 rounded-lg border transition-all flex items-center gap-1.5 ${
                             m.reaction === 'down'
                               ? 'bg-rose-500 text-white border-rose-500 shadow-sm'
-                              : 'text-slate-500 bg-white dark:bg-slate-800 border-slate-200/60 dark:border-slate-700 hover:text-rose-600 hover:bg-rose-50 hover:border-rose-100'
+                              : 'text-slate-500 bg-bg-card dark:bg-slate-800 border-slate-200/60 dark:border-slate-700 hover:text-rose-600 hover:bg-rose-50 hover:border-rose-100'
                           }`}
                           title="Thumbs Down / Unhelpful"
                         >
@@ -1198,7 +1198,7 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
                               () => {},
                             );
                           }}
-                          className="text-[10px] font-black uppercase tracking-wider px-2.5 py-1.5 rounded-lg border transition-all flex items-center gap-1.5 text-slate-500 bg-white dark:bg-slate-800 border-slate-200/60 dark:border-slate-700 hover:text-primary hover:bg-primary/5 hover:border-primary/20"
+                          className="text-[10px] font-black uppercase tracking-wider px-2.5 py-1.5 rounded-lg border transition-all flex items-center gap-1.5 text-slate-500 bg-bg-card dark:bg-slate-800 border-slate-200/60 dark:border-slate-700 hover:text-primary hover:bg-primary/5 hover:border-primary/20"
                           title="Copy answer"
                         >
                           <Copy className="w-3.5 h-3.5" />
@@ -1209,7 +1209,7 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
                       <button 
                         onClick={() => handleCompareAI(m)}
                         disabled={comparingId === m.id}
-                        className="text-[10px] font-bold uppercase tracking-widest text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 px-3 py-1.5 rounded-lg border border-transparent hover:border-indigo-100 transition-all flex items-center gap-2 disabled:opacity-50"
+                        className="text-[10px] font-bold uppercase tracking-widest text-slate-500 hover:text-primary hover:bg-primary-soft dark:hover:bg-indigo-950/30 px-3 py-1.5 rounded-lg border border-transparent hover:border-indigo-100 transition-all flex items-center gap-2 disabled:opacity-50"
                       >
                         {comparingId === m.id ? (
                           <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Benchmarking...</>
@@ -1238,7 +1238,7 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
                     key={p}
                     type="button"
                     onClick={() => handleSubmit(undefined, p)}
-                    className="text-start text-sm px-4 py-2.5 rounded-xl border border-border bg-white hover:border-primary hover:bg-primary/5 text-text-muted hover:text-primary transition-all shadow-sm active:scale-[0.98]"
+                    className="text-start text-sm px-4 py-2.5 rounded-xl border border-border bg-bg-card hover:border-primary hover:bg-primary/5 text-text-muted hover:text-primary transition-all shadow-sm active:scale-[0.98]"
                   >
                     {p}
                   </button>
@@ -1294,7 +1294,7 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
               style={{ right: 0, top: 0, bottom: 0, zIndex: 40 }}
               className={`bg-slate-50 border-s border-border overflow-y-auto flex flex-col shadow-xl shrink-0 ${isEmbedded ? 'absolute' : 'absolute md:relative'}`}
             >
-              <div className="p-4 border-b border-border bg-white flex justify-between items-center shrink-0">
+              <div className="p-4 border-b border-border bg-bg-card flex justify-between items-center shrink-0">
                 <h3 className="font-extrabold text-slate-800 flex items-center gap-2">
                   <ListTodo className="w-5 h-5 text-primary" /> Thread Tasks
                 </h3>
@@ -1309,7 +1309,7 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
                     value={newTaskInput}
                     onChange={(e) => setNewTaskInput(e.target.value)}
                     placeholder="New task..."
-                    className="flex-1 bg-white border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary shadow-sm"
+                    className="flex-1 bg-bg-card border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary shadow-sm"
                   />
                   <button type="submit" disabled={!newTaskInput.trim()} className="bg-primary hover:bg-blue-700 text-white p-2 rounded-lg disabled:opacity-50 transition-colors shadow-sm">
                     <Plus className="w-4 h-4" />
@@ -1322,7 +1322,7 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
                      </div>
                   ) : (
                     currentThreadTasks.map(task => (
-                      <div key={task.id} className={`flex items-start gap-3 p-3 rounded-xl border transition-all ${task.completed ? 'bg-slate-100 border-transparent opacity-60' : 'bg-white border-slate-200 shadow-sm'}`}>
+                      <div key={task.id} className={`flex items-start gap-3 p-3 rounded-xl border transition-all ${task.completed ? 'bg-slate-100 border-transparent opacity-60' : 'bg-bg-card border-slate-200 shadow-sm'}`}>
                         <button onClick={() => handleToggleTask(task.id)} className={`mt-0.5 shrink-0 transition-colors ${task.completed ? 'text-emerald-500' : 'text-slate-400 hover:text-primary'}`}>
                           {task.completed ? <CheckCircle2 className="w-5 h-5" /> : <Circle className="w-5 h-5" />}
                         </button>
@@ -1349,25 +1349,25 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
               animate={{ width: isEmbedded ? '100%' : (window.innerWidth < 768 ? '100%' : 340), opacity: 1 }}
               exit={{ width: 0, opacity: 0 }}
               style={{ right: 0, top: 0, bottom: 0, zIndex: 40 }}
-              className={`bg-amber-50 border-s border-amber-200 overflow-y-auto flex flex-col shadow-xl shrink-0 ${isEmbedded ? 'absolute' : 'absolute md:relative'}`}
+              className={`bg-accent-soft border-s border-amber-200 overflow-y-auto flex flex-col shadow-xl shrink-0 ${isEmbedded ? 'absolute' : 'absolute md:relative'}`}
             >
               <div className="p-4 border-b border-amber-200 bg-amber-100/50 flex justify-between items-center shrink-0">
                 <h3 className="font-extrabold text-amber-900 flex items-center gap-2">
-                  <Lightbulb className="w-5 h-5 text-amber-600" /> {getTranslation(profile.language, 'proactiveInsights')}
+                  <Lightbulb className="w-5 h-5 text-accent" /> {getTranslation(profile.language, 'proactiveInsights')}
                 </h3>
-                <button onClick={() => setShowInsights(false)} className="p-1 hover:bg-amber-200/50 rounded-lg text-amber-700">
+                <button onClick={() => setShowInsights(false)} className="p-1 hover:bg-amber-200/50 rounded-lg text-accent">
                   <X className="w-4 h-4" />
                 </button>
               </div>
               <div className="p-5 flex-1 flex flex-col gap-4 overflow-y-auto custom-scrollbar text-amber-950">
                 {isGeneratingInsights ? (
-                  <div className="flex flex-col items-center justify-center p-8 text-amber-600 gap-3">
+                  <div className="flex flex-col items-center justify-center p-8 text-accent gap-3">
                     <Loader2 className="w-8 h-8 animate-spin" />
                     <span className="text-sm font-medium text-amber-800">Analyzing thread & profile...</span>
                   </div>
                 ) : (
                   <>
-                    <div className="prose prose-base prose-slate max-w-none leading-relaxed p-6 rounded-2xl shadow-xl text-slate-900 border-2 border-amber-400 bg-white" style={{ boxShadow: '0 10px 25px -5px rgba(251, 191, 36, 0.2)' }}>
+                    <div className="prose prose-base prose-slate max-w-none leading-relaxed p-6 rounded-2xl shadow-xl text-slate-900 border-2 border-amber-400 bg-bg-card" style={{ boxShadow: '0 10px 25px -5px rgba(251, 191, 36, 0.2)' }}>
                       {insights ? (
                         <div className="markdown-body font-medium">
                           <Markdown>{insights}</Markdown>
