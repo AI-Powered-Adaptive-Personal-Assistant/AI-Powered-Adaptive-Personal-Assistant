@@ -214,7 +214,7 @@ export default function Sidebar({ profile, setProfile, currentView, setCurrentVi
               onChange={(e) => handleChange('language', e.target.value)}
               className="w-full h-full appearance-none cursor-pointer text-center py-[9px] rounded-[11px] border border-border bg-surface-2 text-text-main text-[12.5px] font-semibold hover:bg-surface-3 transition-colors outline-none focus:border-primary"
             >
-              {['English', 'Arabic', 'Egyptian Ammiya', 'French', 'German', 'Italian', 'Japanese', 'Portuguese', 'Russian', 'Spanish', 'Chinese'].map((l) => (
+              {['English', 'Arabic', 'Egyptian Ammiya'].map((l) => (
                 <option key={l} value={l}>{l}</option>
               ))}
             </select>

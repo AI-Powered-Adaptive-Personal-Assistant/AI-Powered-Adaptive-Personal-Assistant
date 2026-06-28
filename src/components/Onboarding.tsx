@@ -23,8 +23,11 @@ const FACULTIES = [
   "Mass Communication", "Medicine", "Pharmacy", "Physical Therapy", "Science", "Other"
 ];
 
+// Only the languages that fully translate the entire UI are offered, so users
+// never land on a half-English screen. (The AI chat still replies in any
+// language the user types.)
 const LANGUAGES = [
-  "Arabic", "Chinese", "Egyptian Ammiya", "English", "French", "German", "Italian", "Japanese", "Portuguese", "Russian", "Spanish"
+  "English", "Arabic", "Egyptian Ammiya"
 ];
 
 const SUSTAINABILITY_GOALS = [
