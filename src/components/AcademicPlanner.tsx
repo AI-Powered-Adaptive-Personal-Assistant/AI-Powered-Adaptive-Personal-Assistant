@@ -14,7 +14,7 @@ const TYPE_META: Record<PlannerTaskType, { en: string; ar: string; color: string
   midterm: { en: 'Midterm', ar: 'ميدتيرم', color: 'bg-purple-50 text-purple-600 border-purple-200' },
   final: { en: 'Final', ar: 'فاينال', color: 'bg-red-50 text-red-600 border-red-200' },
   project: { en: 'Project', ar: 'مشروع', color: 'bg-emerald-50 text-emerald-600 border-emerald-200' },
-  other: { en: 'Other', ar: 'أخرى', color: 'bg-slate-100 text-slate-600 border-slate-200' },
+  other: { en: 'Other', ar: 'أخرى', color: 'bg-surface-3 text-text-muted border-border' },
 };
 
 export default function AcademicPlanner({ profile, onMenuClick }: AcademicPlannerProps) {
@@ -71,27 +71,27 @@ export default function AcademicPlanner({ profile, onMenuClick }: AcademicPlanne
     if (d === 0) return { label: t('today', 'النهاردة'), color: 'bg-red-100 text-red-600' };
     if (d === 1) return { label: t('tomorrow', 'بكرة'), color: 'bg-amber-100 text-amber-700' };
     if (d <= 3) return { label: `${d} ${t('days', 'أيام')}`, color: 'bg-amber-100 text-amber-700' };
-    return { label: `${d} ${t('days', 'يوم')}`, color: 'bg-slate-200 text-slate-600' };
+    return { label: `${d} ${t('days', 'يوم')}`, color: 'bg-slate-200 text-text-muted' };
   };
 
   const TaskRow = ({ task }: { task: PlannerTask }) => {
     const meta = TYPE_META[task.type];
     const cd = countdown(task);
     return (
-      <div className="flex items-center gap-3 px-4 py-3 bg-white border border-slate-200 rounded-2xl">
-        <button onClick={() => toggle(task)} className="text-slate-300 hover:text-emerald-500 shrink-0">
+      <div className="flex items-center gap-3 px-4 py-3 bg-bg-card border border-border rounded-2xl">
+        <button onClick={() => toggle(task)} className="text-faint hover:text-emerald-500 shrink-0">
           {task.completed ? <CheckCircle2 className="w-5 h-5 text-emerald-500" /> : <Circle className="w-5 h-5" />}
         </button>
         <div className="flex-1 min-w-0">
-          <div className={`font-bold text-sm truncate ${task.completed ? 'line-through text-slate-400' : 'text-slate-800'}`}>{task.title}</div>
+          <div className={`font-bold text-sm truncate ${task.completed ? 'line-through text-faint' : 'text-text-main'}`}>{task.title}</div>
           <div className="flex items-center gap-2 mt-0.5">
             <span className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded border ${meta.color}`}>{t(meta.en, meta.ar)}</span>
-            {task.course && <span className="text-[10px] text-slate-400">{task.course}</span>}
-            <span className="text-[10px] text-slate-400">{new Date(task.dueDate).toLocaleDateString()}</span>
+            {task.course && <span className="text-[10px] text-faint">{task.course}</span>}
+            <span className="text-[10px] text-faint">{new Date(task.dueDate).toLocaleDateString()}</span>
           </div>
         </div>
         {!task.completed && <span className={`text-[10px] font-black px-2 py-0.5 rounded-lg shrink-0 ${cd.color}`}>{cd.label}</span>}
-        <button onClick={() => profile.uid && deleteTask(profile.uid, task.id)} className="p-1 text-slate-300 hover:text-red-500 shrink-0">
+        <button onClick={() => profile.uid && deleteTask(profile.uid, task.id)} className="p-1 text-faint hover:text-red-500 shrink-0">
           <Trash2 className="w-4 h-4" />
         </button>
       </div>
@@ -101,40 +101,40 @@ export default function AcademicPlanner({ profile, onMenuClick }: AcademicPlanne
   const Section = ({ title, items }: { title: string; items: PlannerTask[] }) =>
     items.length ? (
       <div className="space-y-2">
-        <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">{title} ({items.length})</h3>
+        <h3 className="text-[10px] font-black uppercase tracking-widest text-faint ml-1">{title} ({items.length})</h3>
         {items.map((task) => <TaskRow key={task.id} task={task} />)}
       </div>
     ) : null;
 
   return (
-    <div dir={isAr ? 'rtl' : 'ltr'} className="flex-1 h-screen overflow-y-auto bg-slate-50 flex flex-col custom-scrollbar p-6 md:p-10 gap-6">
+    <div dir={isAr ? 'rtl' : 'ltr'} className="flex-1 h-screen overflow-y-auto bg-bg-main flex flex-col custom-scrollbar p-6 md:p-10 gap-6">
       <header className="flex items-start gap-4">
-        <button onClick={onMenuClick} className="lg:hidden p-2 mt-1 text-slate-500 bg-white shadow-sm border border-slate-200 hover:bg-slate-50 rounded-lg active:scale-95 shrink-0">
+        <button onClick={onMenuClick} className="lg:hidden p-2 mt-1 text-text-muted bg-bg-card shadow-sm border border-border hover:bg-bg-main rounded-lg active:scale-95 shrink-0">
           <Menu className="w-6 h-6" />
         </button>
         <div>
-          <h1 className="text-2xl md:text-4xl font-black text-slate-900 tracking-tighter uppercase flex items-center gap-3">
+          <h1 className="text-2xl md:text-4xl font-black text-text-main tracking-tighter uppercase flex items-center gap-3">
             <CalendarDays className="w-7 h-7 text-primary" /> {t('Academic Planner', 'المخطّط الأكاديمي')}
           </h1>
-          <p className="text-xs md:text-sm text-slate-500 font-medium italic mt-1">{t('Plan assignments, quizzes and exams — never miss a deadline.', 'نظّم التكاليف والكويزات والامتحانات — مايفوتكش أي موعد.')}</p>
+          <p className="text-xs md:text-sm text-text-muted font-medium italic mt-1">{t('Plan assignments, quizzes and exams — never miss a deadline.', 'نظّم التكاليف والكويزات والامتحانات — مايفوتكش أي موعد.')}</p>
         </div>
       </header>
 
       {/* Add task */}
-      <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm max-w-4xl w-full">
-        <h2 className="text-sm font-black uppercase tracking-widest text-slate-700 mb-4">{t('Add a task', 'إضافة مهمة')}</h2>
+      <div className="bg-bg-card rounded-3xl p-6 border border-border shadow-sm max-w-4xl w-full">
+        <h2 className="text-sm font-black uppercase tracking-widest text-text-main mb-4">{t('Add a task', 'إضافة مهمة')}</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t('Title (e.g. ML Assignment 2)', 'العنوان (مثلاً تكليف ML 2)')}
             onKeyDown={(e) => e.key === 'Enter' && addTask()}
-            className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-primary/40" />
+            className="bg-bg-main border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-primary/40" />
           <input value={course} onChange={(e) => setCourse(e.target.value)} placeholder={t('Course (optional)', 'المادة (اختياري)')}
-            className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-primary/40" />
+            className="bg-bg-main border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-primary/40" />
           <select value={type} onChange={(e) => setType(e.target.value as PlannerTaskType)}
-            className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-primary/40">
+            className="bg-bg-main border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-primary/40">
             {(Object.keys(TYPE_META) as PlannerTaskType[]).map((k) => <option key={k} value={k}>{t(TYPE_META[k].en, TYPE_META[k].ar)}</option>)}
           </select>
           <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)}
-            className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-primary/40" />
+            className="bg-bg-main border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-primary/40" />
         </div>
         <button onClick={addTask} disabled={!title.trim() || !dueDate}
           className="mt-3 px-5 py-2 bg-primary text-white rounded-xl font-bold text-sm hover:bg-blue-700 disabled:opacity-40 flex items-center gap-2">
@@ -145,8 +145,8 @@ export default function AcademicPlanner({ profile, onMenuClick }: AcademicPlanne
       {/* Lists */}
       <div className="max-w-4xl w-full space-y-6 pb-10">
         {tasks.length === 0 && (
-          <div className="text-center text-slate-400 py-16 flex flex-col items-center gap-3">
-            <CalendarDays className="w-12 h-12 text-slate-300" />
+          <div className="text-center text-faint py-16 flex flex-col items-center gap-3">
+            <CalendarDays className="w-12 h-12 text-faint" />
             <p className="font-medium">{t('No tasks yet — add your first deadline above.', 'لسه مفيش مهام — ضيف أول موعد من فوق.')}</p>
           </div>
         )}

@@ -47,12 +47,12 @@ const IntelligenceHub = React.memo(({ profile, onMenuClick }: IntelligenceHubPro
   );
 
   return (
-    <div className="flex-1 h-screen overflow-y-auto bg-slate-50 dark:bg-slate-950 p-4 md:p-8 flex flex-col gap-6 custom-scrollbar text-slate-900 dark:text-slate-100 transition-colors">
+    <div className="flex-1 h-screen overflow-y-auto bg-bg-main dark:bg-slate-950 p-4 md:p-8 flex flex-col gap-6 custom-scrollbar text-text-main dark:text-slate-100 transition-colors">
       <header className="flex flex-col md:flex-row justify-between lg:items-end gap-4 shrink-0">
         <div className="flex items-start gap-4">
           <button 
             onClick={onMenuClick}
-            className="lg:hidden p-2 text-slate-500 bg-white dark:bg-slate-900 shadow-sm border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg active:scale-95 transition-all"
+            className="lg:hidden p-2 text-text-muted bg-bg-card dark:bg-slate-900 shadow-sm border border-border dark:border-slate-800 hover:bg-bg-main dark:hover:bg-slate-800 rounded-lg active:scale-95 transition-all"
           >
             <Menu className="w-5 h-5" />
           </button>
@@ -61,14 +61,14 @@ const IntelligenceHub = React.memo(({ profile, onMenuClick }: IntelligenceHubPro
               <Brain className="w-7 h-7 text-indigo-500" />
               {getTranslation(profile.language, 'dashboard') || 'Intelligence Hub'}
             </h1>
-            <p className="text-xs font-mono text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-2">
+            <p className="text-xs font-mono text-text-muted dark:text-faint mt-1 flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
               SYSTEM.ANALYTICS.ONLINE
             </p>
           </div>
         </div>
-        <div className="hidden md:flex items-center gap-3 px-4 py-2 bg-white dark:bg-slate-900 rounded-full border border-slate-200 dark:border-slate-800 shadow-sm">
-          <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Live Sync</span>
+        <div className="hidden md:flex items-center gap-3 px-4 py-2 bg-bg-card dark:bg-slate-900 rounded-full border border-border dark:border-slate-800 shadow-sm">
+          <span className="text-[10px] font-black uppercase tracking-widest text-text-muted">Live Sync</span>
           <Activity className="w-4 h-4 text-emerald-500 animate-pulse" />
         </div>
       </header>
@@ -114,22 +114,22 @@ const IntelligenceHub = React.memo(({ profile, onMenuClick }: IntelligenceHubPro
         <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
           
           {/* Main Chart Area */}
-          <div className="xl:col-span-8 bg-white dark:bg-slate-900 rounded-[28px] border border-slate-200 dark:border-slate-800 shadow-sm p-6 flex flex-col min-h-[380px] relative overflow-hidden group">
+          <div className="xl:col-span-8 bg-bg-card dark:bg-slate-900 rounded-[28px] border border-border dark:border-slate-800 shadow-sm p-6 flex flex-col min-h-[380px] relative overflow-hidden group">
             <div className="flex justify-between items-center mb-6 relative z-10">
               <div>
-                <h3 className="text-sm font-black uppercase tracking-widest text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                <h3 className="text-sm font-black uppercase tracking-widest text-text-main dark:text-slate-200 flex items-center gap-2">
                   <Activity className="w-4 h-4 text-indigo-500" /> Progression Curve
                 </h3>
-                <p className="text-xs font-mono text-slate-400 mt-1">HISTORICAL.PERFORMANCE.DATA</p>
+                <p className="text-xs font-mono text-faint mt-1">HISTORICAL.PERFORMANCE.DATA</p>
               </div>
-              <div className="text-xs font-mono bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-lg text-slate-500">
+              <div className="text-xs font-mono bg-surface-3 dark:bg-slate-800 px-3 py-1 rounded-lg text-text-muted">
                 LATEST_Q: {profile.questionHistory.length}
               </div>
             </div>
             
             <div className="flex-1 w-full relative z-10">
               {chartData.length === 0 ? (
-                <div className="w-full h-full flex flex-col items-center justify-center text-slate-300 dark:text-slate-600 gap-3">
+                <div className="w-full h-full flex flex-col items-center justify-center text-faint dark:text-text-muted gap-3">
                   <Search className="w-8 h-8 opacity-50" />
                   <p className="text-[10px] font-mono tracking-widest">AWAITING_DATA_INPUT</p>
                 </div>
@@ -156,7 +156,7 @@ const IntelligenceHub = React.memo(({ profile, onMenuClick }: IntelligenceHubPro
                         if (active && payload && payload.length) {
                           return (
                             <div className="bg-slate-900 text-white p-3 rounded-xl shadow-2xl border border-slate-700 font-mono">
-                              <p className="text-[9px] text-slate-400 uppercase mb-1">{payload[0].payload.fullDate}</p>
+                              <p className="text-[9px] text-faint uppercase mb-1">{payload[0].payload.fullDate}</p>
                               <p className="text-sm">EVAL: <span className="text-indigo-400">{payload[0].value}</span></p>
                             </div>
                           );
@@ -181,11 +181,11 @@ const IntelligenceHub = React.memo(({ profile, onMenuClick }: IntelligenceHubPro
           </div>
 
           {/* Radar Chart (Skill Tree) */}
-          <div className="xl:col-span-4 bg-white dark:bg-slate-900 rounded-[28px] border border-slate-200 dark:border-slate-800 shadow-sm p-6 flex flex-col min-h-[380px]">
-            <h3 className="text-sm font-black uppercase tracking-widest text-slate-800 dark:text-slate-200 mb-2 flex items-center gap-2">
+          <div className="xl:col-span-4 bg-bg-card dark:bg-slate-900 rounded-[28px] border border-border dark:border-slate-800 shadow-sm p-6 flex flex-col min-h-[380px]">
+            <h3 className="text-sm font-black uppercase tracking-widest text-text-main dark:text-slate-200 mb-2 flex items-center gap-2">
               <Zap className="w-4 h-4 text-amber-500" /> Neural Vector
             </h3>
-            <p className="text-xs font-mono text-slate-400 mb-6">COGNITIVE.DISTRIBUTION.RADAR</p>
+            <p className="text-xs font-mono text-faint mb-6">COGNITIVE.DISTRIBUTION.RADAR</p>
             
             <div className="flex-1 w-full min-h-[200px] flex items-center justify-center">
               <ResponsiveContainer width="100%" height="100%">
@@ -221,17 +221,17 @@ const IntelligenceHub = React.memo(({ profile, onMenuClick }: IntelligenceHubPro
             </div>
             
             <div className="mt-4 flex flex-col gap-2">
-               <div className="flex justify-between items-center text-[10px] font-mono border-t border-slate-100 dark:border-slate-800 pt-3">
-                  <span className="text-slate-400">DOMINANT_TRAIT</span>
+               <div className="flex justify-between items-center text-[10px] font-mono border-t border-border dark:border-slate-800 pt-3">
+                  <span className="text-faint">DOMINANT_TRAIT</span>
                   <span className="text-purple-500 font-bold tracking-widest mb-0.5">{radarData.reduce((prev, current) => (prev.A > current.A) ? prev : current).subject}</span>
                </div>
             </div>
           </div>
           
           {/* Bottom Bar Chart - Activity Heat */}
-          <div className="xl:col-span-8 bg-white dark:bg-slate-900 rounded-[28px] border border-slate-200 dark:border-slate-800 shadow-sm p-6 flex flex-col">
+          <div className="xl:col-span-8 bg-bg-card dark:bg-slate-900 rounded-[28px] border border-border dark:border-slate-800 shadow-sm p-6 flex flex-col">
              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-sm font-black uppercase tracking-widest text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                <h3 className="text-sm font-black uppercase tracking-widest text-text-main dark:text-slate-200 flex items-center gap-2">
                   <GitCommit className="w-4 h-4 text-emerald-500" /> Engagement Frequency
                 </h3>
               </div>
@@ -275,7 +275,7 @@ const IntelligenceHub = React.memo(({ profile, onMenuClick }: IntelligenceHubPro
             <div className="relative z-10 flex flex-col h-full">
               <div className="flex items-center gap-3 mb-6 flex-shrink-0">
                 <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-300">System Parameters</span>
+                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-faint">System Parameters</span>
               </div>
               
               <div className="space-y-4 flex-1">
@@ -285,16 +285,16 @@ const IntelligenceHub = React.memo(({ profile, onMenuClick }: IntelligenceHubPro
                 <div className="pt-4 border-t border-white/10 mt-4">
                   <div className="flex items-center gap-2 mb-3">
                     <Zap className="w-3.5 h-3.5 text-amber-500" />
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-300">Sustainability Path</span>
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-faint">Sustainability Path</span>
                   </div>
-                  <div className="bg-white/5 rounded-xl p-3 border border-emerald-500/20">
+                  <div className="bg-bg-card/5 rounded-xl p-3 border border-emerald-500/20">
                     <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-1">UN Goal Alignment</p>
                     <p className="text-xs font-bold text-slate-100">{profile.sustainabilityGoal === 'climate' ? 'Climate Action' : profile.sustainabilityGoal === 'quality-edu' ? 'Quality Education' : profile.sustainabilityGoal === 'health' ? 'Health & Well-being' : profile.sustainabilityGoal === 'zero-hunger' ? 'Zero Hunger' : 'General Sustainability'}</p>
                   </div>
                 </div>
               </div>
 
-              <button onClick={() => window.location.hash = '#settings'} className="mt-6 w-full py-3 bg-white/10 hover:bg-white/20 transition-colors rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 group-hover:border-white/20 border border-transparent">
+              <button onClick={() => window.location.hash = '#settings'} className="mt-6 w-full py-3 bg-bg-card/10 hover:bg-bg-card/20 transition-colors rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 group-hover:border-white/20 border border-transparent">
                 Modify Parameters <ChevronRight className="w-3 h-3" />
               </button>
             </div>
@@ -310,18 +310,18 @@ export default IntelligenceHub;
 
 function BentoMetric({ label, value, icon: Icon, color, bg, trend }: { label: string, value: string | number, icon: any, color: string, bg: string, trend: string }) {
   return (
-    <div className="bg-white dark:bg-slate-900 p-5 rounded-[24px] border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between group hover:border-slate-300 dark:hover:border-slate-700 transition-colors">
+    <div className="bg-bg-card dark:bg-slate-900 p-5 rounded-[24px] border border-border dark:border-slate-800 shadow-sm flex flex-col justify-between group hover:border-border dark:hover:border-slate-700 transition-colors">
       <div className="flex justify-between items-start mb-4">
         <div className={`w-10 h-10 ${bg} ${color} rounded-xl flex items-center justify-center`}>
           <Icon className="w-5 h-5" />
         </div>
-        <span className="text-[9px] font-mono px-2 py-1 bg-slate-100 dark:bg-slate-800 text-slate-500 rounded-md">
+        <span className="text-[9px] font-mono px-2 py-1 bg-surface-3 dark:bg-slate-800 text-text-muted rounded-md">
           {trend.toUpperCase()}
         </span>
       </div>
       <div>
-        <p className="text-[10px] uppercase font-bold text-slate-400 tracking-widest mb-1">{label}</p>
-        <p className="text-2xl font-mono text-slate-900 dark:text-white font-black tracking-tight">{value}</p>
+        <p className="text-[10px] uppercase font-bold text-faint tracking-widest mb-1">{label}</p>
+        <p className="text-2xl font-mono text-text-main dark:text-white font-black tracking-tight">{value}</p>
       </div>
     </div>
   );
@@ -335,8 +335,8 @@ function SystemModule({ label, value, status }: { label: string, value: string, 
   };
   
   return (
-    <div className="flex justify-between items-center p-3 rounded-xl bg-white/5 border border-white/5">
-      <span className="text-xs font-medium text-slate-300">{label}</span>
+    <div className="flex justify-between items-center p-3 rounded-xl bg-bg-card/5 border border-white/5">
+      <span className="text-xs font-medium text-faint">{label}</span>
       <span className={`text-[10px] font-mono tracking-widest ${statusColors[status]}`}>{value}</span>
     </div>
   );

@@ -62,22 +62,22 @@ export default function GoalTracker({ profile, onMenuClick }: GoalTrackerProps) 
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <div className="flex-1 h-screen overflow-y-auto bg-slate-50 flex flex-col custom-scrollbar">
+    <div className="flex-1 h-screen overflow-y-auto bg-bg-main flex flex-col custom-scrollbar">
       {/* Header */}
       <header className="p-6 md:p-10 pb-0 shrink-0">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-start gap-4">
             <button
               onClick={onMenuClick}
-              className="lg:hidden p-2 mt-1 text-slate-500 bg-white shadow-sm border border-slate-200 hover:bg-slate-50 rounded-lg active:scale-95"
+              className="lg:hidden p-2 mt-1 text-text-muted bg-bg-card shadow-sm border border-border hover:bg-bg-main rounded-lg active:scale-95"
             >
               <Menu className="w-6 h-6" />
             </button>
             <div>
-              <h1 className="text-2xl md:text-4xl font-black text-slate-900 tracking-tighter uppercase">
+              <h1 className="text-2xl md:text-4xl font-black text-text-main tracking-tighter uppercase">
                 {isArabic ? 'متتبع الأهداف' : 'Goal Tracker'}
               </h1>
-              <p className="text-xs md:text-sm text-slate-500 font-medium mt-1">
+              <p className="text-xs md:text-sm text-text-muted font-medium mt-1">
                 {isArabic
                   ? 'تابع أهدافك الدراسية والشخصية وحقق تقدمًا ملموسًا'
                   : 'Track your academic and personal goals with clear milestones'}
@@ -101,21 +101,21 @@ export default function GoalTracker({ profile, onMenuClick }: GoalTrackerProps) 
 
         {/* Goals list */}
         {loading ? (
-          <div className="flex items-center justify-center py-20 gap-3 text-slate-400 font-bold text-xs uppercase tracking-widest">
+          <div className="flex items-center justify-center py-20 gap-3 text-faint font-bold text-xs uppercase tracking-widest">
             <Loader2 className="w-5 h-5 animate-spin text-primary" />
             <span>{isArabic ? 'جاري تحميل الأهداف...' : 'Loading goals...'}</span>
           </div>
         ) : goals.length === 0 ? (
           /* Empty state */
-          <div className="flex flex-col items-center justify-center py-24 gap-6 border-2 border-dashed border-slate-200 rounded-[40px]">
-            <div className="p-5 bg-slate-100 rounded-[28px]">
-              <Target className="w-10 h-10 text-slate-400" />
+          <div className="flex flex-col items-center justify-center py-24 gap-6 border-2 border-dashed border-border rounded-[40px]">
+            <div className="p-5 bg-surface-3 rounded-[28px]">
+              <Target className="w-10 h-10 text-faint" />
             </div>
             <div className="text-center space-y-2">
-              <h3 className="text-lg font-black text-slate-800 uppercase tracking-tight">
+              <h3 className="text-lg font-black text-text-main uppercase tracking-tight">
                 {isArabic ? 'لا توجد أهداف بعد' : 'No goals yet'}
               </h3>
-              <p className="text-sm text-slate-400 font-medium max-w-xs">
+              <p className="text-sm text-faint font-medium max-w-xs">
                 {isArabic
                   ? 'ابدأ بإضافة هدفك الأول وتقسيمه إلى خطوات واضحة'
                   : 'Start by adding your first goal and breaking it into clear milestones'}

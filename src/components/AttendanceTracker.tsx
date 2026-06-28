@@ -49,35 +49,35 @@ export default function AttendanceTracker({ profile, onMenuClick }: AttendanceTr
   };
 
   return (
-    <div dir={isAr ? 'rtl' : 'ltr'} className="flex-1 h-screen overflow-y-auto bg-slate-50 flex flex-col custom-scrollbar p-6 md:p-10 gap-6">
+    <div dir={isAr ? 'rtl' : 'ltr'} className="flex-1 h-screen overflow-y-auto bg-bg-main flex flex-col custom-scrollbar p-6 md:p-10 gap-6">
       <header className="flex items-start gap-4">
-        <button onClick={onMenuClick} className="lg:hidden p-2 mt-1 text-slate-500 bg-white shadow-sm border border-slate-200 hover:bg-slate-50 rounded-lg active:scale-95 shrink-0">
+        <button onClick={onMenuClick} className="lg:hidden p-2 mt-1 text-text-muted bg-bg-card shadow-sm border border-border hover:bg-bg-main rounded-lg active:scale-95 shrink-0">
           <Menu className="w-6 h-6" />
         </button>
         <div>
-          <h1 className="text-2xl md:text-4xl font-black text-slate-900 tracking-tighter uppercase flex items-center gap-3">
+          <h1 className="text-2xl md:text-4xl font-black text-text-main tracking-tighter uppercase flex items-center gap-3">
             <CalendarCheck className="w-7 h-7 text-primary" /> {t('Attendance Tracker', 'متابعة الحضور')}
           </h1>
-          <p className="text-xs md:text-sm text-slate-500 font-medium italic mt-1">{t('Track attendance and how many absences you have left before deprivation.', 'تابع حضورك وكام غياب فاضلك قبل الحرمان.')}</p>
+          <p className="text-xs md:text-sm text-text-muted font-medium italic mt-1">{t('Track attendance and how many absences you have left before deprivation.', 'تابع حضورك وكام غياب فاضلك قبل الحرمان.')}</p>
         </div>
       </header>
 
       {/* Add subject */}
-      <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm max-w-5xl w-full">
-        <h2 className="text-sm font-black uppercase tracking-widest text-slate-700 mb-4">{t('Add a subject', 'إضافة مادة')}</h2>
+      <div className="bg-bg-card rounded-3xl p-6 border border-border shadow-sm max-w-5xl w-full">
+        <h2 className="text-sm font-black uppercase tracking-widest text-text-main mb-4">{t('Add a subject', 'إضافة مادة')}</h2>
         <div className="flex flex-wrap items-end gap-3">
           <input value={name} onChange={(e) => setName(e.target.value)} placeholder={t('Subject name', 'اسم المادة')}
             onKeyDown={(e) => e.key === 'Enter' && addSubject()}
-            className="flex-1 min-w-[180px] bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-primary/40" />
+            className="flex-1 min-w-[180px] bg-bg-main border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-primary/40" />
           <label className="flex flex-col gap-1">
-            <span className="text-[10px] font-bold uppercase text-slate-400">{t('Total sessions', 'إجمالي المحاضرات')}</span>
+            <span className="text-[10px] font-bold uppercase text-faint">{t('Total sessions', 'إجمالي المحاضرات')}</span>
             <input type="number" min={0} value={total} onChange={(e) => setTotal(e.target.value)}
-              className="w-28 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-primary/40" />
+              className="w-28 bg-bg-main border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-primary/40" />
           </label>
           <label className="flex flex-col gap-1">
-            <span className="text-[10px] font-bold uppercase text-slate-400">{t('Required %', 'النسبة المطلوبة')}</span>
+            <span className="text-[10px] font-bold uppercase text-faint">{t('Required %', 'النسبة المطلوبة')}</span>
             <input type="number" min={0} max={100} value={threshold} onChange={(e) => setThreshold(e.target.value)}
-              className="w-24 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-primary/40" />
+              className="w-24 bg-bg-main border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-primary/40" />
           </label>
           <button onClick={addSubject} disabled={!name.trim()}
             className="px-5 py-2 bg-primary text-white rounded-xl font-bold text-sm hover:bg-blue-700 disabled:opacity-40 flex items-center gap-2">
@@ -89,8 +89,8 @@ export default function AttendanceTracker({ profile, onMenuClick }: AttendanceTr
       {/* Subjects */}
       <div className="max-w-5xl w-full grid grid-cols-1 md:grid-cols-2 gap-5 pb-10">
         {subjects.length === 0 && (
-          <div className="md:col-span-2 text-center text-slate-400 py-16 flex flex-col items-center gap-3">
-            <CalendarCheck className="w-12 h-12 text-slate-300" />
+          <div className="md:col-span-2 text-center text-faint py-16 flex flex-col items-center gap-3">
+            <CalendarCheck className="w-12 h-12 text-faint" />
             <p className="font-medium">{t('No subjects yet — add one above.', 'لسه مفيش مواد — ضيف واحدة من فوق.')}</p>
           </div>
         )}
@@ -100,13 +100,13 @@ export default function AttendanceTracker({ profile, onMenuClick }: AttendanceTr
           const deprived = isDeprived(s);
           const held = s.attended + s.absent;
           return (
-            <div key={s.id} className={`bg-white rounded-3xl p-6 border shadow-sm ${deprived ? 'border-red-200' : 'border-slate-200'}`}>
+            <div key={s.id} className={`bg-bg-card rounded-3xl p-6 border shadow-sm ${deprived ? 'border-red-200' : 'border-border'}`}>
               <div className="flex items-start justify-between gap-3 mb-4">
                 <div>
-                  <h3 className="font-black text-slate-800">{s.name}</h3>
-                  <span className="text-[11px] text-slate-400">{held}/{s.totalPlanned || '?'} {t('sessions held', 'محاضرة')} · {t('req', 'مطلوب')} {s.threshold}%</span>
+                  <h3 className="font-black text-text-main">{s.name}</h3>
+                  <span className="text-[11px] text-faint">{held}/{s.totalPlanned || '?'} {t('sessions held', 'محاضرة')} · {t('req', 'مطلوب')} {s.threshold}%</span>
                 </div>
-                <button onClick={() => profile.uid && deleteSubject(profile.uid, s.id)} className="p-1.5 text-slate-300 hover:text-red-500" title={t('Delete', 'حذف')}>
+                <button onClick={() => profile.uid && deleteSubject(profile.uid, s.id)} className="p-1.5 text-faint hover:text-red-500" title={t('Delete', 'حذف')}>
                   <Trash2 className="w-4 h-4" />
                 </button>
               </div>
@@ -114,7 +114,7 @@ export default function AttendanceTracker({ profile, onMenuClick }: AttendanceTr
               {/* Percentage bar */}
               <div className="flex items-center gap-3 mb-3">
                 <span className={`text-3xl font-black ${deprived ? 'text-red-600' : pct >= s.threshold + 10 ? 'text-emerald-600' : 'text-amber-600'}`}>{pct}%</span>
-                <div className="flex-1 h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                <div className="flex-1 h-2.5 bg-surface-3 rounded-full overflow-hidden">
                   <div className={`h-full ${deprived ? 'bg-red-500' : 'bg-primary'}`} style={{ width: `${Math.min(100, pct)}%` }} />
                 </div>
               </div>
@@ -125,7 +125,7 @@ export default function AttendanceTracker({ profile, onMenuClick }: AttendanceTr
                   <AlertTriangle className="w-4 h-4" /> {t('Below required attendance!', 'تحت نسبة الحضور المطلوبة!')}
                 </p>
               ) : remaining !== null ? (
-                <p className={`text-xs font-bold mb-4 ${remaining <= 2 ? 'text-amber-600' : 'text-slate-500'}`}>
+                <p className={`text-xs font-bold mb-4 ${remaining <= 2 ? 'text-amber-600' : 'text-text-muted'}`}>
                   {remaining} {t('absences left before deprivation', 'غياب فاضل قبل الحرمان')}
                 </p>
               ) : <div className="mb-4" />}
@@ -143,9 +143,9 @@ export default function AttendanceTracker({ profile, onMenuClick }: AttendanceTr
               </div>
               <div className="flex items-center gap-3 mt-2">
                 <button onClick={() => mark(s, 'attended', -1)} disabled={s.attended === 0}
-                  className="flex-1 text-[11px] text-slate-400 hover:text-slate-700 disabled:opacity-30">− {t('present', 'حاضر')}</button>
+                  className="flex-1 text-[11px] text-faint hover:text-text-main disabled:opacity-30">− {t('present', 'حاضر')}</button>
                 <button onClick={() => mark(s, 'absent', -1)} disabled={s.absent === 0}
-                  className="flex-1 text-[11px] text-slate-400 hover:text-slate-700 disabled:opacity-30">− {t('absent', 'غياب')}</button>
+                  className="flex-1 text-[11px] text-faint hover:text-text-main disabled:opacity-30">− {t('absent', 'غياب')}</button>
               </div>
             </div>
           );

@@ -95,7 +95,7 @@
 .dark .text-slate-600,
 .dark .text-slate-500,
 .dark .text-text-muted {
-  color: #94a3b8 !important; /* slate-400 */
+  color: #A6A299 !important; /* warm muted */
 }
 
 /* Borders */
@@ -103,8 +103,19 @@
 .dark .border-slate-200,
 .dark .border-slate-300,
 .dark .border-border {
-  border-color: #1e293b !important; /* slate-800 */
+  border-color: #2B2B20 !important; /* warm border */
 }
+
+/* New design tokens — warm dark values (from Cognify.dc.html dark theme). */
+.dark .bg-surface-2 { background-color: #1F2016 !important; }
+.dark .bg-surface-3 { background-color: #26271B !important; }
+.dark .text-faint { color: #6F6C61 !important; }
+.dark .border-border-2 { border-color: #3B3A2D !important; }
+.dark .bg-primary-soft { background-color: #162A20 !important; }
+.dark .bg-accent-soft { background-color: #2A2315 !important; }
+.dark .bg-danger-soft { background-color: #2C1B14 !important; }
+.dark .text-primary { color: #3CBC83 !important; }
+.dark .text-accent { color: #D9A24A !important; }
 
 .dark .shadow-sm,
 .dark .shadow-md,

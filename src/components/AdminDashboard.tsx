@@ -98,10 +98,10 @@ export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardP
 
   if (!isAdmin) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center bg-slate-50 relative p-6">
+      <div className="flex-1 flex flex-col items-center justify-center bg-bg-main relative p-6">
         <ShieldAlert className="w-16 h-16 text-rose-500 mb-4" />
-        <h2 className="text-2xl font-black uppercase text-slate-900 tracking-tighter">Access Denied</h2>
-        <p className="text-slate-500 font-medium text-sm mt-2">You do not have administrative privileges.</p>
+        <h2 className="text-2xl font-black uppercase text-text-main tracking-tighter">Access Denied</h2>
+        <p className="text-text-muted font-medium text-sm mt-2">You do not have administrative privileges.</p>
       </div>
     );
   }
@@ -118,11 +118,11 @@ export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardP
   };
 
   return (
-    <div className="flex-1 flex flex-col bg-slate-50 relative overflow-hidden custom-scrollbar">
-      <header className="flex items-center gap-4 p-6 md:p-10 shrink-0 border-b border-slate-200 bg-white shadow-sm z-10">
+    <div className="flex-1 flex flex-col bg-bg-main relative overflow-hidden custom-scrollbar">
+      <header className="flex items-center gap-4 p-6 md:p-10 shrink-0 border-b border-border bg-bg-card shadow-sm z-10">
         <button 
           onClick={onMenuClick}
-          className="lg:hidden p-2 text-slate-500 bg-white shadow-sm border border-slate-200 hover:bg-slate-50 rounded-lg active:scale-95"
+          className="lg:hidden p-2 text-text-muted bg-bg-card shadow-sm border border-border hover:bg-bg-main rounded-lg active:scale-95"
         >
           <Menu className="w-6 h-6" />
         </button>
@@ -132,8 +132,8 @@ export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardP
               <Users className="w-6 h-6 text-red-600" />
             </div>
             <div>
-              <h2 className="text-xl md:text-2xl font-black text-slate-900 uppercase tracking-tighter leading-none">Admin Dashboard</h2>
-              <p className="text-xs font-bold text-slate-500 tracking-widest uppercase mt-1">Global User Directory</p>
+              <h2 className="text-xl md:text-2xl font-black text-text-main uppercase tracking-tighter leading-none">Admin Dashboard</h2>
+              <p className="text-xs font-bold text-text-muted tracking-widest uppercase mt-1">Global User Directory</p>
             </div>
           </div>
           <div className="flex items-center gap-4">
@@ -147,27 +147,27 @@ export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardP
       <div className="flex-1 overflow-y-auto p-6 md:p-10">
         <div className="max-w-7xl mx-auto space-y-6">
           <div className="relative w-full max-w-md">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-faint" />
             <input 
               type="text"
               placeholder="Search users by email or name..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-2xl shadow-sm text-sm font-medium focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
+              className="w-full pl-11 pr-4 py-3 bg-bg-card border border-border rounded-2xl shadow-sm text-sm font-medium focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
             />
           </div>
 
           {loading ? (
             <div className="flex flex-col items-center justify-center p-20">
               <Loader2 className="w-10 h-10 text-primary animate-spin" />
-              <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-4 animate-pulse">Loading directory...</p>
+              <p className="text-faint text-xs font-bold uppercase tracking-widest mt-4 animate-pulse">Loading directory...</p>
             </div>
           ) : (
-             <div className="bg-white border border-slate-200 shadow-sm rounded-3xl overflow-hidden">
+             <div className="bg-bg-card border border-border shadow-sm rounded-3xl overflow-hidden">
                <div className="overflow-x-auto">
                  <table className="w-full text-left border-collapse">
                    <thead>
-                     <tr className="bg-slate-50 text-[10px] uppercase font-black tracking-widest text-slate-400 border-b border-slate-200">
+                     <tr className="bg-bg-main text-[10px] uppercase font-black tracking-widest text-faint border-b border-border">
                        <th className="p-4">User</th>
                        <th className="p-4">Role & Level</th>
                        <th className="p-4">Points</th>
@@ -177,25 +177,25 @@ export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardP
                        <th className="p-4 text-right">Actions</th>
                      </tr>
                    </thead>
-                   <tbody className="text-sm font-medium text-slate-700 divide-y divide-slate-100">
+                   <tbody className="text-sm font-medium text-text-main divide-y divide-slate-100">
                      {filteredUsers.length > 0 ? filteredUsers.map((u) => (
-                       <tr key={u.uid} className="hover:bg-slate-50 transition-colors">
+                       <tr key={u.uid} className="hover:bg-bg-main transition-colors">
                          <td className="p-4">
-                           <div className="font-bold text-slate-900">{u.name || 'Unnamed User'}</div>
-                           <div className="text-[10px] text-slate-500">{u.field}</div>
+                           <div className="font-bold text-text-main">{u.name || 'Unnamed User'}</div>
+                           <div className="text-[10px] text-text-muted">{u.field}</div>
                          </td>
                          <td className="p-4">
                            <div className="flex flex-col gap-1">
                              <span className="inline-flex max-w-fit items-center px-2 py-0.5 rounded text-[10px] font-bold bg-primary/10 text-primary uppercase">{u.role}</span>
-                             <span className="text-[10px] text-slate-500 uppercase font-bold">{u.level}</span>
+                             <span className="text-[10px] text-text-muted uppercase font-bold">{u.level}</span>
                            </div>
                          </td>
-                         <td className="p-4 font-black text-slate-800">{u.points}</td>
-                         <td className="p-4 font-black text-slate-800">{u.iqScore || '--'}</td>
-                         <td className="p-4 text-xs font-bold text-slate-600">
+                         <td className="p-4 font-black text-text-main">{u.points}</td>
+                         <td className="p-4 font-black text-text-main">{u.iqScore || '--'}</td>
+                         <td className="p-4 text-xs font-bold text-text-muted">
                            {formatDate(u.lastActiveDate || u.lastQuizDate || u.chatThreads?.[0]?.updatedAt)}
                          </td>
-                         <td className="p-4 text-xs text-slate-500 truncate max-w-[200px]" title={u.email}>{u.email}</td>
+                         <td className="p-4 text-xs text-text-muted truncate max-w-[200px]" title={u.email}>{u.email}</td>
                          <td className="p-4 text-right">
                            <div className="flex items-center justify-end gap-2">
                              <a 
@@ -215,7 +215,7 @@ export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardP
                        </tr>
                      )) : (
                        <tr>
-                         <td colSpan={7} className="p-10 text-center text-slate-400 font-medium">
+                         <td colSpan={7} className="p-10 text-center text-faint font-medium">
                            No users found matching "{searchTerm}"
                          </td>
                        </tr>
