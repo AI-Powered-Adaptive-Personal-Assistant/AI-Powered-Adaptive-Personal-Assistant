@@ -806,7 +806,7 @@ export default function AccessibilityOverlay({
             )}
 
             <div
-              className={`relative rounded-[32px] overflow-hidden shadow-2xl border-4 transition-all ${isVisionActive ? (isVisionAnalyzing ? "border-amber-400 scale-[1.02]" : "border-primary") : "border-slate-200 opacity-50"}`}
+              className={`relative rounded-[32px] overflow-hidden shadow-2xl border-4 transition-all ${isVisionActive ? (isVisionAnalyzing ? "border-accent/20 scale-[1.02]" : "border-primary") : "border-slate-200 opacity-50"}`}
             >
               <AnimatePresence>
                 {detectionConfidence > 0 && (
@@ -846,7 +846,7 @@ export default function AccessibilityOverlay({
               {isVisionActive && (
                 <div className="absolute top-4 right-4 z-20 flex gap-2">
                   {isVisionAnalyzing && (
-                    <div className="bg-amber-400 text-black text-[8px] font-black uppercase px-2 py-1 rounded-full animate-bounce">
+                    <div className="bg-accent text-black text-[8px] font-black uppercase px-2 py-1 rounded-full animate-bounce">
                       Analyzing...
                     </div>
                   )}

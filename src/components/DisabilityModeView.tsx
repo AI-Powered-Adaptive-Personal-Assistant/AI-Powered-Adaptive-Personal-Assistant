@@ -194,7 +194,7 @@ export default function DisabilityModeView({
                 
                 <div className="flex-1 relative z-10">
                   <h3 className="text-base font-semibold tracking-wide mb-1.5 flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-amber-400" /> Active Profile Context
+                    <Sparkles className="w-4 h-4 text-accent" /> Active Profile Context
                   </h3>
                   <p className="text-faint font-medium text-sm leading-relaxed max-w-2xl">
                     By enabling an accessibility profile, the engine modifies its context generation. 

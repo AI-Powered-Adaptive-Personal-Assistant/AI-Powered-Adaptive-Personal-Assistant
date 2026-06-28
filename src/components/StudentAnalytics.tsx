@@ -127,7 +127,7 @@ export default function StudentAnalytics({ profile, onMenuClick }: StudentAnalyt
                     <Tooltip />
                     <Bar dataKey="gpa" radius={[6, 6, 0, 0]}>
                       {gpaTrend.map((d, i) => (
-                        <Cell key={i} fill={d.gpa >= 3.5 ? '#1E7A53' : d.gpa >= 2.5 ? '#1E7A53' : '#B07914'} />
+                        <Cell key={i} fill={d.gpa >= 3.5 ? '#15A06A' : d.gpa >= 2.5 ? '#6D4AFF' : '#E5484D'} />
                       ))}
                     </Bar>
                   </BarChart>
@@ -190,7 +190,7 @@ export default function StudentAnalytics({ profile, onMenuClick }: StudentAnalyt
 
           <div className="bg-bg-card rounded-3xl p-6 border border-border shadow-sm">
             <h2 className="text-sm font-black uppercase tracking-widest text-text-main mb-4 flex items-center gap-2">
-              <Clock className="w-4 h-4 text-amber-500" /> {t('Upcoming Deadlines', 'مواعيد قريبة')}
+              <Clock className="w-4 h-4 text-accent" /> {t('Upcoming Deadlines', 'مواعيد قريبة')}
             </h2>
             {upcoming.length ? (
               <div className="space-y-2">
@@ -199,7 +199,7 @@ export default function StudentAnalytics({ profile, onMenuClick }: StudentAnalyt
                   return (
                     <div key={g.id} className="flex items-center justify-between gap-3 p-3 bg-bg-main rounded-xl">
                       <span className="text-sm font-bold text-text-main truncate">{g.title}</span>
-                      <span className={`text-[11px] font-black px-2 py-0.5 rounded-lg ${d < 0 ? 'bg-red-100 text-danger' : d <= 3 ? 'bg-amber-100 text-accent' : 'bg-slate-200 text-text-muted'}`}>
+                      <span className={`text-[11px] font-black px-2 py-0.5 rounded-lg ${d < 0 ? 'bg-red-100 text-danger' : d <= 3 ? 'bg-accent-soft text-accent' : 'bg-slate-200 text-text-muted'}`}>
                         {d < 0 ? t('overdue', 'متأخر') : `${d} ${t('days', 'يوم')}`}
                       </span>
                     </div>

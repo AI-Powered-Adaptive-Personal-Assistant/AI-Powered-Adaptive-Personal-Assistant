@@ -16,9 +16,9 @@
   --color-primary-soft: #EDE9FF;
   --color-secondary: #5C5C68;
   --color-success: #15A06A;
-  --color-warning: #B07914;
-  --color-accent: #B07914;
-  --color-accent-soft: #F6EFDC;
+  --color-warning: #6D4AFF;
+  --color-accent: #6D4AFF;
+  --color-accent-soft: #EDE9FF;
   --color-danger: #E5484D;
   --color-danger-soft: #FCEAEA;
   --color-bg-main: #F3F3F6;
@@ -113,10 +113,10 @@
 .dark .border-border-2 { border-color: #2E2E35 !important; }
 .dark .bg-primary { background-color: #7C5CFF !important; }
 .dark .bg-primary-soft { background-color: #211A36 !important; }
-.dark .bg-accent-soft { background-color: #2A2315 !important; }
+.dark .bg-accent-soft { background-color: #211A36 !important; }
 .dark .bg-danger-soft { background-color: #2C1517 !important; }
 .dark .text-primary { color: #BBAAFF !important; }
-.dark .text-accent { color: #D9A24A !important; }
+.dark .text-accent { color: #BBAAFF !important; }
 
 .dark .shadow-sm,
 .dark .shadow-md,

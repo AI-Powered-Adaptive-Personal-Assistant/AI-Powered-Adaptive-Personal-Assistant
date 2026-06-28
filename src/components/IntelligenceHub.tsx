@@ -89,8 +89,8 @@ const IntelligenceHub = React.memo(({ profile, onMenuClick }: IntelligenceHubPro
             label="Merit Points" 
             value={profile.points} 
             icon={Star} 
-            color="text-amber-500" 
-            bg="bg-accent-soft dark:bg-amber-500/10" 
+            color="text-accent" 
+            bg="bg-accent-soft dark:bg-accent/10" 
             trend="Rank Up" 
           />
           <BentoMetric 
@@ -184,7 +184,7 @@ const IntelligenceHub = React.memo(({ profile, onMenuClick }: IntelligenceHubPro
           {/* Radar Chart (Skill Tree) */}
           <div className="xl:col-span-4 bg-bg-card dark:bg-slate-900 rounded-[28px] border border-border dark:border-slate-800 shadow-sm p-6 flex flex-col min-h-[380px]">
             <h3 className="text-sm font-black uppercase tracking-widest text-text-main dark:text-slate-200 mb-2 flex items-center gap-2">
-              <Zap className="w-4 h-4 text-amber-500" /> Neural Vector
+              <Zap className="w-4 h-4 text-accent" /> Neural Vector
             </h3>
             <p className="text-xs font-mono text-faint mb-6">COGNITIVE.DISTRIBUTION.RADAR</p>
             
@@ -285,7 +285,7 @@ const IntelligenceHub = React.memo(({ profile, onMenuClick }: IntelligenceHubPro
                 <SystemModule label="Recalibration" value={profile.lastQuizDate ? new Date(new Date(profile.lastQuizDate).getTime() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString() : 'REQUIRED'} status="neutral" />
                 <div className="pt-4 border-t border-white/10 mt-4">
                   <div className="flex items-center gap-2 mb-3">
-                    <Zap className="w-3.5 h-3.5 text-amber-500" />
+                    <Zap className="w-3.5 h-3.5 text-accent" />
                     <span className="text-[10px] font-black uppercase tracking-[0.2em] text-faint">Sustainability Path</span>
                   </div>
                   <div className="bg-bg-card/5 rounded-xl p-3 border border-emerald-500/20">
@@ -331,7 +331,7 @@ function BentoMetric({ label, value, icon: Icon, color, bg, trend }: { label: st
 function SystemModule({ label, value, status }: { label: string, value: string, status: 'good' | 'warn' | 'neutral' }) {
   const statusColors = {
     good: 'text-emerald-400',
-    warn: 'text-amber-400',
+    warn: 'text-accent',
     neutral: 'text-blue-400'
   };
   

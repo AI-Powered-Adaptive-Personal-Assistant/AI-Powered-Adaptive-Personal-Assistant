@@ -332,9 +332,9 @@ export default function Login() {
                   <motion.div 
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: 'auto' }}
-                    className="p-5 bg-amber-50 border border-amber-100 rounded-3xl text-[10px] text-amber-800 text-left space-y-2 font-medium"
+                    className="p-5 bg-accent-soft border border-accent/20 rounded-3xl text-[10px] text-accent text-left space-y-2 font-medium"
                   >
-                    <p className="font-black flex items-center gap-2 underline uppercase tracking-tighter text-amber-900">
+                    <p className="font-black flex items-center gap-2 underline uppercase tracking-tighter text-accent">
                       <AlertCircle className="w-3.5 h-3.5" /> Taking a while?
                     </p>
                     <p>Authorization is taking longer than expected. Ensure your environment allows popups.</p>

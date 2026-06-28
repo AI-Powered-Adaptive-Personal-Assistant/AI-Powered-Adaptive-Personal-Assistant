@@ -870,10 +870,10 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
                 if (!insights && !showInsights) handleGenerateInsights();
               }}
               className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-[11px] font-bold uppercase transition-colors ${
-                showInsights ? 'bg-amber-500 text-white shadow-md shadow-amber-500/20' : 'bg-slate-100 text-accent hover:bg-accent-soft'
+                showInsights ? 'bg-accent text-white shadow-md shadow-amber-500/20' : 'bg-slate-100 text-accent hover:bg-accent-soft'
               }`}
             >
-              <Lightbulb className={`w-4 h-4 ${showInsights ? 'text-white' : 'text-amber-500'}`} />
+              <Lightbulb className={`w-4 h-4 ${showInsights ? 'text-white' : 'text-accent'}`} />
               <span className="hidden sm:inline">{getTranslation(profile.language, 'insights')}</span>
             </button>
             
@@ -996,7 +996,7 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
                     <div className="flex items-center gap-2 mt-1">
                       <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded border shadow-sm ${
                         evaluateQuestionQuality(m.content) >= 8 ? 'bg-primary-soft text-primary border-emerald-100' :
-                        evaluateQuestionQuality(m.content) >= 5 ? 'bg-accent-soft text-accent border-amber-100' :
+                        evaluateQuestionQuality(m.content) >= 5 ? 'bg-accent-soft text-accent border-accent/20' :
                         'bg-slate-50 text-slate-500 border-slate-100'
                       }`}>
                         {evaluateQuestionQuality(m.content) >= 8 ? getTranslation(profile.language, 'excellentQuestion') :
@@ -1350,25 +1350,25 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
               animate={{ width: isEmbedded ? '100%' : (window.innerWidth < 768 ? '100%' : 340), opacity: 1 }}
               exit={{ width: 0, opacity: 0 }}
               style={{ right: 0, top: 0, bottom: 0, zIndex: 40 }}
-              className={`bg-accent-soft border-s border-amber-200 overflow-y-auto flex flex-col shadow-xl shrink-0 ${isEmbedded ? 'absolute' : 'absolute md:relative'}`}
+              className={`bg-accent-soft border-s border-accent/20 overflow-y-auto flex flex-col shadow-xl shrink-0 ${isEmbedded ? 'absolute' : 'absolute md:relative'}`}
             >
-              <div className="p-4 border-b border-amber-200 bg-amber-100/50 flex justify-between items-center shrink-0">
-                <h3 className="font-extrabold text-amber-900 flex items-center gap-2">
+              <div className="p-4 border-b border-accent/20 bg-accent-soft/50 flex justify-between items-center shrink-0">
+                <h3 className="font-extrabold text-accent flex items-center gap-2">
                   <Lightbulb className="w-5 h-5 text-accent" /> {getTranslation(profile.language, 'proactiveInsights')}
                 </h3>
-                <button onClick={() => setShowInsights(false)} className="p-1 hover:bg-amber-200/50 rounded-lg text-accent">
+                <button onClick={() => setShowInsights(false)} className="p-1 hover:bg-accent/50 rounded-lg text-accent">
                   <X className="w-4 h-4" />
                 </button>
               </div>
-              <div className="p-5 flex-1 flex flex-col gap-4 overflow-y-auto custom-scrollbar text-amber-950">
+              <div className="p-5 flex-1 flex flex-col gap-4 overflow-y-auto custom-scrollbar text-accent">
                 {isGeneratingInsights ? (
                   <div className="flex flex-col items-center justify-center p-8 text-accent gap-3">
                     <Loader2 className="w-8 h-8 animate-spin" />
-                    <span className="text-sm font-medium text-amber-800">Analyzing thread & profile...</span>
+                    <span className="text-sm font-medium text-accent">Analyzing thread & profile...</span>
                   </div>
                 ) : (
                   <>
-                    <div className="prose prose-base prose-slate max-w-none leading-relaxed p-6 rounded-2xl shadow-xl text-slate-900 border-2 border-amber-400 bg-bg-card" style={{ boxShadow: '0 10px 25px -5px rgba(251, 191, 36, 0.2)' }}>
+                    <div className="prose prose-base prose-slate max-w-none leading-relaxed p-6 rounded-2xl shadow-xl text-slate-900 border-2 border-accent/20 bg-bg-card" style={{ boxShadow: '0 10px 25px -5px rgba(251, 191, 36, 0.2)' }}>
                       {insights ? (
                         <div className="markdown-body font-medium">
                           <Markdown>{insights}</Markdown>
@@ -1380,7 +1380,7 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
                     
                     <button 
                       onClick={handleGenerateInsights}
-                      className="mt-4 flex items-center justify-center gap-2 w-full py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-sm transition-colors shadow-md shadow-amber-500/20"
+                      className="mt-4 flex items-center justify-center gap-2 w-full py-2.5 rounded-xl bg-accent hover:bg-accent text-white font-bold text-sm transition-colors shadow-md shadow-amber-500/20"
                     >
                       <RefreshCw className="w-4 h-4" /> {getTranslation(profile.language, 'regenerateInsights')}
                     </button>

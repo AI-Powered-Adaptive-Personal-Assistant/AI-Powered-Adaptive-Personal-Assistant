@@ -11,7 +11,7 @@ interface AcademicPlannerProps {
 
 const TYPE_META: Record<PlannerTaskType, { en: string; ar: string; color: string }> = {
   assignment: { en: 'Assignment', ar: 'تكليف', color: 'bg-blue-50 text-blue-600 border-blue-200' },
-  quiz: { en: 'Quiz', ar: 'كويز', color: 'bg-accent-soft text-accent border-amber-200' },
+  quiz: { en: 'Quiz', ar: 'كويز', color: 'bg-accent-soft text-accent border-accent/20' },
   midterm: { en: 'Midterm', ar: 'ميدتيرم', color: 'bg-purple-50 text-purple-600 border-purple-200' },
   final: { en: 'Final', ar: 'فاينال', color: 'bg-danger-soft text-danger border-danger/20' },
   project: { en: 'Project', ar: 'مشروع', color: 'bg-primary-soft text-primary border-emerald-200' },
@@ -70,8 +70,8 @@ export default function AcademicPlanner({ profile, onMenuClick }: AcademicPlanne
     const d = daysUntilDue(task);
     if (d < 0) return { label: t('overdue', 'متأخر'), color: 'bg-red-100 text-danger' };
     if (d === 0) return { label: t('today', 'النهاردة'), color: 'bg-red-100 text-danger' };
-    if (d === 1) return { label: t('tomorrow', 'بكرة'), color: 'bg-amber-100 text-accent' };
-    if (d <= 3) return { label: `${d} ${t('days', 'أيام')}`, color: 'bg-amber-100 text-accent' };
+    if (d === 1) return { label: t('tomorrow', 'بكرة'), color: 'bg-accent-soft text-accent' };
+    if (d <= 3) return { label: `${d} ${t('days', 'أيام')}`, color: 'bg-accent-soft text-accent' };
     return { label: `${d} ${t('days', 'يوم')}`, color: 'bg-slate-200 text-text-muted' };
   };
 

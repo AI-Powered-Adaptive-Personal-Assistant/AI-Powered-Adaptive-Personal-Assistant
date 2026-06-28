@@ -561,7 +561,7 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
                           : 'bg-black/40 text-white/40 border-white/10 hover:text-white hover:border-white/30'
                       }`}
                     >
-                      <Sparkles className={`w-3 h-3 ${is3DActive ? 'text-emerald-400' : 'text-amber-400'}`} />
+                      <Sparkles className={`w-3 h-3 ${is3DActive ? 'text-emerald-400' : 'text-accent'}`} />
                       {is3DActive ? '3D Avatar' : '2D Mode'}
                     </button>
                     <button className="text-white/50 hover:text-white transition-colors bg-black/40 p-2 rounded-lg backdrop-blur-md">

@@ -16,7 +16,7 @@ const gradeColor = (grade: string) => {
   const p = GRADE_POINTS[grade] ?? 0;
   if (p >= 3.7) return 'text-primary bg-primary-soft border-emerald-200';
   if (p >= 3.0) return 'text-blue-600 bg-blue-50 border-blue-200';
-  if (p >= 2.0) return 'text-accent bg-accent-soft border-amber-200';
+  if (p >= 2.0) return 'text-accent bg-accent-soft border-accent/20';
   return 'text-danger bg-danger-soft border-danger/20';
 };
 
