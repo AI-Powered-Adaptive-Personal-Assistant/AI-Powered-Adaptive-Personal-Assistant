@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Alexandria:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Instrument+Serif:ital@0;1&family=Alexandria:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
 @import "tailwindcss";
 
 /* Make `dark:` variants follow the app's theme toggle (.dark class) instead of
@@ -9,6 +9,7 @@
   /* Cognify Redesign v2 (final): dark-first, violet primary, Inter, cool neutrals. */
   --font-sans: "Inter", "Alexandria", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Inter", "Alexandria", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Instrument Serif", Georgia, serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
 
   --color-primary: #6D4AFF;

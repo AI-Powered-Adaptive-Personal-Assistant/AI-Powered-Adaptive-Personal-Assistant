@@ -289,7 +289,7 @@ export default function ProfilePage({ profile, onMenuClick, setProfile }: Profil
               </>
             )}
             
-            <div className="w-full space-y-3 pt-6 border-t border-slate-50">
+            <div className="w-full space-y-3 pt-6 border-t border-border">
               <div className="flex items-center gap-3 text-text-muted text-sm font-medium">
                 <Mail className="w-4 h-4 text-faint" />
                 <span className="truncate">{profile.email}</span>
@@ -378,7 +378,7 @@ export default function ProfilePage({ profile, onMenuClick, setProfile }: Profil
             </h3>
             <div className="space-y-4">
               {!profile.chatThreads || profile.chatThreads.length === 0 ? (
-                <div className="text-center py-10 text-faint font-medium italic border-2 border-dashed border-slate-50 rounded-3xl">
+                <div className="text-center py-10 text-faint font-medium italic border-2 border-dashed border-border rounded-3xl">
                   No previous chat history recorded.
                 </div>
               ) : (
@@ -550,7 +550,7 @@ function DataField({
           />
         )
       ) : (
-        <div className="text-lg font-black text-text-main border-b-2 border-slate-50 pb-1">{value || 'N/A'}</div>
+        <div className="text-lg font-black text-text-main border-b-2 border-border pb-1">{value || 'N/A'}</div>
       )}
     </div>
   );

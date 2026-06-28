@@ -46,11 +46,11 @@ export default function MarkdownMessage({ content }: { content: string }) {
             return isBlock ? (
               <code className={`font-mono ${className || ''}`} {...p}>{children}</code>
             ) : (
-              <code className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-rose-600 text-[0.85em] font-mono" {...p}>{children}</code>
+              <code className="px-1.5 py-0.5 rounded bg-surface-3 text-rose-600 text-[0.85em] font-mono" {...p}>{children}</code>
             );
           },
           table: ({ node, ...p }: any) => <div className="overflow-x-auto my-4"><table className="w-full text-sm border-collapse" {...p} /></div>,
-          th: ({ node, ...p }: any) => <th className="border border-border bg-slate-50 px-3 py-2 text-start font-bold" {...p} />,
+          th: ({ node, ...p }: any) => <th className="border border-border bg-surface-2 px-3 py-2 text-start font-bold" {...p} />,
           td: ({ node, ...p }: any) => <td className="border border-border px-3 py-2" {...p} />,
         }}
       >
@@ -58,9 +58,9 @@ export default function MarkdownMessage({ content }: { content: string }) {
       </ReactMarkdown>
 
       {signLines.map((emojis, i) => (
-        <div key={i} className="flex flex-col gap-2 mt-4 pt-4 border-t border-slate-200/60 not-italic">
-          <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Sign Translation</span>
-          <span className="text-3xl bg-slate-50 border border-slate-100 p-3 rounded-xl inline-flex w-max">{emojis}</span>
+        <div key={i} className="flex flex-col gap-2 mt-4 pt-4 border-t border-border not-italic">
+          <span className="text-[10px] font-black uppercase text-faint tracking-widest">Sign Translation</span>
+          <span className="text-3xl bg-surface-2 border border-border p-3 rounded-xl inline-flex w-max">{emojis}</span>
         </div>
       ))}
     </div>

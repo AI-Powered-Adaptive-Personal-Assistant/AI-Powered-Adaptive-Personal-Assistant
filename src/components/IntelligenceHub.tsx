@@ -53,7 +53,7 @@ const IntelligenceHub = React.memo(({ profile, onMenuClick }: IntelligenceHubPro
         <div className="flex items-start gap-4">
           <button 
             onClick={onMenuClick}
-            className="lg:hidden p-2 text-text-muted bg-bg-card dark:bg-slate-900 shadow-sm border border-border dark:border-slate-800 hover:bg-bg-main dark:hover:bg-slate-800 rounded-lg active:scale-95 transition-all"
+            className="lg:hidden p-2 text-text-muted bg-bg-card dark:bg-slate-900 shadow-sm border border-border hover:bg-bg-main rounded-lg active:scale-95 transition-all"
           >
             <Menu className="w-5 h-5" />
           </button>
@@ -68,7 +68,7 @@ const IntelligenceHub = React.memo(({ profile, onMenuClick }: IntelligenceHubPro
             </p>
           </div>
         </div>
-        <div className="hidden md:flex items-center gap-3 px-4 py-2 bg-bg-card dark:bg-slate-900 rounded-full border border-border dark:border-slate-800 shadow-sm">
+        <div className="hidden md:flex items-center gap-3 px-4 py-2 bg-bg-card dark:bg-slate-900 rounded-full border border-border shadow-sm">
           <span className="text-[10px] font-black uppercase tracking-widest text-text-muted">Live Sync</span>
           <Activity className="w-4 h-4 text-emerald-500 animate-pulse" />
         </div>
@@ -115,7 +115,7 @@ const IntelligenceHub = React.memo(({ profile, onMenuClick }: IntelligenceHubPro
         <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
           
           {/* Main Chart Area */}
-          <div className="xl:col-span-8 bg-bg-card dark:bg-slate-900 rounded-[28px] border border-border dark:border-slate-800 shadow-sm p-6 flex flex-col min-h-[380px] relative overflow-hidden group">
+          <div className="xl:col-span-8 bg-bg-card dark:bg-slate-900 rounded-[28px] border border-border shadow-sm p-6 flex flex-col min-h-[380px] relative overflow-hidden group">
             <div className="flex justify-between items-center mb-6 relative z-10">
               <div>
                 <h3 className="text-sm font-black uppercase tracking-widest text-text-main dark:text-slate-200 flex items-center gap-2">
@@ -123,7 +123,7 @@ const IntelligenceHub = React.memo(({ profile, onMenuClick }: IntelligenceHubPro
                 </h3>
                 <p className="text-xs font-mono text-faint mt-1">HISTORICAL.PERFORMANCE.DATA</p>
               </div>
-              <div className="text-xs font-mono bg-surface-3 dark:bg-slate-800 px-3 py-1 rounded-lg text-text-muted">
+              <div className="text-xs font-mono bg-surface-3 px-3 py-1 rounded-lg text-text-muted">
                 LATEST_Q: {profile.questionHistory.length}
               </div>
             </div>
@@ -182,7 +182,7 @@ const IntelligenceHub = React.memo(({ profile, onMenuClick }: IntelligenceHubPro
           </div>
 
           {/* Radar Chart (Skill Tree) */}
-          <div className="xl:col-span-4 bg-bg-card dark:bg-slate-900 rounded-[28px] border border-border dark:border-slate-800 shadow-sm p-6 flex flex-col min-h-[380px]">
+          <div className="xl:col-span-4 bg-bg-card dark:bg-slate-900 rounded-[28px] border border-border shadow-sm p-6 flex flex-col min-h-[380px]">
             <h3 className="text-sm font-black uppercase tracking-widest text-text-main dark:text-slate-200 mb-2 flex items-center gap-2">
               <Zap className="w-4 h-4 text-accent" /> Neural Vector
             </h3>
@@ -222,7 +222,7 @@ const IntelligenceHub = React.memo(({ profile, onMenuClick }: IntelligenceHubPro
             </div>
             
             <div className="mt-4 flex flex-col gap-2">
-               <div className="flex justify-between items-center text-[10px] font-mono border-t border-border dark:border-slate-800 pt-3">
+               <div className="flex justify-between items-center text-[10px] font-mono border-t border-border pt-3">
                   <span className="text-faint">DOMINANT_TRAIT</span>
                   <span className="text-purple-500 font-bold tracking-widest mb-0.5">{radarData.reduce((prev, current) => (prev.A > current.A) ? prev : current).subject}</span>
                </div>
@@ -230,7 +230,7 @@ const IntelligenceHub = React.memo(({ profile, onMenuClick }: IntelligenceHubPro
           </div>
           
           {/* Bottom Bar Chart - Activity Heat */}
-          <div className="xl:col-span-8 bg-bg-card dark:bg-slate-900 rounded-[28px] border border-border dark:border-slate-800 shadow-sm p-6 flex flex-col">
+          <div className="xl:col-span-8 bg-bg-card dark:bg-slate-900 rounded-[28px] border border-border shadow-sm p-6 flex flex-col">
              <div className="flex justify-between items-center mb-6">
                 <h3 className="text-sm font-black uppercase tracking-widest text-text-main dark:text-slate-200 flex items-center gap-2">
                   <GitCommit className="w-4 h-4 text-emerald-500" /> Engagement Frequency
@@ -311,12 +311,12 @@ export default IntelligenceHub;
 
 function BentoMetric({ label, value, icon: Icon, color, bg, trend }: { label: string, value: string | number, icon: any, color: string, bg: string, trend: string }) {
   return (
-    <div className="bg-bg-card dark:bg-slate-900 p-5 rounded-[24px] border border-border dark:border-slate-800 shadow-sm flex flex-col justify-between group hover:border-border dark:hover:border-slate-700 transition-colors">
+    <div className="bg-bg-card dark:bg-slate-900 p-5 rounded-[24px] border border-border shadow-sm flex flex-col justify-between group hover:border-border dark:hover:border-slate-700 transition-colors">
       <div className="flex justify-between items-start mb-4">
         <div className={`w-10 h-10 ${bg} ${color} rounded-xl flex items-center justify-center`}>
           <Icon className="w-5 h-5" />
         </div>
-        <span className="text-[9px] font-mono px-2 py-1 bg-surface-3 dark:bg-slate-800 text-text-muted rounded-md">
+        <span className="text-[9px] font-mono px-2 py-1 bg-surface-3 text-text-muted rounded-md">
           {trend.toUpperCase()}
         </span>
       </div>

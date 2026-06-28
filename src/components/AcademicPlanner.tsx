@@ -72,7 +72,7 @@ export default function AcademicPlanner({ profile, onMenuClick }: AcademicPlanne
     if (d === 0) return { label: t('today', 'النهاردة'), color: 'bg-red-100 text-danger' };
     if (d === 1) return { label: t('tomorrow', 'بكرة'), color: 'bg-accent-soft text-accent' };
     if (d <= 3) return { label: `${d} ${t('days', 'أيام')}`, color: 'bg-accent-soft text-accent' };
-    return { label: `${d} ${t('days', 'يوم')}`, color: 'bg-slate-200 text-text-muted' };
+    return { label: `${d} ${t('days', 'يوم')}`, color: 'bg-surface-3 text-text-muted' };
   };
 
   const TaskRow = ({ task }: { task: PlannerTask }) => {

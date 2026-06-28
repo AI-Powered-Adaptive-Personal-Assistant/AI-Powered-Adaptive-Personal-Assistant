@@ -125,8 +125,8 @@ export default function Login() {
           <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
             <Layers className="w-8 h-8 text-primary" />
           </div>
-          <h1 className="text-3xl font-black text-slate-900 tracking-tighter">Cognify Portal</h1>
-          <p className="text-slate-500 text-sm font-medium">Access your account to continue</p>
+          <h1 className="text-3xl font-black text-text-main tracking-tighter">Cognify Portal</h1>
+          <p className="text-text-muted text-sm font-medium">Access your account to continue</p>
         </div>
 
         <AnimatePresence mode="wait">
@@ -146,17 +146,17 @@ export default function Login() {
                     className={`flex items-center gap-4 p-5 rounded-2xl border-2 transition-all text-left ${
                       accountPath === path 
                         ? 'border-primary bg-primary/5 text-primary' 
-                        : 'border-border bg-white text-slate-600 hover:border-primary/20'
+                        : 'border-border bg-white text-text-muted hover:border-primary/20'
                     }`}
                   >
-                    <div className={`p-2 rounded-lg ${accountPath === path ? 'bg-primary/10' : 'bg-slate-50'}`}>
+                    <div className={`p-2 rounded-lg ${accountPath === path ? 'bg-primary/10' : 'bg-surface-2'}`}>
                       {path === "Normal" && <Brain className="w-6 h-6" />}
                       {path === "Graduation Project" && <GraduationCap className="w-6 h-6" />}
                       {path === "Special Needs" && <Heart className="w-6 h-6 text-red-400" />}
                     </div>
                     <div>
                       <span className="font-bold text-base block">{path}</span>
-                      <span className="text-xs text-slate-500 font-medium">
+                      <span className="text-xs text-text-muted font-medium">
                         {path === "Normal" && "Standard cognitive evaluation path."}
                         {path === "Graduation Project" && "For university students."}
                         {path === "Special Needs" && "Customized accessible experience."}
@@ -243,7 +243,7 @@ export default function Login() {
                   (accountPath === 'Graduation Project' && (!validateUniversityEmail(universityEmail) || !faculty || !department)) ||
                   (accountPath === 'Special Needs' && !disabilityType)
                 }
-                className="w-full h-16 bg-primary text-white font-bold py-4 rounded-xl shadow-lg hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400 transition-all flex items-center justify-center gap-2 group"
+                className="w-full h-16 bg-primary text-white font-bold py-4 rounded-xl shadow-lg hover:bg-blue-700 disabled:bg-surface-3 disabled:text-faint transition-all flex items-center justify-center gap-2 group"
               >
                 Continue <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </button>
@@ -256,25 +256,25 @@ export default function Login() {
               exit={{ opacity: 0, scale: 1.05 }}
               className="space-y-6 w-full"
             >
-              <div className="grid grid-cols-2 gap-3 p-1 bg-slate-100 rounded-2xl">
+              <div className="grid grid-cols-2 gap-3 p-1 bg-surface-3 rounded-2xl">
                 <button 
                   onClick={() => setMode('email-login')}
-                  className="py-3 text-xs font-black uppercase tracking-widest text-slate-600 hover:text-slate-900 transition-all rounded-xl hover:bg-white/50"
+                  className="py-3 text-xs font-black uppercase tracking-widest text-text-muted hover:text-text-main transition-all rounded-xl hover:bg-white/50"
                 >
                   Sign In
                 </button>
                 <button 
                   onClick={() => setMode('email-register')}
-                  className="py-3 text-xs font-black uppercase tracking-widest text-slate-600 hover:text-slate-900 transition-all rounded-xl hover:bg-white/50"
+                  className="py-3 text-xs font-black uppercase tracking-widest text-text-muted hover:text-text-main transition-all rounded-xl hover:bg-white/50"
                 >
                   Create
                 </button>
               </div>
 
               <div className="flex items-center gap-4">
-                <div className="h-px bg-slate-100 flex-1" />
-                <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Or Continue With</span>
-                <div className="h-px bg-slate-100 flex-1" />
+                <div className="h-px bg-surface-3 flex-1" />
+                <span className="text-[10px] font-black text-faint uppercase tracking-widest">Or Continue With</span>
+                <div className="h-px bg-surface-3 flex-1" />
               </div>
 
               <button
@@ -321,7 +321,7 @@ export default function Login() {
                   >
                     افتح في صفحة جديدة ↗ Open in New Tab
                   </a>
-                  <p className="text-[10px] text-slate-500 pt-1 text-center font-bold">
+                  <p className="text-[10px] text-text-muted pt-1 text-center font-bold">
                     أو قم بالتسجيل وإدخال بريدك الإلكتروني يدويًا واختيار كلمة مرور بالأعلى.
                   </p>
                 </div>
@@ -353,7 +353,7 @@ export default function Login() {
             >
               <button 
                 onClick={() => { setMode('options'); setError(null); }}
-                className="absolute -top-3 -left-3 p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 transition-colors"
+                className="absolute -top-3 -left-3 p-2 text-faint hover:text-text-muted rounded-full hover:bg-surface-3 transition-colors"
                 title="Back to options"
               >
                 <ArrowLeft className="w-5 h-5" />
@@ -362,68 +362,68 @@ export default function Login() {
                  <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50 text-blue-700 rounded-full border border-blue-100 text-[10px] font-bold mb-2">
                     <Lock className="w-3 h-3" /> Secure Initial Sign-in
                  </div>
-                 <h2 className="text-3xl font-extrabold text-slate-800 tracking-tight">Create your account</h2>
-                 <p className="text-slate-500 text-sm">Create your profile and gain access to personalized cognitive improvements and practice feedback.</p>
+                 <h2 className="text-3xl font-extrabold text-text-main tracking-tight">Create your account</h2>
+                 <p className="text-text-muted text-sm">Create your profile and gain access to personalized cognitive improvements and practice feedback.</p>
               </div>
 
               <form onSubmit={handleManualAuth} className="space-y-4">
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <label className="text-xs font-bold text-slate-700 ml-1">First Name</label>
+                    <label className="text-xs font-bold text-text-main ml-1">First Name</label>
                      <input 
                        type="text" 
                        required
-                       className="w-full bg-white border border-slate-200 rounded-lg py-2.5 px-3 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all shadow-sm"
+                       className="w-full bg-white border border-border rounded-lg py-2.5 px-3 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all shadow-sm"
                      />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs font-bold text-slate-700 ml-1">Last Name</label>
+                    <label className="text-xs font-bold text-text-main ml-1">Last Name</label>
                      <input 
                        type="text" 
                        required
-                       className="w-full bg-white border border-slate-200 rounded-lg py-2.5 px-3 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all shadow-sm"
+                       className="w-full bg-white border border-border rounded-lg py-2.5 px-3 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all shadow-sm"
                      />
                   </div>
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-700 ml-1">Phone</label>
+                  <label className="text-xs font-bold text-text-main ml-1">Phone</label>
                    <input 
                      type="tel" 
-                     className="w-full bg-white border border-slate-200 rounded-lg py-2.5 px-3 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all shadow-sm"
+                     className="w-full bg-white border border-border rounded-lg py-2.5 px-3 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all shadow-sm"
                    />
                 </div>
 
                 <div className="space-y-1">
-                   <label className="text-xs font-bold text-slate-700 ml-1">Email Address</label>
+                   <label className="text-xs font-bold text-text-main ml-1">Email Address</label>
                    <input 
                      type="email" 
                      required
-                     className="w-full bg-white border border-slate-200 rounded-lg py-2.5 px-3 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all shadow-sm"
+                     className="w-full bg-white border border-border rounded-lg py-2.5 px-3 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all shadow-sm"
                      value={email}
                      onChange={(e) => setEmail(e.target.value)}
                    />
                 </div>
 
                 <div className="space-y-1">
-                   <label className="text-xs font-bold text-slate-700 ml-1">Password</label>
+                   <label className="text-xs font-bold text-text-main ml-1">Password</label>
                    <div className="relative">
                      <input 
                        type={showPassword ? "text" : "password"} 
                        required
-                       className="w-full bg-white border border-slate-200 rounded-lg py-2.5 px-3 pr-10 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all shadow-sm"
+                       className="w-full bg-white border border-border rounded-lg py-2.5 px-3 pr-10 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all shadow-sm"
                        value={password}
                        onChange={(e) => setPassword(e.target.value)}
                      />
                      <button 
                        type="button" 
                        onClick={() => setShowPassword(!showPassword)} 
-                       className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                       className="absolute right-3 top-1/2 -translate-y-1/2 text-faint hover:text-text-muted"
                      >
                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                      </button>
                    </div>
-                   <p className="text-[10px] text-slate-400 ml-1 mt-1">Use at least 8 characters with a mix of letters, numbers, and symbols.</p>
+                   <p className="text-[10px] text-faint ml-1 mt-1">Use at least 8 characters with a mix of letters, numbers, and symbols.</p>
                 </div>
 
                 {error && (
@@ -447,7 +447,7 @@ export default function Login() {
               </form>
 
               <div className="pt-2 text-center text-sm">
-                 <span className="text-slate-500">Already have an account? </span>
+                 <span className="text-text-muted">Already have an account? </span>
                  <button 
                    onClick={() => { setMode('email-login'); setError(null); }}
                    className="text-[#4F46E5] font-bold hover:underline"
@@ -466,21 +466,21 @@ export default function Login() {
             >
               <button 
                 onClick={() => { setMode('options'); setError(null); }}
-                className="absolute -top-8 -left-3 p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 transition-colors"
+                className="absolute -top-8 -left-3 p-2 text-faint hover:text-text-muted rounded-full hover:bg-surface-3 transition-colors"
                 title="Back to options"
               >
                 <ArrowLeft className="w-5 h-5" />
               </button>
               <form onSubmit={handleManualAuth} className="space-y-4 text-left">
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase ml-4">Email Address</label>
+                  <label className="text-[10px] font-black text-faint uppercase ml-4">Email Address</label>
                   <div className="relative">
-                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
+                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-faint" />
                     <input 
                       type="email" 
                       required
                       placeholder="name@example.com"
-                      className="w-full bg-slate-50 border border-slate-100 rounded-xl py-3 pl-12 pr-4 text-sm focus:ring-4 focus:ring-primary/5 focus:border-primary focus:bg-white outline-none transition-all"
+                      className="w-full bg-surface-2 border border-border rounded-xl py-3 pl-12 pr-4 text-sm focus:ring-4 focus:ring-primary/5 focus:border-primary focus:bg-white outline-none transition-all"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                     />
@@ -488,21 +488,21 @@ export default function Login() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase ml-4">Password</label>
+                  <label className="text-[10px] font-black text-faint uppercase ml-4">Password</label>
                   <div className="relative">
-                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
+                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-faint" />
                     <input 
                       type={showPassword ? "text" : "password"} 
                       required
                       placeholder="••••••••"
-                      className="w-full bg-slate-50 border border-slate-100 rounded-xl py-3 pl-12 pr-12 text-sm focus:ring-4 focus:ring-primary/5 focus:border-primary focus:bg-white outline-none transition-all"
+                      className="w-full bg-surface-2 border border-border rounded-xl py-3 pl-12 pr-12 text-sm focus:ring-4 focus:ring-primary/5 focus:border-primary focus:bg-white outline-none transition-all"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                     />
                      <button 
                        type="button" 
                        onClick={() => setShowPassword(!showPassword)} 
-                       className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                       className="absolute right-4 top-1/2 -translate-y-1/2 text-faint hover:text-text-muted"
                      >
                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                      </button>
@@ -541,13 +541,13 @@ export default function Login() {
               <div className="flex flex-col gap-3 pt-4">
                 <button 
                   onClick={() => setMode('email-register')}
-                  className="text-xs font-bold text-slate-500 hover:text-primary transition-colors"
+                  className="text-xs font-bold text-text-muted hover:text-primary transition-colors"
                 >
                   Don't have an account? Create one
                 </button>
                 <button 
                   onClick={() => { setMode('options'); setError(null); }}
-                  className="text-[10px] font-black text-slate-300 hover:text-slate-600 uppercase tracking-widest transition-colors"
+                  className="text-[10px] font-black text-faint hover:text-text-muted uppercase tracking-widest transition-colors"
                 >
                   Go Back
                 </button>
@@ -563,15 +563,15 @@ export default function Login() {
             >
               <button 
                 onClick={() => { setMode('email-login'); setError(null); }}
-                className="absolute -top-8 -left-3 p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 transition-colors"
+                className="absolute -top-8 -left-3 p-2 text-faint hover:text-text-muted rounded-full hover:bg-surface-3 transition-colors"
                 title="Back to login"
               >
                 <ArrowLeft className="w-5 h-5" />
               </button>
               
               <div className="space-y-2 mb-6">
-                <h2 className="text-2xl font-black text-slate-800 tracking-tight">Reset Password</h2>
-                <p className="text-slate-500 text-sm">Enter your email address to receive password reset instructions.</p>
+                <h2 className="text-2xl font-black text-text-main tracking-tight">Reset Password</h2>
+                <p className="text-text-muted text-sm">Enter your email address to receive password reset instructions.</p>
               </div>
 
               {resetSuccess ? (
@@ -581,14 +581,14 @@ export default function Login() {
               ) : (
                 <form onSubmit={handleResetPassword} className="space-y-4">
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase ml-4">Email Address</label>
+                    <label className="text-[10px] font-black text-faint uppercase ml-4">Email Address</label>
                     <div className="relative">
-                      <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
+                      <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-faint" />
                       <input 
                         type="email" 
                         required
                         placeholder="name@example.com"
-                        className="w-full bg-slate-50 border border-slate-100 rounded-xl py-3 pl-12 pr-4 text-sm focus:ring-4 focus:ring-primary/5 focus:border-primary focus:bg-white outline-none transition-all"
+                        className="w-full bg-surface-2 border border-border rounded-xl py-3 pl-12 pr-4 text-sm focus:ring-4 focus:ring-primary/5 focus:border-primary focus:bg-white outline-none transition-all"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                       />
@@ -619,7 +619,7 @@ export default function Login() {
               <div className="flex justify-center pt-2">
                 <button 
                   onClick={() => { setMode('email-login'); setError(null); }}
-                  className="text-xs font-bold text-slate-500 hover:text-primary transition-colors"
+                  className="text-xs font-bold text-text-muted hover:text-primary transition-colors"
                 >
                   Back to sign in
                 </button>

@@ -55,7 +55,7 @@ class ErrorBoundary extends Component<Props, State> {
             </div>
             
             <h1 className="text-xl font-semibold text-white mb-2">Something went wrong</h1>
-            <p className="text-slate-400 text-sm mb-6 leading-relaxed">
+            <p className="text-faint text-sm mb-6 leading-relaxed">
               {errorMessage}
             </p>
 
@@ -67,7 +67,7 @@ class ErrorBoundary extends Component<Props, State> {
               Reload
             </button>
 
-            <p className="mt-6 text-[10px] text-slate-600 tracking-wide font-mono">
+            <p className="mt-6 text-[10px] text-text-muted tracking-wide font-mono">
               Reference: {this.state.error?.name || "APP_ERROR"}
             </p>
           </div>

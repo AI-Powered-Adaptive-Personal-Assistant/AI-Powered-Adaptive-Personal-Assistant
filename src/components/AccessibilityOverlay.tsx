@@ -649,7 +649,7 @@ export default function AccessibilityOverlay({
       <button
         onClick={() => toggleControlsHidden(true)}
         title="Hide accessibility controls"
-        className="self-start pointer-events-auto w-9 h-9 rounded-full bg-bg-card/90 backdrop-blur border border-slate-200 text-slate-500 shadow flex items-center justify-center hover:text-slate-800 active:scale-95"
+        className="self-start pointer-events-auto w-9 h-9 rounded-full bg-bg-card/90 backdrop-blur border border-border text-text-muted shadow flex items-center justify-center hover:text-text-main active:scale-95"
       >
         <EyeOff className="w-4 h-4" />
       </button>
@@ -682,7 +682,7 @@ export default function AccessibilityOverlay({
                   className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-xl transition-all active:scale-95 border-2 ${
                     autoSpeak
                       ? "bg-primary-soft border-indigo-200 text-primary"
-                      : "bg-bg-card border-slate-200 text-slate-400 hover:text-slate-600"
+                      : "bg-bg-card border-border text-faint hover:text-text-muted"
                   }`}
                   title={
                     autoSpeak
@@ -748,7 +748,7 @@ export default function AccessibilityOverlay({
                       Fingerspelling
                     </span>
                     {liveLetter && (
-                      <span className="text-[9px] font-mono font-bold text-slate-400">
+                      <span className="text-[9px] font-mono font-bold text-faint">
                         {liveLetter}
                       </span>
                     )}
@@ -758,7 +758,7 @@ export default function AccessibilityOverlay({
                       onClick={() => setTranscription((p) => p.slice(0, -1))}
                       disabled={!transcription}
                       title="Backspace"
-                      className="px-2 py-1 bg-slate-100 text-slate-500 text-[9px] font-black uppercase rounded-lg hover:bg-slate-200 disabled:opacity-40"
+                      className="px-2 py-1 bg-surface-3 text-text-muted text-[9px] font-black uppercase rounded-lg hover:bg-surface-3 disabled:opacity-40"
                     >
                       ⌫
                     </button>
@@ -768,7 +768,7 @@ export default function AccessibilityOverlay({
                         signClfRef.current?.smoother.reset();
                       }}
                       disabled={!transcription}
-                      className="px-2 py-1 bg-slate-100 text-slate-500 text-[9px] font-black uppercase rounded-lg hover:bg-slate-200 disabled:opacity-40"
+                      className="px-2 py-1 bg-surface-3 text-text-muted text-[9px] font-black uppercase rounded-lg hover:bg-surface-3 disabled:opacity-40"
                     >
                       Clear
                     </button>
@@ -799,14 +799,14 @@ export default function AccessibilityOverlay({
                     </button>
                   </div>
                 </div>
-                <p className="text-sm font-bold text-slate-800 leading-relaxed italic capitalize min-h-[1.25rem]">
-                  {transcription ? `"${transcription}"` : <span className="text-slate-300 not-italic">Spell a word…</span>}
+                <p className="text-sm font-bold text-text-main leading-relaxed italic capitalize min-h-[1.25rem]">
+                  {transcription ? `"${transcription}"` : <span className="text-faint not-italic">Spell a word…</span>}
                 </p>
               </div>
             )}
 
             <div
-              className={`relative rounded-[32px] overflow-hidden shadow-2xl border-4 transition-all ${isVisionActive ? (isVisionAnalyzing ? "border-accent/20 scale-[1.02]" : "border-primary") : "border-slate-200 opacity-50"}`}
+              className={`relative rounded-[32px] overflow-hidden shadow-2xl border-4 transition-all ${isVisionActive ? (isVisionAnalyzing ? "border-accent/20 scale-[1.02]" : "border-primary") : "border-border opacity-50"}`}
             >
               <AnimatePresence>
                 {detectionConfidence > 0 && (
@@ -867,7 +867,7 @@ export default function AccessibilityOverlay({
 
               {!isVisionActive && (
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <Camera className="w-12 h-12 text-slate-400 opacity-50" />
+                  <Camera className="w-12 h-12 text-faint opacity-50" />
                 </div>
               )}
 

@@ -136,7 +136,7 @@ export function ToastContainer({ rtl = false }: ToastContainerProps) {
                   <h3 className="text-sm font-semibold text-text-main dark:text-slate-100 flex items-center gap-1.5">
                     {item.title}
                   </h3>
-                  <p className="mt-1 text-xs text-text-muted dark:text-slate-300 break-words leading-relaxed">
+                  <p className="mt-1 text-xs text-text-muted dark:text-faint break-words leading-relaxed">
                     {item.message}
                   </p>
 
@@ -146,7 +146,7 @@ export function ToastContainer({ rtl = false }: ToastContainerProps) {
                         item.action?.onClick();
                         removeToast(item.id);
                       }}
-                      className="mt-2.5 flex items-center gap-1.5 px-3 py-1 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-xs font-medium text-text-main dark:text-slate-200 rounded-lg border border-border dark:border-slate-700 transition"
+                      className="mt-2.5 flex items-center gap-1.5 px-3 py-1 bg-surface-3 hover:bg-surface-3 text-xs font-medium text-text-main dark:text-slate-200 rounded-lg border border-border transition"
                     >
                       <RefreshCw className="h-3 w-3 animate-pulse" />
                       {item.action.label}
@@ -157,7 +157,7 @@ export function ToastContainer({ rtl = false }: ToastContainerProps) {
                 <div className="flex-shrink-0">
                   <button
                     onClick={() => removeToast(item.id)}
-                    className="p-1 rounded-full text-text-muted hover:text-text-main hover:bg-slate-100 dark:hover:bg-slate-800 transition focus:outline-none focus:ring-1 focus:ring-offset-1 focus:ring-slate-400"
+                    className="p-1 rounded-full text-text-muted hover:text-text-main hover:bg-surface-3 transition focus:outline-none focus:ring-1 focus:ring-offset-1 focus:ring-border"
                   >
                     <X className="h-3.5 w-3.5" />
                   </button>

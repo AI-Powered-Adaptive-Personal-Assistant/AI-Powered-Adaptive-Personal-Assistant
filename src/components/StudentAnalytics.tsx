@@ -199,7 +199,7 @@ export default function StudentAnalytics({ profile, onMenuClick }: StudentAnalyt
                   return (
                     <div key={g.id} className="flex items-center justify-between gap-3 p-3 bg-bg-main rounded-xl">
                       <span className="text-sm font-bold text-text-main truncate">{g.title}</span>
-                      <span className={`text-[11px] font-black px-2 py-0.5 rounded-lg ${d < 0 ? 'bg-red-100 text-danger' : d <= 3 ? 'bg-accent-soft text-accent' : 'bg-slate-200 text-text-muted'}`}>
+                      <span className={`text-[11px] font-black px-2 py-0.5 rounded-lg ${d < 0 ? 'bg-red-100 text-danger' : d <= 3 ? 'bg-accent-soft text-accent' : 'bg-surface-3 text-text-muted'}`}>
                         {d < 0 ? t('overdue', 'متأخر') : `${d} ${t('days', 'يوم')}`}
                       </span>
                     </div>

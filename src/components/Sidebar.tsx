@@ -16,9 +16,14 @@ interface SidebarProps {
   openLiveCaptions: () => void;
 }
 
-// Cognify "rising line" logomark (from Cognify.dc.html).
+// Cognify "constellation" logomark (from Cognify Redesign v2).
 const Logo = ({ className = "w-5 h-5" }: { className?: string }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 19 L10 7 L14 15 L19 5" /></svg>
+  <svg className={className} viewBox="0 0 24 24" fill="none">
+    <circle cx="6.5" cy="7" r="2.1" fill="currentColor" />
+    <circle cx="17" cy="6" r="2.1" fill="currentColor" opacity="0.85" />
+    <circle cx="13" cy="17.5" r="2.1" fill="currentColor" opacity="0.7" />
+    <path d="M8 8 12 16M8.4 6.7 15 6.1M15.4 7.6 13.4 15.6" stroke="currentColor" strokeWidth="1.25" opacity="0.5" />
+  </svg>
 );
 
 export default function Sidebar({ profile, setProfile, currentView, setCurrentView, isDarkMode, toggleTheme, openLiveCaptions }: SidebarProps) {
@@ -64,25 +69,25 @@ export default function Sidebar({ profile, setProfile, currentView, setCurrentVi
   const academicIds = academicItems.map((i) => i.id) as readonly string[];
   const [academicsOpen, setAcademicsOpen] = useState(academicIds.includes(currentView));
 
-  // navbtn: muted by default; active = dark "ink" pill with light text + primary icon.
+  // navbtn (v2): muted by default; active = violet-soft pill with violet text/icon.
   const navBtn = (active: boolean) =>
-    `flex items-center gap-3 w-full px-3 py-[11px] rounded-[11px] text-[14.5px] font-semibold text-start transition-colors ${
-      active ? 'bg-text-main text-bg-card' : 'text-text-muted hover:bg-surface-3 hover:text-text-main'
+    `flex items-center gap-3 w-full px-3 h-[38px] rounded-[10px] text-[13.5px] font-medium text-start transition-colors ${
+      active ? 'bg-primary-soft text-primary' : 'text-text-muted hover:bg-surface-3 hover:text-text-main'
     }`;
-  const navIcon = (active: boolean) => `w-[19px] h-[19px] shrink-0 ${active ? 'text-primary' : ''}`;
+  const navIcon = (_active: boolean) => `w-[18px] h-[18px] shrink-0`;
 
   const userInitial = (profile.name || profile.email || 'U').trim().charAt(0).toUpperCase();
 
   return (
     <div className="w-[284px] h-full shrink-0 bg-bg-card text-text-main border-e border-border flex flex-col px-[18px] py-[22px]">
       {/* Brand */}
-      <div className="flex items-center gap-[11px] px-1.5 pb-[18px]">
-        <div className="w-[38px] h-[38px] rounded-[11px] bg-primary text-white flex items-center justify-center shadow-sm shrink-0">
-          <Logo />
+      <div className="flex items-center gap-3 px-1.5 pb-1">
+        <div className="w-[34px] h-[34px] rounded-[10px] flex items-center justify-center text-white shrink-0" style={{ background: 'linear-gradient(140deg,#8b6dff,#5b3df5)', boxShadow: '0 4px 12px -4px rgba(91,61,245,0.6)' }}>
+          <Logo className="w-[19px] h-[19px]" />
         </div>
-        <div className="leading-tight">
-          <div className="font-display font-bold text-[18px] tracking-tight">Cognify</div>
-          <div className="text-[11px] text-text-muted font-medium">{localize(profile.language, 'Adaptive AI Mentor', 'مدرّسك الذكي')}</div>
+        <div className="leading-none">
+          <div className="font-serif text-[23px] font-normal text-text-main">Cognify</div>
+          <div className="text-[11px] text-faint font-medium mt-0.5">{localize(profile.language, 'AI study mentor', 'مدرّسك الذكي')}</div>
         </div>
       </div>
 
