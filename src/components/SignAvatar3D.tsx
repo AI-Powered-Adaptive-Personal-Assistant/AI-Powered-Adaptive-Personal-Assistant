@@ -513,6 +513,8 @@ export default function SignAvatar3D({ words, playing, onProgress, onDone, class
 
     const animate = () => {
       raf = requestAnimationFrame(animate);
+      // Don't burn GPU/battery when the tab is backgrounded (hospital tablets).
+      if (document.hidden) return;
       const dt = Math.min(clock.getDelta(), 0.05);
       const now = performance.now();
       const t = target.current;

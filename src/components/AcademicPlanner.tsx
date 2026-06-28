@@ -10,11 +10,11 @@ interface AcademicPlannerProps {
 }
 
 const TYPE_META: Record<PlannerTaskType, { en: string; ar: string; color: string }> = {
-  assignment: { en: 'Assignment', ar: 'تكليف', color: 'bg-blue-50 text-blue-600 border-blue-200' },
+  assignment: { en: 'Assignment', ar: 'تكليف', color: 'bg-surface-3 text-primary border-border' },
   quiz: { en: 'Quiz', ar: 'كويز', color: 'bg-accent-soft text-accent border-accent/20' },
-  midterm: { en: 'Midterm', ar: 'ميدتيرم', color: 'bg-purple-50 text-purple-600 border-purple-200' },
+  midterm: { en: 'Midterm', ar: 'ميدتيرم', color: 'bg-accent-soft text-accent border-border' },
   final: { en: 'Final', ar: 'فاينال', color: 'bg-danger-soft text-danger border-danger/20' },
-  project: { en: 'Project', ar: 'مشروع', color: 'bg-primary-soft text-primary border-emerald-200' },
+  project: { en: 'Project', ar: 'مشروع', color: 'bg-primary-soft text-primary border-border' },
   other: { en: 'Other', ar: 'أخرى', color: 'bg-surface-3 text-text-muted border-border' },
 };
 
@@ -68,8 +68,8 @@ export default function AcademicPlanner({ profile, onMenuClick }: AcademicPlanne
 
   const countdown = (task: PlannerTask) => {
     const d = daysUntilDue(task);
-    if (d < 0) return { label: t('overdue', 'متأخر'), color: 'bg-red-100 text-danger' };
-    if (d === 0) return { label: t('today', 'النهاردة'), color: 'bg-red-100 text-danger' };
+    if (d < 0) return { label: t('overdue', 'متأخر'), color: 'bg-danger-soft text-danger' };
+    if (d === 0) return { label: t('today', 'النهاردة'), color: 'bg-danger-soft text-danger' };
     if (d === 1) return { label: t('tomorrow', 'بكرة'), color: 'bg-accent-soft text-accent' };
     if (d <= 3) return { label: `${d} ${t('days', 'أيام')}`, color: 'bg-accent-soft text-accent' };
     return { label: `${d} ${t('days', 'يوم')}`, color: 'bg-surface-3 text-text-muted' };
@@ -138,7 +138,7 @@ export default function AcademicPlanner({ profile, onMenuClick }: AcademicPlanne
             className="bg-bg-main border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-primary/40" />
         </div>
         <button onClick={addTask} disabled={!title.trim() || !dueDate}
-          className="mt-3 px-5 py-2 bg-primary text-white rounded-xl font-bold text-sm hover:bg-blue-700 disabled:opacity-40 flex items-center gap-2">
+          className="mt-3 px-5 py-2 bg-primary text-white rounded-xl font-bold text-sm hover:bg-primary-press disabled:opacity-40 flex items-center gap-2">
           <Plus className="w-4 h-4" /> {t('Add task', 'إضافة')}
         </button>
       </div>

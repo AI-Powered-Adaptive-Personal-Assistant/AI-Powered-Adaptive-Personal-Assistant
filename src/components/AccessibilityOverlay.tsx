@@ -681,7 +681,7 @@ export default function AccessibilityOverlay({
                   }}
                   className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-xl transition-all active:scale-95 border-2 ${
                     autoSpeak
-                      ? "bg-primary-soft border-indigo-200 text-primary"
+                      ? "bg-primary-soft border-border text-primary"
                       : "bg-bg-card border-border text-faint hover:text-text-muted"
                   }`}
                   title={
@@ -705,7 +705,7 @@ export default function AccessibilityOverlay({
                     }
                     setIsSpeaking(false);
                   }}
-                  className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-xl transition-all active:scale-95 border-2 bg-rose-50 border-rose-200 text-rose-600 hover:bg-rose-100"
+                  className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-xl transition-all active:scale-95 border-2 bg-danger-soft border-danger/20 text-danger hover:bg-danger-soft"
                   title="Stop AI Voice"
                 >
                   <VolumeX className="w-6 h-6" />
@@ -740,7 +740,7 @@ export default function AccessibilityOverlay({
             className="flex flex-col items-start gap-3 pointer-events-auto cursor-grab active:cursor-grabbing"
           >
             {(transcription || liveLetter || isVisionActive) && (
-              <div className="bg-bg-card/95 backdrop-blur-md p-4 rounded-2xl border border-emerald-200 shadow-2xl max-w-sm flex flex-col gap-3">
+              <div className="bg-bg-card/95 backdrop-blur-md p-4 rounded-2xl border border-border shadow-2xl max-w-sm flex flex-col gap-3">
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex items-center gap-2">
                     <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
@@ -776,7 +776,7 @@ export default function AccessibilityOverlay({
                       onClick={interpretWithAI}
                       disabled={!isVisionActive || isVisionAnalyzing}
                       title="Interpret a full word/gesture with AI"
-                      className="px-2 py-1 bg-indigo-500 text-white text-[9px] font-black uppercase rounded-lg hover:bg-indigo-600 disabled:opacity-40 flex items-center gap-1"
+                      className="px-2 py-1 bg-primary text-white text-[9px] font-black uppercase rounded-lg hover:bg-primary disabled:opacity-40 flex items-center gap-1"
                     >
                       {isVisionAnalyzing ? (
                         <RefreshCw className="w-3 h-3 animate-spin" />

@@ -81,7 +81,7 @@ export default function AttendanceTracker({ profile, onMenuClick }: AttendanceTr
               className="w-24 bg-bg-main border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-primary/40" />
           </label>
           <button onClick={addSubject} disabled={!name.trim()}
-            className="px-5 py-2 bg-primary text-white rounded-xl font-bold text-sm hover:bg-blue-700 disabled:opacity-40 flex items-center gap-2">
+            className="px-5 py-2 bg-primary text-white rounded-xl font-bold text-sm hover:bg-primary-press disabled:opacity-40 flex items-center gap-2">
             <Plus className="w-4 h-4" /> {t('Add', 'إضافة')}
           </button>
         </div>
@@ -134,11 +134,11 @@ export default function AttendanceTracker({ profile, onMenuClick }: AttendanceTr
               {/* Counters */}
               <div className="flex items-center gap-3">
                 <button onClick={() => mark(s, 'attended', 1)}
-                  className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-primary-soft text-primary border border-emerald-200 rounded-xl font-bold text-sm hover:bg-emerald-100 active:scale-95">
+                  className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-primary-soft text-primary border border-border rounded-xl font-bold text-sm hover:bg-surface-3 active:scale-95">
                   <CheckCircle2 className="w-4 h-4" /> {t('Present', 'حاضر')} ({s.attended})
                 </button>
                 <button onClick={() => mark(s, 'absent', 1)}
-                  className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-danger-soft text-danger border border-danger/20 rounded-xl font-bold text-sm hover:bg-red-100 active:scale-95">
+                  className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-danger-soft text-danger border border-danger/20 rounded-xl font-bold text-sm hover:bg-danger-soft active:scale-95">
                   <XCircle className="w-4 h-4" /> {t('Absent', 'غائب')} ({s.absent})
                 </button>
               </div>

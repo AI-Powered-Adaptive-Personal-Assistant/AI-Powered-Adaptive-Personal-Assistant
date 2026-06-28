@@ -35,7 +35,7 @@ export default function MarkdownMessage({ content }: { content: string }) {
           ul: ({ node, ...p }: any) => <ul className="list-disc ms-6 mb-4 space-y-1 marker:text-primary" {...p} />,
           ol: ({ node, ...p }: any) => <ol className="list-decimal ms-6 mb-4 space-y-1 marker:text-primary" {...p} />,
           li: ({ node, ...p }: any) => <li className="leading-relaxed" {...p} />,
-          a: ({ node, ...p }: any) => <a className="text-primary underline underline-offset-2 hover:text-blue-700" target="_blank" rel="noreferrer" {...p} />,
+          a: ({ node, ...p }: any) => <a className="text-primary underline underline-offset-2 hover:text-primary" target="_blank" rel="noreferrer" {...p} />,
           strong: ({ node, ...p }: any) => <strong className="font-bold text-text-main" {...p} />,
           em: ({ node, ...p }: any) => <em className="italic" {...p} />,
           hr: ({ node, ...p }: any) => <hr className="my-4 border-border" {...p} />,
@@ -46,7 +46,7 @@ export default function MarkdownMessage({ content }: { content: string }) {
             return isBlock ? (
               <code className={`font-mono ${className || ''}`} {...p}>{children}</code>
             ) : (
-              <code className="px-1.5 py-0.5 rounded bg-surface-3 text-rose-600 text-[0.85em] font-mono" {...p}>{children}</code>
+              <code className="px-1.5 py-0.5 rounded bg-surface-3 text-danger text-[0.85em] font-mono" {...p}>{children}</code>
             );
           },
           table: ({ node, ...p }: any) => <div className="overflow-x-auto my-4"><table className="w-full text-sm border-collapse" {...p} /></div>,

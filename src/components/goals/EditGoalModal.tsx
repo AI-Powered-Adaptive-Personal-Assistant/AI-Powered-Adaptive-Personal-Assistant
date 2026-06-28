@@ -75,9 +75,9 @@ export default function EditGoalModal({ goal, onClose, onSave, language }: EditG
   };
 
   const priorityOptions: { value: GoalPriority; label: string; color: string }[] = [
-    { value: 'low',    label: isArabic ? 'منخفض' : 'Low',    color: 'border-emerald-200 bg-emerald-50 text-emerald-700' },
+    { value: 'low',    label: isArabic ? 'منخفض' : 'Low',    color: 'border-border bg-surface-2 text-success' },
     { value: 'medium', label: isArabic ? 'متوسط' : 'Medium', color: 'border-amber-200 bg-amber-50 text-amber-700' },
-    { value: 'high',   label: isArabic ? 'عالي' : 'High',   color: 'border-rose-200 bg-rose-50 text-rose-700' },
+    { value: 'high',   label: isArabic ? 'عالي' : 'High',   color: 'border-danger/20 bg-danger-soft text-danger' },
   ];
 
   return (
@@ -191,7 +191,7 @@ export default function EditGoalModal({ goal, onClose, onSave, language }: EditG
                 </div>
               </div>
 
-              {error && <p className="text-xs text-rose-600 font-bold px-1">{error}</p>}
+              {error && <p className="text-xs text-danger font-bold px-1">{error}</p>}
 
               <div className="flex gap-3 pt-2">
                 <button

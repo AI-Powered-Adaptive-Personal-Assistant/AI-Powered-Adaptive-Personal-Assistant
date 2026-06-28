@@ -128,7 +128,7 @@ export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardP
         </button>
         <div className="flex-1 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="p-3 bg-red-100 rounded-xl">
+            <div className="p-3 bg-danger-soft rounded-xl">
               <Users className="w-6 h-6 text-danger" />
             </div>
             <div>
@@ -186,7 +186,7 @@ export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardP
                          </td>
                          <td className="p-4">
                            <div className="flex flex-col gap-1">
-                             <span className="inline-flex max-w-fit items-center px-2 py-0.5 rounded text-[10px] font-bold bg-primary/10 text-primary uppercase">{u.role}</span>
+                             <span className="inline-flex max-w-fit items-center px-2 py-0.5 rounded text-[10px] font-bold bg-primary-soft text-primary uppercase">{u.role}</span>
                              <span className="text-[10px] text-text-muted uppercase font-bold">{u.level}</span>
                            </div>
                          </td>
@@ -206,7 +206,7 @@ export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardP
                              </a>
                              <button
                                onClick={() => handleDeleteUser(u.uid)}
-                               className="inline-flex items-center gap-2 px-3 py-1.5 bg-rose-100 hover:bg-rose-200 text-rose-700 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-colors"
+                               className="inline-flex items-center gap-2 px-3 py-1.5 bg-danger-soft hover:bg-rose-200 text-danger text-[10px] font-bold uppercase tracking-widest rounded-lg transition-colors"
                              >
                                <Trash2 className="w-3 h-3" /> Delete
                              </button>

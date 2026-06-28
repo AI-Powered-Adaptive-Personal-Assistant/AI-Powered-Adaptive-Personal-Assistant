@@ -326,7 +326,7 @@ export default function ProfilePage({ profile, onMenuClick, setProfile }: Profil
                       key={goal.id}
                       onClick={() => handleChange('sustainabilityGoal', goal.id)}
                       className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-all text-xs font-bold ${
-                        editedProfile.sustainabilityGoal === goal.id ? 'bg-primary-soft border-emerald-200 text-primary' : 'bg-bg-card border-border text-faint'
+                        editedProfile.sustainabilityGoal === goal.id ? 'bg-primary-soft border-border text-primary' : 'bg-bg-card border-border text-faint'
                       }`}
                     >
                       <goal.icon className="w-4 h-4" /> {goal.label}
@@ -384,7 +384,7 @@ export default function ProfilePage({ profile, onMenuClick, setProfile }: Profil
               ) : (
                 profile.chatThreads.slice(-4).reverse().map((t, i) => (
                   <div key={t.id || i} className="flex items-start gap-4 p-4 rounded-3xl hover:bg-bg-main transition-colors border border-transparent hover:border-border">
-                    <div className="w-8 h-8 rounded-xl flex-shrink-0 flex items-center justify-center bg-primary/5 text-primary">
+                    <div className="w-8 h-8 rounded-xl flex-shrink-0 flex items-center justify-center bg-primary-soft text-primary">
                       <MessageSquare className="w-4 h-4" />
                     </div>
                     <div className="space-y-1">
@@ -416,7 +416,7 @@ export default function ProfilePage({ profile, onMenuClick, setProfile }: Profil
               </div>
               
               {!feedbackStats.loading && (feedbackStats.upvotes > 0 || feedbackStats.downvotes > 0) && (
-                <div className="flex items-center gap-2 bg-primary-soft text-emerald-800 px-4 py-2 rounded-2xl border border-emerald-100">
+                <div className="flex items-center gap-2 bg-primary-soft text-success px-4 py-2 rounded-2xl border border-border">
                   <span className="text-lg font-black">
                     {Math.round((feedbackStats.upvotes / (feedbackStats.upvotes + feedbackStats.downvotes)) * 100)}%
                   </span>
@@ -436,26 +436,26 @@ export default function ProfilePage({ profile, onMenuClick, setProfile }: Profil
               <div className="space-y-8">
                 {/* Metrics row */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="p-6 bg-gradient-to-br from-emerald-50/50 to-emerald-50/10 border border-emerald-100 rounded-3xl flex items-center justify-between">
+                  <div className="p-6 bg-gradient-to-br from-emerald-50/50 to-emerald-50/10 border border-border rounded-3xl flex items-center justify-between">
                     <div>
                       <p className="text-[10px] font-black uppercase text-primary tracking-wider">
                         {localize(profile.language, 'Helpful Responses', 'الإجابات المفيدة')}
                       </p>
                       <h4 className="text-3xl font-black text-text-main mt-1">{feedbackStats.upvotes}</h4>
                     </div>
-                    <div className="p-3 bg-emerald-100/80 rounded-2xl text-emerald-500">
+                    <div className="p-3 bg-surface-3 rounded-2xl text-emerald-500">
                       <ThumbsUp className="w-6 h-6" />
                     </div>
                   </div>
 
-                  <div className="p-6 bg-gradient-to-br from-rose-50/50 to-rose-50/10 border border-rose-100 rounded-3xl flex items-center justify-between">
+                  <div className="p-6 bg-gradient-to-br from-rose-50/50 to-rose-50/10 border border-danger/20 rounded-3xl flex items-center justify-between">
                     <div>
-                      <p className="text-[10px] font-black uppercase text-rose-600 tracking-wider">
+                      <p className="text-[10px] font-black uppercase text-danger tracking-wider">
                         {localize(profile.language, 'Needs Improvement', 'تحتاج إلى تحسين')}
                       </p>
                       <h4 className="text-3xl font-black text-text-main mt-1">{feedbackStats.downvotes}</h4>
                     </div>
-                    <div className="p-3 bg-rose-100/80 rounded-2xl text-rose-500">
+                    <div className="p-3 bg-danger-soft rounded-2xl text-rose-500">
                       <ThumbsDown className="w-6 h-6" />
                     </div>
                   </div>

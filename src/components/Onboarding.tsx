@@ -34,7 +34,7 @@ const LANGUAGES = [
 const SUSTAINABILITY_GOALS = [
   { id: 'climate', label: 'Climate Action', icon: <Globe className="w-5 h-5 text-emerald-500" /> },
   { id: 'health', label: 'Good Health & Well-being', icon: <Heart className="w-5 h-5 text-red-500" /> },
-  { id: 'quality-edu', label: 'Quality Education', icon: <GraduationCap className="w-5 h-5 text-blue-500" /> },
+  { id: 'quality-edu', label: 'Quality Education', icon: <GraduationCap className="w-5 h-5 text-primary" /> },
   { id: 'zero-hunger', label: 'Zero Hunger / Sustainable Food', icon: <Sprout className="w-5 h-5 text-accent" /> }
 ];
 
@@ -114,7 +114,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
             onClick={() => setFormData({ ...formData, language: lang as any })}
             className={`flex items-center gap-3 p-4 rounded-xl border-2 transition-all ${
               formData.language === lang
-                ? 'border-primary bg-primary/5 text-primary'
+                ? 'border-primary bg-primary-soft text-primary'
                 : 'border-border bg-white text-text-muted hover:border-primary/20'
             }`}
           >
@@ -127,7 +127,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
       <button
         onClick={handleNextStep}
         disabled={!formData.language}
-        className="w-full bg-primary text-white font-bold py-4 rounded-xl shadow-lg hover:bg-blue-700 disabled:bg-surface-3 disabled:text-faint transition-all flex items-center justify-center gap-2 group"
+        className="w-full bg-primary text-white font-bold py-4 rounded-xl shadow-lg hover:bg-primary-press disabled:bg-surface-3 disabled:text-faint transition-all flex items-center justify-center gap-2 group"
       >
         {getTranslation(formData.language, 'continue')} <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
       </button>
@@ -157,7 +157,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
             }}
             className={`flex flex-col items-center gap-3 p-4 rounded-2xl border-2 transition-all ${
               formData.role === r
-                ? 'border-primary bg-primary/5 text-primary'
+                ? 'border-primary bg-primary-soft text-primary'
                 : 'border-border bg-white text-faint hover:border-primary/20'
             }`}
           >
@@ -175,7 +175,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
               onClick={() => setFormData({ ...formData, educationLevel: lvl })}
               className={`p-3 rounded-xl border-2 text-[10px] font-black uppercase transition-all ${
                 formData.educationLevel === lvl
-                  ? 'border-blue-600 bg-blue-50 text-blue-700'
+                  ? 'border-blue-600 bg-surface-3 text-primary'
                   : 'border-border bg-white text-faint'
               }`}
             >
@@ -263,7 +263,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
           ? (!formData.university || !formData.faculty)
           : (!formData.work || !formData.jobTitle)
         }
-        className="w-full bg-primary text-white font-bold py-4 rounded-xl shadow-lg hover:bg-blue-700 disabled:bg-surface-3 disabled:text-faint transition-all flex items-center justify-center gap-2 group"
+        className="w-full bg-primary text-white font-bold py-4 rounded-xl shadow-lg hover:bg-primary-press disabled:bg-surface-3 disabled:text-faint transition-all flex items-center justify-center gap-2 group"
       >
         Next: Personalized Goals <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
       </button>
@@ -276,8 +276,8 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
       className="flex flex-col gap-6 w-full max-w-lg text-center"
     >
       <div className="space-y-4">
-        <div className="w-16 h-16 bg-emerald-50 rounded-2xl flex items-center justify-center mx-auto border border-emerald-100">
-           <Sprout className="w-10 h-10 text-emerald-600" />
+        <div className="w-16 h-16 bg-surface-2 rounded-2xl flex items-center justify-center mx-auto border border-border">
+           <Sprout className="w-10 h-10 text-success" />
         </div>
         <div className="space-y-2">
           <h2 className="text-3xl font-extrabold tracking-tight text-text-main leading-tight">Sustainability & Life Goals</h2>
@@ -292,8 +292,8 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
             onClick={() => setFormData({ ...formData, sustainabilityGoal: goal.id })}
             className={`flex items-center gap-4 p-4 rounded-2xl border-2 transition-all ${
               formData.sustainabilityGoal === goal.id
-                ? 'border-emerald-600 bg-emerald-50 text-emerald-700'
-                : 'border-border bg-white text-text-muted hover:border-emerald-200'
+                ? 'border-emerald-600 bg-surface-2 text-success'
+                : 'border-border bg-white text-text-muted hover:border-border'
             }`}
           >
             <div className={`p-2 rounded-lg ${formData.sustainabilityGoal === goal.id ? 'bg-white shadow-sm' : 'bg-surface-2'}`}>
@@ -301,7 +301,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
             </div>
             <span className="font-bold text-sm">{goal.label}</span>
             {formData.sustainabilityGoal === goal.id && (
-              <CheckCircle className="w-5 h-5 ml-auto text-emerald-600" />
+              <CheckCircle className="w-5 h-5 ml-auto text-success" />
             )}
           </button>
         ))}
@@ -323,7 +323,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
         initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
         className="flex flex-col items-center gap-8 w-full max-w-lg bg-white p-6 md:p-10 rounded-3xl shadow-2xl border border-border"
       >
-        <div className="w-20 h-20 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-600 mb-2 border border-emerald-100">
+        <div className="w-20 h-20 bg-surface-2 rounded-2xl flex items-center justify-center text-success mb-2 border border-border">
           <CheckCircle className="w-10 h-10" />
         </div>
 
@@ -332,8 +332,8 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
           <p className="text-text-muted font-medium">{isRtl ? 'تم إعداد تجربتك الشخصية في كوجنيفاي بنجاح.' : 'Your personalized Cognify experience is ready to go.'}</p>
         </div>
 
-        <div className="w-full bg-emerald-50/50 p-6 rounded-2xl border border-emerald-100/50 text-center">
-          <p className="text-sm text-emerald-800 font-medium">
+        <div className="w-full bg-surface-2 p-6 rounded-2xl border border-border/50 text-center">
+          <p className="text-sm text-success font-medium">
             {isRtl ? 'تم تخصيص كوجنيفاي حسب مسارك واحتياجاتك.' : 'Cognify has been tailored to your specific path and needs.'}
           </p>
         </div>

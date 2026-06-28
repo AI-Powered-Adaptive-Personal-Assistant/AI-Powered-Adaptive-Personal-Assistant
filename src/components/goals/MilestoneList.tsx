@@ -74,7 +74,7 @@ export default function MilestoneList({
             <button
               type="button"
               onClick={() => removeMilestone(m.id)}
-              className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-rose-50 rounded-lg text-rose-400 hover:text-rose-600"
+              className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-danger-soft rounded-lg text-rose-400 hover:text-danger"
             >
               <Trash2 className="w-3.5 h-3.5" />
             </button>
@@ -95,7 +95,7 @@ export default function MilestoneList({
           <button
             type="button"
             onClick={addMilestone}
-            className="p-2 bg-primary/10 text-primary rounded-xl hover:bg-primary/20 transition-colors"
+            className="p-2 bg-primary-soft text-primary rounded-xl hover:bg-primary/20 transition-colors"
           >
             <Plus className="w-4 h-4" />
           </button>

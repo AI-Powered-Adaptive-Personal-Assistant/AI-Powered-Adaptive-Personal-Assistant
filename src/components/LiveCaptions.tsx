@@ -836,7 +836,7 @@ export default function LiveCaptions({ language = 'en-US', onClose }: LiveCaptio
                       </>
                     ) : (
                       <>
-                        <Zap className="w-10 h-10 text-purple-700 mb-4" />
+                        <Zap className="w-10 h-10 text-accent mb-4" />
                         <p className="text-neutral-400 text-sm font-semibold">Tap the record button below</p>
                         <p className="text-neutral-600 text-xs mt-2 max-w-xs">
                           Euphonia AI analyzes raw audio frame-by-frame, bypassing standard speech recognition
@@ -1035,7 +1035,7 @@ export default function LiveCaptions({ language = 'en-US', onClose }: LiveCaptio
                     className={`w-16 h-16 md:w-20 md:h-20 rounded-full flex items-center justify-center shadow-xl z-10 relative transition-all cursor-pointer disabled:opacity-50 ${
                       isRecordingEuphonia
                         ? 'bg-red-600 text-white scale-105 shadow-red-500/40'
-                        : 'bg-gradient-to-tr from-purple-500 to-indigo-600 text-white hover:scale-102'
+                        : 'bg-gradient-to-tr from-purple-500 to-primary text-white hover:scale-102'
                     }`}
                   >
                     {isRecordingEuphonia ? (
@@ -1333,7 +1333,7 @@ export default function LiveCaptions({ language = 'en-US', onClose }: LiveCaptio
                               activeTab === 'needs' ? 'hover:border-orange-500/40 hover:bg-orange-500/8' :
                               activeTab === 'social' ? 'hover:border-green-500/40 hover:bg-green-500/8' :
                               activeTab === 'favorites' ? 'hover:border-purple-500/40 hover:bg-purple-500/8 border-purple-500/10' :
-                              'hover:border-blue-500/40 hover:bg-blue-500/8';
+                              'hover:border-blue-500/40 hover:bg-primary/8';
                 return (
                   <div key={item.id} className="relative group">
                     <motion.button whileTap={{ scale: 0.97 }}

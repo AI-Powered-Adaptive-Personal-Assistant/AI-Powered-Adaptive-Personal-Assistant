@@ -185,18 +185,18 @@ export default function DisabilityModeView({
                 </div>
               </div>
 
-              <div className="bg-slate-900 p-8 rounded-2xl text-white shadow-md relative overflow-hidden flex flex-col md:flex-row items-center gap-6 border border-slate-800">
+              <div className="bg-surface-3 p-8 rounded-2xl text-text-main shadow-md relative overflow-hidden flex flex-col md:flex-row items-center gap-6 border border-border">
                 <div className="absolute top-0 right-0 w-64 h-64 bg-primary/10 blur-3xl rounded-full pointer-events-none" />
-                
-                <div className="p-4 bg-bg-card/5 rounded-2xl backdrop-blur-sm shrink-0">
+
+                <div className="p-4 bg-surface-2 rounded-2xl shrink-0">
                   <Brain className="w-8 h-8 text-primary" />
                 </div>
-                
+
                 <div className="flex-1 relative z-10">
                   <h3 className="text-base font-semibold tracking-wide mb-1.5 flex items-center gap-2">
                     <Sparkles className="w-4 h-4 text-accent" /> Active Profile Context
                   </h3>
-                  <p className="text-faint font-medium text-sm leading-relaxed max-w-2xl">
+                  <p className="text-text-muted font-medium text-sm leading-relaxed max-w-2xl">
                     By enabling an accessibility profile, the engine modifies its context generation. 
                     Visual mode prioritizes layout structuring and large font metadata. Deaf modes enable real-time 
                     gesture interpolation via our virtual signing avatar. Speech mode invokes zero-latency TTS responses.

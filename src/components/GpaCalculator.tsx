@@ -14,8 +14,8 @@ interface GpaCalculatorProps {
 
 const gradeColor = (grade: string) => {
   const p = GRADE_POINTS[grade] ?? 0;
-  if (p >= 3.7) return 'text-primary bg-primary-soft border-emerald-200';
-  if (p >= 3.0) return 'text-blue-600 bg-blue-50 border-blue-200';
+  if (p >= 3.7) return 'text-primary bg-primary-soft border-border';
+  if (p >= 3.0) return 'text-primary bg-surface-3 border-border';
   if (p >= 2.0) return 'text-accent bg-accent-soft border-accent/20';
   return 'text-danger bg-danger-soft border-danger/20';
 };
@@ -113,7 +113,7 @@ export default function GpaCalculator({ profile, onMenuClick }: GpaCalculatorPro
             </label>
             <div className="flex flex-col gap-1">
               <span className="text-[10px] font-bold uppercase text-faint">{t('Projected CGPA', 'المعدل المتوقّع')}</span>
-              <div className="px-4 py-2 rounded-xl bg-primary/10 text-primary font-black text-lg min-w-[80px] text-center">
+              <div className="px-4 py-2 rounded-xl bg-primary-soft text-primary font-black text-lg min-w-[80px] text-center">
                 {projected !== null ? projected.toFixed(2) : '—'}
               </div>
             </div>
@@ -142,7 +142,7 @@ export default function GpaCalculator({ profile, onMenuClick }: GpaCalculatorPro
             {GRADE_OPTIONS.map((g) => <option key={g} value={g}>{g}</option>)}
           </select>
           <button onClick={addCourse} disabled={!name.trim()}
-            className="px-5 py-2 bg-primary text-white rounded-xl font-bold text-sm hover:bg-blue-700 disabled:opacity-40 flex items-center gap-2">
+            className="px-5 py-2 bg-primary text-white rounded-xl font-bold text-sm hover:bg-primary-press disabled:opacity-40 flex items-center gap-2">
             <Plus className="w-4 h-4" /> {t('Add', 'إضافة')}
           </button>
         </div>

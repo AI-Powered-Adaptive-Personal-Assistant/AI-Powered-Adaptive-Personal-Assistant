@@ -71,9 +71,9 @@ export default function AddGoalModal({ open, onClose, onSave, language }: AddGoa
   };
 
   const priorityOptions: { value: GoalPriority; label: string; color: string }[] = [
-    { value: 'low',    label: isArabic ? 'منخفض' : 'Low',    color: 'border-emerald-200 bg-emerald-50 text-emerald-700' },
+    { value: 'low',    label: isArabic ? 'منخفض' : 'Low',    color: 'border-border bg-surface-2 text-success' },
     { value: 'medium', label: isArabic ? 'متوسط' : 'Medium', color: 'border-amber-200 bg-amber-50 text-amber-700' },
-    { value: 'high',   label: isArabic ? 'عالي' : 'High',   color: 'border-rose-200 bg-rose-50 text-rose-700' },
+    { value: 'high',   label: isArabic ? 'عالي' : 'High',   color: 'border-danger/20 bg-danger-soft text-danger' },
   ];
 
   return (
@@ -100,7 +100,7 @@ export default function AddGoalModal({ open, onClose, onSave, language }: AddGoa
             {/* Header */}
             <div className="flex items-center justify-between p-8 pb-0">
               <div className="flex items-center gap-3">
-                <div className="p-2.5 bg-primary/10 rounded-2xl">
+                <div className="p-2.5 bg-primary-soft rounded-2xl">
                   <Target className="w-5 h-5 text-primary" />
                 </div>
                 <h2 className="text-lg font-black text-slate-900 uppercase tracking-tight">
@@ -199,7 +199,7 @@ export default function AddGoalModal({ open, onClose, onSave, language }: AddGoa
 
               {/* Error */}
               {error && (
-                <p className="text-xs text-rose-600 font-bold px-1">{error}</p>
+                <p className="text-xs text-danger font-bold px-1">{error}</p>
               )}
 
               {/* Actions */}

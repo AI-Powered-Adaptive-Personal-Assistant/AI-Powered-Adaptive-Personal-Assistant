@@ -24,14 +24,14 @@ interface GoalCardProps {
 }
 
 const PRIORITY_STYLES = {
-  low:    { label: 'Low',    color: 'text-emerald-600 bg-emerald-50 border-emerald-100' },
+  low:    { label: 'Low',    color: 'text-success bg-surface-2 border-border' },
   medium: { label: 'Medium', color: 'text-amber-600 bg-amber-50 border-amber-100' },
-  high:   { label: 'High',   color: 'text-rose-600 bg-rose-50 border-rose-100' },
+  high:   { label: 'High',   color: 'text-danger bg-danger-soft border-danger/20' },
 };
 
 const STATUS_ICON = {
   'not-started': <Circle className="w-4 h-4 text-slate-300" />,
-  'in-progress': <Clock className="w-4 h-4 text-blue-500" />,
+  'in-progress': <Clock className="w-4 h-4 text-primary" />,
   'completed':   <CheckCircle2 className="w-4 h-4 text-emerald-500" />,
 };
 
@@ -62,7 +62,7 @@ export default function GoalCard({ goal, uid, onEdit, onDelete, language }: Goal
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -10 }}
       className={`bg-white border rounded-[28px] shadow-sm overflow-hidden transition-shadow hover:shadow-md ${
-        overdue ? 'border-rose-200' : 'border-slate-100'
+        overdue ? 'border-danger/20' : 'border-slate-100'
       }`}
     >
       {/* Card header */}
@@ -75,7 +75,7 @@ export default function GoalCard({ goal, uid, onEdit, onDelete, language }: Goal
               <div className="flex flex-wrap items-center gap-2 mb-1">
                 <h3 className="text-sm font-black text-slate-900 truncate">{localGoal.title}</h3>
                 {overdue && (
-                  <span className="flex items-center gap-1 text-[10px] font-black text-rose-600 bg-rose-50 border border-rose-100 px-2 py-0.5 rounded-full">
+                  <span className="flex items-center gap-1 text-[10px] font-black text-danger bg-danger-soft border border-danger/20 px-2 py-0.5 rounded-full">
                     <AlertTriangle className="w-3 h-3" />
                     {isArabic ? 'متأخر' : 'Overdue'}
                   </span>
@@ -98,7 +98,7 @@ export default function GoalCard({ goal, uid, onEdit, onDelete, language }: Goal
             </button>
             <button
               onClick={() => onDelete(localGoal.id)}
-              className="p-2 rounded-xl hover:bg-rose-50 hover:text-rose-600 text-slate-300 transition-colors"
+              className="p-2 rounded-xl hover:bg-danger-soft hover:text-danger text-slate-300 transition-colors"
               title={isArabic ? 'حذف' : 'Delete'}
             >
               <Trash2 className="w-4 h-4" />

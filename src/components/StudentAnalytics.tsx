@@ -97,7 +97,7 @@ export default function StudentAnalytics({ profile, onMenuClick }: StudentAnalyt
 
         {/* Stat cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <Stat icon={<GraduationCap className="w-6 h-6 text-primary" />} tone="bg-primary/10" label={t('Cumulative GPA', 'المعدل التراكمي')} value={cgpa.toFixed(2)} />
+          <Stat icon={<GraduationCap className="w-6 h-6 text-primary" />} tone="bg-primary-soft" label={t('Cumulative GPA', 'المعدل التراكمي')} value={cgpa.toFixed(2)} />
           <Stat icon={<CalendarCheck className="w-6 h-6 text-primary" />} tone="bg-primary-soft" label={t('Avg Attendance', 'متوسط الحضور')} value={`${avgAttendance}%`} />
           <Stat icon={<Target className="w-6 h-6 text-primary" />} tone="bg-primary-soft" label={t('Active Goals', 'أهداف نشطة')} value={String(activeGoals.length)} />
           <Stat icon={<Target className="w-6 h-6 text-text-muted" />} tone="bg-surface-3" label={t('Completed Goals', 'أهداف مكتملة')} value={String(completedGoals.length)} />
@@ -199,7 +199,7 @@ export default function StudentAnalytics({ profile, onMenuClick }: StudentAnalyt
                   return (
                     <div key={g.id} className="flex items-center justify-between gap-3 p-3 bg-bg-main rounded-xl">
                       <span className="text-sm font-bold text-text-main truncate">{g.title}</span>
-                      <span className={`text-[11px] font-black px-2 py-0.5 rounded-lg ${d < 0 ? 'bg-red-100 text-danger' : d <= 3 ? 'bg-accent-soft text-accent' : 'bg-surface-3 text-text-muted'}`}>
+                      <span className={`text-[11px] font-black px-2 py-0.5 rounded-lg ${d < 0 ? 'bg-danger-soft text-danger' : d <= 3 ? 'bg-accent-soft text-accent' : 'bg-surface-3 text-text-muted'}`}>
                         {d < 0 ? t('overdue', 'متأخر') : `${d} ${t('days', 'يوم')}`}
                       </span>
                     </div>

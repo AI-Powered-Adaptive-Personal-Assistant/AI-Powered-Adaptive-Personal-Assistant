@@ -122,7 +122,7 @@ export default function Login() {
         className="w-full max-w-md bg-white p-10 rounded-[40px] shadow-2xl border border-border flex flex-col items-center text-center gap-8"
       >
         <div className="space-y-3">
-          <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
+          <div className="w-16 h-16 bg-primary-soft rounded-2xl flex items-center justify-center mx-auto mb-4">
             <Layers className="w-8 h-8 text-primary" />
           </div>
           <h1 className="text-3xl font-black text-text-main tracking-tighter">Cognify Portal</h1>
@@ -145,11 +145,11 @@ export default function Login() {
                     onClick={() => setAccountPath(path)}
                     className={`flex items-center gap-4 p-5 rounded-2xl border-2 transition-all text-left ${
                       accountPath === path 
-                        ? 'border-primary bg-primary/5 text-primary' 
+                        ? 'border-primary bg-primary-soft text-primary' 
                         : 'border-border bg-white text-text-muted hover:border-primary/20'
                     }`}
                   >
-                    <div className={`p-2 rounded-lg ${accountPath === path ? 'bg-primary/10' : 'bg-surface-2'}`}>
+                    <div className={`p-2 rounded-lg ${accountPath === path ? 'bg-primary-soft' : 'bg-surface-2'}`}>
                       {path === "Normal" && <Brain className="w-6 h-6" />}
                       {path === "Graduation Project" && <GraduationCap className="w-6 h-6" />}
                       {path === "Special Needs" && <Heart className="w-6 h-6 text-red-400" />}
@@ -243,7 +243,7 @@ export default function Login() {
                   (accountPath === 'Graduation Project' && (!validateUniversityEmail(universityEmail) || !faculty || !department)) ||
                   (accountPath === 'Special Needs' && !disabilityType)
                 }
-                className="w-full h-16 bg-primary text-white font-bold py-4 rounded-xl shadow-lg hover:bg-blue-700 disabled:bg-surface-3 disabled:text-faint transition-all flex items-center justify-center gap-2 group"
+                className="w-full h-16 bg-primary text-white font-bold py-4 rounded-xl shadow-lg hover:bg-primary-press disabled:bg-surface-3 disabled:text-faint transition-all flex items-center justify-center gap-2 group"
               >
                 Continue <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </button>
@@ -294,7 +294,7 @@ export default function Login() {
                 <motion.div 
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="w-full flex items-center gap-2 p-3 bg-rose-50 border border-rose-100 rounded-2xl text-rose-600 text-xs font-bold text-left"
+                  className="w-full flex items-center gap-2 p-3 bg-danger-soft border border-danger/20 rounded-2xl text-danger text-xs font-bold text-left"
                 >
                   <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
                   <span>{error}</span>
@@ -302,13 +302,13 @@ export default function Login() {
               )}
 
               {isInIframe && (
-                <div className="p-5 bg-blue-50/80 border border-blue-100 rounded-3xl text-xs text-blue-900 text-left space-y-3 font-medium">
-                  <div className="flex items-center gap-2 text-blue-950 font-black uppercase text-xs">
-                    <AlertCircle className="w-4 h-4 text-blue-600 shrink-0 animate-pulse" />
+                <div className="p-5 bg-surface-3/80 border border-border rounded-3xl text-xs text-primary text-left space-y-3 font-medium">
+                  <div className="flex items-center gap-2 text-primary font-black uppercase text-xs">
+                    <AlertCircle className="w-4 h-4 text-primary shrink-0 animate-pulse" />
                     <span>تنبيه هام للمتصفح (Browser Notice)</span>
                   </div>
                   <p className="leading-relaxed">
-                     إذا لم يستجب زر <strong className="text-blue-950">Continue with Google</strong>، فذلك بسبب قيود حماية النوافذ المضمنة (Iframe Sandbox) بالمتصفح أثناء المعاينة بنظام AI Studio.
+                     إذا لم يستجب زر <strong className="text-primary">Continue with Google</strong>، فذلك بسبب قيود حماية النوافذ المضمنة (Iframe Sandbox) بالمتصفح أثناء المعاينة بنظام AI Studio.
                   </p>
                   <p className="leading-relaxed font-bold">
                      يرجى فتح التطبيق في صفحة مستقلة جديدة ليسهل إتمام تسجيل الدخول مباشرة وبأمان:
@@ -359,7 +359,7 @@ export default function Login() {
                 <ArrowLeft className="w-5 h-5" />
               </button>
               <div className="space-y-2 mb-6 pt-4">
-                 <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50 text-blue-700 rounded-full border border-blue-100 text-[10px] font-bold mb-2">
+                 <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-surface-3 text-primary rounded-full border border-border text-[10px] font-bold mb-2">
                     <Lock className="w-3 h-3" /> Secure Initial Sign-in
                  </div>
                  <h2 className="text-3xl font-extrabold text-text-main tracking-tight">Create your account</h2>
@@ -430,7 +430,7 @@ export default function Login() {
                   <motion.div 
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="flex items-center gap-2 p-3 bg-rose-50 border border-rose-100 rounded-xl text-rose-600 text-xs font-bold"
+                    className="flex items-center gap-2 p-3 bg-danger-soft border border-danger/20 rounded-xl text-danger text-xs font-bold"
                   >
                     <AlertCircle className="w-4 h-4" />
                     {error}
@@ -522,7 +522,7 @@ export default function Login() {
                   <motion.div 
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="flex items-center gap-2 p-3 bg-rose-50 border border-rose-100 rounded-xl text-rose-600 text-xs font-bold"
+                    className="flex items-center gap-2 p-3 bg-danger-soft border border-danger/20 rounded-xl text-danger text-xs font-bold"
                   >
                     <AlertCircle className="w-4 h-4" />
                     {error}
@@ -532,7 +532,7 @@ export default function Login() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full bg-primary text-white py-4 rounded-xl flex items-center justify-center font-bold shadow-lg shadow-primary/20 hover:bg-blue-700 transition-all disabled:opacity-50"
+                  className="w-full bg-primary text-white py-4 rounded-xl flex items-center justify-center font-bold shadow-lg shadow-primary/20 hover:bg-primary-press transition-all disabled:opacity-50"
                 >
                   {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Login'}
                 </button>
@@ -575,7 +575,7 @@ export default function Login() {
               </div>
 
               {resetSuccess ? (
-                <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-xl text-emerald-700 text-sm font-medium">
+                <div className="p-4 bg-surface-2 border border-border rounded-xl text-success text-sm font-medium">
                   Password reset instructions have been sent to <strong>{email}</strong>. Please check your inbox.
                 </div>
               ) : (
@@ -599,7 +599,7 @@ export default function Login() {
                     <motion.div 
                       initial={{ opacity: 0, y: -10 }}
                       animate={{ opacity: 1, y: 0 }}
-                      className="flex items-center gap-2 p-3 bg-rose-50 border border-rose-100 rounded-xl text-rose-600 text-xs font-bold"
+                      className="flex items-center gap-2 p-3 bg-danger-soft border border-danger/20 rounded-xl text-danger text-xs font-bold"
                     >
                       <AlertCircle className="w-4 h-4" />
                       {error}
@@ -609,7 +609,7 @@ export default function Login() {
                   <button
                     type="submit"
                     disabled={loading}
-                    className="w-full bg-primary text-white py-4 rounded-xl flex items-center justify-center font-bold shadow-lg shadow-primary/20 hover:bg-blue-700 transition-all disabled:opacity-50 mt-2"
+                    className="w-full bg-primary text-white py-4 rounded-xl flex items-center justify-center font-bold shadow-lg shadow-primary/20 hover:bg-primary-press transition-all disabled:opacity-50 mt-2"
                   >
                     {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Send Reset Link'}
                   </button>

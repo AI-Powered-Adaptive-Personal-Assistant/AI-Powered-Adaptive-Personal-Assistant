@@ -59,7 +59,7 @@ const IntelligenceHub = React.memo(({ profile, onMenuClick }: IntelligenceHubPro
           </button>
           <div>
             <h1 className="text-2xl md:text-3xl font-black tracking-tight uppercase flex items-center gap-3">
-              <Brain className="w-7 h-7 text-indigo-500" />
+              <Brain className="w-7 h-7 text-primary" />
               {getTranslation(profile.language, 'dashboard') || 'Intelligence Hub'}
             </h1>
             <p className="text-xs font-mono text-text-muted dark:text-faint mt-1 flex items-center gap-2">
@@ -81,8 +81,8 @@ const IntelligenceHub = React.memo(({ profile, onMenuClick }: IntelligenceHubPro
             label="Cognitive Score" 
             value={profile.iqScore || 0} 
             icon={Target} 
-            color="text-indigo-500" 
-            bg="bg-primary-soft dark:bg-indigo-500/10" 
+            color="text-primary" 
+            bg="bg-primary-soft dark:bg-primary/10" 
             trend={`+${(profile.questionHistory.length * 0.5).toFixed(1)} pts`} 
           />
           <BentoMetric 
@@ -106,7 +106,7 @@ const IntelligenceHub = React.memo(({ profile, onMenuClick }: IntelligenceHubPro
             value={profile.level} 
             icon={ShieldCheck} 
             color="text-purple-500" 
-            bg="bg-purple-50 dark:bg-purple-500/10" 
+            bg="bg-accent-soft dark:bg-purple-500/10" 
             trend="Verified" 
           />
         </div>
@@ -119,7 +119,7 @@ const IntelligenceHub = React.memo(({ profile, onMenuClick }: IntelligenceHubPro
             <div className="flex justify-between items-center mb-6 relative z-10">
               <div>
                 <h3 className="text-sm font-black uppercase tracking-widest text-text-main dark:text-slate-200 flex items-center gap-2">
-                  <Activity className="w-4 h-4 text-indigo-500" /> Progression Curve
+                  <Activity className="w-4 h-4 text-primary" /> Progression Curve
                 </h3>
                 <p className="text-xs font-mono text-faint mt-1">HISTORICAL.PERFORMANCE.DATA</p>
               </div>
@@ -158,7 +158,7 @@ const IntelligenceHub = React.memo(({ profile, onMenuClick }: IntelligenceHubPro
                           return (
                             <div className="bg-slate-900 text-white p-3 rounded-xl shadow-2xl border border-slate-700 font-mono">
                               <p className="text-[9px] text-faint uppercase mb-1">{payload[0].payload.fullDate}</p>
-                              <p className="text-sm">EVAL: <span className="text-indigo-400">{payload[0].value}</span></p>
+                              <p className="text-sm">EVAL: <span className="text-primary">{payload[0].value}</span></p>
                             </div>
                           );
                         }
@@ -178,7 +178,7 @@ const IntelligenceHub = React.memo(({ profile, onMenuClick }: IntelligenceHubPro
               )}
             </div>
             {/* Decorative background element */}
-            <div className="absolute -bottom-24 -right-24 w-64 h-64 bg-indigo-500/5 rounded-full blur-3xl group-hover:bg-indigo-500/10 transition-colors duration-1000 pointer-events-none" />
+            <div className="absolute -bottom-24 -right-24 w-64 h-64 bg-primary/5 rounded-full blur-3xl group-hover:bg-primary/10 transition-colors duration-1000 pointer-events-none" />
           </div>
 
           {/* Radar Chart (Skill Tree) */}
@@ -271,7 +271,7 @@ const IntelligenceHub = React.memo(({ profile, onMenuClick }: IntelligenceHubPro
 
           {/* System Status Panel */}
           <div className="xl:col-span-4 bg-slate-900 rounded-[28px] text-white shadow-xl p-6 relative overflow-hidden group">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
             
             <div className="relative z-10 flex flex-col h-full">
               <div className="flex items-center gap-3 mb-6 flex-shrink-0">
@@ -332,7 +332,7 @@ function SystemModule({ label, value, status }: { label: string, value: string, 
   const statusColors = {
     good: 'text-emerald-400',
     warn: 'text-accent',
-    neutral: 'text-blue-400'
+    neutral: 'text-primary'
   };
   
   return (

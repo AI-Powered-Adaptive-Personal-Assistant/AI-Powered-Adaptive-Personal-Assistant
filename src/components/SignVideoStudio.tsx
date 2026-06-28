@@ -363,7 +363,7 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
              <div>
                <h1 className="text-3xl font-bold tracking-tight text-text-main flex items-center gap-3">
                  Sign Video Studio
-                 <div className="px-2 py-1 bg-primary/10 text-primary rounded-md text-xs font-bold uppercase tracking-widest border border-primary/20">Beta</div>
+                 <div className="px-2 py-1 bg-primary-soft text-primary rounded-md text-xs font-bold uppercase tracking-widest border border-primary/20">Beta</div>
                </h1>
                <p className="text-sm text-text-muted font-medium mt-1">Generate AI Sign Language videos from speech or text input.</p>
              </div>
@@ -378,7 +378,7 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
         </header>
       )}
 
-      <div className="bg-indigo-600/10 border-b border-indigo-600/20 text-indigo-700 text-[10px] sm:text-xs font-mono py-2 px-4 text-center flex justify-center items-center gap-2 z-20 relative w-full font-bold">
+      <div className="bg-primary/10 border-b border-indigo-600/20 text-primary text-[10px] sm:text-xs font-mono py-2 px-4 text-center flex justify-center items-center gap-2 z-20 relative w-full font-bold">
          <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse drop-shadow-md" />
          FINGERSPELLING ENGINE (A–Z, 0–9, ARABIC MAPPING) + WORD GESTURES — RENDERED IN REAL-TIME WEBGL.
       </div>
@@ -404,7 +404,7 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
                        }}
                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider transition-all border ${
                          isDirectAudioMode
-                           ? 'bg-purple-100 text-purple-700 border-purple-200'
+                           ? 'bg-purple-100 text-accent border-border'
                            : 'bg-surface-3 text-text-muted border-border hover:bg-surface-3'
                        }`}
                      >
@@ -441,10 +441,10 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
                     <motion.div 
                       initial={{ opacity: 0, y: 12 }}
                       animate={{ opacity: 1, y: 0 }}
-                      className="mt-4 p-4 rounded-xl bg-gradient-to-br from-indigo-50/70 to-slate-100/50 border border-border shadow-sm flex flex-col gap-2.5"
+                      className="mt-4 p-4 rounded-xl bg-gradient-to-br from-primary/70 to-slate-100/50 border border-border shadow-sm flex flex-col gap-2.5"
                     >
                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-black text-indigo-700 flex items-center gap-1.5 uppercase tracking-wider">
+                          <span className="text-xs font-black text-primary flex items-center gap-1.5 uppercase tracking-wider">
                              <Sparkles className="w-4 h-4 text-emerald-500 animate-pulse" />
                              {t.aiResult}
                           </span>
@@ -452,7 +452,7 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
                        <div className="text-sm text-text-main font-semibold leading-relaxed min-h-[50px] bg-white p-3.5 rounded-lg border border-border shadow-sm">
                           {isAnswering ? (
                             <div className="flex items-center gap-2 text-text-muted text-xs font-bold">
-                              <RefreshCw className="w-4 h-4 animate-spin text-indigo-500" />
+                              <RefreshCw className="w-4 h-4 animate-spin text-primary" />
                               {t.asking}
                             </div>
                           ) : (
@@ -468,7 +468,7 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
                                     setPlaybackProgress(0);
                                     setIsPlaying(true);
                                   }}
-                                  className="text-[10px] font-black text-white bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 px-3.5 py-2 rounded-lg flex items-center gap-1.5 transition-all shadow-md hover:shadow-indigo-500/20 active:scale-95"
+                                  className="text-[10px] font-black text-white bg-gradient-to-r from-primary to-primary hover:from-primary hover:to-primary-press px-3.5 py-2 rounded-lg flex items-center gap-1.5 transition-all shadow-md hover:shadow-indigo-500/20 active:scale-95"
                                 >
                                   <Play className="w-3 h-3 fill-current text-white" />
                                   {t.useAnswer}
@@ -496,7 +496,7 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
                         ) : (
                            <button
                              onClick={startDirectAudioRecord}
-                             className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-tr from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 active:scale-95 transform transition-all text-white font-bold rounded-xl shadow-lg shadow-purple-500/20"
+                             className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-tr from-purple-500 to-primary hover:from-purple-600 hover:to-primary-press active:scale-95 transform transition-all text-white font-bold rounded-xl shadow-lg shadow-purple-500/20"
                            >
                               <Zap className="w-5 h-5 text-white animate-pulse" />
                               {localize(profile.language, "Acoustic AI Record", "التقاط صوت مجهري (Acoustic)")}
@@ -535,7 +535,7 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
                      <button
                        onClick={generateVideo}
                        disabled={!inputText.trim() || isGenerating || isEnhancing || isAnswering}
-                       className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-primary hover:bg-blue-700 disabled:opacity-50 disabled:active:scale-100 active:scale-95 transform transition-all text-white font-bold rounded-xl shadow-lg shadow-primary/20"
+                       className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-primary hover:bg-primary-press disabled:opacity-50 disabled:active:scale-100 active:scale-95 transform transition-all text-white font-bold rounded-xl shadow-lg shadow-primary/20"
                      >
                         {isGenerating ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Video className="w-5 h-5" />}
                         {isGenerating ? t.generating : t.generate}
@@ -668,7 +668,7 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
                          }
                        }}
                        disabled={sequence.length === 0}
-                       className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white hover:bg-blue-600 disabled:opacity-50 disabled:scale-100 active:scale-95 transition-all shadow-lg"
+                       className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white hover:bg-primary disabled:opacity-50 disabled:scale-100 active:scale-95 transition-all shadow-lg"
                      >
                         {isPlaying ? <Square className="w-4 h-4 fill-current" /> : <Play className="w-5 h-5 ml-1 fill-current" />}
                      </button>
