@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Hanken+Grotesk:wght@400;500;600;700;800&family=Alexandria:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Alexandria:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
 @import "tailwindcss";
 
 /* Make `dark:` variants follow the app's theme toggle (.dark class) instead of
@@ -6,30 +6,30 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  /* Cognify design system (from Cognify.dc.html): warm paper + forest green. */
-  --font-sans: "Hanken Grotesk", "Alexandria", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Space Grotesk", "Alexandria", ui-sans-serif, system-ui, sans-serif;
+  /* Cognify Redesign v2 (final): dark-first, violet primary, Inter, cool neutrals. */
+  --font-sans: "Inter", "Alexandria", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Inter", "Alexandria", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
 
-  --color-primary: #1E7A53;
-  --color-primary-press: #176343;
-  --color-primary-soft: #E5F0E9;
-  --color-secondary: #6E6B61;
-  --color-success: #1E7A53;
+  --color-primary: #6D4AFF;
+  --color-primary-press: #5B3DF5;
+  --color-primary-soft: #EDE9FF;
+  --color-secondary: #5C5C68;
+  --color-success: #15A06A;
   --color-warning: #B07914;
   --color-accent: #B07914;
-  --color-accent-soft: #F3EAD6;
-  --color-danger: #B4452F;
-  --color-danger-soft: #F6E6E0;
-  --color-bg-main: #F4F2EC;
+  --color-accent-soft: #F6EFDC;
+  --color-danger: #E5484D;
+  --color-danger-soft: #FCEAEA;
+  --color-bg-main: #F3F3F6;
   --color-bg-card: #FFFFFF;
-  --color-surface-2: #FBFAF6;
-  --color-surface-3: #EFECE2;
-  --color-text-main: #1B1A16;
-  --color-text-muted: #6E6B61;
-  --color-faint: #9C998C;
-  --color-border: #E8E4D9;
-  --color-border-2: #D9D4C5;
+  --color-surface-2: #F7F7FA;
+  --color-surface-3: #ECECF0;
+  --color-text-main: #18181F;
+  --color-text-muted: #5C5C68;
+  --color-faint: #9090A0;
+  --color-border: #E6E6EB;
+  --color-border-2: #D8D8DF;
 }
 
 @layer base {
@@ -50,52 +50,52 @@
   @apply bg-border rounded-full;
 }
 
-/* --- Dark Theme Overrides --- */
+/* --- Dark Theme Overrides (Cognify Redesign v2: near-black + violet) --- */
 .dark body {
-  background-color: #0D0E0A !important; /* slate-950 */
+  background-color: #09090B !important;
 }
 
 /* Backgrounds */
 .dark .bg-slate-50,
 .dark .bg-bg-main {
-  background-color: #0D0E0A !important;
-  color: #F1EFE6 !important;
+  background-color: #09090B !important;
+  color: #ECECEF !important;
 }
 
 .dark .bg-white,
 .dark .bg-bg-card {
-  background-color: #17180F !important; /* slate-900 */
-  border-color: #1e293b !important;
-  color: #F1EFE6 !important;
+  background-color: #111114 !important;
+  border-color: #232328 !important;
+  color: #ECECEF !important;
 }
 
 .dark .bg-slate-100,
 .dark .bg-\[\#f1f5f9\] {
-  background-color: #1e293b !important; /* slate-800 */
-  border-color: #334155 !important;
-  color: #F1EFE6 !important;
+  background-color: #17171C !important;
+  border-color: #2A2A31 !important;
+  color: #ECECEF !important;
 }
 
 .dark .bg-slate-200 {
-  background-color: #334155 !important; /* slate-700 */
+  background-color: #1C1C22 !important;
 }
 
 /* Texts */
 .dark .text-slate-900,
 .dark .text-black,
 .dark .text-text-main {
-  color: #F1EFE6 !important; /* slate-50 */
+  color: #ECECEF !important;
 }
 
 .dark .text-slate-800,
 .dark .text-slate-700 {
-  color: #e2e8f0 !important; /* slate-200 */
+  color: #D4D4DA !important;
 }
 
 .dark .text-slate-600,
 .dark .text-slate-500,
 .dark .text-text-muted {
-  color: #A6A299 !important; /* warm muted */
+  color: #9B9BA6 !important;
 }
 
 /* Borders */
@@ -103,18 +103,19 @@
 .dark .border-slate-200,
 .dark .border-slate-300,
 .dark .border-border {
-  border-color: #2B2B20 !important; /* warm border */
+  border-color: #232328 !important;
 }
 
-/* New design tokens — warm dark values (from Cognify.dc.html dark theme). */
-.dark .bg-surface-2 { background-color: #1F2016 !important; }
-.dark .bg-surface-3 { background-color: #26271B !important; }
-.dark .text-faint { color: #6F6C61 !important; }
-.dark .border-border-2 { border-color: #3B3A2D !important; }
-.dark .bg-primary-soft { background-color: #162A20 !important; }
+/* Design tokens — v2 dark values. */
+.dark .bg-surface-2 { background-color: #17171C !important; }
+.dark .bg-surface-3 { background-color: #1C1C22 !important; }
+.dark .text-faint { color: #65656F !important; }
+.dark .border-border-2 { border-color: #2E2E35 !important; }
+.dark .bg-primary { background-color: #7C5CFF !important; }
+.dark .bg-primary-soft { background-color: #211A36 !important; }
 .dark .bg-accent-soft { background-color: #2A2315 !important; }
-.dark .bg-danger-soft { background-color: #2C1B14 !important; }
-.dark .text-primary { color: #3CBC83 !important; }
+.dark .bg-danger-soft { background-color: #2C1517 !important; }
+.dark .text-primary { color: #BBAAFF !important; }
 .dark .text-accent { color: #D9A24A !important; }
 
 .dark .shadow-sm,
@@ -122,16 +123,16 @@
 .dark .shadow-lg,
 .dark .shadow-xl,
 .dark .shadow-2xl {
-  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.5) !important;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.5), 0 14px 34px -16px rgba(0,0,0,0.75) !important;
 }
 
-/* Exception: Special cases where we don't want inversion (like buttons that are already dark in light mode) */
+/* Dark CTA tiles → keep them dark; primary-on-dark buttons go violet. */
 .dark .bg-slate-900,
 .dark .bg-slate-950 {
-  background-color: #17180F !important;
+  background-color: #17171C !important;
 }
 .dark .bg-slate-900.text-white {
-  background-color: #3CBC83 !important; /* Make primary button blue in dark mode to stand out */
+  background-color: #7C5CFF !important;
 }
 
 

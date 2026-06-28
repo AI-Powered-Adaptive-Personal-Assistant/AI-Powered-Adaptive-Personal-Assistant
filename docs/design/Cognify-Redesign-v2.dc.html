@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{font-family:'Inter',system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;}
+  button{font-family:inherit;cursor:pointer;border:none;background:none;}
+  @keyframes cgPulse{0%,100%{opacity:1;transform:scale(1);}50%{opacity:.4;transform:scale(.85);}}
+  @keyframes cgBlink{0%,80%,100%{opacity:.25;}40%{opacity:1;}}
+  @keyframes cgSpin{to{transform:rotate(1turn);}}
+  .cg-scroll::-webkit-scrollbar{width:8px;height:8px;}
+  .cg-scroll::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:8px;}
+  .cg-scroll::-webkit-scrollbar-track{background:transparent;}
+  .cg-nav:hover{background:var(--surface-2)!important;color:var(--text)!important;}
+  .cg-soft:hover{background:var(--surface-2)!important;}
+  .cg-prim:hover{background:var(--primary-press)!important;}
+  .cg-chip:hover{border-color:var(--border-strong)!important;color:var(--text)!important;}
+  .cg-ghost:hover{background:var(--surface-2)!important;color:var(--text)!important;}
+  .cg-card{transition:transform .24s cubic-bezier(.2,.7,.3,1),box-shadow .24s ease,border-color .24s ease;}
+  .cg-card:hover{transform:translateY(-2px);border-color:var(--border-strong)!important;box-shadow:var(--shadow-hover)!important;}
+  .cg-ai-ring::before{content:"";position:absolute;inset:-3px;border-radius:12px;padding:2px;background:conic-gradient(from 0deg,#8b6dff,#c9b8ff,#5b3df5,#8b6dff);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;animation:cgSpin 7s linear infinite;}
+  .cg-composer:focus-within,.cg-composer:hover{border-color:var(--border-strong);}
+</style>
+</helmet>
+
+<div class="cg-scroll" style="position:relative;display:flex;height:100vh;width:100%;overflow:hidden;font-family:'Inter',system-ui,sans-serif;--bg:#09090B;--surface:#111114;--surface-2:#17171c;--elevated:#1c1c22;--border:rgba(255,255,255,0.07);--border-strong:rgba(255,255,255,0.13);--text:#ECECEF;--text-2:#9b9ba6;--text-3:#65656f;--primary:#7C5CFF;--primary-press:#6D4AFF;--primary-soft:rgba(124,92,255,0.14);--primary-text:#bbaaff;--success:#3dd68c;--aura:rgba(124,92,255,0.10);--shadow:inset 0 1px 0 rgba(255,255,255,0.05),0 1px 2px rgba(0,0,0,0.5),0 14px 34px -16px rgba(0,0,0,0.75);--shadow-hover:inset 0 1px 0 rgba(255,255,255,0.06),0 1px 2px rgba(0,0,0,0.5),0 22px 46px -20px rgba(0,0,0,0.85);background:var(--bg);color:var(--text);{{ themeVars }}">
+
+  <!-- ============ SIDEBAR ============ -->
+  <aside class="cg-scroll" style="position:relative;z-index:2;width:280px;flex-shrink:0;height:100%;display:flex;flex-direction:column;gap:20px;padding:20px 16px;background:var(--surface);border-right:1px solid var(--border);overflow-y:auto;">
+
+    <!-- brand -->
+    <div style="display:flex;align-items:center;gap:12px;padding:4px 6px;">
+      <div style="position:relative;width:34px;height:34px;border-radius:10px;background:linear-gradient(140deg,#8b6dff,#5b3df5);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px -4px rgba(91,61,245,0.6);">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none"><circle cx="6.5" cy="7" r="2.1" fill="#fff"/><circle cx="17" cy="6" r="2.1" fill="#fff" opacity="0.85"/><circle cx="13" cy="17.5" r="2.1" fill="#fff" opacity="0.7"/><path d="M8 8 12 16M8.4 6.7 15 6.1M15.4 7.6 13.4 15.6" stroke="#fff" stroke-width="1.25" opacity="0.5"/></svg>
+      </div>
+      <div style="line-height:1;">
+        <div style="font-family:'Instrument Serif',Georgia,serif;font-size:23px;font-weight:400;letter-spacing:0;color:var(--text);">Cognify</div>
+        <div style="font-size:11px;font-weight:500;color:var(--text-3);margin-top:2px;">AI study mentor</div>
+      </div>
+    </div>
+
+    <!-- new chat -->
+    <button onClick="{{ goChat }}" class="cg-prim" style="display:flex;align-items:center;justify-content:center;gap:8px;height:40px;border-radius:11px;background:var(--primary);color:#fff;font-size:13px;font-weight:600;letter-spacing:-0.01em;transition:background .18s ease,transform .18s ease;box-shadow:0 4px 14px -6px var(--primary);">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+      New chat
+    </button>
+
+    <!-- workspace nav -->
+    <div style="display:flex;flex-direction:column;gap:4px;">
+      <div style="font-size:11px;font-weight:600;letter-spacing:0.04em;color:var(--text-3);padding:0 8px 4px;">Workspace</div>
+
+      <button onClick="{{ goChat }}" class="cg-nav" style="display:flex;align-items:center;gap:11px;height:38px;padding:0 12px;border-radius:10px;font-size:13.5px;font-weight:500;letter-spacing:-0.01em;transition:background .16s ease,color .16s ease;background:{{ nav.chat.bg }};color:{{ nav.chat.fg }};box-shadow:{{ nav.chat.bar }};">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H8l-4 4V5a2 2 0 0 1 2-2h13a2 2 0 0 1 2 2z"/></svg>
+        Chat
+      </button>
+
+      <button onClick="{{ goHub }}" class="cg-nav" style="display:flex;align-items:center;gap:11px;height:38px;padding:0 12px;border-radius:10px;font-size:13.5px;font-weight:500;letter-spacing:-0.01em;transition:background .16s ease,color .16s ease;background:{{ nav.hub.bg }};color:{{ nav.hub.fg }};box-shadow:{{ nav.hub.bar }};">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.6"/><rect x="14" y="3" width="7" height="5" rx="1.6"/><rect x="14" y="11" width="7" height="10" rx="1.6"/><rect x="3" y="15" width="7" height="6" rx="1.6"/></svg>
+        Dashboard
+      </button>
+
+      <button onClick="{{ goLogic }}" class="cg-nav" style="display:flex;align-items:center;gap:11px;height:38px;padding:0 12px;border-radius:10px;font-size:13.5px;font-weight:500;letter-spacing:-0.01em;transition:background .16s ease,color .16s ease;background:{{ nav.logic.bg }};color:{{ nav.logic.fg }};box-shadow:{{ nav.logic.bar }};">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 8L9 4l-3 8H2"/></svg>
+        Logic training
+      </button>
+    </div>
+
+    <!-- accessibility -->
+    <div style="display:flex;flex-direction:column;gap:4px;">
+      <div style="font-size:11px;font-weight:600;letter-spacing:0.04em;color:var(--text-3);padding:0 8px 4px;">Accessibility</div>
+      <button onClick="{{ goDisability }}" class="cg-nav" style="display:flex;align-items:center;gap:11px;height:38px;padding:0 12px;border-radius:10px;font-size:13.5px;font-weight:500;letter-spacing:-0.01em;transition:background .16s ease,color .16s ease;background:{{ nav.disability.bg }};color:{{ nav.disability.fg }};box-shadow:{{ nav.disability.bar }};">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="4.4" r="1.7"/><path d="M5 8h14M12 8v6.5M9 21l3-6.5 3 6.5"/></svg>
+        Disability mode
+      </button>
+    </div>
+
+    <!-- recent -->
+    <div style="display:flex;flex-direction:column;gap:4px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:0 8px 4px;">
+        <span style="font-size:11px;font-weight:600;letter-spacing:0.04em;color:var(--text-3);">Recent</span>
+        <span style="font-size:11px;font-weight:500;color:var(--text-3);cursor:pointer;">Clear</span>
+      </div>
+      <button class="cg-nav" style="display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:8px 12px;border-radius:10px;text-align:left;transition:background .16s ease;background:var(--primary-soft);">
+        <span style="max-width:100%;font-size:12.5px;font-weight:500;color:var(--text);display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Neural networks — study session</span>
+        <span style="max-width:100%;font-size:11.5px;color:var(--text-3);display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">How do weights actually update?</span>
+      </button>
+      <button class="cg-nav" style="display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:8px 12px;border-radius:10px;text-align:left;transition:background .16s ease;">
+        <span style="max-width:100%;font-size:12.5px;font-weight:500;color:var(--text-2);display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Calculus revision plan</span>
+        <span style="max-width:100%;font-size:11.5px;color:var(--text-3);display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Build me a 2-week schedule…</span>
+      </button>
+      <button class="cg-nav" style="display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:8px 12px;border-radius:10px;text-align:left;transition:background .16s ease;">
+        <span style="max-width:100%;font-size:12.5px;font-weight:500;color:var(--text-2);display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">شرح بالعامية المصرية</span>
+        <span style="max-width:100%;font-size:11.5px;color:var(--text-3);display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">اشرحلي الموضوع ده تاني…</span>
+      </button>
+    </div>
+
+    <!-- footer -->
+    <div style="margin-top:auto;display:flex;flex-direction:column;gap:10px;padding-top:8px;">
+      <button onClick="{{ toggleTheme }}" class="cg-soft" style="display:flex;align-items:center;justify-content:space-between;height:38px;padding:0 12px;border-radius:10px;background:var(--surface-2);border:1px solid var(--border);font-size:12.5px;font-weight:500;color:var(--text-2);transition:background .16s ease;">
+        <span style="display:flex;align-items:center;gap:9px;color:var(--text);">{{ themeIcon }} Appearance</span>
+        <span style="font-size:11px;font-weight:600;color:var(--text-3);">{{ themeLabel }}</span>
+      </button>
+
+      <div style="display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:12px;background:var(--surface-2);border:1px solid var(--border);">
+        <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(140deg,#3a3a45,#222229);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:var(--text);flex-shrink:0;">MH</div>
+        <div style="min-width:0;line-height:1.25;">
+          <div style="font-size:12.5px;font-weight:600;color:var(--text);display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Mahmoud Hassan</div>
+          <div style="font-size:11px;color:var(--text-3);display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Cairo University · Student</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ============ MAIN ============ -->
+  <main style="position:relative;z-index:1;flex:1;min-width:0;height:100%;display:flex;flex-direction:column;background:radial-gradient(125% 80% at 86% -12%, var(--aura), transparent 52%), var(--bg);">
+
+    <!-- ===== CHAT VIEW ===== -->
+    <sc-if value="{{ isChat }}" hint-placeholder-val="{{ true }}">
+    <div style="display:flex;flex-direction:column;height:100%;">
+
+      <!-- chat header -->
+      <header style="display:flex;align-items:center;justify-content:space-between;padding:16px 28px;border-bottom:1px solid var(--border);flex-shrink:0;">
+        <div style="line-height:1.3;">
+          <div style="font-size:15px;font-weight:600;letter-spacing:-0.01em;color:var(--text);">Neural networks — study session</div>
+          <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-3);margin-top:2px;">
+            <span style="display:inline-flex;width:6px;height:6px;border-radius:50%;background:var(--success);animation:cgPulse 2.4s ease-in-out infinite;"></span>
+            Adaptive tutor · Intermediate · English
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div style="display:flex;align-items:center;gap:7px;height:32px;padding:0 12px;border-radius:8px;background:var(--surface);border:1px solid var(--border);font-size:12px;font-weight:500;color:var(--text-2);">
+            <span style="width:6px;height:6px;border-radius:50%;background:var(--primary);"></span> Gemini 2.5
+          </div>
+          <button class="cg-ghost" style="width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--text-3);transition:background .16s ease,color .16s ease;" title="History">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 4v4h4"/><path d="M12 8v4l3 2"/></svg>
+          </button>
+        </div>
+      </header>
+
+      <!-- conversation -->
+      <div class="cg-scroll" style="flex:1;overflow-y:auto;padding:32px 28px;">
+        <div style="max-width:760px;margin:0 auto;display:flex;flex-direction:column;gap:28px;">
+
+          <!-- user message -->
+          <div style="display:flex;gap:14px;justify-content:flex-end;">
+            <div style="max-width:78%;padding:13px 16px;border-radius:16px 16px 4px 16px;background:var(--primary-soft);border:1px solid var(--border);font-size:14.5px;line-height:1.6;color:var(--text);">
+              Can you explain how neural networks actually learn? I'm an intermediate CS student, so go a level deeper than the textbook intro.
+            </div>
+            <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(140deg,#3a3a45,#222229);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:var(--text);flex-shrink:0;">MH</div>
+          </div>
+
+          <!-- ai message -->
+          <div style="display:flex;gap:14px;">
+            <div class="cg-ai-ring" style="position:relative;width:32px;height:32px;border-radius:9px;background:linear-gradient(140deg,#8b6dff,#5b3df5);display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 4px 12px -5px rgba(91,61,245,0.6);">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none"><circle cx="6.5" cy="7" r="2.1" fill="#fff"/><circle cx="17" cy="6" r="2.1" fill="#fff" opacity="0.85"/><circle cx="13" cy="17.5" r="2.1" fill="#fff" opacity="0.7"/><path d="M8 8 12 16M8.4 6.7 15 6.1M15.4 7.6 13.4 15.6" stroke="#fff" stroke-width="1.25" opacity="0.5"/></svg>
+            </div>
+            <div style="min-width:0;flex:1;">
+              <div style="font-size:14.5px;line-height:1.7;color:var(--text);">
+                <p style="margin:0 0 14px;">A network learns by <strong style="font-weight:600;">measuring how wrong it is, then nudging every weight in the direction that reduces that error.</strong> Three moving parts make it work:</p>
+
+                <div style="display:flex;flex-direction:column;gap:11px;margin:0 0 16px;">
+                  <div style="display:flex;gap:11px;">
+                    <span style="flex-shrink:0;width:22px;height:22px;border-radius:7px;background:var(--primary-soft);color:var(--primary-text);font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center;">1</span>
+                    <span><strong style="font-weight:600;">Forward pass</strong> — inputs flow through the layers and produce a prediction.</span>
+                  </div>
+                  <div style="display:flex;gap:11px;">
+                    <span style="flex-shrink:0;width:22px;height:22px;border-radius:7px;background:var(--primary-soft);color:var(--primary-text);font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center;">2</span>
+                    <span><strong style="font-weight:600;">Loss</strong> — a function scores the gap between prediction and truth.</span>
+                  </div>
+                  <div style="display:flex;gap:11px;">
+                    <span style="flex-shrink:0;width:22px;height:22px;border-radius:7px;background:var(--primary-soft);color:var(--primary-text);font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center;">3</span>
+                    <span><strong style="font-weight:600;">Backprop</strong> — gradients flow backward and each weight shifts a little.</span>
+                  </div>
+                </div>
+
+                <div style="position:relative;overflow:hidden;padding:14px 16px;border-radius:13px;background:var(--surface);border:1px solid var(--border);margin:0 0 4px;">
+                  <div style="font-family:'Instrument Serif',Georgia,serif;font-style:italic;font-size:15px;color:var(--primary-text);margin-bottom:4px;">Intuition</div>
+                  <div style="font-size:13.5px;line-height:1.6;color:var(--text-2);">Think of it as walking downhill in fog — the gradient is the slope under your feet, and the learning rate is how big a step you take.</div>
+                </div>
+              </div>
+
+              <!-- ai message actions -->
+              <div style="display:flex;align-items:center;gap:4px;margin-top:12px;">
+                <button class="cg-ghost" style="display:flex;align-items:center;gap:6px;height:30px;padding:0 10px;border-radius:8px;font-size:12px;font-weight:500;color:var(--text-3);transition:background .16s ease,color .16s ease;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9 9 0 0 1 6.7 3L21 8"/><path d="M21 3v5h-5"/></svg>
+                  Regenerate
+                </button>
+                <button class="cg-ghost" style="display:flex;align-items:center;gap:6px;height:30px;padding:0 10px;border-radius:8px;font-size:12px;font-weight:500;color:var(--text-3);transition:background .16s ease,color .16s ease;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2.5"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
+                  Copy
+                </button>
+                <button class="cg-ghost" style="width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--text-3);transition:background .16s ease,color .16s ease;">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M7 10v11M14 5.5 13 10h6.3a2 2 0 0 1 2 2.3l-1.3 7a2 2 0 0 1-2 1.7H7V10l4-7a1.6 1.6 0 0 1 3 .8z"/></svg>
+                </button>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- composer -->
+      <div style="padding:0 28px 22px;flex-shrink:0;">
+        <div style="max-width:760px;margin:0 auto;">
+          <!-- follow-up chips -->
+          <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+            <button class="cg-chip" style="height:32px;padding:0 13px;border-radius:9px;background:var(--surface);border:1px solid var(--border);font-size:12.5px;font-weight:500;color:var(--text-2);transition:border-color .16s ease,color .16s ease;">Show the math for one weight update</button>
+            <button class="cg-chip" style="height:32px;padding:0 13px;border-radius:9px;background:var(--surface);border:1px solid var(--border);font-size:12.5px;font-weight:500;color:var(--text-2);transition:border-color .16s ease,color .16s ease;">Give me a quick quiz</button>
+            <button class="cg-chip" style="height:32px;padding:0 13px;border-radius:9px;background:var(--surface);border:1px solid var(--border);font-size:12.5px;font-weight:500;color:var(--text-2);transition:border-color .16s ease,color .16s ease;">اشرحها بالعامية</button>
+          </div>
+
+          <div class="cg-composer" style="background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow);padding:14px 14px 11px;transition:border-color .18s ease;">
+            <div style="font-size:14.5px;color:var(--text-3);min-height:24px;padding:2px 2px 10px;">Ask a follow-up, or paste a problem to work through…</div>
+            <div style="display:flex;align-items:center;justify-content:space-between;">
+              <div style="display:flex;align-items:center;gap:2px;">
+                <button class="cg-ghost" style="width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;color:var(--text-3);transition:background .16s ease,color .16s ease;" title="Attach">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8.5 12.4 17a4 4 0 0 1-5.7-5.7l8-8a2.6 2.6 0 0 1 3.7 3.7l-7.9 7.9a1.2 1.2 0 0 1-1.7-1.7l7.2-7.2"/></svg>
+                </button>
+                <button class="cg-ghost" style="width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;color:var(--text-3);transition:background .16s ease,color .16s ease;" title="Voice">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
+                </button>
+              </div>
+              <div style="display:flex;align-items:center;gap:12px;">
+                <span style="font-size:11.5px;color:var(--text-3);">Enter to send · Shift+Enter for newline</span>
+                <button class="cg-prim" style="width:36px;height:36px;border-radius:10px;background:var(--primary);display:flex;align-items:center;justify-content:center;color:#fff;transition:background .16s ease;box-shadow:0 4px 14px -6px var(--primary);">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M6 11l6-6 6 6"/></svg>
+                </button>
+              </div>
+            </div>
+          </div>
+          <div style="text-align:center;font-size:11px;color:var(--text-3);margin-top:10px;">Cognify can make mistakes — responses are calibrated to your level. Verify anything important.</div>
+        </div>
+      </div>
+    </div>
+    </sc-if>
+
+    <!-- ===== DASHBOARD VIEW ===== -->
+    <sc-if value="{{ isHub }}" hint-placeholder-val="{{ true }}">
+    <div class="cg-scroll" style="flex:1;overflow-y:auto;padding:28px;">
+      <div style="max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:24px;">
+
+        <!-- header -->
+        <header style="display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;">
+          <div>
+            <h1 style="margin:0;font-family:'Instrument Serif',Georgia,serif;font-size:34px;font-weight:400;letter-spacing:-0.01em;color:var(--text);line-height:1.05;">Dashboard</h1>
+            <p style="margin:7px 0 0;font-size:13.5px;color:var(--text-2);">Your learning intelligence, calibrated to <span style="color:var(--text);font-weight:500;">Intermediate</span>.</p>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;height:34px;padding:0 13px;border-radius:9px;background:var(--surface);border:1px solid var(--border);font-size:12.5px;color:var(--text-2);">
+            <span style="width:6px;height:6px;border-radius:50%;background:var(--success);animation:cgPulse 2.4s ease-in-out infinite;"></span> Synced 2m ago
+          </div>
+        </header>
+
+        <!-- KPI row -->
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;">
+          <!-- accent metric -->
+          <div class="cg-card" style="padding:18px;border-radius:16px;background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow);">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
+              <div style="width:34px;height:34px;border-radius:10px;background:var(--primary-soft);color:var(--primary-text);display:flex;align-items:center;justify-content:center;">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="0.6" fill="currentColor"/></svg>
+              </div>
+              <span style="display:flex;align-items:center;gap:3px;font-size:11.5px;font-weight:600;color:var(--success);">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6"/></svg>3.5
+              </span>
+            </div>
+            <div style="font-size:13px;color:var(--text-2);margin-bottom:3px;">Cognitive score</div>
+            <div style="font-size:26px;font-weight:600;letter-spacing:-0.02em;color:var(--text);">128</div>
+            <svg viewBox="0 0 110 30" preserveAspectRatio="none" style="width:100%;height:26px;margin-top:12px;display:block;overflow:visible;"><polyline points="0,24 18,20 37,22 55,13 73,15 92,7 110,4" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="110" cy="4" r="2.6" fill="var(--primary)"/></svg>
+          </div>
+          <!-- neutral metric -->
+          <div class="cg-card" style="padding:18px;border-radius:16px;background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow);">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
+              <div style="width:34px;height:34px;border-radius:10px;background:var(--surface-2);color:var(--text-2);display:flex;align-items:center;justify-content:center;border:1px solid var(--border);">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2.6 5.3 5.9.9-4.2 4.1 1 5.8L12 16.9 6.7 19.2l1-5.8-4.2-4.1 5.9-.9z"/></svg>
+              </div>
+              <span style="font-size:11.5px;font-weight:500;color:var(--text-3);">Rank 7</span>
+            </div>
+            <div style="font-size:13px;color:var(--text-2);margin-bottom:3px;">Merit points</div>
+            <div style="font-size:26px;font-weight:600;letter-spacing:-0.02em;color:var(--text);">1,840</div>
+            <svg viewBox="0 0 110 30" preserveAspectRatio="none" style="width:100%;height:26px;margin-top:12px;display:block;overflow:visible;"><polyline points="0,21 18,23 37,16 55,18 73,11 92,12 110,6" fill="none" stroke="var(--text-3)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.7"/><circle cx="110" cy="6" r="2.6" fill="var(--text-3)"/></svg>
+          </div>
+          <div class="cg-card" style="padding:18px;border-radius:16px;background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow);">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
+              <div style="width:34px;height:34px;border-radius:10px;background:var(--surface-2);color:var(--text-2);display:flex;align-items:center;justify-content:center;border:1px solid var(--border);">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 7-8"/><path d="M14 7h6v6"/></svg>
+              </div>
+              <span style="display:flex;align-items:center;gap:3px;font-size:11.5px;font-weight:600;color:var(--success);">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6"/></svg>Optimal
+              </span>
+            </div>
+            <div style="font-size:13px;color:var(--text-2);margin-bottom:3px;">Growth velocity</div>
+            <div style="font-size:26px;font-weight:600;letter-spacing:-0.02em;color:var(--text);">92%</div>
+            <svg viewBox="0 0 110 30" preserveAspectRatio="none" style="width:100%;height:26px;margin-top:12px;display:block;overflow:visible;"><polyline points="0,26 18,18 37,21 55,12 73,16 92,8 110,5" fill="none" stroke="var(--text-3)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.7"/><circle cx="110" cy="5" r="2.6" fill="var(--text-3)"/></svg>
+          </div>
+          <div class="cg-card" style="padding:18px;border-radius:16px;background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow);">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
+              <div style="width:34px;height:34px;border-radius:10px;background:var(--surface-2);color:var(--text-2);display:flex;align-items:center;justify-content:center;border:1px solid var(--border);">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg>
+              </div>
+              <span style="font-size:11.5px;font-weight:500;color:var(--text-3);">Verified</span>
+            </div>
+            <div style="font-size:13px;color:var(--text-2);margin-bottom:3px;">Level</div>
+            <div style="font-size:26px;font-weight:600;letter-spacing:-0.02em;color:var(--text);">Intermediate</div>
+            <div style="display:flex;gap:5px;margin-top:14px;">
+              <div style="flex:1;height:5px;border-radius:3px;background:var(--primary);"></div>
+              <div style="flex:1;height:5px;border-radius:3px;background:var(--primary);"></div>
+              <div style="flex:1;height:5px;border-radius:3px;background:var(--surface-2);border:1px solid var(--border);"></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;margin-top:6px;font-size:10px;color:var(--text-3);"><span>Basic</span><span style="color:var(--text-2);">Inter</span><span>Adv</span></div>
+          </div>
+        </div>
+
+        <!-- main grid -->
+        <div style="display:grid;grid-template-columns:1.9fr 1fr;gap:16px;">
+
+          <!-- progression chart -->
+          <div class="cg-card" style="padding:22px 24px;border-radius:18px;background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow);display:flex;flex-direction:column;">
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;">
+              <div>
+                <h3 style="margin:0;font-size:14.5px;font-weight:600;color:var(--text);">Progress</h3>
+                <p style="margin:4px 0 0;font-size:12.5px;color:var(--text-3);">Evaluation score over your last sessions</p>
+              </div>
+              <div style="display:flex;gap:4px;padding:3px;border-radius:9px;background:var(--surface-2);border:1px solid var(--border);">
+                <button style="height:24px;padding:0 10px;border-radius:6px;font-size:11.5px;font-weight:500;color:var(--text-3);">7d</button>
+                <button style="height:24px;padding:0 10px;border-radius:6px;font-size:11.5px;font-weight:600;color:var(--text);background:var(--surface);box-shadow:var(--shadow);">30d</button>
+                <button style="height:24px;padding:0 10px;border-radius:6px;font-size:11.5px;font-weight:500;color:var(--text-3);">All</button>
+              </div>
+            </div>
+            <div style="flex:1;min-height:210px;">
+              <svg viewBox="0 0 620 220" preserveAspectRatio="none" style="width:100%;height:220px;display:block;overflow:visible;">
+                <defs>
+                  <linearGradient id="cgArea" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="var(--primary)" stop-opacity="0.28"/>
+                    <stop offset="100%" stop-color="var(--primary)" stop-opacity="0"/>
+                  </linearGradient>
+                </defs>
+                <line x1="0" y1="50" x2="620" y2="50" stroke="var(--border)" stroke-width="1"/>
+                <line x1="0" y1="110" x2="620" y2="110" stroke="var(--border)" stroke-width="1"/>
+                <line x1="0" y1="170" x2="620" y2="170" stroke="var(--border)" stroke-width="1"/>
+                <path d="M0,170 L77,150 L155,158 L232,120 L310,128 L387,88 L465,96 L542,58 L620,46 L620,220 L0,220 Z" fill="url(#cgArea)"/>
+                <path d="M0,170 L77,150 L155,158 L232,120 L310,128 L387,88 L465,96 L542,58 L620,46" fill="none" stroke="var(--primary)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                <line x1="620" y1="46" x2="620" y2="196" stroke="var(--primary)" stroke-width="1" stroke-dasharray="2 4" opacity="0.45"/>
+                <circle cx="620" cy="46" r="9" fill="var(--primary)" opacity="0.16"/>
+                <circle cx="620" cy="46" r="4.5" fill="var(--primary)" stroke="var(--surface)" stroke-width="2.5"/>
+              </svg>
+              <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-3);margin-top:8px;padding:0 2px;">
+                <span>Wk 1</span><span>Wk 2</span><span>Wk 3</span><span>Wk 4</span><span>Now</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- what to do next -->
+          <div class="cg-card" style="padding:22px;border-radius:18px;background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow);display:flex;flex-direction:column;gap:14px;">
+            <div style="line-height:1.3;">
+              <div style="font-family:'Instrument Serif',Georgia,serif;font-size:19px;color:var(--text);">Command center</div>
+              <div style="font-size:11px;font-weight:600;letter-spacing:0.04em;color:var(--primary-text);margin-top:3px;">NEXT CRITICAL ACTION</div>
+            </div>
+            <div style="padding:15px;border-radius:13px;background:var(--primary-soft);border:1px solid var(--border);">
+              <div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:5px;">Review backpropagation</div>
+              <div style="font-size:12.5px;line-height:1.55;color:var(--text-2);">Your last 2 quizzes dipped on gradient questions. A 15-min refresher now protects your streak.</div>
+              <button class="cg-prim" style="margin-top:13px;height:34px;width:100%;border-radius:9px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:600;transition:background .16s ease;">Start session</button>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:2px;">
+              <button class="cg-soft" style="display:flex;align-items:center;justify-content:space-between;padding:11px 12px;border-radius:11px;transition:background .16s ease;text-align:left;">
+                <span style="font-size:13px;color:var(--text);">Finish calculus plan</span>
+                <span style="font-size:11.5px;color:var(--text-3);">2 of 8</span>
+              </button>
+              <button class="cg-soft" style="display:flex;align-items:center;justify-content:space-between;padding:11px 12px;border-radius:11px;transition:background .16s ease;text-align:left;">
+                <span style="font-size:13px;color:var(--text);">Recalibrate level</span>
+                <span style="font-size:11.5px;color:var(--text-3);">in 12d</span>
+              </button>
+            </div>
+            <div style="margin-top:auto;padding-top:12px;border-top:1px solid var(--border);">
+              <div style="font-size:11px;color:var(--text-3);margin-bottom:7px;">Why these — based on</div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                <span style="height:24px;display:inline-flex;align-items:center;padding:0 9px;border-radius:7px;background:var(--surface-2);border:1px solid var(--border);font-size:11px;color:var(--text-2);">Quiz trend</span>
+                <span style="height:24px;display:inline-flex;align-items:center;padding:0 9px;border-radius:7px;background:var(--surface-2);border:1px solid var(--border);font-size:11px;color:var(--text-2);">Streak risk</span>
+                <span style="height:24px;display:inline-flex;align-items:center;padding:0 9px;border-radius:7px;background:var(--surface-2);border:1px solid var(--border);font-size:11px;color:var(--text-2);">Goals</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- bottom grid -->
+        <div style="display:grid;grid-template-columns:1.9fr 1fr;gap:16px;">
+          <!-- engagement -->
+          <div class="cg-card" style="padding:22px 24px;border-radius:18px;background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow);">
+            <h3 style="margin:0 0 2px;font-size:14.5px;font-weight:600;color:var(--text);">Engagement</h3>
+            <p style="margin:0 0 22px;font-size:12.5px;color:var(--text-3);">Sessions completed this week</p>
+            <div style="display:flex;align-items:flex-end;gap:14px;height:120px;">
+              <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:9px;"><div style="width:100%;height:48%;background:var(--surface-2);border:1px solid var(--border);border-radius:7px;"></div><span style="font-size:11px;color:var(--text-3);">Mon</span></div>
+              <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:9px;"><div style="width:100%;height:66%;background:var(--surface-2);border:1px solid var(--border);border-radius:7px;"></div><span style="font-size:11px;color:var(--text-3);">Tue</span></div>
+              <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:9px;"><div style="width:100%;height:54%;background:var(--surface-2);border:1px solid var(--border);border-radius:7px;"></div><span style="font-size:11px;color:var(--text-3);">Wed</span></div>
+              <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:9px;"><div style="width:100%;height:78%;background:var(--surface-2);border:1px solid var(--border);border-radius:7px;"></div><span style="font-size:11px;color:var(--text-3);">Thu</span></div>
+              <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:9px;"><div style="width:100%;height:34%;background:var(--surface-2);border:1px solid var(--border);border-radius:7px;"></div><span style="font-size:11px;color:var(--text-3);">Fri</span></div>
+              <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:9px;"><div style="width:100%;height:90%;background:var(--surface-2);border:1px solid var(--border);border-radius:7px;"></div><span style="font-size:11px;color:var(--text-3);">Sat</span></div>
+              <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:9px;"><div style="width:100%;height:72%;background:var(--primary);border-radius:7px;box-shadow:0 6px 16px -6px var(--primary);"></div><span style="font-size:11px;color:var(--text);font-weight:500;">Sun</span></div>
+            </div>
+          </div>
+
+          <!-- skill balance -->
+          <div class="cg-card" style="padding:22px 24px;border-radius:18px;background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow);">
+            <h3 style="margin:0 0 2px;font-size:14.5px;font-weight:600;color:var(--text);">Skill balance</h3>
+            <p style="margin:0 0 20px;font-size:12.5px;color:var(--text-3);">Where you're strongest</p>
+            <div style="display:flex;flex-direction:column;gap:14px;">
+              <div><div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:6px;"><span style="color:var(--text-2);">Retention</span><span style="color:var(--text);font-weight:500;">94</span></div><div style="height:6px;border-radius:6px;background:var(--surface-2);overflow:hidden;"><div style="width:94%;height:100%;background:var(--primary);border-radius:6px;"></div></div></div>
+              <div><div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:6px;"><span style="color:var(--text-2);">Logic</span><span style="color:var(--text);font-weight:500;">88</span></div><div style="height:6px;border-radius:6px;background:var(--surface-2);overflow:hidden;"><div style="width:88%;height:100%;background:var(--primary);border-radius:6px;"></div></div></div>
+              <div><div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:6px;"><span style="color:var(--text-2);">Focus</span><span style="color:var(--text);font-weight:500;">81</span></div><div style="height:6px;border-radius:6px;background:var(--surface-2);overflow:hidden;"><div style="width:81%;height:100%;background:var(--primary);border-radius:6px;"></div></div></div>
+              <div><div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:6px;"><span style="color:var(--text-2);">Speed</span><span style="color:var(--text);font-weight:500;">73</span></div><div style="height:6px;border-radius:6px;background:var(--surface-2);overflow:hidden;"><div style="width:73%;height:100%;background:var(--primary);border-radius:6px;"></div></div></div>
+              <div><div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:6px;"><span style="color:var(--text-2);">Creativity</span><span style="color:var(--text);font-weight:500;">65</span></div><div style="height:6px;border-radius:6px;background:var(--surface-2);overflow:hidden;"><div style="width:65%;height:100%;background:var(--primary);border-radius:6px;"></div></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    </sc-if>
+
+    <!-- ===== OTHER VIEWS PLACEHOLDER ===== -->
+    <sc-if value="{{ isOther }}" hint-placeholder-val="{{ false }}">
+    <div style="flex:1;display:flex;align-items:center;justify-content:center;padding:28px;">
+      <div style="text-align:center;max-width:340px;">
+        <div style="width:52px;height:52px;border-radius:14px;background:var(--surface);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;margin:0 auto 18px;color:var(--text-2);">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>
+        </div>
+        <div style="font-family:'Instrument Serif',Georgia,serif;font-size:22px;color:var(--text);margin-bottom:6px;">{{ otherTitle }}</div>
+        <div style="font-size:13.5px;line-height:1.6;color:var(--text-2);">This screen follows the same system. Jump back to <span style="color:var(--primary-text);font-weight:500;cursor:pointer;">Chat</span> or <span style="color:var(--primary-text);font-weight:500;cursor:pointer;">Dashboard</span> to see the redesign in full.</div>
+      </div>
+    </div>
+    </sc-if>
+
+  </main>
+
+  <!-- grain overlay -->
+  <div style="position:absolute;inset:0;z-index:30;pointer-events:none;opacity:0.38;mix-blend-mode:soft-light;background-image:url(&quot;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E&quot;);background-size:160px 160px;"></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:900},&quot;accent&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#5B3DF5&quot;,&quot;options&quot;:[&quot;#7C5CFF&quot;,&quot;#6D4AFF&quot;,&quot;#5B3DF5&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Theme&quot;}}">
+class Component extends DCLogic {
+  state = { dark: true, view: 'chat' };
+
+  renderVals() {
+    const dark = this.state.dark;
+    const v = this.state.view;
+
+    const lightVars = "--bg:#F3F3F6;--surface:#FFFFFF;--surface-2:#F7F7FA;--elevated:#FFFFFF;--border:rgba(9,9,11,0.08);--border-strong:rgba(9,9,11,0.13);--text:#18181F;--text-2:#5c5c68;--text-3:#9090a0;--primary:#6D4AFF;--primary-press:#5B3DF5;--primary-soft:rgba(109,74,255,0.08);--primary-text:#5B3DF5;--success:#15a06a;--aura:rgba(109,74,255,0.05);--shadow:inset 0 1px 0 rgba(255,255,255,0.7),0 1px 2px rgba(9,9,11,0.05),0 14px 34px -18px rgba(9,9,11,0.16);--shadow-hover:inset 0 1px 0 rgba(255,255,255,0.85),0 1px 2px rgba(9,9,11,0.05),0 22px 46px -22px rgba(9,9,11,0.2);";
+
+    const accent = this.props.accent;
+    const accentVars = accent ? ("--primary:" + accent + ";--primary-press:" + accent + ";") : "";
+
+    const themeVars = (dark ? "" : lightVars) + accentVars;
+
+    const ns = (id) => ({
+      bg: v === id ? "var(--primary-soft)" : "transparent",
+      fg: v === id ? "var(--text)" : "var(--text-2)",
+      bar: v === id ? "inset 2px 0 0 var(--primary)" : "inset 0 0 0 transparent"
+    });
+
+    const sun = React.createElement("svg", { width: 17, height: 17, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.7, strokeLinecap: "round", strokeLinejoin: "round" },
+      React.createElement("circle", { cx: 12, cy: 12, r: 4 }),
+      React.createElement("path", { d: "M12 2v2M12 20v2M4 12H2M22 12h-2M5 5l1.4 1.4M17.6 17.6 19 19M19 5l-1.4 1.4M6.4 17.6 5 19" }));
+    const moon = React.createElement("svg", { width: 17, height: 17, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.7, strokeLinecap: "round", strokeLinejoin: "round" },
+      React.createElement("path", { d: "M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" }));
+
+    const titles = { logic: "Logic training", profile: "Your profile", settings: "Settings", disability: "Disability mode" };
+
+    return {
+      themeVars,
+      isChat: v === "chat",
+      isHub: v === "hub",
+      isOther: v !== "chat" && v !== "hub",
+      otherTitle: titles[v] || "Coming soon",
+      nav: { chat: ns("chat"), hub: ns("hub"), logic: ns("logic"), profile: ns("profile"), settings: ns("settings"), disability: ns("disability") },
+      themeLabel: dark ? "Dark" : "Light",
+      themeIcon: dark ? moon : sun,
+      goChat: () => this.setState({ view: "chat" }),
+      goHub: () => this.setState({ view: "hub" }),
+      goLogic: () => this.setState({ view: "logic" }),
+      goProfile: () => this.setState({ view: "profile" }),
+      goSettings: () => this.setState({ view: "settings" }),
+      goDisability: () => this.setState({ view: "disability" }),
+      toggleTheme: () => this.setState((s) => ({ dark: !s.dark }))
+    };
+  }
+}
+</script>
+</body>
+</html>
