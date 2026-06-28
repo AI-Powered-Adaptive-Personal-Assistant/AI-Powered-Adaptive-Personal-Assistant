@@ -30,6 +30,7 @@ const IntelligenceHub = lazy(() => import("./components/IntelligenceHub"));
 const ProfilePage = lazy(() => import("./components/ProfilePage"));
 const SignVideoStudio = lazy(() => import("./components/SignVideoStudio"));
 const AdminDashboard = lazy(() => import("./components/AdminDashboard"));
+const SupportCenter = lazy(() => import("./components/SupportCenter"));
 const DisabilityModeView = lazy(() => import("./components/DisabilityModeView"));
 const GoalTracker = lazy(() => import("./components/Goaltracker"));
 const GpaCalculator = lazy(() => import("./components/GpaCalculator"));
@@ -42,7 +43,7 @@ export default function App() {
   const chatRef = useRef<any>(null);
   
   const [currentView, setCurrentView] = useState<
-  'chat' | 'hub' | 'profile' | 'settings' | 'video' | 'disability' | 'admin' | 'goals' | 'gpa' | 'attendance' | 'analytics' | 'planner'
+  'chat' | 'hub' | 'profile' | 'settings' | 'video' | 'disability' | 'admin' | 'goals' | 'gpa' | 'attendance' | 'analytics' | 'planner' | 'support'
 >('chat');
   
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -120,7 +121,7 @@ export default function App() {
 
     const handlePopState = () => {
       const hash = window.location.hash.replace('#', '');
-      if (['chat', 'hub', 'profile', 'settings', 'video', 'disability', 'admin','goals','gpa','attendance','analytics','planner'].includes(hash)) {
+      if (['chat', 'hub', 'profile', 'settings', 'video', 'disability', 'admin','goals','gpa','attendance','analytics','planner','support'].includes(hash)) {
         setCurrentView(hash as any);
       } else {
         setCurrentView('chat');
@@ -415,6 +416,8 @@ export default function App() {
         return <ProfilePage profile={profile} onMenuClick={() => setIsMobileMenuOpen(true)} />;
       case 'admin':
         return <AdminDashboard profile={profile} onMenuClick={() => setIsMobileMenuOpen(true)} />;
+      case 'support':
+        return <SupportCenter profile={profile} onMenuClick={() => setIsMobileMenuOpen(true)} />;
 
         case 'goals':
   return (

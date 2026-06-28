@@ -1,7 +1,7 @@
 import { localize } from '../lib/translations';
 import { useState } from "react";
 import { UserProfile, CognitiveLevel, UserRole, ChatThread } from "../types";
-import { User, Settings, GraduationCap, Accessibility, MessageSquare, BarChart3, AlertCircle, LogOut, Plus, ChevronRight, X, Moon, Sun, Mic, Target, Calculator, CalendarCheck, LayoutDashboard, CalendarDays } from "lucide-react";
+import { User, Settings, GraduationCap, Accessibility, LifeBuoy, MessageSquare, BarChart3, AlertCircle, LogOut, Plus, ChevronRight, X, Moon, Sun, Mic, Target, Calculator, CalendarCheck, LayoutDashboard, CalendarDays } from "lucide-react";
 import { logout, db } from "../lib/firebase";
 import { deleteDoc, doc } from "firebase/firestore";
 import { getTranslation } from "../lib/translations";
@@ -9,8 +9,8 @@ import { getTranslation } from "../lib/translations";
 interface SidebarProps {
   profile: UserProfile;
   setProfile: (profile: UserProfile) => void;
-  currentView: 'chat' | 'hub' | 'profile' | 'settings' | 'video' | 'disability' | 'admin' | 'goals' | 'gpa' | 'attendance' | 'analytics' | 'planner';
-  setCurrentView: (view: 'chat' | 'hub' | 'profile' | 'settings' | 'video' | 'disability' | 'admin' | 'goals' | 'gpa' | 'attendance' | 'analytics' | 'planner') => void;
+  currentView: 'chat' | 'hub' | 'profile' | 'settings' | 'video' | 'disability' | 'admin' | 'goals' | 'gpa' | 'attendance' | 'analytics' | 'planner' | 'support';
+  setCurrentView: (view: 'chat' | 'hub' | 'profile' | 'settings' | 'video' | 'disability' | 'admin' | 'goals' | 'gpa' | 'attendance' | 'analytics' | 'planner' | 'support') => void;
   isDarkMode: boolean;
   toggleTheme: () => void;
   openLiveCaptions: () => void;
@@ -138,6 +138,12 @@ export default function Sidebar({ profile, setProfile, currentView, setCurrentVi
           <Accessibility className={navIcon(currentView === 'disability')} />
           {localize(profile.language, 'Accessibility', 'الإتاحة')}
           <span className="ms-auto text-[10px] font-bold text-primary bg-primary-soft px-[7px] py-[3px] rounded-full">{localize(profile.language, 'Live', 'مباشر')}</span>
+        </button>
+
+        {/* Support */}
+        <button onClick={() => setCurrentView('support')} className={navBtn(currentView === 'support')}>
+          <LifeBuoy className={navIcon(currentView === 'support')} />
+          {localize(profile.language, 'Support', 'الدعم')}
         </button>
 
         {/* Admin */}
