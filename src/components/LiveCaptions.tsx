@@ -1,3 +1,4 @@
+import { localize } from '../lib/translations';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Mic, MicOff, Sparkles, RefreshCw, X, Volume2, MessageSquare,
@@ -272,7 +273,7 @@ export default function LiveCaptions({ language = 'en-US', onClose }: LiveCaptio
         utterance.rate = speechRate;
         utterance.pitch = speechPitch;
         const voices = window.speechSynthesis.getVoices();
-        const voice = voices.find(v => v.lang.startsWith(isArabic ? 'ar' : 'en'));
+        const voice = voices.find(v => v.lang.startsWith(localize(language, 'en', 'ar')));
         if (voice) utterance.voice = voice;
         window.speechSynthesis.speak(utterance);
       };
@@ -1252,8 +1253,8 @@ export default function LiveCaptions({ language = 'en-US', onClose }: LiveCaptio
             <textarea
               value={customText}
               onChange={e => setCustomText(e.target.value)}
-              placeholder={isArabic ? "اكتب شيئاً لنطقه بالصوت…" : "Type a sentence to speak aloud…"}
-              dir={isArabic ? 'rtl' : 'ltr'}
+              placeholder={localize(language, "Type a sentence to speak aloud…", "اكتب شيئاً لنطقه بالصوت…")}
+              dir={localize(language, 'ltr', 'rtl')}
               className="w-full text-sm bg-neutral-950 border border-white/10 rounded-xl p-3 focus:outline-none focus:border-purple-500/50 text-white placeholder-neutral-600 resize-none h-16"
             />
             <div className="flex items-center gap-2 justify-end flex-wrap">
@@ -1467,7 +1468,7 @@ export default function LiveCaptions({ language = 'en-US', onClose }: LiveCaptio
               </button>
             </div>
             <div className="flex-1 flex items-center justify-center text-center px-4">
-              <h1 dir={isArabic ? 'rtl' : 'ltr'} className="text-5xl md:text-7xl lg:text-9xl font-black leading-relaxed text-white select-none break-words">
+              <h1 dir={localize(language, 'ltr', 'rtl')} className="text-5xl md:text-7xl lg:text-9xl font-black leading-relaxed text-white select-none break-words">
                 {customText}
               </h1>
             </div>

@@ -1,3 +1,4 @@
+import { localize } from '../lib/translations';
 import React, { useMemo, useState, useEffect } from 'react';
 import { UserProfile } from '../types';
 import { Brain, TrendingUp, Star, ShieldCheck, Activity, Menu, Zap, Target, GitCommit, Search, ChevronRight } from 'lucide-react';

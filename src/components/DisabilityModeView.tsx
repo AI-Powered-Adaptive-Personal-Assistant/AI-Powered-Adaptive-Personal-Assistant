@@ -1,3 +1,4 @@
+import { localize } from '../lib/translations';
 import React from 'react';
 import { UserProfile, AccessibilityMode, Message } from '../types';
 import { Settings, Eye, Accessibility, Menu, Sparkles, User, Ear, Mic, Brain, ArrowLeft, MessageSquare } from 'lucide-react';
@@ -55,11 +56,11 @@ export default function DisabilityModeView({
   const getModeDescription = (mode: AccessibilityMode) => {
     const isArabic = profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya';
     switch (mode) {
-      case 'None': return isArabic ? 'واجهة إدراكية قياسية بدون طبقات إمكانية وصول.' : 'Standard cognitive interface without accessibility overlays.';
-      case 'Speech': return isArabic ? 'يفعل النسخ الصوتي، والتخليق الصوتي، وملاحظات تحويل النص إلى كلام.' : 'Activates voice transcription, synthetic speech synthesis, and text-to-speech feedback.';
-      case 'Visual': return isArabic ? 'يفعل تحليل الرؤية، والتباين العالي، وتكبير النص، وتعديلات التخطيط المكاني.' : 'Enables vision analysis, high contrast, text zooming, and spatial layout modifications.';
-      case 'Vocal-Deaf': return isArabic ? 'يفعل الصورة الرمزية للغة الإشارة جنباً إلى جنب مع التعرف على الكلام للمستخدمين الصم الذين يمكنهم التحدث.' : 'Enables sign language avatar alongside speech recognition for users who are deaf but can speak.';
-      case 'Sign-Only': return isArabic ? 'واجهة كاملة للغة الإشارة مدعومة بالصورة الرمزية والتعرف على الإيماءات المعتمد على الرؤية.' : 'Full sign language interface powered by the avatar and vision-based gesture recognition.';
+      case 'None': return localize(profile.language, 'Standard cognitive interface without accessibility overlays.', 'واجهة إدراكية قياسية بدون طبقات إمكانية وصول.');
+      case 'Speech': return localize(profile.language, 'Activates voice transcription, synthetic speech synthesis, and text-to-speech feedback.', 'يفعل النسخ الصوتي، والتخليق الصوتي، وملاحظات تحويل النص إلى كلام.');
+      case 'Visual': return localize(profile.language, 'Enables vision analysis, high contrast, text zooming, and spatial layout modifications.', 'يفعل تحليل الرؤية، والتباين العالي، وتكبير النص، وتعديلات التخطيط المكاني.');
+      case 'Vocal-Deaf': return localize(profile.language, 'Enables sign language avatar alongside speech recognition for users who are deaf but can speak.', 'يفعل الصورة الرمزية للغة الإشارة جنباً إلى جنب مع التعرف على الكلام للمستخدمين الصم الذين يمكنهم التحدث.');
+      case 'Sign-Only': return localize(profile.language, 'Full sign language interface powered by the avatar and vision-based gesture recognition.', 'واجهة كاملة للغة الإشارة مدعومة بالصورة الرمزية والتعرف على الإيماءات المعتمد على الرؤية.');
       default: return '';
     }
   };
@@ -72,7 +73,7 @@ export default function DisabilityModeView({
             onClick={() => onNavigate ? onNavigate('chat') : onMenuClick()}
             className="p-2 text-text-muted bg-bg-main border border-border hover:bg-surface-3 rounded-lg active:scale-95 transition-all flex items-center gap-2"
           >
-            <ArrowLeft className={`w-5 h-5 ${profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya' ? 'rotate-180' : ''}`} /> 
+            <ArrowLeft className={`w-5 h-5 ${localize(profile.language, '', 'rotate-180')}`} /> 
             <span className="hidden sm:inline text-xs font-semibold uppercase tracking-widest text-text-muted">{getTranslation(profile.language, 'back')}</span>
           </button>
           <div>

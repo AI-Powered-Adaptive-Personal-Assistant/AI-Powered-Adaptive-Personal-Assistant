@@ -1,3 +1,4 @@
+import { localize } from '../lib/translations';
 import { useState, useEffect, useRef } from "react";
 import { UserProfile } from "../types";
 import { motion, AnimatePresence } from "motion/react";
@@ -51,27 +52,25 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
   const isArabic = profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya';
   
   const t = {
-    scriptInput: isArabic ? "مدخلات النص" : "Script Input",
-    placeholder: isArabic 
-      ? "اكتب أو تمتم النص الذي تريد تحويله إلى لغة الإشارة..." 
-      : "Type or dictate the script you want to convert to sign language video...",
-    recordSpeech: isArabic ? "تسجيل الصوت" : "Record Speech",
-    rawRecordingHint: isArabic ? "التقاط وتدقيق الصوت المباشر" : "Direct Acoustic AI (Euphonia)",
-    stopRecording: isArabic ? "إيقاف التسجيل" : "Stop Recording",
-    generating: isArabic ? "جاري معالجة الفيديو..." : "Rendering Video...",
-    generate: isArabic ? "إنتاج الفيديو" : "Generate Video",
-    decodingSpeech: isArabic ? "جاري فك تشفيرة النطق بـ AI..." : "AI reconstructing speech pattern...",
-    optimizingText: isArabic ? "جاري تحسين لغة الإشارة وإزالة الزوائد..." : "AI optimizing sign concepts...",
-    speechProfileTitle: isArabic ? "معايرة النطق والأصوات للمتحدث" : "Adaptive Vocal Speech Profile",
-    standard: isArabic ? "عادي" : "Standard",
-    dysarthria: isArabic ? "صعوبة نطق" : "Dysarthria",
-    stutter: isArabic ? "تأتأة" : "Stutter",
-    aphasia: isArabic ? "حبسة كلامية" : "Aphasia",
-    kanevsky: isArabic ? "د. ديمتري كانيفسكي (صوت أصم)" : "Dr. Dimitri Kanevsky (Severe Deaf-Dysarthria)",
-    askAI: isArabic ? "اسأل الذكاء الاصطناعي" : "Ask AI (Get Answer)",
-    aiResult: isArabic ? "نتيجة الإجابة (AI Answer)" : "AI Answer / Result",
-    useAnswer: isArabic ? "عرض بلغة الإشارة" : "Sign Answer",
-    asking: isArabic ? "جاري التفكير والتوليد..." : "AI thinking..."
+    scriptInput: localize(profile.language, "Script Input", "مدخلات النص"),
+    placeholder: localize(profile.language, "Type or dictate the script you want to convert to sign language video...", "اكتب أو تمتم النص الذي تريد تحويله إلى لغة الإشارة..."),
+    recordSpeech: localize(profile.language, "Record Speech", "تسجيل الصوت"),
+    rawRecordingHint: localize(profile.language, "Direct Acoustic AI (Euphonia)", "التقاط وتدقيق الصوت المباشر"),
+    stopRecording: localize(profile.language, "Stop Recording", "إيقاف التسجيل"),
+    generating: localize(profile.language, "Rendering Video...", "جاري معالجة الفيديو..."),
+    generate: localize(profile.language, "Generate Video", "إنتاج الفيديو"),
+    decodingSpeech: localize(profile.language, "AI reconstructing speech pattern...", "جاري فك تشفيرة النطق بـ AI..."),
+    optimizingText: localize(profile.language, "AI optimizing sign concepts...", "جاري تحسين لغة الإشارة وإزالة الزوائد..."),
+    speechProfileTitle: localize(profile.language, "Adaptive Vocal Speech Profile", "معايرة النطق والأصوات للمتحدث"),
+    standard: localize(profile.language, "Standard", "عادي"),
+    dysarthria: localize(profile.language, "Dysarthria", "صعوبة نطق"),
+    stutter: localize(profile.language, "Stutter", "تأتأة"),
+    aphasia: localize(profile.language, "Aphasia", "حبسة كلامية"),
+    kanevsky: localize(profile.language, "Dr. Dimitri Kanevsky (Severe Deaf-Dysarthria)", "د. ديمتري كانيفسكي (صوت أصم)"),
+    askAI: localize(profile.language, "Ask AI (Get Answer)", "اسأل الذكاء الاصطناعي"),
+    aiResult: localize(profile.language, "AI Answer / Result", "نتيجة الإجابة (AI Answer)"),
+    useAnswer: localize(profile.language, "Sign Answer", "عرض بلغة الإشارة"),
+    asking: localize(profile.language, "AI thinking...", "جاري التفكير والتوليد...")
   };
 
   useEffect(() => {
@@ -314,14 +313,12 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
     setIsAnswering(true);
     setAiResponse("");
     try {
-      const language = profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya' ? "Arabic" : "English";
+      const language = localize(profile.language, "English", "Arabic");
       const answer = await geminiService.askGeneralQuestion(inputText, language);
       setAiResponse(answer);
     } catch (e) {
       console.error("Failed to ask general question:", e);
-      setAiResponse(profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya' 
-        ? "حدث خطأ أثناء الاتصال بالذكاء الاصطناعي." 
-        : "Failed to connect to AI for answering."
+      setAiResponse(localize(profile.language, "Failed to connect to AI for answering.", "حدث خطأ أثناء الاتصال بالذكاء الاصطناعي.")
       );
     } finally {
       setIsAnswering(false);
@@ -412,7 +409,7 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
                        }`}
                      >
                         <Zap className="w-3.5 h-3.5 text-current" />
-                        {isDirectAudioMode ? (isArabic ? "فك التشفير المباشر" : "Acoustic Decrypt") : (isArabic ? "إملاء مستمر" : "ASR Dictate")}
+                        {isDirectAudioMode ? (localize(profile.language, "Acoustic Decrypt", "فك التشفير المباشر")) : (localize(profile.language, "ASR Dictate", "إملاء مستمر"))}
                      </button>
                   </div>
 
@@ -502,7 +499,7 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
                              className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-tr from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 active:scale-95 transform transition-all text-white font-bold rounded-xl shadow-lg shadow-purple-500/20"
                            >
                               <Zap className="w-5 h-5 text-white animate-pulse" />
-                              {isArabic ? "التقاط صوت مجهري (Acoustic)" : "Acoustic AI Record"}
+                              {localize(profile.language, "Acoustic AI Record", "التقاط صوت مجهري (Acoustic)")}
                            </button>
                         )
                      ) : (

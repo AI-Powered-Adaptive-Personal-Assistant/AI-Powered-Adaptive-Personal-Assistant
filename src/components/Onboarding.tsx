@@ -1,3 +1,4 @@
+import { localize } from '../lib/translations';
 import React, { useState, useEffect } from "react";
 import { UserProfile, UserRole, EducationLevel } from "../types";
 import { motion, AnimatePresence } from "motion/react";

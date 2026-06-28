@@ -1,3 +1,4 @@
+import { localize } from '../lib/translations';
 import React, { useState } from 'react';
 import { UserProfile, EducationLevel } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
@@ -225,7 +226,7 @@ export default function ProfilePage({ profile, onMenuClick, setProfile }: Profil
               disabled={saving}
               className="flex items-center gap-2 px-6 py-3 bg-slate-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-black transition-all shadow-xl shadow-slate-200 disabled:opacity-50"
             >
-              <Save className="w-4 h-4" /> {saving ? (profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya' ? 'جاري الحفظ...' : 'Saving...') : getTranslation(profile.language, 'saveChanges')}
+              <Save className="w-4 h-4" /> {saving ? (localize(profile.language, 'Saving...', 'جاري الحفظ...')) : getTranslation(profile.language, 'saveChanges')}
             </button>
           </div>
         )}
@@ -407,12 +408,10 @@ export default function ProfilePage({ profile, onMenuClick, setProfile }: Profil
               <div>
                 <h3 className="text-lg font-black text-text-main flex items-center gap-3">
                   <BrainIcon className="w-5 h-5 text-primary" />
-                  {profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya' ? 'مؤشر تقييم الذكاء الاصطناعي' : 'AI Guidance Feedback Hub'}
+                  {localize(profile.language, 'AI Guidance Feedback Hub', 'مؤشر تقييم الذكاء الاصطناعي')}
                 </h3>
                 <p className="text-xs text-text-muted font-medium italic mt-1">
-                  {profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya'
-                    ? 'تحليل الملاحظات والتقييمات التي قدمتها لإجابات المساعد الذكي.'
-                    : 'Analysis of helpful and flagged responses across your intellectual sessions.'}
+                  {localize(profile.language, 'Analysis of helpful and flagged responses across your intellectual sessions.', 'تحليل الملاحظات والتقييمات التي قدمتها لإجابات المساعد الذكي.')}
                 </p>
               </div>
               
@@ -422,7 +421,7 @@ export default function ProfilePage({ profile, onMenuClick, setProfile }: Profil
                     {Math.round((feedbackStats.upvotes / (feedbackStats.upvotes + feedbackStats.downvotes)) * 100)}%
                   </span>
                   <span className="text-[10px] uppercase font-black tracking-wider">
-                    {profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya' ? 'تقييم إيجابي' : 'Positive Rating'}
+                    {localize(profile.language, 'Positive Rating', 'تقييم إيجابي')}
                   </span>
                 </div>
               )}
@@ -431,7 +430,7 @@ export default function ProfilePage({ profile, onMenuClick, setProfile }: Profil
             {feedbackStats.loading ? (
               <div className="flex items-center justify-center py-10 gap-3 text-faint font-bold text-xs uppercase tracking-widest">
                 <Loader2 className="w-5 h-5 animate-spin text-primary" />
-                <span>{profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya' ? 'جاري تحميل التقييمات...' : 'Compiling intelligence feedback...'}</span>
+                <span>{localize(profile.language, 'Compiling intelligence feedback...', 'جاري تحميل التقييمات...')}</span>
               </div>
             ) : (
               <div className="space-y-8">
@@ -440,7 +439,7 @@ export default function ProfilePage({ profile, onMenuClick, setProfile }: Profil
                   <div className="p-6 bg-gradient-to-br from-emerald-50/50 to-emerald-50/10 border border-emerald-100 rounded-3xl flex items-center justify-between">
                     <div>
                       <p className="text-[10px] font-black uppercase text-primary tracking-wider">
-                        {profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya' ? 'الإجابات المفيدة' : 'Helpful Responses'}
+                        {localize(profile.language, 'Helpful Responses', 'الإجابات المفيدة')}
                       </p>
                       <h4 className="text-3xl font-black text-text-main mt-1">{feedbackStats.upvotes}</h4>
                     </div>
@@ -452,7 +451,7 @@ export default function ProfilePage({ profile, onMenuClick, setProfile }: Profil
                   <div className="p-6 bg-gradient-to-br from-rose-50/50 to-rose-50/10 border border-rose-100 rounded-3xl flex items-center justify-between">
                     <div>
                       <p className="text-[10px] font-black uppercase text-rose-600 tracking-wider">
-                        {profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya' ? 'تحتاج إلى تحسين' : 'Needs Improvement'}
+                        {localize(profile.language, 'Needs Improvement', 'تحتاج إلى تحسين')}
                       </p>
                       <h4 className="text-3xl font-black text-text-main mt-1">{feedbackStats.downvotes}</h4>
                     </div>
@@ -467,7 +466,7 @@ export default function ProfilePage({ profile, onMenuClick, setProfile }: Profil
                   <div className="space-y-3">
                     <h4 className="text-[11px] font-black tracking-wider uppercase text-faint flex items-center gap-1.5">
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                      {profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya' ? 'نماذج الإجابات المفيدة والمدعومة' : 'Sample Commended Guidance'}
+                      {localize(profile.language, 'Sample Commended Guidance', 'نماذج الإجابات المفيدة والمدعومة')}
                     </h4>
                     <div className="space-y-3">
                       {feedbackStats.helpfulSnippets.map((snippet, idx) => (
@@ -484,7 +483,7 @@ export default function ProfilePage({ profile, onMenuClick, setProfile }: Profil
                   <div className="space-y-3">
                     <h4 className="text-[11px] font-black tracking-wider uppercase text-faint flex items-center gap-1.5">
                       <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
-                      {profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya' ? 'نقاط للتطوير والتحسين' : 'Identified Alignment Gaps'}
+                      {localize(profile.language, 'Identified Alignment Gaps', 'نقاط للتطوير والتحسين')}
                     </h4>
                     <div className="space-y-3">
                       {feedbackStats.improvementSnippets.map((snippet, idx) => (
@@ -498,9 +497,7 @@ export default function ProfilePage({ profile, onMenuClick, setProfile }: Profil
 
                 {feedbackStats.upvotes === 0 && feedbackStats.downvotes === 0 && (
                   <div className="text-center py-10 text-faint font-medium italic border-2 border-dashed border-border rounded-3xl">
-                    {profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya'
-                      ? 'لا توجد تقييمات لإجابات الذكاء الاصطناعي حتى الآن. يمكنك تقييم الإجابات داخل المحادثة بوضع علامة مفيد أو غير مفيد.'
-                      : 'No message ratings submitted yet. Commend or flag responses in the chat view to populate this analytics terminal.'}
+                    {localize(profile.language, 'No message ratings submitted yet. Commend or flag responses in the chat view to populate this analytics terminal.', 'لا توجد تقييمات لإجابات الذكاء الاصطناعي حتى الآن. يمكنك تقييم الإجابات داخل المحادثة بوضع علامة مفيد أو غير مفيد.')}
                   </div>
                 )}
               </div>

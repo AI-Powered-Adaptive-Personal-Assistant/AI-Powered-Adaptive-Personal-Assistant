@@ -1,3 +1,4 @@
+import { localize } from '../lib/translations';
 import React, { useState, useRef, useEffect } from "react";
 import { Message, UserProfile, Task } from "../types";
 import { generateAdaptiveResponseStream, generateBenchmarkComparison, generateProactiveInsights } from "../services/gemini";
@@ -677,10 +678,10 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
         isArabic
           ? `عذراً، حدث خطأ أثناء الاتصال بالخادم: ${error.message || 'يرجى مراجعة حالة الاتصال وإعادة المحاولة'}`
           : `Sorry, an error occurred communicating with the server: ${error.message || 'Please verify connection and retry'}`,
-        isArabic ? "فشل الاتصال بالذكاء الاصطناعي" : "AI Core Disconnection",
+        localize(profile.language, "AI Core Disconnection", "فشل الاتصال بالذكاء الاصطناعي"),
         8000,
         {
-          label: isArabic ? "إعادة المحاولة" : "Retry Now",
+          label: localize(profile.language, "Retry Now", "إعادة المحاولة"),
           onClick: () => {
             handleSubmit(undefined, submittedMessage, attachmentsToSubmit);
           }
@@ -1021,12 +1022,12 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
                           {speakingMessageId === m.id ? (
                             <>
                               <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg>
-                              {profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya' ? 'إيقاف' : 'Stop'}
+                              {localize(profile.language, 'Stop', 'إيقاف')}
                             </>
                           ) : (
                             <>
                               <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path><path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path></svg>
-                              {profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya' ? 'استماع' : 'Speak'}
+                              {localize(profile.language, 'Speak', 'استماع')}
                             </>
                           )}
                         </button>
@@ -1038,7 +1039,7 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
                           <div className="flex items-center gap-1.5 opacity-60">
                             <Bot className="w-4 h-4 text-primary" />
                             <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider">
-                              {profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya' ? 'إجابة كوجنيفي الذكية' : 'Cognify Guidance'}
+                              {localize(profile.language, 'Cognify Guidance', 'إجابة كوجنيفي الذكية')}
                             </span>
                           </div>
                           <button 
@@ -1054,7 +1055,7 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
                             aria-label={speakingMessageId === m.id ? "Stop Reading" : "Read Aloud"}
                           >
                             <Volume2 className="w-3.5 h-3.5 animate-bounce" />
-                            <span>{speakingMessageId === m.id ? (profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya' ? 'إيقاف' : 'Stop') : (profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya' ? 'استماع بصوت عالٍ' : 'Read Aloud')}</span>
+                            <span>{speakingMessageId === m.id ? (localize(profile.language, 'Stop', 'إيقاف')) : (localize(profile.language, 'Read Aloud', 'استماع بصوت عالٍ'))}</span>
                           </button>
                         </div>
                       )}
@@ -1175,7 +1176,7 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
                           title="Thumbs Up / Helpful"
                         >
                           <ThumbsUp className="w-3.5 h-3.5" />
-                          <span>{profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya' ? 'مفيد' : 'Helpful'}</span>
+                          <span>{localize(profile.language, 'Helpful', 'مفيد')}</span>
                         </button>
                         <button
                           onClick={() => handleReactToMessage(m.id, 'down')}
@@ -1187,13 +1188,13 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
                           title="Thumbs Down / Unhelpful"
                         >
                           <ThumbsDown className="w-3.5 h-3.5" />
-                          <span>{profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya' ? 'غير مفيد' : 'Unhelpful'}</span>
+                          <span>{localize(profile.language, 'Unhelpful', 'غير مفيد')}</span>
                         </button>
                         <button
                           onClick={() => {
                             navigator.clipboard?.writeText(m.content).then(
                               () => toast.success(
-                                profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya' ? 'تم النسخ' : 'Copied',
+                                localize(profile.language, 'Copied', 'تم النسخ'),
                               ),
                               () => {},
                             );
@@ -1202,7 +1203,7 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
                           title="Copy answer"
                         >
                           <Copy className="w-3.5 h-3.5" />
-                          <span>{profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya' ? 'نسخ' : 'Copy'}</span>
+                          <span>{localize(profile.language, 'Copy', 'نسخ')}</span>
                         </button>
                       </div>
 
@@ -1470,7 +1471,7 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
                   }
                 }}
                 disabled={isLoading}
-                placeholder={isListening ? (profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya' ? 'جاري الاستماع...' : "Listening...") : getTranslation(profile.language, 'typeMessage')}
+                placeholder={isListening ? (localize(profile.language, "Listening...", 'جاري الاستماع...')) : getTranslation(profile.language, 'typeMessage')}
                 className={`w-full bg-bg-card border border-border-2 rounded-[20px] ps-24 py-4 pe-14 shadow focus:border-primary outline-none transition-all placeholder:text-text-muted/50 disabled:opacity-50 relative z-0 resize-none max-h-40 leading-relaxed custom-scrollbar ${isListening ? 'border-primary ring-4 ring-primary/10' : ''}`}
               />
               {interimTranscript && (
@@ -1504,9 +1505,7 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
             </div>
           </form>
           <p className="text-center text-[11px] text-text-muted/70 mt-2 px-2">
-            {profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya'
-              ? 'كوجنيفاي ممكن يخطئ. راجِع المعلومات المهمة.'
-              : 'Cognify can make mistakes. Check important information.'}
+            {localize(profile.language, 'Cognify can make mistakes. Check important information.', 'كوجنيفاي ممكن يخطئ. راجِع المعلومات المهمة.')}
           </p>
         </div>
       </div>

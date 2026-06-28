@@ -1,3 +1,4 @@
+import { localize } from '../lib/translations';
 import React, { useState } from 'react';
 import { signInWithGoogle, loginWithEmail, registerWithEmail, auth } from '../lib/firebase';
 import { sendPasswordResetEmail } from 'firebase/auth';

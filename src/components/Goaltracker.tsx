@@ -1,3 +1,4 @@
+import { localize } from '../lib/translations';
 import { useState, useEffect } from 'react';
 import { AnimatePresence } from 'motion/react';
 import { UserProfile, Goal } from '../types';
@@ -51,9 +52,7 @@ export default function GoalTracker({ profile, onMenuClick }: GoalTrackerProps) 
 
   const handleDeleteGoal = async (goalId: string) => {
     const confirmed = window.confirm(
-      isArabic
-        ? 'هل أنت متأكد من حذف هذا الهدف؟'
-        : 'Are you sure you want to delete this goal?'
+      localize(profile.language, 'Are you sure you want to delete this goal?', 'هل أنت متأكد من حذف هذا الهدف؟')
     );
     if (!confirmed) return;
     await deleteGoal(profile.uid, goalId);
@@ -75,12 +74,10 @@ export default function GoalTracker({ profile, onMenuClick }: GoalTrackerProps) 
             </button>
             <div>
               <h1 className="text-2xl md:text-4xl font-black text-text-main tracking-tighter uppercase">
-                {isArabic ? 'متتبع الأهداف' : 'Goal Tracker'}
+                {localize(profile.language, 'Goal Tracker', 'متتبع الأهداف')}
               </h1>
               <p className="text-xs md:text-sm text-text-muted font-medium mt-1">
-                {isArabic
-                  ? 'تابع أهدافك الدراسية والشخصية وحقق تقدمًا ملموسًا'
-                  : 'Track your academic and personal goals with clear milestones'}
+                {localize(profile.language, 'Track your academic and personal goals with clear milestones', 'تابع أهدافك الدراسية والشخصية وحقق تقدمًا ملموسًا')}
               </p>
             </div>
           </div>
@@ -90,7 +87,7 @@ export default function GoalTracker({ profile, onMenuClick }: GoalTrackerProps) 
             className="flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-black transition-all shadow-lg shadow-primary/20 hover:shadow-none active:scale-95 whitespace-nowrap"
           >
             <Plus className="w-4 h-4" />
-            {isArabic ? 'هدف جديد' : 'New Goal'}
+            {localize(profile.language, 'New Goal', 'هدف جديد')}
           </button>
         </div>
       </header>
@@ -103,7 +100,7 @@ export default function GoalTracker({ profile, onMenuClick }: GoalTrackerProps) 
         {loading ? (
           <div className="flex items-center justify-center py-20 gap-3 text-faint font-bold text-xs uppercase tracking-widest">
             <Loader2 className="w-5 h-5 animate-spin text-primary" />
-            <span>{isArabic ? 'جاري تحميل الأهداف...' : 'Loading goals...'}</span>
+            <span>{localize(profile.language, 'Loading goals...', 'جاري تحميل الأهداف...')}</span>
           </div>
         ) : goals.length === 0 ? (
           /* Empty state */
@@ -113,12 +110,10 @@ export default function GoalTracker({ profile, onMenuClick }: GoalTrackerProps) 
             </div>
             <div className="text-center space-y-2">
               <h3 className="text-lg font-black text-text-main uppercase tracking-tight">
-                {isArabic ? 'لا توجد أهداف بعد' : 'No goals yet'}
+                {localize(profile.language, 'No goals yet', 'لا توجد أهداف بعد')}
               </h3>
               <p className="text-sm text-faint font-medium max-w-xs">
-                {isArabic
-                  ? 'ابدأ بإضافة هدفك الأول وتقسيمه إلى خطوات واضحة'
-                  : 'Start by adding your first goal and breaking it into clear milestones'}
+                {localize(profile.language, 'Start by adding your first goal and breaking it into clear milestones', 'ابدأ بإضافة هدفك الأول وتقسيمه إلى خطوات واضحة')}
               </p>
             </div>
             <button
@@ -126,7 +121,7 @@ export default function GoalTracker({ profile, onMenuClick }: GoalTrackerProps) 
               className="flex items-center gap-2 px-8 py-3.5 bg-slate-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-black transition-all shadow-xl shadow-slate-200 active:scale-95"
             >
               <Plus className="w-4 h-4" />
-              {isArabic ? 'أضف هدفك الأول' : 'Add Your First Goal'}
+              {localize(profile.language, 'Add Your First Goal', 'أضف هدفك الأول')}
             </button>
           </div>
         ) : (
