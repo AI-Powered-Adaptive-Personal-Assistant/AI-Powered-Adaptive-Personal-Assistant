@@ -1,3 +1,4 @@
+import { localize } from '../lib/translations';
 import { useEffect, useMemo, useState } from 'react';
 import { UserProfile, PlannerTask, PlannerTaskType } from '../types';
 import { Menu, Plus, Trash2, CalendarDays, CheckCircle2, Circle } from 'lucide-react';
@@ -19,7 +20,7 @@ const TYPE_META: Record<PlannerTaskType, { en: string; ar: string; color: string
 
 export default function AcademicPlanner({ profile, onMenuClick }: AcademicPlannerProps) {
   const isAr = profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya';
-  const t = (en: string, ar: string) => (isAr ? ar : en);
+  const t = (en: string, ar: string) => localize(profile.language, en, ar);
   const [tasks, setTasks] = useState<PlannerTask[]>([]);
 
   const [title, setTitle] = useState('');

@@ -1,3 +1,4 @@
+import { localize } from '../lib/translations';
 import { useEffect, useState } from 'react';
 import { UserProfile, AttendanceSubject } from '../types';
 import { Menu, Plus, Trash2, CheckCircle2, XCircle, CalendarCheck, AlertTriangle } from 'lucide-react';
@@ -13,7 +14,7 @@ interface AttendanceTrackerProps {
 
 export default function AttendanceTracker({ profile, onMenuClick }: AttendanceTrackerProps) {
   const isAr = profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya';
-  const t = (en: string, ar: string) => (isAr ? ar : en);
+  const t = (en: string, ar: string) => localize(profile.language, en, ar);
   const [subjects, setSubjects] = useState<AttendanceSubject[]>([]);
 
   const [name, setName] = useState('');

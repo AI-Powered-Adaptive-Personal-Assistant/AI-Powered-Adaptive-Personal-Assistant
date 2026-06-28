@@ -27,7 +27,7 @@ const FACULTIES = [
 // never land on a half-English screen. (The AI chat still replies in any
 // language the user types.)
 const LANGUAGES = [
-  "English", "Arabic", "Egyptian Ammiya"
+  "English", "Arabic", "Egyptian Ammiya", "French", "Spanish"
 ];
 
 const SUSTAINABILITY_GOALS = [

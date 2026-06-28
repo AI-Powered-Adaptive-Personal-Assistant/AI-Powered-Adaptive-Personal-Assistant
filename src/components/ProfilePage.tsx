@@ -300,7 +300,7 @@ export default function ProfilePage({ profile, onMenuClick, setProfile }: Profil
                 isEditing={isEditing} 
                 onChange={(v) => handleChange('language', v)} 
                 type="select"
-                options={['English', 'Arabic', 'Egyptian Ammiya']}
+                options={['English', 'Arabic', 'Egyptian Ammiya', 'French', 'Spanish']}
               />
               <DataField 
                 label={getTranslation(profile.language, 'accessibilityMode')} 

@@ -1,3 +1,4 @@
+import { localize } from '../lib/translations';
 import { useState } from "react";
 import { UserProfile, CognitiveLevel, UserRole, ChatThread } from "../types";
 import { User, Settings, GraduationCap, Accessibility, MessageSquare, BarChart3, AlertCircle, LogOut, Plus, ChevronRight, X, Moon, Sun, Mic, Target, Calculator, CalendarCheck, LayoutDashboard, CalendarDays } from "lucide-react";
@@ -47,11 +48,11 @@ export default function Sidebar({ profile, setProfile, currentView, setCurrentVi
   ] as const;
 
   const academicItems = [
-    { id: 'goals', label: isAr ? 'الأهداف' : 'Goals', icon: Target },
-    { id: 'gpa', label: isAr ? 'حاسبة GPA' : 'GPA', icon: Calculator },
-    { id: 'attendance', label: isAr ? 'الحضور' : 'Attendance', icon: CalendarCheck },
-    { id: 'analytics', label: isAr ? 'تحليلاتي' : 'Analytics', icon: LayoutDashboard },
-    { id: 'planner', label: isAr ? 'المخطّط' : 'Planner', icon: CalendarDays },
+    { id: 'goals', label: localize(profile.language, 'Goals', 'الأهداف'), icon: Target },
+    { id: 'gpa', label: localize(profile.language, 'GPA', 'حاسبة GPA'), icon: Calculator },
+    { id: 'attendance', label: localize(profile.language, 'Attendance', 'الحضور'), icon: CalendarCheck },
+    { id: 'analytics', label: localize(profile.language, 'Analytics', 'تحليلاتي'), icon: LayoutDashboard },
+    { id: 'planner', label: localize(profile.language, 'Planner', 'المخطّط'), icon: CalendarDays },
   ] as const;
 
   const isAdmin = [
@@ -81,7 +82,7 @@ export default function Sidebar({ profile, setProfile, currentView, setCurrentVi
         </div>
         <div className="leading-tight">
           <div className="font-display font-bold text-[18px] tracking-tight">Cognify</div>
-          <div className="text-[11px] text-text-muted font-medium">{isAr ? 'مدرّسك الذكي' : 'Adaptive AI Mentor'}</div>
+          <div className="text-[11px] text-text-muted font-medium">{localize(profile.language, 'Adaptive AI Mentor', 'مدرّسك الذكي')}</div>
         </div>
       </div>
 
@@ -111,8 +112,8 @@ export default function Sidebar({ profile, setProfile, currentView, setCurrentVi
           onClick={() => setAcademicsOpen((v) => !v)}
           className={navBtn(academicIds.includes(currentView) && !academicsOpen) + ' justify-between'}
         >
-          <span className="flex items-center gap-3"><GraduationCap className={navIcon(false)} /> {isAr ? 'الأكاديميات' : 'Academics'}</span>
-          <ChevronRight className={`w-4 h-4 transition-transform ${academicsOpen ? 'rotate-90' : (isAr ? 'rotate-180' : '')}`} />
+          <span className="flex items-center gap-3"><GraduationCap className={navIcon(false)} /> {localize(profile.language, 'Academics', 'الأكاديميات')}</span>
+          <ChevronRight className={`w-4 h-4 transition-transform ${academicsOpen ? 'rotate-90' : (localize(profile.language, '', 'rotate-180'))}`} />
         </button>
         {academicsOpen && (
           <div className="flex flex-col gap-[3px] ms-3 ps-2 border-s border-border">
@@ -130,16 +131,16 @@ export default function Sidebar({ profile, setProfile, currentView, setCurrentVi
         {/* Accessibility */}
         <button onClick={() => setCurrentView('disability')} className={navBtn(currentView === 'disability') + ' relative'}>
           <Accessibility className={navIcon(currentView === 'disability')} />
-          {isAr ? 'الإتاحة' : 'Accessibility'}
-          <span className="ms-auto text-[10px] font-bold text-primary bg-primary-soft px-[7px] py-[3px] rounded-full">{isAr ? 'مباشر' : 'Live'}</span>
+          {localize(profile.language, 'Accessibility', 'الإتاحة')}
+          <span className="ms-auto text-[10px] font-bold text-primary bg-primary-soft px-[7px] py-[3px] rounded-full">{localize(profile.language, 'Live', 'مباشر')}</span>
         </button>
 
         {/* Admin */}
         {isAdmin && (
           <button onClick={() => setCurrentView('admin')} className={navBtn(currentView === 'admin') + ' relative'}>
             <AlertCircle className={navIcon(currentView === 'admin')} />
-            {isAr ? 'الأدمن' : 'Admin'}
-            <span className="ms-auto text-[10px] font-bold text-text-muted bg-surface-3 px-[7px] py-[3px] rounded-full">{isAr ? 'مقيّد' : 'Staff'}</span>
+            {localize(profile.language, 'Admin', 'الأدمن')}
+            <span className="ms-auto text-[10px] font-bold text-text-muted bg-surface-3 px-[7px] py-[3px] rounded-full">{localize(profile.language, 'Staff', 'مقيّد')}</span>
           </button>
         )}
 
@@ -166,7 +167,7 @@ export default function Sidebar({ profile, setProfile, currentView, setCurrentVi
                 <div key={t.id} className={`group flex items-center gap-1 rounded-[11px] transition-colors ${active ? 'bg-surface-3' : 'hover:bg-surface-3'}`}>
                   <button onClick={() => switchThread(t.id)} className="flex flex-col flex-1 items-start gap-0.5 px-3 py-[9px] text-start overflow-hidden min-w-0">
                     <span className="text-[13.5px] font-semibold text-text-main truncate w-full max-w-[200px]">{t.title}</span>
-                    <span className="text-[11.5px] text-faint truncate w-full max-w-[200px]">{t.lastMessageSnippet || (isAr ? 'لا رسائل بعد' : 'No messages yet')}</span>
+                    <span className="text-[11.5px] text-faint truncate w-full max-w-[200px]">{t.lastMessageSnippet || (localize(profile.language, 'No messages yet', 'لا رسائل بعد'))}</span>
                   </button>
                   <button
                     onClick={(e) => {
@@ -206,7 +207,7 @@ export default function Sidebar({ profile, setProfile, currentView, setCurrentVi
         <div className="flex gap-[7px]">
           <button onClick={toggleTheme} className="flex-1 flex items-center justify-center gap-[7px] py-[9px] rounded-[11px] border border-border bg-surface-2 text-text-main text-[12.5px] font-semibold hover:bg-surface-3 transition-colors">
             {isDarkMode ? <Sun className="w-[15px] h-[15px] text-accent" /> : <Moon className="w-[15px] h-[15px]" />}
-            {isDarkMode ? (isAr ? 'فاتح' : 'Light') : (isAr ? 'داكن' : 'Dark')}
+            {isDarkMode ? (localize(profile.language, 'Light', 'فاتح')) : (localize(profile.language, 'Dark', 'داكن'))}
           </button>
           <div className="flex-1 relative">
             <select
@@ -214,7 +215,7 @@ export default function Sidebar({ profile, setProfile, currentView, setCurrentVi
               onChange={(e) => handleChange('language', e.target.value)}
               className="w-full h-full appearance-none cursor-pointer text-center py-[9px] rounded-[11px] border border-border bg-surface-2 text-text-main text-[12.5px] font-semibold hover:bg-surface-3 transition-colors outline-none focus:border-primary"
             >
-              {['English', 'Arabic', 'Egyptian Ammiya'].map((l) => (
+              {['English', 'Arabic', 'Egyptian Ammiya', 'French', 'Spanish'].map((l) => (
                 <option key={l} value={l}>{l}</option>
               ))}
             </select>
@@ -234,7 +235,7 @@ export default function Sidebar({ profile, setProfile, currentView, setCurrentVi
 
         <div className="flex gap-[7px]">
           <button onClick={openLiveCaptions} className="flex-1 flex items-center justify-center gap-2 py-[9px] rounded-[11px] border border-border bg-surface-2 text-text-main text-[12.5px] font-semibold hover:bg-surface-3 transition-colors">
-            <Mic className="w-[15px] h-[15px] text-primary" /> {isAr ? 'الكابشن' : 'Captions'}
+            <Mic className="w-[15px] h-[15px] text-primary" /> {localize(profile.language, 'Captions', 'الكابشن')}
           </button>
           <button onClick={() => logout()} className="flex items-center justify-center gap-2 px-3 py-[9px] rounded-[11px] border border-border bg-surface-2 text-danger text-[12.5px] font-semibold hover:bg-danger-soft transition-colors" title={getTranslation(profile.language, 'logout')}>
             <LogOut className="w-[15px] h-[15px]" />

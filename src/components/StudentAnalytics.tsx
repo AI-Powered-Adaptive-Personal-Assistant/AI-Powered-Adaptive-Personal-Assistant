@@ -1,3 +1,4 @@
+import { localize } from '../lib/translations';
 import { useEffect, useMemo, useState } from 'react';
 import { UserProfile, Course, AttendanceSubject, Goal, PlannerTask } from '../types';
 import { Menu, LayoutDashboard, GraduationCap, CalendarCheck, Target, AlertTriangle, Clock } from 'lucide-react';
@@ -16,7 +17,7 @@ interface StudentAnalyticsProps {
 
 export default function StudentAnalytics({ profile, onMenuClick }: StudentAnalyticsProps) {
   const isAr = profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya';
-  const t = (en: string, ar: string) => (isAr ? ar : en);
+  const t = (en: string, ar: string) => localize(profile.language, en, ar);
 
   const [courses, setCourses] = useState<Course[]>([]);
   const [subjects, setSubjects] = useState<AttendanceSubject[]>([]);
@@ -92,7 +93,7 @@ export default function StudentAnalytics({ profile, onMenuClick }: StudentAnalyt
 
       <div className="max-w-6xl w-full space-y-6 pb-10">
         {/* S1 · Executive Command Center — the headline "what to do next" card */}
-        <AcademicCommandCenter input={metricsInput} isAr={isAr} />
+        <AcademicCommandCenter input={metricsInput} isAr={isAr} language={profile.language} />
 
         {/* Stat cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

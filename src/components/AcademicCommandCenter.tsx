@@ -1,3 +1,4 @@
+import { localize } from '../lib/translations';
 import { useState } from 'react';
 import { motion } from 'motion/react';
 import { Activity, TrendingUp, TrendingDown, Minus, Target, ShieldAlert, Sparkles, Info, ChevronDown } from 'lucide-react';
@@ -54,9 +55,9 @@ function MetricTile({ label, value, suffix, state, accent, icon }: {
 }
 
 /** S1 + S27: the Executive Command Center with an Explainable-AI panel. */
-export default function AcademicCommandCenter({ input, isAr }: { input: MetricsInput; isAr: boolean }) {
+export default function AcademicCommandCenter({ input, isAr, language }: { input: MetricsInput; isAr: boolean; language?: string }) {
   const [showWhy, setShowWhy] = useState(false);
-  const t = (en: string, ar: string) => (isAr ? ar : en);
+  const t = (en: string, ar: string) => localize(language, en, ar);
 
   const health = academicHealthScore(input);
   const success = successProbability(input);

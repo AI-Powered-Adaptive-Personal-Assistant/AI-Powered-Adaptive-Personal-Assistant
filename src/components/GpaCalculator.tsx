@@ -1,3 +1,4 @@
+import { localize } from '../lib/translations';
 import { useEffect, useMemo, useState } from 'react';
 import { UserProfile, Course } from '../types';
 import { Menu, Plus, Trash2, Calculator, Sparkles, GraduationCap } from 'lucide-react';
@@ -65,7 +66,7 @@ export default function GpaCalculator({ profile, onMenuClick }: GpaCalculatorPro
     setName('');
   };
 
-  const t = (en: string, ar: string) => (isAr ? ar : en);
+  const t = (en: string, ar: string) => localize(profile.language, en, ar);
 
   return (
     <div dir={isAr ? 'rtl' : 'ltr'} className="flex-1 h-screen overflow-y-auto bg-bg-main flex flex-col custom-scrollbar p-6 md:p-10 gap-6">
