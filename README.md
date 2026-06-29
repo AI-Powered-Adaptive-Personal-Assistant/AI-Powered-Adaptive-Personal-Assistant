@@ -1,51 +1,98 @@
-# AI-LA Intelligence
+# Cognify
 
 <div align="center">
-  <h3>An Adaptive, Cognitive Mentorship & Learning Assistant</h3>
+  <h3>An adaptive, accessible AI study mentor</h3>
 </div>
 
+Cognify is an AI mentor that recalibrates its tone, vocabulary, and interaction
+style to each user — and is built from the ground up to be usable by people with
+visual, hearing, speech, and cognitive accessibility needs.
+
 ## 📌 The Problem
-In today's digital learning and professional development landscape, content is largely static. A "one-size-fits-all" approach dominates educational platforms and standard AI chatbots. This creates massive friction:
-- **Cognitive Mismatch:** Beginners are overwhelmed by technical jargon, while advanced users are bored by oversimplified explanations.
-- **Loss of Context:** Standard tools don't remember a user's career path, academic field, or past intellectual discussions.
-- **Lack of Inclusivity:** Users with different accessibility needs (visual, speech, or cognitive) struggle to interact with rigid text-based interfaces.
+Most learning tools and AI chatbots are "one-size-fits-all":
+- **Cognitive mismatch:** beginners drown in jargon; advanced users get oversimplified answers.
+- **No memory of who you are:** standard tools ignore your field, level, and history.
+- **Poor accessibility:** rigid text interfaces exclude blind, deaf, and speech-impaired users.
 
-## 🚀 The Solution: AI-LA
-**AI-LA (Artificial Intelligence Learning Assistant)** was built to solve the personalization crisis in education and mentorship. It is a highly intelligent, dynamic AI engine that recalibrates its entire persona, vocabulary, and interaction style based on the user's explicit profile. 
-
-It acts not just as an answer bot, but as a dedicated, long-term cognitive mentor.
+## 🚀 The Solution
+Cognify adapts its entire persona to the user's profile (level, role, field,
+language, accessibility mode) and mirrors the user's language and dialect —
+including Egyptian Arabic. It's a long-term cognitive mentor, not just an answer bot.
 
 ### ✨ Key Features
-- **Cognitive Recalibration Engine:** The AI automatically shifts its tone. It uses simple analogies for "Basic" tier users, professional vocabulary for "Intermediate," and engages in deep, step-by-step intellectual sparring for "Advanced" users.
-- **Deep Identity Integration:** AI-LA knows if you are a Student at a specific university or a Professional in a specific career. Every response is dynamically tailored to your field of study or work.
-- **Inclusive Accessibility:** Built-in modes for 'Visual', 'Speech', and 'Sign-support' adjust the formatting, verb usage, and sentence structure of the AI to meet neuro-divergent and physical accessibility constraints.
-- **Multimodal Intelligence:** Fully supports analyzing documents, processing images, and generating high-quality custom visuals on the fly.
-- **Gamified Growth Tracker:** Calculates estimated performance scores, rewards merit points, and tracks historical progress to keep users motivated over time.
+- **Cognitive recalibration:** simple analogies for *Basic*, professional vocabulary for *Intermediate*, rigorous depth for *Advanced*.
+- **Identity-aware answers:** tailored to your university/faculty or job/field, with cross-thread memory.
+- **Accessibility suite:**
+  - **Visual mode** — narratable, screen-reader-friendly responses.
+  - **Sign / Deaf mode** — a 3D sign avatar (Three.js), live captions, and a Sign Studio.
+  - **Speech mode** — TTS-friendly prose, plus dysarthria/atypical-speech decoding (Project Euphonia–style).
+- **Multimodal:** analyze images and documents in chat.
+- **Gamified growth:** Health Score, points, and progress tracking.
+- **Admin dashboard:** tiered access — **Super Admin** (can promote/demote) above **Admin** — with a live user directory.
+- **Support Center:** built-in FAQ + contact.
 
-## 🛠 Technical Stack
-- **Frontend:** React 19, TypeScript, Tailwind CSS, Lucide Icons, Framer Motion
-- **Backend & Database:** Firebase Authentication, Cloud Firestore
-- **AI Brain:** Google Gemini 2.5 Flash Framework
+## 🛠 Tech Stack
+- **Frontend:** React 19, TypeScript, Vite 6, Tailwind CSS v4, Lucide Icons, Motion, Recharts, react-markdown
+- **Auth & Data:** Firebase Authentication + Cloud Firestore (multi-database aware)
+- **AI:** Google Gemini (`gemini-2.5-flash`, with `2.0-flash` / `flash-latest` fallback) and an automatic **Groq / xAI** fallback when Gemini is rate-limited
+- **Accessibility/ML:** Three.js (sign avatar), MediaPipe Hands + TensorFlow.js (gesture/sign), Web Speech API
+- **Monitoring (optional):** Sentry
+
+## 🏗 Architecture
+Cognify is **client-first** and ships as a **static site** (e.g. Vercel): the
+browser talks to Gemini/Groq directly, so **no backend is required** in
+production. An Express server (`server.ts`) is included for local development and
+optional self-hosting, which adds server-side `/api` routes; when those aren't
+present, the app automatically falls back to direct client calls.
+
+## 🔑 Environment Variables
+`VITE_`-prefixed keys are bundled into the client (publicly visible) — use them
+for static hosting. See `.env.example` for the full template.
+
+| Variable | Required | Purpose |
+| --- | --- | --- |
+| `VITE_GEMINI_API_KEY` | ✅ | Gemini key(s). Comma-separate several to multiply free quota; the app rotates on rate-limit. |
+| `VITE_GROQ_API_KEY` | optional | Groq fallback (free, fast). Keys start with `gsk_`. |
+| `VITE_XAI_API_KEY` | optional | xAI/Grok fallback. Keys start with `xai-`. |
+| `VITE_SENTRY_DSN` | optional | Sentry error tracking (public DSN). |
+
+Firebase config lives in `firebase-applet-config.json` (project, app, and
+`firestoreDatabaseId`). Firestore security rules are in `firestore.rules` and
+must be published to the **same database** the app uses.
+
+> ⚠️ `VITE_` keys are visible in the built client. For production hardening,
+> restrict the keys (HTTP referrer / API restrictions) or proxy them via the
+> Express backend.
 
 ## 💻 Run Locally
 
 ### Prerequisites
-- Node.js (v18+)
+- Node.js v18+
 
 ### Setup
-1. Clone the repository:
-   ```bash
-   git clone <your-repo-url>
-   ```
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-3. Set your environment variables (Use `.env.example` as a template for existing keys).
-4. Run the local development server:
-   ```bash
-   npm run dev
-   ```
+```bash
+# 1. Install dependencies
+npm install
+
+# 2. Configure environment (copy the template and fill in your keys)
+cp .env.example .env
+
+# 3. Start the dev server (Express + Vite via tsx)
+npm run dev
+```
+
+### Other scripts
+| Script | Description |
+| --- | --- |
+| `npm run dev` | Local dev server (`server.ts`). |
+| `npm run build` | Build the static client + bundle the server. |
+| `npm run preview` | Preview the production build. |
+| `npm run lint` | Type-check (`tsc --noEmit`). |
+
+## 🚀 Deployment
+Deploy the static build to any static host (Vercel recommended). Set the `VITE_*`
+environment variables in your host's dashboard and **redeploy** after any change
+— `VITE_` values are baked in at build time.
 
 ---
-*Built to redefine personalized learning.*
+*Built to redefine personalized, accessible learning.*
