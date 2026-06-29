@@ -1,7 +1,7 @@
 import { localize } from '../lib/translations';
 import React, { useState, useRef, useEffect } from "react";
 import { Message, UserProfile, Task } from "../types";
-import { generateAdaptiveResponseStream, generateBenchmarkComparison, generateProactiveInsights } from "../services/gemini";
+import { generateAdaptiveResponseStream, generateBenchmarkComparison, generateProactiveInsights, generateChatTitle } from "../services/gemini";
 import { geminiService } from "../services/geminiService";
 import { Send, Bot, User, Loader2, Sparkles, BrainCircuit, Paperclip, ImageIcon, FileText, X, Accessibility, Menu, Download, Mic, MicOff, RefreshCw, Volume2, ListTodo, Plus, Trash2, CheckCircle2, Circle, Scale, Lightbulb, ThumbsUp, ThumbsDown, Copy, Square } from "lucide-react";
 import Markdown from 'react-markdown';
@@ -471,13 +471,32 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
          return;
     }
 
+    const isAr = profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya';
     const newFiles: { name: string, type: string, data: string, url?: string }[] = [];
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
 
+      // Word docs aren't readable by the AI — guide the user to PDF instead of
+      // silently attaching a file the model will ignore.
+      const isWord = /\.docx?$/i.test(file.name) ||
+        file.type === 'application/msword' ||
+        file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+      if (isWord) {
+        toast.warning(
+          isAr
+            ? `ملفات Word (.doc/.docx) مش مقروءة للذكاء الاصطناعي. من فضلك حوّل "${file.name}" لـ PDF وارفعه تاني.`
+            : `Word files (.doc/.docx) can't be read by the AI. Please convert "${file.name}" to PDF and upload it again.`,
+          isAr ? 'حوّله لـ PDF' : 'Convert to PDF',
+        );
+        continue;
+      }
+
       // Limit file size to 5MB to prevent memory crashes (System Sync Errors)
       if (file.size > 5 * 1024 * 1024) {
-        alert(`الملف "${file.name}" كبير جداً، الحد الأقصى 5 ميجا.`);
+        toast.warning(
+          isAr ? `الملف "${file.name}" كبير جداً، الحد الأقصى 5 ميجا.` : `"${file.name}" is too large — the max is 5 MB.`,
+          isAr ? 'ملف كبير' : 'File too large',
+        );
         continue;
       }
 
@@ -550,11 +569,15 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
     
     let currentThreadId = profile.activeThreadId;
     let isCreatingNewThread = false;
+    // When true, we'll upgrade the thread title to an AI-generated, content-based
+    // name once the first reply is in (the slice below is just an instant placeholder).
+    let shouldAutoTitle = false;
 
     // Auto-create thread if it doesn't exist
     if (!currentThreadId) {
       currentThreadId = Date.now().toString();
       isCreatingNewThread = true;
+      shouldAutoTitle = true;
       const suggestedTitle = finalInput.slice(0, 30) + (finalInput.length > 30 ? '...' : '');
       const newThread = {
         id: currentThreadId,
@@ -587,6 +610,7 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
       activeThread.title === 'New Chat' &&
       messages.filter(m => m.id !== 'welcome' && m.role === 'user').length === 0
     ) {
+      shouldAutoTitle = true;
       const suggestedTitle = finalInput.slice(0, 30) + (finalInput.length > 30 ? '...' : '');
       const updatedThreads = (profile.chatThreads || []).map(t => 
         t.id === activeThread.id ? { ...t, title: suggestedTitle } : t
@@ -641,11 +665,13 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
     // error — never discard text the user already saw being written.
     let lastText = "";
     let streamedAttachments: any[] = [];
+    let usedFallback = false;
     try {
       const stream = generateAdaptiveResponseStream(submittedMessage, profile, newHistory, attachmentsToSubmit);
 
       for await (const chunk of stream) {
         if (stopRef.current) break; // user pressed Stop — keep what's generated so far
+        if ((chunk as any).usedFallback) usedFallback = true;
         if (chunk.text) {
           lastText = chunk.text;
           setStreamingText(lastText);
@@ -656,6 +682,17 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
       }
 
       const isAr = profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya';
+
+      // If files were sent but the answer came from the text-only fallback
+      // provider, it couldn't actually see them — say so plainly.
+      if (usedFallback && attachmentsToSubmit.length > 0) {
+        toast.warning(
+          isAr
+            ? 'الرد جه من مزوّد احتياطي نصّي مش بيشوف الصور/الملفات، فالمرفقات اتجاهلت. جرّب تاني بعد شوية عشان يتقري المرفق.'
+            : "The answer came from a text-only fallback that can't see images/files, so your attachment was ignored. Try again shortly to have it read.",
+          isAr ? 'المرفق اتجاهل' : 'Attachment skipped',
+        );
+      }
       const assistantMessage: Message = {
         id: `assistant-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         role: 'assistant',
@@ -687,6 +724,24 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
       }
 
       onQuestionEvaluated(qualityScore, lastText.slice(0, 100));
+
+      // Auto-name the chat from its content (ChatGPT-style) after the first
+      // reply. Runs in the background; failures are silent (placeholder stays).
+      if (shouldAutoTitle && lastText && profile.uid) {
+        const threadId = currentThreadId;
+        generateChatTitle(submittedMessage, lastText, profile.language)
+          .then((title) => {
+            if (!title) return;
+            const updatedThreads = (profile.chatThreads || []).map(t =>
+              t.id === threadId ? { ...t, title } : t
+            );
+            if (setProfile) setProfile({ ...profile, chatThreads: updatedThreads });
+            else profile.chatThreads = updatedThreads;
+            setDoc(doc(db, `users/${profile.uid}`), cleanDataForFirestore({ chatThreads: updatedThreads }), { merge: true })
+              .catch(() => { /* title is non-critical */ });
+          })
+          .catch(() => { /* keep placeholder title */ });
+      }
     } catch (error: any) {
       console.error(error);
       const isArabic = profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya';
@@ -1467,7 +1522,7 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
               onChange={handleFileChange}
               className="hidden"
               multiple
-              accept="image/*,video/mp4,video/webm,video/quicktime,application/pdf,.doc,.docx,.txt"
+              accept="image/*,video/mp4,video/webm,video/quicktime,application/pdf,.txt"
             />
             
             <div className="relative w-full">

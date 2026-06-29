@@ -309,6 +309,51 @@ async function groqChat(
   }
 }
 
+// Generate a short, content-based chat title (3-6 words) from the first
+// exchange — like ChatGPT's auto-naming. Falls back to a trimmed message.
+export async function generateChatTitle(
+  userMessage: string,
+  aiReply: string,
+  language?: string,
+): Promise<string> {
+  const fallback = userMessage.trim().slice(0, 40);
+  const prompt = `Create a SHORT title (3 to 6 words) summarizing this conversation's topic. ${
+    language ? `Write it in ${language}.` : 'Use the same language as the user.'
+  } Reply with ONLY the title — no quotes, no trailing punctuation, no "Title:" prefix.
+
+User: ${userMessage.slice(0, 500)}
+Assistant: ${aiReply.slice(0, 500)}`;
+
+  const clean = (t: string) =>
+    t.replace(/^["'#\s]+|["'.\s]+$/g, '').replace(/^title:\s*/i, '').split('\n')[0].slice(0, 60).trim();
+
+  // Direct Gemini → Groq fallback.
+  const apiKey = geminiPrimaryKey();
+  if (apiKey) {
+    try {
+      const res = await fetchGeminiWithRetry(
+        `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: prompt }] }] }),
+        },
+      );
+      if (res.ok) {
+        const d = await res.json();
+        const txt = d.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (txt) return clean(txt) || fallback;
+      }
+    } catch { /* fall through */ }
+  }
+  const groqKey = groqPrimaryKey();
+  if (groqKey) {
+    const txt = await groqChat([{ role: 'user', content: prompt }], groqKey);
+    if (txt) return clean(txt) || fallback;
+  }
+  return fallback;
+}
+
 export async function generateLogicResponse(
   message: string,
   profile: UserProfile,
@@ -475,6 +520,9 @@ ${otherThreadsSummary}
     // Gemini failed (overloaded/rate-limited) → automatically fall back to Groq.
     const groqKey = groqPrimaryKey();
     if (groqKey) {
+      // Signal the fallback so the UI can warn if attachments (images/PDFs) were
+      // sent — the text-only fallback provider can't see them.
+      yield { text: '', done: false, usedFallback: true };
       yield* generateGroqStream(message, profile, history, groqKey);
       return;
     }
