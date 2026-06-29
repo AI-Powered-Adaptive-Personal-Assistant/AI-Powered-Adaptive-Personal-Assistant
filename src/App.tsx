@@ -6,7 +6,6 @@
 import { useState, useEffect, useRef, lazy, Suspense } from "react";
 import Sidebar from "./components/Sidebar";
 import ChatInterface from "./components/ChatInterface";
-import RightPanel from "./components/RightPanel";
 import Onboarding from "./components/Onboarding";
 import Login from "./components/Login";
 import ErrorBoundary from "./components/ErrorBoundary";
@@ -392,9 +391,6 @@ export default function App() {
               onSTTStateChange={setIsSTTActive}
               setProfile={setProfile}
             />
-            <div className="hidden xl:block">
-              <RightPanel profile={profile} />
-            </div>
           </>
         );
       case 'hub':
@@ -519,9 +515,6 @@ export default function App() {
               onStreamingUpdate={setCurrentAIResponse}
               setProfile={setProfile}
             />
-            <div className="hidden xl:block">
-              <RightPanel profile={profile} />
-            </div>
           </>
         );
     }
