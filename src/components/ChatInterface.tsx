@@ -641,10 +641,15 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
         }
       }
 
+      const isAr = profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya';
       const assistantMessage: Message = {
         id: `assistant-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         role: 'assistant',
-        content: lastText,
+        // If the stream produced nothing (e.g. all providers overloaded), show a
+        // friendly note instead of a blank bubble — never wipe the conversation.
+        content: lastText || (isAr
+          ? '⚠️ الذكاء الاصطناعي مشغول دلوقتي. جرّب تاني بعد لحظات 🙏'
+          : '⚠️ The AI is busy right now. Please try again in a moment 🙏'),
         timestamp: new Date().toISOString(),
         attachments: finalAttachments
       };
@@ -670,10 +675,21 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
       onQuestionEvaluated(qualityScore, lastText.slice(0, 100));
     } catch (error: any) {
       console.error(error);
-      setMessages(messages);
-      if (syncMessages) syncMessages(messages);
-
       const isArabic = profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya';
+      // Preserve the user's message + show an inline error bubble — do NOT reset
+      // to the stale list (that wiped the whole chat on any failure).
+      const errMsg: Message = {
+        id: `assistant-err-${Date.now()}`,
+        role: 'assistant',
+        content: isArabic
+          ? '⚠️ حصلت مشكلة في الاتصال بالذكاء الاصطناعي. جرّب تاني 🙏'
+          : '⚠️ Something went wrong connecting to the AI. Please try again 🙏',
+        timestamp: new Date().toISOString(),
+      };
+      const recovered = [...newHistory, errMsg];
+      setMessages(recovered);
+      if (syncMessages) syncMessages(recovered);
+
       toast.error(
         isArabic
           ? `عذراً، حدث خطأ أثناء الاتصال بالخادم: ${error.message || 'يرجى مراجعة حالة الاتصال وإعادة المحاولة'}`
