@@ -5,6 +5,7 @@ import { User, Settings, GraduationCap, Accessibility, LifeBuoy, MessageSquare, 
 import { logout, db } from "../lib/firebase";
 import { deleteDoc, doc } from "firebase/firestore";
 import { getTranslation } from "../lib/translations";
+import { isAdminUser } from "../lib/roles";
 
 interface SidebarProps {
   profile: UserProfile;
@@ -60,11 +61,9 @@ export default function Sidebar({ profile, setProfile, currentView, setCurrentVi
     { id: 'planner', label: localize(profile.language, 'Planner', 'المخطّط'), icon: CalendarDays },
   ] as const;
 
-  const isAdmin = [
-    'pro.mahmoud.h@gmail.com', 'modyhashim2006@gmail.com', 'marwaneltaweel0@gmail.com',
-    'its.alkhateeb@gmail.com', 'esraahosni8@gmail.com', 'nermeenatefateffarouk@gmail.com',
-    'mariemsayedr33@gmail.com',
-  ].includes(profile.email?.toLowerCase() || '');
+  // Admins (incl. runtime-promoted) and super admins see the dashboard link;
+  // normal users never do.
+  const isAdmin = isAdminUser(profile);
 
   const academicIds = academicItems.map((i) => i.id) as readonly string[];
   const [academicsOpen, setAcademicsOpen] = useState(academicIds.includes(currentView));

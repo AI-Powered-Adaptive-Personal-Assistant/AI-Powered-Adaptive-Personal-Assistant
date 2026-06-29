@@ -3,35 +3,17 @@ import { UserProfile } from "../types";
 import { db, handleFirestoreError, OperationType } from "../lib/firebase";
 import { collection, onSnapshot, deleteDoc, doc, updateDoc } from "firebase/firestore";
 import { toast } from "./Toast";
+import {
+  SUPERADMIN_EMAILS, ADMIN_EMAILS, norm,
+  isSuperAdmin, isPermanentAdmin, isPermanent, isAdminUser,
+  canManageAdmins as canManageAdminsFor,
+} from "../lib/roles";
 import { Loader2, Users, Search, Activity, Menu, ShieldAlert, Mail, Trash2, Shield, ShieldCheck, Crown, UserPlus, UserMinus } from "lucide-react";
 
 interface AdminDashboardProps {
   profile: UserProfile;
   onMenuClick: () => void;
 }
-
-// ── Access tiers (defined in code so access can never be locked out) ──────────
-// Super Admins sit ABOVE admins: only they can promote/demote admins. Both
-// tiers are permanent (email-based) and can't be removed from the UI.
-const SUPERADMIN_EMAILS = [
-  'modyhashim2006@gmail.com',
-  'mariemsayedr33@gmail.com',
-  'pro.mahmoud.h@gmail.com',
-];
-const ADMIN_EMAILS = [
-  'marwaneltaweel0@gmail.com',
-  'its.alkhateeb@gmail.com',
-  'esraahosni8@gmail.com',
-  'nermeenatefateffarouk@gmail.com',
-];
-
-const norm = (email?: string) => (email || '').toLowerCase();
-const isSuperAdmin = (email?: string) => SUPERADMIN_EMAILS.includes(norm(email));
-const isPermanentAdmin = (email?: string) => ADMIN_EMAILS.includes(norm(email));
-/** Permanent (email-based) admins can't be demoted from the UI. */
-const isPermanent = (email?: string) => isSuperAdmin(email) || isPermanentAdmin(email);
-/** A user is an admin if they're a permanent admin/superadmin OR were promoted. */
-const isAdminUser = (u: Partial<UserProfile>) => isPermanent(u.email) || u.isAdmin === true;
 
 export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardProps) {
   const [users, setUsers] = useState<UserProfile[]>([]);
@@ -41,7 +23,7 @@ export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardP
 
   const isAdmin = isAdminUser(profile);
   // Only super admins can grant/revoke admin rights.
-  const canManageAdmins = isSuperAdmin(profile.email);
+  const canManageAdmins = canManageAdminsFor(profile);
 
   useEffect(() => {
     if (!isAdmin) return;
