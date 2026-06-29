@@ -41,6 +41,12 @@ function providerFor(key: string): { url: string; model: string } {
   return { url: "https://api.groq.com/openai/v1/chat/completions", model: "llama-3.3-70b-versatile" };
 }
 
+// This is a static (no-backend) deployment: the /api/* routes don't exist and
+// return 405. Default to NOT calling the backend at all — go straight to the
+// direct Gemini/Groq path. (If you ever deploy the Express backend, set this to
+// null to auto-detect it instead.)
+let backendUp: boolean | null = false;
+
 /** Compact adaptive system prompt (shared by the Groq fallback). */
 function buildPersona(profile: UserProfile): string {
   return `You are Cognify, an adaptive AI mentor. Answer the most correct, useful answer calibrated to THIS user.
@@ -146,31 +152,63 @@ export async function generateBenchmarkComparison(
   userMessage: string,
   profile: UserProfile
 ): Promise<string> {
-  try {
-    const res = await fetch('/api/gemini/generateBenchmarkComparison', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ originalMessage, userMessage, profile })
-    });
-    const isHtml = res.headers.get('Content-Type')?.includes('text/html');
-    if (!res.ok || isHtml) {
-      if (!isHtml && res.status === 503) {
-        toast.warning(
-          profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya'
-            ? "خادم التقييمات مجهد حاليا (503). يتعذر إنشاء مقارنة النماذج."
-            : "Benchmark server overloaded (503). Unable to generate model comparison.",
-          profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya' ? "الخدمة مشغولة" : "Assessments Overloaded"
-        );
+  const isAr = profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya';
+  const prompt = `You are an evaluation assistant. Compare two answers to the same question and explain, briefly and concretely, how they differ in correctness, depth and clarity for a ${profile.level} ${profile.field} learner.
+
+Question / original answer:
+${originalMessage}
+
+Alternative answer:
+${userMessage}
+
+Write a short markdown comparison (bullets are fine) in ${profile.language || 'English'}. Be specific; no preamble.`;
+
+  // 1) Optional backend (skipped on static deploys where backendUp === false).
+  if (backendUp !== false) {
+    try {
+      const res = await fetch('/api/gemini/generateBenchmarkComparison', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ originalMessage, userMessage, profile })
+      });
+      const isHtml = res.headers.get('Content-Type')?.includes('text/html');
+      if (res.ok && !isHtml) {
+        const data = await res.json();
+        if (data.result) return data.result;
       }
-      return `### System Fallback (Static Web Warning)
-The benchmark feature requires the Express backend which is not running in this static deployment. 
-To use benchmarks, please visit our official full-stack deployment URL on Cloud Run or set up a server backend.`;
-    }
-    const data = await res.json();
-    return data.result;
-  } catch (err: any) {
-    return `Error generating comparison: ${err.message}`;
+    } catch { /* fall through to direct providers */ }
   }
+
+  // 2) Direct Gemini (static hosting).
+  const apiKey = geminiPrimaryKey();
+  if (apiKey) {
+    try {
+      const response = await fetchGeminiWithRetry(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${apiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: prompt }] }] }),
+        },
+      );
+      if (response.ok) {
+        const d = await response.json();
+        const txt = d.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (txt) return txt;
+      }
+    } catch { /* fall through to Groq */ }
+  }
+
+  // 3) Groq fallback.
+  const groqKey = groqPrimaryKey();
+  if (groqKey) {
+    const txt = await groqChat([{ role: 'user', content: prompt }], groqKey);
+    if (txt) return txt;
+  }
+
+  return isAr
+    ? '⚠️ تعذّر إنشاء المقارنة الآن. جرّب تاني بعد لحظات.'
+    : '⚠️ Couldn’t generate the comparison right now. Please try again in a moment.';
 }
 
 export async function generateProactiveInsights(
@@ -185,19 +223,21 @@ export async function generateProactiveInsights(
     .join('\n');
   const prompt = `Based on this learner (level: ${profile.level}, field: ${profile.field}, role: ${profile.role}) and their recent conversation, give 2-4 SHORT, specific, encouraging proactive study insights to help them grow. Write in ${profile.language || 'English'}. Each line starts with "* ". No preamble.\n\nRecent conversation:\n${recent || '(none yet)'}`;
 
-  // 1) Backend (if available)
-  try {
-    const res = await fetch('/api/gemini/generateProactiveInsights', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ profile, recentMessages })
-    });
-    const isHtml = res.headers.get('Content-Type')?.includes('text/html');
-    if (res.ok && !isHtml) {
-      const data = await res.json();
-      if (data.result) return data.result;
-    }
-  } catch { /* fall through */ }
+  // 1) Backend (only if this build actually has one — static deploys skip it)
+  if (backendUp !== false) {
+    try {
+      const res = await fetch('/api/gemini/generateProactiveInsights', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ profile, recentMessages })
+      });
+      const isHtml = res.headers.get('Content-Type')?.includes('text/html');
+      if (res.ok && !isHtml) {
+        const data = await res.json();
+        if (data.result) return data.result;
+      }
+    } catch { /* fall through */ }
+  }
 
   // 2) Direct Gemini (static hosting)
   const apiKey = geminiPrimaryKey();
@@ -257,6 +297,43 @@ export async function generateLogicResponse(
   moduleName: string,
   history: { role: 'user' | 'model', parts: { text: string }[] }[] = []
 ): Promise<string> {
+  const isAr = profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya';
+
+  // Direct (no-backend) path: Gemini → Groq. Used when there's no backend, and
+  // as the fallback when a backend request fails.
+  const direct = async (): Promise<string> => {
+    let text = "";
+    const apiKey = geminiPrimaryKey();
+    if (apiKey) {
+      try {
+        const prompt = `You are a Logic Tutor on ${moduleName}.\nUser Profile: ${JSON.stringify(profile)}\nUser: ${message}`;
+        const response = await fetchGeminiWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${apiKey}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: prompt }] }] })
+        });
+        if (response.ok) {
+          const d = await response.json();
+          text = d.candidates?.[0]?.content?.parts?.[0]?.text || "";
+        }
+      } catch { /* fall through to Groq */ }
+    }
+    if (!text) {
+      const groqKey = groqPrimaryKey();
+      if (groqKey) {
+        text = await groqChat([
+          { role: "system", content: `You are a Logic Tutor for the "${moduleName}" module. ${buildPersona(profile)}` },
+          { role: "user", content: message },
+        ], groqKey);
+      }
+    }
+    return text || (isAr
+      ? "⚠️ الذكاء مشغول دلوقتي بسبب الضغط. جرّب كمان شوية 🙏"
+      : "⚠️ The AI is busy right now. Please try again in a moment 🙏");
+  };
+
+  if (backendUp === false) return direct();
+
   try {
     const res = await fetch('/api/gemini/generateLogicResponse', {
       method: 'POST',
@@ -264,48 +341,14 @@ export async function generateLogicResponse(
       body: JSON.stringify({ message, profile, moduleName, history })
     });
     const isHtml = res.headers.get('Content-Type')?.includes('text/html');
-    const isAr = profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya';
     if (!res.ok || isHtml) {
-      let text = "";
-      const apiKey = geminiPrimaryKey();
-      if (apiKey) {
-        try {
-          const prompt = `You are a Logic Tutor on ${moduleName}.\nUser Profile: ${JSON.stringify(profile)}\nUser: ${message}`;
-          const response = await fetchGeminiWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${apiKey}`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              contents: [{ role: "user", parts: [{ text: prompt }] }]
-            })
-          });
-          if (response.ok) {
-            const d = await response.json();
-            text = d.candidates?.[0]?.content?.parts?.[0]?.text || "";
-          }
-        } catch { /* fall through to Groq */ }
-      }
-      // Fallback to Groq if Gemini failed/returned nothing.
-      if (!text) {
-        const groqKey = groqPrimaryKey();
-        if (groqKey) {
-          text = await groqChat([
-            { role: "system", content: `You are a Logic Tutor for the "${moduleName}" module. ${buildPersona(profile)}` },
-            { role: "user", content: message },
-          ], groqKey);
-        }
-      }
-      if (text) return text;
-      return isAr
-        ? "⚠️ الذكاء مشغول دلوقتي بسبب الضغط. جرّب كمان شوية 🙏"
-        : "⚠️ The AI is busy right now. Please try again in a moment 🙏";
+      backendUp = false;
+      return direct();
     }
     const data = await res.json();
     return data.result;
-  } catch (err: any) {
-    const isAr = profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya';
-    return isAr
-      ? "⚠️ حصلت مشكلة في الاتصال. جرّب تاني 🙏"
-      : "⚠️ Connection issue — please try again 🙏";
+  } catch {
+    return direct();
   }
 }
 
@@ -477,11 +520,6 @@ ${otherThreadsSummary}
   yield { text: fullText, done: true };
 }
 
-// Static deploys (Vercel) have no Express backend, so /api/* returns 405.
-// We try the backend once; after the first failure we remember it and skip it —
-// no repeated 405s and no wasted round-trip before falling back to direct Gemini.
-let backendUp: boolean | null = null;
-
 export async function* generateAdaptiveResponseStream(
   message: string,
   profile: UserProfile,
@@ -620,6 +658,21 @@ export async function generateAdaptiveResponse(
   history: Message[],
   attachments: { name: string, type: string, data: string }[] = []
 ) {
+  const isAr = profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya';
+
+  // Direct (no-backend) path: stream from Gemini/Groq and collect the full text.
+  const direct = async (): Promise<string> => {
+    let text = "";
+    for await (const chunk of generateAdaptiveResponseStream(message, profile, history, attachments)) {
+      if (chunk.text) text = chunk.text;
+    }
+    return text || (isAr
+      ? "⚠️ الذكاء مشغول دلوقتي. جرّب تاني 🙏"
+      : "⚠️ The AI is busy right now. Please try again in a moment 🙏");
+  };
+
+  if (backendUp === false) return direct();
+
   try {
     const res = await fetch('/api/gemini/generateAdaptiveResponse', {
       method: 'POST',
@@ -628,20 +681,12 @@ export async function generateAdaptiveResponse(
     });
     const isHtml = res.headers.get('Content-Type')?.includes('text/html');
     if (!res.ok || isHtml) {
-      const apiKey = geminiPrimaryKey();
-      if (apiKey) {
-        let text = "";
-        const clientStream = generateAdaptiveResponseStreamClient(message, profile, history, attachments, apiKey);
-        for await (const chunk of clientStream) {
-          if (chunk.text) text = chunk.text;
-        }
-        return text;
-      }
-      return "Express Backend is not operational on this static host deployment. Go to full Cloud Run app environment.";
+      backendUp = false;
+      return direct();
     }
     const data = await res.json();
     return data.result;
-  } catch (err: any) {
-    return `Communication error: ${err.message}`;
+  } catch {
+    return direct();
   }
 }
