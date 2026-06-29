@@ -30,6 +30,8 @@ import {
   Activity,
   VolumeX,
   Volume2,
+  Maximize2,
+  Minimize2,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { Hands, Results, HAND_CONNECTIONS } from "@mediapipe/hands";
@@ -77,6 +79,8 @@ export default function AccessibilityOverlay({
   // Local in-browser ASL fingerspelling recognizer (TF.js); loaded on demand.
   const signClfRef = useRef<SignClassifier | null>(null);
   const [liveLetter, setLiveLetter] = useState("");
+  // Enlarge the camera preview to a big centered panel (toggle).
+  const [camExpanded, setCamExpanded] = useState(false);
 
   // Free the recognizer AND stop the camera + any speech when the overlay
   // unmounts — otherwise the webcam light stays on (privacy) and TTS bleeds
@@ -806,8 +810,16 @@ export default function AccessibilityOverlay({
             )}
 
             <div
-              className={`relative rounded-[32px] overflow-hidden shadow-2xl border-4 transition-all ${isVisionActive ? (isVisionAnalyzing ? "border-accent/20 scale-[1.02]" : "border-primary") : "border-border opacity-50"}`}
+              className={`overflow-hidden shadow-2xl border-4 transition-all ${camExpanded ? "fixed inset-3 sm:inset-8 z-[200] rounded-2xl bg-black" : "relative rounded-[32px]"} ${isVisionActive ? (isVisionAnalyzing ? "border-accent/20" : "border-primary") : "border-border opacity-50"}`}
             >
+              <button
+                onClick={() => setCamExpanded((v) => !v)}
+                className="absolute bottom-3 right-3 z-30 w-9 h-9 rounded-full bg-black/60 text-white flex items-center justify-center backdrop-blur-md hover:bg-black/80 transition-all"
+                title={camExpanded ? "Shrink camera" : "Enlarge camera"}
+                aria-label={camExpanded ? "Shrink camera" : "Enlarge camera"}
+              >
+                {camExpanded ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+              </button>
               <AnimatePresence>
                 {detectionConfidence > 0 && (
                   <motion.div
@@ -856,7 +868,7 @@ export default function AccessibilityOverlay({
                 ref={videoRef}
                 autoPlay
                 playsInline
-                className={`w-64 h-48 object-cover bg-slate-900 ${isVisionActive ? "opacity-100" : "opacity-20"}`}
+                className={`object-cover bg-slate-900 ${camExpanded ? "w-full h-full" : "w-72 h-56"} ${isVisionActive ? "opacity-100" : "opacity-20"}`}
               />
               <canvas
                 ref={canvasRef}
