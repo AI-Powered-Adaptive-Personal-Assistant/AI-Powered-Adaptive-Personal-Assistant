@@ -174,6 +174,11 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
 
   const [isLoading, setIsLoading] = useState(false);
   const stopRef = useRef(false);
+  // Guards against the live Firestore listener clobbering local state mid-turn:
+  // while we're sending (and briefly after), a lagging server snapshot of an
+  // EARLIER save could otherwise overwrite the freshly completed reply.
+  const isSendingRef = useRef(false);
+  const lastLocalWriteRef = useRef(0);
 
   // iOS soft-keyboard fix: bind the chat shell height to the visual viewport so
   // the composer stays above the keyboard instead of being hidden behind it.
@@ -417,6 +422,12 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
     const path = `users/${profile.uid}/threads/${profile.activeThreadId}`;
     
     const unsubscribe = onSnapshot(doc(db, path), (snapshot) => {
+      // Ignore our own un-acknowledged local writes (echoes) and any snapshot
+      // that lands while we're sending or just sent — local state is the source
+      // of truth during a turn, so a lagging server copy can't erase the reply.
+      if (snapshot.metadata.hasPendingWrites) return;
+      if (isSendingRef.current || Date.now() - lastLocalWriteRef.current < 2500) return;
+
       if (snapshot.exists() && snapshot.data().messages?.length > 0) {
         const data = snapshot.data();
         const incomingMessages = data.messages as Message[] || [];
@@ -620,6 +631,8 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
     setInput("");
     setIsLoading(true);
     stopRef.current = false;
+    isSendingRef.current = true;
+    lastLocalWriteRef.current = Date.now();
     setStreamingText("");
     const attachmentsToSubmit = [...finalAttachments];
     if (!overrideAttachments) setSelectedFiles([]);
@@ -710,6 +723,10 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
     } finally {
       setIsLoading(false);
       setStreamingText("");
+      // Mark the end of the turn and start the post-write cooldown so a lagging
+      // server snapshot can't overwrite the just-saved reply.
+      lastLocalWriteRef.current = Date.now();
+      isSendingRef.current = false;
     }
   };
 
@@ -747,6 +764,7 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
 
     const threadPath = `users/${profile.uid}/threads/${profile.activeThreadId}`;
     const historyToSave = cleanMessagesForFirestore(updatedMessages);
+    lastLocalWriteRef.current = Date.now();
     setDoc(doc(db, threadPath), { messages: historyToSave }, { merge: true }).catch(err => {
         handleFirestoreError(err, OperationType.UPDATE, threadPath);
     });
@@ -767,6 +785,7 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
 
     const threadPath = `users/${profile.uid}/threads/${profile.activeThreadId}`;
     const historyToSave = cleanMessagesForFirestore(updatedMessages);
+    lastLocalWriteRef.current = Date.now();
     setDoc(doc(db, threadPath), { messages: historyToSave }, { merge: true }).catch(err => {
         handleFirestoreError(err, OperationType.UPDATE, threadPath);
     });
