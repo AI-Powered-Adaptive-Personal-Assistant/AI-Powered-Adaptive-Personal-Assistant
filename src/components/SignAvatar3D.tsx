@@ -246,6 +246,7 @@ interface Rig {
   elbow: THREE.Vector3;
   rings: THREE.Mesh[];
   chestCore: THREE.Mesh;
+  leftHand: THREE.Group; // static resting hand (subtle idle sway)
 }
 
 const CURL_MAX = [1.45, 1.55, 1.05]; // per joint
@@ -438,7 +439,7 @@ function buildRig(scene: THREE.Scene): Rig {
   ring2.position.y = 0.55;
   root.add(ring1, ring2);
 
-  return { root, handRoot, wrist, fingers, thumbBase, head, forearm, elbow, rings: [ring1, ring2], chestCore };
+  return { root, handRoot, wrist, fingers, thumbBase, head, forearm, elbow, rings: [ring1, ring2], chestCore, leftHand };
 }
 
 /* ------------------------------------------------------------------ */
@@ -613,6 +614,9 @@ export default function SignAvatar3D({ words, playing, onProgress, onDone, class
       rig.rings[1].rotation.z -= dt * 0.25;
       const pulse = 1.1 + Math.sin(now / 500) * 0.35;
       (rig.chestCore.material as THREE.MeshStandardMaterial).emissiveIntensity = pulse;
+      // gentle idle sway on the resting left hand so it reads as alive
+      rig.leftHand.rotation.z = -0.12 + Math.sin(now / 1800) * 0.045;
+      rig.leftHand.rotation.x = (Math.PI - 0.45) + Math.sin(now / 2200) * 0.03;
 
       renderer.render(scene, camera);
     };
