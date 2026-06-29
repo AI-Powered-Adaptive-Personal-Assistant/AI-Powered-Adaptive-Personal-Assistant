@@ -472,12 +472,27 @@ ${otherThreadsSummary}
   yield { text: fullText, done: true };
 }
 
+// Static deploys (Vercel) have no Express backend, so /api/* returns 405.
+// We try the backend once; after the first failure we remember it and skip it —
+// no repeated 405s and no wasted round-trip before falling back to direct Gemini.
+let backendUp: boolean | null = null;
+
 export async function* generateAdaptiveResponseStream(
   message: string,
   profile: UserProfile,
   history: Message[],
   attachments: { name: string, type: string, data: string }[] = []
 ) {
+  // Once we know there's no backend, go straight to the direct path.
+  if (backendUp === false) {
+    const apiKey = geminiPrimaryKey();
+    if (apiKey) { yield* generateAdaptiveResponseStreamClient(message, profile, history, attachments, apiKey); return; }
+    const groqKey = groqPrimaryKey();
+    if (groqKey) { yield* generateGroqStream(message, profile, history, groqKey); return; }
+    const ar = profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya';
+    yield { text: ar ? '⚠️ مفيش مفتاح ذكاء اصطناعي متفعّل.' : '⚠️ No AI key configured.', done: true, error: true };
+    return;
+  }
   try {
     const res = await fetch('/api/gemini/generateAdaptiveResponseStream', {
       method: 'POST',
@@ -488,6 +503,7 @@ export async function* generateAdaptiveResponseStream(
     const isHtml = res.headers.get('Content-Type')?.includes('text/html') || false;
 
     if (!res.ok || isHtml) {
+      backendUp = false; // remember: skip the backend next time
       const apiKey = geminiPrimaryKey();
       if (apiKey) {
         yield* generateAdaptiveResponseStreamClient(message, profile, history, attachments, apiKey);
@@ -554,6 +570,8 @@ To experience Cognify's full-stack features, please use our fully integrated **C
       yield { text: "Couldn't connect to the AI. Please try again.", done: true, error: true };
       return;
     }
+
+    backendUp = true; // backend is real — keep using it
 
     const reader = res.body.getReader();
     const decoder = new TextDecoder("utf-8");
