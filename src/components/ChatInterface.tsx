@@ -1346,6 +1346,9 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
                 <form onSubmit={handleAddTask} className="flex gap-2">
                   <input
                     type="text"
+                    id="new-task"
+                    name="new-task"
+                    aria-label="New task"
                     value={newTaskInput}
                     onChange={(e) => setNewTaskInput(e.target.value)}
                     placeholder="New task..."
@@ -1455,8 +1458,11 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
           </AnimatePresence>
           
           <form onSubmit={handleSubmit} className="relative group">
-            <input 
-              type="file" 
+            <input
+              type="file"
+              id="chat-file-upload"
+              name="chat-file-upload"
+              aria-label="Attach files"
               ref={fileInputRef}
               onChange={handleFileChange}
               className="hidden"
@@ -1494,6 +1500,9 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
               </div>
 
               <textarea
+                id="chat-composer"
+                name="chat-composer"
+                aria-label={getTranslation(profile.language, 'typeMessage')}
                 rows={1}
                 value={input + (interimTranscript ? (input ? " " : "") + interimTranscript : "")}
                 onChange={(e) => setInput(e.target.value)}
