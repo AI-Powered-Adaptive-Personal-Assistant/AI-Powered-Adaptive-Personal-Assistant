@@ -66,18 +66,23 @@ async function* generateGroqStream(
   ];
 
   const { url, model } = providerFor(apiKey);
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({
-      model,
-      messages,
-      temperature: 0.7,
-      stream: true,
-    }),
-  });
+  // Try the primary model, then a known-good backup (Groq occasionally retires
+  // models -> 400/404). Log the real reason so failures are debuggable.
+  const models = url.includes("groq.com") ? [model, "llama-3.1-8b-instant", "llama-3.1-70b-versatile"] : [model];
+  let res: Response | null = null;
+  for (const m of models) {
+    const r = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({ model: m, messages, temperature: 0.7, stream: true }),
+    });
+    if (r.ok && r.body) { res = r; break; }
+    const errText = await r.text().catch(() => "");
+    console.error(`Fallback provider model "${m}" failed (${r.status}):`, errText.slice(0, 300));
+    if (r.status === 401 || r.status === 403) break; // bad key — no point trying other models
+  }
 
-  if (!res.ok || !res.body) {
+  if (!res || !res.body) {
     yield { text: "⚠️ AI is busy right now. Please try again in a moment.", done: true, error: true };
     return;
   }
