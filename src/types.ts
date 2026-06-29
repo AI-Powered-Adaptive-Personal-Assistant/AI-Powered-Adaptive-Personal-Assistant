@@ -72,6 +72,9 @@ export interface UserProfile {
   activeThreadId?: string;
   tasks?: Task[];
   lastActiveDate?: string;
+  // Granted via the Admin Dashboard. Permanent "owner" admins are defined by
+  // email in the code; this flag is for admins promoted at runtime.
+  isAdmin?: boolean;
 }
 
 // ─── PATCH: Add these types to src/types.ts ───────────────────────────────────

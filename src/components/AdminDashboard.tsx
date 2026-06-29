@@ -1,28 +1,39 @@
 import { useState, useEffect } from "react";
 import { UserProfile } from "../types";
 import { db, handleFirestoreError, OperationType } from "../lib/firebase";
-import { collection, onSnapshot, query, orderBy, deleteDoc, doc } from "firebase/firestore";
-import { Loader2, Users, Search, Activity, Menu, ShieldAlert, Mail, Trash2 } from "lucide-react";
+import { collection, onSnapshot, deleteDoc, doc, updateDoc } from "firebase/firestore";
+import { toast } from "./Toast";
+import { Loader2, Users, Search, Activity, Menu, ShieldAlert, Mail, Trash2, Shield, ShieldCheck, Crown, UserPlus, UserMinus } from "lucide-react";
 
 interface AdminDashboardProps {
   profile: UserProfile;
   onMenuClick: () => void;
 }
 
+// Permanent "owner" admins — defined here in code so admin access can never be
+// fully locked out by mistake. These can promote/demote others but can't be
+// demoted from the UI.
+const OWNER_EMAILS = [
+  'pro.mahmoud.h@gmail.com',
+  'modyhashim2006@gmail.com',
+  'marwaneltaweel0@gmail.com',
+  'its.alkhateeb@gmail.com',
+  'esraahosni8@gmail.com',
+  'nermeenatefateffarouk@gmail.com',
+  'mariemsayedr33@gmail.com',
+];
+
+const isOwner = (email?: string) => OWNER_EMAILS.includes((email || '').toLowerCase());
+/** A user is an admin if they're a permanent owner OR were promoted (isAdmin). */
+const isAdminUser = (u: Partial<UserProfile>) => isOwner(u.email) || u.isAdmin === true;
+
 export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardProps) {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [busyUid, setBusyUid] = useState<string | null>(null);
 
-  const isAdmin = [
-    'pro.mahmoud.h@gmail.com', 
-    'modyhashim2006@gmail.com',
-    'marwaneltaweel0@gmail.com',
-    'its.alkhateeb@gmail.com',
-    'esraahosni8@gmail.com',
-    'nermeenatefateffarouk@gmail.com',
-    'mariemsayedr33@gmail.com'
-  ].includes(profile.email?.toLowerCase() || '');
+  const isAdmin = isAdminUser(profile);
 
   useEffect(() => {
     if (!isAdmin) return;
@@ -96,6 +107,23 @@ export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardP
     }
   };
 
+  const handleToggleAdmin = async (u: UserProfile, makeAdmin: boolean) => {
+    if (isOwner(u.email)) return; // owners are permanent — can't be changed here
+    const label = u.name || u.email;
+    if (!window.confirm(makeAdmin
+      ? `Make "${label}" an admin? They will get full access to this dashboard.`
+      : `Remove admin access from "${label}"?`)) return;
+    setBusyUid(u.uid);
+    try {
+      await updateDoc(doc(db, "users", u.uid), { isAdmin: makeAdmin });
+      toast.success(makeAdmin ? `${label} is now an admin.` : `${label} is no longer an admin.`, "Admins updated");
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, "users");
+    } finally {
+      setBusyUid(null);
+    }
+  };
+
   if (!isAdmin) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center bg-bg-main relative p-6">
@@ -106,10 +134,21 @@ export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardP
     );
   }
 
-  const filteredUsers = users.filter(u => 
-    u.email.toLowerCase().includes(searchTerm.toLowerCase()) || 
+  const filteredUsers = users.filter(u =>
+    u.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (u.name && u.name.toLowerCase().includes(searchTerm.toLowerCase()))
   );
+
+  // The team of admins: permanent owners always shown (even if they haven't
+  // signed in yet), plus anyone promoted via this dashboard.
+  const adminUsers = users.filter(isAdminUser);
+  const knownAdminEmails = new Set(adminUsers.map(u => (u.email || '').toLowerCase()));
+  const owners = [
+    ...adminUsers.filter(u => isOwner(u.email)),
+    // owners who don't have a user doc yet — show them as pending so the team is complete
+    ...OWNER_EMAILS.filter(e => !knownAdminEmails.has(e)).map(e => ({ uid: `owner-${e}`, email: e, name: '' } as UserProfile)),
+  ];
+  const promotedAdmins = adminUsers.filter(u => !isOwner(u.email));
 
   const formatDate = (isoString?: string) => {
     if (!isoString) return "Never";
@@ -146,9 +185,58 @@ export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardP
 
       <div className="flex-1 overflow-y-auto p-6 md:p-10">
         <div className="max-w-7xl mx-auto space-y-6">
+          {/* ── Administrators team ─────────────────────────────────────── */}
+          <section className="bg-bg-card border border-border shadow-sm rounded-3xl p-5 md:p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2.5 bg-primary-soft rounded-xl">
+                <ShieldCheck className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <h3 className="text-base font-black text-text-main uppercase tracking-tight leading-none">Administrators</h3>
+                <p className="text-[11px] font-bold text-text-muted tracking-widest uppercase mt-1">
+                  {owners.length + promotedAdmins.length} admin{owners.length + promotedAdmins.length === 1 ? '' : 's'} · you can promote anyone below
+                </p>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {[...owners, ...promotedAdmins].map((a) => {
+                const owner = isOwner(a.email);
+                const isMe = (a.email || '').toLowerCase() === (profile.email || '').toLowerCase();
+                return (
+                  <div key={a.uid} className="flex items-center gap-3 p-3 rounded-2xl border border-border bg-bg-main">
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 font-black text-sm ${owner ? 'bg-amber-500/15 text-amber-500' : 'bg-primary-soft text-primary'}`}>
+                      {(a.name || a.email || '?').charAt(0).toUpperCase()}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-bold text-text-main text-sm truncate">{a.name || a.email?.split('@')[0]}</span>
+                        {isMe && <span className="text-[9px] font-black text-text-muted uppercase">(you)</span>}
+                      </div>
+                      <div className="text-[11px] text-text-muted truncate" title={a.email}>{a.email}</div>
+                    </div>
+                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest shrink-0 ${owner ? 'bg-amber-500/15 text-amber-500' : 'bg-primary-soft text-primary'}`}>
+                      {owner ? <Crown className="w-3 h-3" /> : <Shield className="w-3 h-3" />}
+                      {owner ? 'Owner' : 'Admin'}
+                    </span>
+                    {!owner && (
+                      <button
+                        onClick={() => handleToggleAdmin(a, false)}
+                        disabled={busyUid === a.uid}
+                        title="Remove admin access"
+                        className="p-1.5 rounded-lg text-danger hover:bg-danger-soft transition-colors disabled:opacity-50 shrink-0"
+                      >
+                        {busyUid === a.uid ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserMinus className="w-4 h-4" />}
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+
           <div className="relative w-full max-w-md">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-faint" />
-            <input 
+            <input
               type="text"
               placeholder="Search users by email or name..."
               value={searchTerm}
@@ -198,7 +286,28 @@ export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardP
                          <td className="p-4 text-xs text-text-muted truncate max-w-[200px]" title={u.email}>{u.email}</td>
                          <td className="p-4 text-right">
                            <div className="flex items-center justify-end gap-2">
-                             <a 
+                             {isOwner(u.email) ? (
+                               <span className="inline-flex items-center gap-1 px-3 py-1.5 bg-amber-500/15 text-amber-500 text-[10px] font-bold uppercase tracking-widest rounded-lg">
+                                 <Crown className="w-3 h-3" /> Owner
+                               </span>
+                             ) : u.isAdmin ? (
+                               <button
+                                 onClick={() => handleToggleAdmin(u, false)}
+                                 disabled={busyUid === u.uid}
+                                 className="inline-flex items-center gap-2 px-3 py-1.5 bg-primary-soft hover:bg-primary/20 text-primary text-[10px] font-bold uppercase tracking-widest rounded-lg transition-colors disabled:opacity-50"
+                               >
+                                 {busyUid === u.uid ? <Loader2 className="w-3 h-3 animate-spin" /> : <UserMinus className="w-3 h-3" />} Remove Admin
+                               </button>
+                             ) : (
+                               <button
+                                 onClick={() => handleToggleAdmin(u, true)}
+                                 disabled={busyUid === u.uid}
+                                 className="inline-flex items-center gap-2 px-3 py-1.5 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-colors disabled:opacity-50"
+                               >
+                                 {busyUid === u.uid ? <Loader2 className="w-3 h-3 animate-spin" /> : <UserPlus className="w-3 h-3" />} Make Admin
+                               </button>
+                             )}
+                             <a
                                href={`mailto:${u.email}?subject=Message from Cognify Admin`}
                                className="inline-flex items-center gap-2 px-3 py-1.5 bg-slate-900 hover:bg-black text-white text-[10px] font-bold uppercase tracking-widest rounded-lg transition-colors"
                              >
