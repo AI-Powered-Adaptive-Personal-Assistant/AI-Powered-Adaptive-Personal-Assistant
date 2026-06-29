@@ -110,28 +110,33 @@ async function* generateGroqStream(
   const decoder = new TextDecoder("utf-8");
   let buffer = "";
   let fullText = "";
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split("\n");
-    buffer = lines.pop() || "";
-    for (const line of lines) {
-      const t = line.trim();
-      if (!t.startsWith("data:")) continue;
-      const payload = t.slice(5).trim();
-      if (payload === "[DONE]") continue;
-      try {
-        const json = JSON.parse(payload);
-        const chunk = json.choices?.[0]?.delta?.content || "";
-        if (chunk) {
-          fullText += chunk;
-          yield { text: fullText, done: false };
+  // Keep partial text if the stream is interrupted, instead of throwing.
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() || "";
+      for (const line of lines) {
+        const t = line.trim();
+        if (!t.startsWith("data:")) continue;
+        const payload = t.slice(5).trim();
+        if (payload === "[DONE]") continue;
+        try {
+          const json = JSON.parse(payload);
+          const chunk = json.choices?.[0]?.delta?.content || "";
+          if (chunk) {
+            fullText += chunk;
+            yield { text: fullText, done: false };
+          }
+        } catch {
+          /* ignore partial json */
         }
-      } catch {
-        /* ignore partial json */
       }
     }
+  } catch (e) {
+    console.error('Fallback stream interrupted — keeping partial text:', e);
   }
   yield { text: fullText, done: true };
 }
@@ -517,28 +522,34 @@ ${otherThreadsSummary}
   let buffer = '';
   let fullText = '';
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
+  // If the network drops mid-stream, DON'T throw (that would discard everything
+  // already written). Keep what we have and finalize it gracefully.
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
 
-    const lines = buffer.split('\n');
-    buffer = lines.pop() || '';
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
 
-    for (const line of lines) {
-      if (line.startsWith('data: ')) {
-        try {
-          const data = JSON.parse(line.substring(6));
-          const chunkText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-          if (chunkText) {
-            fullText += chunkText;
-            yield { text: fullText, done: false };
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          try {
+            const data = JSON.parse(line.substring(6));
+            const chunkText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+            if (chunkText) {
+              fullText += chunkText;
+              yield { text: fullText, done: false };
+            }
+          } catch (e) {
+            // ignore parsing streams error
           }
-        } catch (e) {
-          // ignore parsing streams error
         }
       }
     }
+  } catch (e) {
+    console.error('Gemini stream interrupted — keeping partial text:', e);
   }
 
   yield { text: fullText, done: true };

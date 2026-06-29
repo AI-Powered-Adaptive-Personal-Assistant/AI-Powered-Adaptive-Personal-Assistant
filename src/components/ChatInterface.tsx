@@ -624,11 +624,12 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
     const attachmentsToSubmit = [...finalAttachments];
     if (!overrideAttachments) setSelectedFiles([]);
 
+    // Hoisted so the catch block can still recover whatever streamed before an
+    // error — never discard text the user already saw being written.
+    let lastText = "";
+    let streamedAttachments: any[] = [];
     try {
       const stream = generateAdaptiveResponseStream(submittedMessage, profile, newHistory, attachmentsToSubmit);
-
-      let lastText = "";
-      let finalAttachments: any[] = [];
 
       for await (const chunk of stream) {
         if (stopRef.current) break; // user pressed Stop — keep what's generated so far
@@ -637,7 +638,7 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
           setStreamingText(lastText);
         }
         if (chunk.attachments) {
-          finalAttachments = chunk.attachments;
+          streamedAttachments = chunk.attachments;
         }
       }
 
@@ -651,9 +652,9 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
           ? '⚠️ الذكاء الاصطناعي مشغول دلوقتي. جرّب تاني بعد لحظات 🙏'
           : '⚠️ The AI is busy right now. Please try again in a moment 🙏'),
         timestamp: new Date().toISOString(),
-        attachments: finalAttachments
+        attachments: streamedAttachments
       };
-      
+
       const updatedHistory = [...newHistory, assistantMessage];
       setMessages(updatedHistory);
       setStreamingText("");
@@ -676,15 +677,18 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
     } catch (error: any) {
       console.error(error);
       const isArabic = profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya';
-      // Preserve the user's message + show an inline error bubble — do NOT reset
-      // to the stale list (that wiped the whole chat on any failure).
+      // Preserve the user's message. If the model already streamed some text,
+      // KEEP it (just flag that it was cut off) instead of throwing it away.
       const errMsg: Message = {
         id: `assistant-err-${Date.now()}`,
         role: 'assistant',
-        content: isArabic
-          ? '⚠️ حصلت مشكلة في الاتصال بالذكاء الاصطناعي. جرّب تاني 🙏'
-          : '⚠️ Something went wrong connecting to the AI. Please try again 🙏',
+        content: lastText
+          ? lastText + (isArabic ? '\n\n⚠️ (الرد اتقطع قبل ما يكمل)' : '\n\n⚠️ (response was cut off)')
+          : (isArabic
+            ? '⚠️ حصلت مشكلة في الاتصال بالذكاء الاصطناعي. جرّب تاني 🙏'
+            : '⚠️ Something went wrong connecting to the AI. Please try again 🙏'),
         timestamp: new Date().toISOString(),
+        attachments: streamedAttachments,
       };
       const recovered = [...newHistory, errMsg];
       setMessages(recovered);
