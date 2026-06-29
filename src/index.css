@@ -137,3 +137,9 @@
 }
 
 
+
+/* Splash screen animations */
+@keyframes splashPop { from { opacity:0; transform: scale(.7); } to { opacity:1; transform:none; } }
+.splash-pop { animation: splashPop .5s cubic-bezier(.2,.7,.2,1) both; }
+@keyframes splashDot { 0%,100%{ opacity:.25; } 50%{ opacity:1; } }
+.splash-dot { animation: splashDot 1.2s ease-in-out infinite; }

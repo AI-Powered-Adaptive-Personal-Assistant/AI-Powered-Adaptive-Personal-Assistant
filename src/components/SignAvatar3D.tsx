@@ -329,17 +329,17 @@ function buildRig(scene: THREE.Scene): Rig {
   shoulderL.position.x = -0.3;
   root.add(shoulderR, shoulderL);
 
-  const leftArm = new THREE.Mesh(new THREE.CapsuleGeometry(0.05, 0.34, 4, 12), bodyMat);
-  leftArm.position.set(-0.33, 0.98, 0.02);
-  leftArm.rotation.z = 0.12;
+  const leftArm = new THREE.Mesh(new THREE.CapsuleGeometry(0.052, 0.32, 4, 12), bodyMat);
+  leftArm.position.set(-0.34, 0.99, 0.10);
+  leftArm.rotation.set(0.32, 0, 0.12); // angled forward so the hand sits in view
   root.add(leftArm);
 
   /* ---- left hand (static, relaxed rest pose — natural two-handed look) ---- */
   const leftHand = new THREE.Group();
-  leftHand.position.set(-0.36, 0.78, 0.04);
-  leftHand.rotation.set(Math.PI, 0, -0.1); // fingers hang downward, palm toward body
+  leftHand.position.set(-0.34, 0.82, 0.24); // forward + clearly visible beside the body
+  leftHand.rotation.set(Math.PI - 0.45, 0, -0.12); // hangs down, tilted toward camera
   root.add(leftHand);
-  const lPalm = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.17, 0.05), skinMat);
+  const lPalm = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.19, 0.055), skinMat);
   lPalm.position.y = 0.05;
   leftHand.add(lPalm);
   const lCuff = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.055, 0.06, 14), bodyMat);

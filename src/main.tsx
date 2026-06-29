@@ -3,6 +3,7 @@ import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
 import ErrorBoundary from './components/ErrorBoundary.tsx';
 import {toast} from './components/Toast';
+import SplashScreen from './components/SplashScreen';
 import './index.css';
 
 // Real error tracking — lazy-loaded so it never bloats the initial bundle, and
@@ -58,5 +59,6 @@ createRoot(document.getElementById('root')!).render(
     <ErrorBoundary>
       <App />
     </ErrorBoundary>
+    <SplashScreen />
   </StrictMode>,
 );
