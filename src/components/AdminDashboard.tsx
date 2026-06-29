@@ -10,22 +10,28 @@ interface AdminDashboardProps {
   onMenuClick: () => void;
 }
 
-// Permanent "owner" admins — defined here in code so admin access can never be
-// fully locked out by mistake. These can promote/demote others but can't be
-// demoted from the UI.
-const OWNER_EMAILS = [
-  'pro.mahmoud.h@gmail.com',
+// ── Access tiers (defined in code so access can never be locked out) ──────────
+// Super Admins sit ABOVE admins: only they can promote/demote admins. Both
+// tiers are permanent (email-based) and can't be removed from the UI.
+const SUPERADMIN_EMAILS = [
   'modyhashim2006@gmail.com',
+  'mariemsayedr33@gmail.com',
+  'pro.mahmoud.h@gmail.com',
+];
+const ADMIN_EMAILS = [
   'marwaneltaweel0@gmail.com',
   'its.alkhateeb@gmail.com',
   'esraahosni8@gmail.com',
   'nermeenatefateffarouk@gmail.com',
-  'mariemsayedr33@gmail.com',
 ];
 
-const isOwner = (email?: string) => OWNER_EMAILS.includes((email || '').toLowerCase());
-/** A user is an admin if they're a permanent owner OR were promoted (isAdmin). */
-const isAdminUser = (u: Partial<UserProfile>) => isOwner(u.email) || u.isAdmin === true;
+const norm = (email?: string) => (email || '').toLowerCase();
+const isSuperAdmin = (email?: string) => SUPERADMIN_EMAILS.includes(norm(email));
+const isPermanentAdmin = (email?: string) => ADMIN_EMAILS.includes(norm(email));
+/** Permanent (email-based) admins can't be demoted from the UI. */
+const isPermanent = (email?: string) => isSuperAdmin(email) || isPermanentAdmin(email);
+/** A user is an admin if they're a permanent admin/superadmin OR were promoted. */
+const isAdminUser = (u: Partial<UserProfile>) => isPermanent(u.email) || u.isAdmin === true;
 
 export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardProps) {
   const [users, setUsers] = useState<UserProfile[]>([]);
@@ -34,6 +40,8 @@ export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardP
   const [busyUid, setBusyUid] = useState<string | null>(null);
 
   const isAdmin = isAdminUser(profile);
+  // Only super admins can grant/revoke admin rights.
+  const canManageAdmins = isSuperAdmin(profile.email);
 
   useEffect(() => {
     if (!isAdmin) return;
@@ -108,7 +116,8 @@ export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardP
   };
 
   const handleToggleAdmin = async (u: UserProfile, makeAdmin: boolean) => {
-    if (isOwner(u.email)) return; // owners are permanent — can't be changed here
+    if (!canManageAdmins) return; // only super admins can change admin rights
+    if (isPermanent(u.email)) return; // permanent admins/superadmins can't be changed here
     const label = u.name || u.email;
     if (!window.confirm(makeAdmin
       ? `Make "${label}" an admin? They will get full access to this dashboard.`
@@ -139,16 +148,23 @@ export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardP
     (u.name && u.name.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
-  // The team of admins: permanent owners always shown (even if they haven't
-  // signed in yet), plus anyone promoted via this dashboard.
+  // The team, grouped by tier. Permanent members are always shown (even if they
+  // haven't signed in yet), plus anyone promoted via this dashboard.
   const adminUsers = users.filter(isAdminUser);
-  const knownAdminEmails = new Set(adminUsers.map(u => (u.email || '').toLowerCase()));
-  const owners = [
-    ...adminUsers.filter(u => isOwner(u.email)),
-    // owners who don't have a user doc yet — show them as pending so the team is complete
-    ...OWNER_EMAILS.filter(e => !knownAdminEmails.has(e)).map(e => ({ uid: `owner-${e}`, email: e, name: '' } as UserProfile)),
+  const knownAdminEmails = new Set(adminUsers.map(u => norm(u.email)));
+  const pending = (emails: string[], prefix: string) =>
+    emails.filter(e => !knownAdminEmails.has(e)).map(e => ({ uid: `${prefix}-${e}`, email: e, name: '' } as UserProfile));
+
+  const superAdmins = [
+    ...adminUsers.filter(u => isSuperAdmin(u.email)),
+    ...pending(SUPERADMIN_EMAILS, 'sa'),
   ];
-  const promotedAdmins = adminUsers.filter(u => !isOwner(u.email));
+  const permanentAdmins = [
+    ...adminUsers.filter(u => isPermanentAdmin(u.email)),
+    ...pending(ADMIN_EMAILS, 'adm'),
+  ];
+  const promotedAdmins = adminUsers.filter(u => !isPermanent(u.email));
+  const adminCount = superAdmins.length + permanentAdmins.length + promotedAdmins.length;
 
   const formatDate = (isoString?: string) => {
     if (!isoString) return "Never";
@@ -194,17 +210,19 @@ export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardP
               <div>
                 <h3 className="text-base font-black text-text-main uppercase tracking-tight leading-none">Administrators</h3>
                 <p className="text-[11px] font-bold text-text-muted tracking-widest uppercase mt-1">
-                  {owners.length + promotedAdmins.length} admin{owners.length + promotedAdmins.length === 1 ? '' : 's'} · you can promote anyone below
+                  {adminCount} member{adminCount === 1 ? '' : 's'}
+                  {canManageAdmins ? ' · you can promote anyone below' : ' · only super admins can change these'}
                 </p>
               </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {[...owners, ...promotedAdmins].map((a) => {
-                const owner = isOwner(a.email);
-                const isMe = (a.email || '').toLowerCase() === (profile.email || '').toLowerCase();
+              {[...superAdmins, ...permanentAdmins, ...promotedAdmins].map((a) => {
+                const tier = isSuperAdmin(a.email) ? 'super' : isPermanentAdmin(a.email) ? 'admin' : 'promoted';
+                const isMe = norm(a.email) === norm(profile.email);
+                const gold = tier === 'super';
                 return (
-                  <div key={a.uid} className="flex items-center gap-3 p-3 rounded-2xl border border-border bg-bg-main">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 font-black text-sm ${owner ? 'bg-amber-500/15 text-amber-500' : 'bg-primary-soft text-primary'}`}>
+                  <div key={a.uid} className={`flex items-center gap-3 p-3 rounded-2xl border bg-bg-main ${gold ? 'border-amber-500/40' : 'border-border'}`}>
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 font-black text-sm ${gold ? 'bg-amber-500/15 text-amber-500' : 'bg-primary-soft text-primary'}`}>
                       {(a.name || a.email || '?').charAt(0).toUpperCase()}
                     </div>
                     <div className="min-w-0 flex-1">
@@ -214,11 +232,11 @@ export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardP
                       </div>
                       <div className="text-[11px] text-text-muted truncate" title={a.email}>{a.email}</div>
                     </div>
-                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest shrink-0 ${owner ? 'bg-amber-500/15 text-amber-500' : 'bg-primary-soft text-primary'}`}>
-                      {owner ? <Crown className="w-3 h-3" /> : <Shield className="w-3 h-3" />}
-                      {owner ? 'Owner' : 'Admin'}
+                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest shrink-0 ${gold ? 'bg-amber-500/15 text-amber-500' : 'bg-primary-soft text-primary'}`}>
+                      {gold ? <Crown className="w-3 h-3" /> : <Shield className="w-3 h-3" />}
+                      {gold ? 'Super Admin' : 'Admin'}
                     </span>
-                    {!owner && (
+                    {tier === 'promoted' && canManageAdmins && (
                       <button
                         onClick={() => handleToggleAdmin(a, false)}
                         disabled={busyUid === a.uid}
@@ -286,10 +304,20 @@ export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardP
                          <td className="p-4 text-xs text-text-muted truncate max-w-[200px]" title={u.email}>{u.email}</td>
                          <td className="p-4 text-right">
                            <div className="flex items-center justify-end gap-2">
-                             {isOwner(u.email) ? (
+                             {isSuperAdmin(u.email) ? (
                                <span className="inline-flex items-center gap-1 px-3 py-1.5 bg-amber-500/15 text-amber-500 text-[10px] font-bold uppercase tracking-widest rounded-lg">
-                                 <Crown className="w-3 h-3" /> Owner
+                                 <Crown className="w-3 h-3" /> Super Admin
                                </span>
+                             ) : isPermanentAdmin(u.email) ? (
+                               <span className="inline-flex items-center gap-1 px-3 py-1.5 bg-primary-soft text-primary text-[10px] font-bold uppercase tracking-widest rounded-lg">
+                                 <Shield className="w-3 h-3" /> Admin
+                               </span>
+                             ) : !canManageAdmins ? (
+                               u.isAdmin ? (
+                                 <span className="inline-flex items-center gap-1 px-3 py-1.5 bg-primary-soft text-primary text-[10px] font-bold uppercase tracking-widest rounded-lg">
+                                   <Shield className="w-3 h-3" /> Admin
+                                 </span>
+                               ) : null
                              ) : u.isAdmin ? (
                                <button
                                  onClick={() => handleToggleAdmin(u, false)}

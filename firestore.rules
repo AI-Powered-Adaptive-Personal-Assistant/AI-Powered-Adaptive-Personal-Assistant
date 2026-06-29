@@ -25,20 +25,43 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function isAdmin() {
-      return isAuthenticated() && request.auth.token.email_verified == true && request.auth.token.email in [
-        "modyhashim2006@gmail.com", 
-        "pro.mahmoud.h@gmail.com",
+    // ── Access tiers (keep in sync with AdminDashboard.tsx) ──────────────────
+    // Super Admins sit ABOVE admins: only they can grant/revoke admin rights.
+    function isSuperAdmin() {
+      return isAuthenticated() && request.auth.token.email in [
+        "modyhashim2006@gmail.com",
+        "mariemsayedr33@gmail.com",
+        "pro.mahmoud.h@gmail.com"
+      ];
+    }
+
+    // Permanent email-based admins (below super admins).
+    function isPermanentAdmin() {
+      return isAuthenticated() && request.auth.token.email in [
         "marwaneltaweel0@gmail.com",
         "its.alkhateeb@gmail.com",
         "esraahosni8@gmail.com",
-        "nermeenatefateffarouk@gmail.com",
-        "mariemsayedr33@gmail.com"
+        "nermeenatefateffarouk@gmail.com"
       ];
+    }
+
+    // Admin = super admin OR permanent admin OR a user whose own /users doc has
+    // isAdmin:true (granted via the Admin Dashboard).
+    function isAdmin() {
+      return isSuperAdmin() || isPermanentAdmin() ||
+             (isAuthenticated() &&
+              exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isAdmin', false) == true);
     }
 
     function isOwner(userId) {
       return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // The isAdmin flag must NOT change unless the writer is an admin. This blocks
+    // a normal user from self-promoting by writing isAdmin:true to their own doc.
+    function adminFlagUnchanged() {
+      return request.resource.data.get('isAdmin', false) == resource.data.get('isAdmin', false);
     }
 
     function isValidEmail(email) {
@@ -62,9 +85,17 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow read: if isOwner(userId) || isAdmin();
-      allow create: if isOwner(userId) && isValidUser(request.resource.data);
-      allow update: if isOwner(userId) && isValidUser(request.resource.data) && 
-                    request.resource.data.uid == resource.data.uid;
+      // A new user can create only their own doc and may NOT self-assign admin
+      // (only super admins can create an admin doc).
+      allow create: if isOwner(userId) && isValidUser(request.resource.data) &&
+                    (isSuperAdmin() || request.resource.data.get('isAdmin', false) == false);
+      // Either: the user updates their own doc (but can't flip their own admin
+      // flag), OR an admin updates anyone's doc — but the admin flag itself can
+      // only be changed by a super admin.
+      allow update: if (isOwner(userId) && isValidUser(request.resource.data) &&
+                        request.resource.data.uid == resource.data.uid &&
+                        adminFlagUnchanged())
+                    || (isAdmin() && (adminFlagUnchanged() || isSuperAdmin()));
       allow delete: if isAdmin();
       
       match /threads/{threadId} {
