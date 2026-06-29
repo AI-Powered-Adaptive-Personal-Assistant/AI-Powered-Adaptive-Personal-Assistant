@@ -333,9 +333,37 @@ function buildRig(scene: THREE.Scene): Rig {
   leftArm.position.set(-0.33, 0.98, 0.02);
   leftArm.rotation.z = 0.12;
   root.add(leftArm);
-  const leftMitt = new THREE.Mesh(new THREE.SphereGeometry(0.06, 14, 12), skinMat);
-  leftMitt.position.set(-0.36, 0.76, 0.03);
-  root.add(leftMitt);
+
+  /* ---- left hand (static, relaxed rest pose — natural two-handed look) ---- */
+  const leftHand = new THREE.Group();
+  leftHand.position.set(-0.36, 0.78, 0.04);
+  leftHand.rotation.set(Math.PI, 0, -0.1); // fingers hang downward, palm toward body
+  root.add(leftHand);
+  const lPalm = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.17, 0.05), skinMat);
+  lPalm.position.y = 0.05;
+  leftHand.add(lPalm);
+  const lCuff = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.055, 0.06, 14), bodyMat);
+  lCuff.position.y = -0.06;
+  leftHand.add(lCuff);
+  const lBaseX = [0.052, 0.018, -0.018, -0.052];
+  for (let fi = 0; fi < 4; fi++) {
+    const sc = FINGER_SCALE[fi + 1];
+    const base = new THREE.Group();
+    base.position.set(lBaseX[fi], 0.135, 0);
+    base.rotation.x = 0.35; // gentle relaxed curl
+    leftHand.add(base);
+    const s1 = fingerSegment(SEG_LEN[0] * sc, 0.017, skinMat);
+    base.add(s1);
+    const s2 = fingerSegment(SEG_LEN[1] * sc, 0.015, skinMat);
+    s2.position.y = SEG_LEN[0] * sc;
+    s2.rotation.x = 0.45;
+    s1.add(s2);
+  }
+  const lThumbBase = new THREE.Group();
+  lThumbBase.position.set(0.078, 0.0, 0.02);
+  lThumbBase.rotation.set(0.3, 0.2, 0.95);
+  leftHand.add(lThumbBase);
+  lThumbBase.add(fingerSegment(0.055, 0.02, skinMat));
 
   /* ---- right arm (dynamic forearm follows the hand) ---- */
   const elbow = new THREE.Vector3(0.36, 1.0, 0.12);
