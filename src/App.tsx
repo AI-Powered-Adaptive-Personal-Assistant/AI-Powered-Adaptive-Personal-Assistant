@@ -12,6 +12,7 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import AccessibilityOverlay from "./components/AccessibilityOverlay";
 import LiveCaptions from "./components/LiveCaptions";
 import ReadAloudSelection from "./components/ReadAloudSelection";
+import SplashScreen from "./components/SplashScreen";
 import { motion, AnimatePresence } from "motion/react";
 import { Message, UserProfile } from "./types";
 import { auth, db, handleFirestoreError, OperationType, cleanDataForFirestore } from "./lib/firebase";
@@ -52,6 +53,14 @@ export default function App() {
   const [currentAIResponse, setCurrentAIResponse] = useState("");
   const [isSTTActive, setIsSTTActive] = useState(false);
   const [isLiveCaptionsOpen, setIsLiveCaptionsOpen] = useState(false);
+
+  // Brief "Welcome to Cognify" splash on app open.
+  const [showSplash, setShowSplash] = useState(true);
+  useEffect(() => {
+    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    const id = setTimeout(() => setShowSplash(false), reduce ? 800 : 2200);
+    return () => clearTimeout(id);
+  }, []);
 
   const direction = isRTL(profile?.language) ? 'rtl' : 'ltr';
 
@@ -350,28 +359,35 @@ export default function App() {
     }
   };
 
+  const splash = (
+    <AnimatePresence>
+      {showSplash && <SplashScreen isAr={isRTL(profile?.language)} />}
+    </AnimatePresence>
+  );
+
   if (loading || profileLoading) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <Loader2 className="w-10 h-10 text-blue-500 animate-spin" />
-          <p className="text-slate-400 font-mono text-xs uppercase tracking-[0.3em] animate-pulse">
-            {loading ? "Authenticating..." : "Syncing Profile..."}
-          </p>
+      <>
+        {splash}
+        <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+          <div className="flex flex-col items-center gap-4">
+            <Loader2 className="w-10 h-10 text-primary animate-spin" />
+            <p className="text-slate-400 font-mono text-xs uppercase tracking-[0.3em] animate-pulse">
+              {loading ? "Authenticating..." : "Syncing Profile..."}
+            </p>
+          </div>
         </div>
-      </div>
+      </>
     );
   }
 
-
-
   if (!user) {
-    return <Login />;
+    return <>{splash}<Login /></>;
   }
 
   // If user exists but no profile, show Onboarding
   if (!profile || !profile.onboardingComplete) {
-    return <Onboarding onComplete={handleOnboardingComplete} />;
+    return <>{splash}<Onboarding onComplete={handleOnboardingComplete} /></>;
   }
 
   const renderView = () => {
@@ -522,8 +538,9 @@ export default function App() {
 
   return (
     <ErrorBoundary>
-      <div 
-        className={`flex w-full h-[100dvh] bg-slate-50 font-sans overflow-hidden selection:bg-blue-500/30 transition-all duration-500 ${
+      {splash}
+      <div
+        className={`flex w-full h-[100dvh] bg-bg-main font-sans overflow-hidden selection:bg-primary/30 transition-all duration-500 ${
           profile?.accessibilityMode === 'Visual' ? 'text-lg contrast-125' : ''
         }`}
         dir={direction}
