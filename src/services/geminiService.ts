@@ -14,7 +14,8 @@ function geminiKey(): string {
   return GEMINI_KEYS[0] || "";
 }
 
-const MODEL = "gemini-3.5-flash";
+// Known-good Gemini model IDs, tried in order (there is NO "gemini-3.5-flash").
+const MODELS = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-flash-latest"];
 
 /** Strip a `data:<mime>;base64,` prefix if present, returning raw base64. */
 function rawBase64(data: string): string {
@@ -25,22 +26,29 @@ function rawBase64(data: string): string {
 /** Low-level Gemini call. `parts` is the user content (text and/or inlineData). */
 async function callGemini(parts: any[]): Promise<string> {
   const key = geminiKey();
-  if (!key) return "";
-  try {
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${key}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contents: [{ role: "user", parts }] }),
-      },
-    );
-    if (!res.ok) return "";
-    const d = await res.json();
-    return d.candidates?.[0]?.content?.parts?.[0]?.text || "";
-  } catch {
+  if (!key) {
+    console.error("Gemini accessibility call skipped: VITE_GEMINI_API_KEY is not set.");
     return "";
   }
+  const body = JSON.stringify({ contents: [{ role: "user", parts }] });
+  for (const model of MODELS) {
+    try {
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`,
+        { method: "POST", headers: { "Content-Type": "application/json" }, body },
+      );
+      if (res.ok) {
+        const d = await res.json();
+        return d.candidates?.[0]?.content?.parts?.[0]?.text || "";
+      }
+      const errText = await res.text().catch(() => "");
+      console.error(`Gemini model "${model}" failed (${res.status}):`, errText.slice(0, 300));
+      if (res.status === 400 || res.status === 401 || res.status === 403) break;
+    } catch (e) {
+      console.error(`Gemini model "${model}" threw:`, e);
+    }
+  }
+  return "";
 }
 
 /** Pull the first JSON object/array out of a model reply (handles ```json fences). */

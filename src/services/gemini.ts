@@ -47,6 +47,19 @@ function providerFor(key: string): { url: string; model: string } {
 // null to auto-detect it instead.)
 let backendUp: boolean | null = false;
 
+// Known-good Gemini model IDs, tried in order — the first that responds wins.
+// (There is NO "gemini-3.5-flash"; using a non-existent model 404s silently.)
+const GEMINI_MODELS = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-flash-latest"];
+/** Primary Gemini model (used by non-streaming one-shot helpers). */
+const GEMINI_MODEL = GEMINI_MODELS[0];
+
+// One-time visibility into AI config (never logs the key values themselves), so
+// a "the chat silently does nothing" problem is diagnosable from DevTools.
+console.info(
+  `[Cognify AI] Gemini key: ${GEMINI_KEYS.length ? "set" : "MISSING"} · ` +
+  `Groq/xAI fallback: ${GROQ_KEYS.length || XAI_KEYS.length ? "set" : "none"} · model: ${GEMINI_MODEL}`,
+);
+
 /** Compact adaptive system prompt (shared by the Groq fallback). */
 function buildPersona(profile: UserProfile): string {
   return `You are Cognify, an adaptive AI mentor. Answer the most correct, useful answer calibrated to THIS user.
@@ -184,7 +197,7 @@ Write a short markdown comparison (bullets are fine) in ${profile.language || 'E
   if (apiKey) {
     try {
       const response = await fetchGeminiWithRetry(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${apiKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -244,7 +257,7 @@ export async function generateProactiveInsights(
   if (apiKey) {
     try {
       const response = await fetchGeminiWithRetry(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${apiKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -307,7 +320,7 @@ export async function generateLogicResponse(
     if (apiKey) {
       try {
         const prompt = `You are a Logic Tutor on ${moduleName}.\nUser Profile: ${JSON.stringify(profile)}\nUser: ${message}`;
-        const response = await fetchGeminiWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${apiKey}`, {
+        const response = await fetchGeminiWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: prompt }] }] })
@@ -359,9 +372,6 @@ async function* generateAdaptiveResponseStreamClient(
   attachments: { name: string, type: string, data: string }[] = [],
   apiKey: string
 ) {
-  const model = "gemini-3.5-flash";
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${apiKey}`;
-
   const otherThreadsSummary = profile.chatThreads
     ?.filter(t => t.id !== profile.activeThreadId)
     .map(t => `Thread "${t.title}": ${t.lastMessageSnippet || 'No summary'}`)
@@ -430,20 +440,33 @@ ${otherThreadsSummary}
   });
   contents.push({ role: 'user', parts: currentParts });
 
-  const res = await fetchGeminiWithRetry(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      contents,
-      systemInstruction: { parts: [{ text: systemInstruction }] },
-      generationConfig: {
-        temperature: 0.7,
-        topP: 0.95
-      }
-    })
+  const body = JSON.stringify({
+    contents,
+    systemInstruction: { parts: [{ text: systemInstruction }] },
+    generationConfig: {
+      temperature: 0.7,
+      topP: 0.95
+    }
   });
 
-  if (!res.ok) {
+  // Try each known-good model until one responds. A wrong model 404s, so this
+  // also protects us if Google retires a model. Log the real reason on failure
+  // so it's never an invisible "the chat just broke".
+  let res: Response | null = null;
+  for (const model of GEMINI_MODELS) {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${apiKey}`;
+    const r = await fetchGeminiWithRetry(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body
+    });
+    if (r.ok && r.body) { res = r; break; }
+    const errText = await r.text().catch(() => "");
+    console.error(`Gemini model "${model}" failed (${r.status}):`, errText.slice(0, 300));
+    if (r.status === 400 || r.status === 401 || r.status === 403) break; // bad key/request — other models won't help
+  }
+
+  if (!res || !res.ok) {
     // Gemini failed (overloaded/rate-limited) → automatically fall back to Groq.
     const groqKey = groqPrimaryKey();
     if (groqKey) {
@@ -451,33 +474,34 @@ ${otherThreadsSummary}
       return;
     }
     const isArabic = profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya';
-    if (res.status === 503) {
+    const status = res?.status ?? 0;
+    if (status === 503) {
       toast.error(
         isArabic
           ? "منصة Google Gemini غير متوفرة حالياً بسبب زيادة الضغط (رمز 503). يرجى المحاولة بعد لحظات."
           : "Google Gemini is currently rate-limited or overloaded (503 Service Unavailable). Please try again shortly.",
         isArabic ? "الخدمة مثقلة بالأحمال" : "Gemini Overloaded"
       );
-      yield { 
-        text: isArabic 
-          ? "⚠️ منصة Google Gemini غير متوفرة حالياً بسبب زيادة الضغط (رمز 503)." 
-          : "⚠️ Google Gemini is currently overloaded (503 Service Unavailable).", 
-        done: true, 
-        error: true 
+      yield {
+        text: isArabic
+          ? "⚠️ منصة Google Gemini غير متوفرة حالياً بسبب زيادة الضغط (رمز 503)."
+          : "⚠️ Google Gemini is currently overloaded (503 Service Unavailable).",
+        done: true,
+        error: true
       };
     } else {
       toast.error(
         isArabic
-          ? `عذراً، فشل الاتصال بخوادم الذكاء الاصطناعي (رمز ${res.status}). تأكد من صحة مفتاح الـ API.`
-          : `AI gateway communication error (Status: ${res.status}). Please verify your custom API key.`,
+          ? `عذراً، فشل الاتصال بخوادم الذكاء الاصطناعي (رمز ${status}). تأكد من صحة مفتاح الـ API.`
+          : `AI gateway communication error (Status: ${status}). Please verify your custom API key.`,
         isArabic ? "فشل بوابة الذكاء" : "Gateway Error"
       );
-      yield { 
-        text: isArabic 
-          ? `⚠️ عذراً، فشل الاتصال بخوادم الذكاء الاصطناعي (رمز ${res.status}).` 
-          : `⚠️ AI gateway communication error (Status: ${res.status}).`, 
-        done: true, 
-        error: true 
+      yield {
+        text: isArabic
+          ? `⚠️ عذراً، فشل الاتصال بخوادم الذكاء الاصطناعي (رمز ${status}).`
+          : `⚠️ AI gateway communication error (Status: ${status}).`,
+        done: true,
+        error: true
       };
     }
     return;
