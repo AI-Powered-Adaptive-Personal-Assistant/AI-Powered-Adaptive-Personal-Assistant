@@ -28,13 +28,31 @@ export function cleanForSpeech(text: string): string {
     .trim();
 }
 
+// Voices whose names hint at higher-quality / neural engines — preferred when
+// available (esp. important for Arabic, where the default device voice is often
+// poor). Browser TTS is still device-limited; true high quality needs cloud TTS.
+const QUALITY_HINTS = /google|microsoft|natural|neural|online|enhanced|premium|siri|hoda|salma|naayf|laila/i;
+
+function rank(v: SpeechSynthesisVoice, lower: string): number {
+  const exact = v.lang.toLowerCase() === lower;
+  const base = v.lang.toLowerCase().startsWith(lower.split("-")[0]);
+  if (!exact && !base) return -1;
+  let score = exact ? 2 : 1;
+  if (QUALITY_HINTS.test(v.name)) score += 4;
+  if (!v.localService) score += 2; // online voices are usually higher quality
+  return score;
+}
+
 function pickVoice(targetLang: string): SpeechSynthesisVoice | undefined {
   const voices = window.speechSynthesis.getVoices();
   const lower = targetLang.toLowerCase();
-  return (
-    voices.find((v) => v.lang.toLowerCase() === lower) ||
-    voices.find((v) => v.lang.toLowerCase().startsWith(lower.split("-")[0]))
-  );
+  let best: SpeechSynthesisVoice | undefined;
+  let bestScore = 0;
+  for (const v of voices) {
+    const s = rank(v, lower);
+    if (s > bestScore) { bestScore = s; best = v; }
+  }
+  return best;
 }
 
 /** Build a configured utterance with the best voice for the given language. */
