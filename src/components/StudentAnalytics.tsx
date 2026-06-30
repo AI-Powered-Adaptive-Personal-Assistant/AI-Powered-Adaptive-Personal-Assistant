@@ -1,10 +1,11 @@
 import { localize } from '../lib/translations';
 import { useEffect, useMemo, useState } from 'react';
-import { UserProfile, Course, AttendanceSubject, Goal, PlannerTask } from '../types';
-import { Menu, LayoutDashboard, GraduationCap, CalendarCheck, Target, AlertTriangle, Clock } from 'lucide-react';
+import { UserProfile, Course, AttendanceSubject, Goal, PlannerTask, CalendarEvent } from '../types';
+import { Menu, LayoutDashboard, GraduationCap, CalendarCheck, CalendarDays, Target, AlertTriangle, Clock } from 'lucide-react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell } from 'recharts';
 import { subscribeToCourses, calculateCGPA, calculateGPA, semestersOf } from '../lib/gpa';
 import { subscribeToAttendance, attendancePct, isDeprived } from '../lib/attendance';
+import { subscribeToEvents, ymd } from '../lib/calendar';
 import { subscribeToGoals } from '../lib/goals';
 import { subscribeToTasks } from '../lib/planner';
 import AcademicCommandCenter from './AcademicCommandCenter';
@@ -21,6 +22,7 @@ export default function StudentAnalytics({ profile, onMenuClick }: StudentAnalyt
 
   const [courses, setCourses] = useState<Course[]>([]);
   const [subjects, setSubjects] = useState<AttendanceSubject[]>([]);
+  const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
   const [tasks, setTasks] = useState<PlannerTask[]>([]);
 
@@ -30,8 +32,17 @@ export default function StudentAnalytics({ profile, onMenuClick }: StudentAnalyt
     const u2 = subscribeToAttendance(profile.uid, setSubjects);
     const u3 = subscribeToGoals(profile.uid, setGoals);
     const u4 = subscribeToTasks(profile.uid, setTasks);
-    return () => { u1(); u2(); u3(); u4(); };
+    const u5 = subscribeToEvents(profile.uid, setEvents);
+    return () => { u1(); u2(); u3(); u4(); u5(); };
   }, [profile.uid]);
+
+  const upcomingEvents = useMemo(() => {
+    const today = ymd(new Date());
+    return events
+      .filter((e) => e.date >= today)
+      .sort((a, b) => (a.date + (a.time || '')).localeCompare(b.date + (b.time || '')))
+      .slice(0, 6);
+  }, [events]);
 
   // Build the deterministic-metrics input from live academic data + the user's
   // question history. Powers the Executive Command Center (S1) + Explainable AI.
@@ -98,7 +109,11 @@ export default function StudentAnalytics({ profile, onMenuClick }: StudentAnalyt
         {/* Stat cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <Stat icon={<GraduationCap className="w-6 h-6 text-primary" />} tone="bg-primary-soft" label={t('Cumulative GPA', 'المعدل التراكمي')} value={cgpa.toFixed(2)} />
-          <Stat icon={<CalendarCheck className="w-6 h-6 text-primary" />} tone="bg-primary-soft" label={t('Avg Attendance', 'متوسط الحضور')} value={`${avgAttendance}%`} />
+          {subjects.length ? (
+            <Stat icon={<CalendarCheck className="w-6 h-6 text-primary" />} tone="bg-primary-soft" label={t('Avg Attendance', 'متوسط الحضور')} value={`${avgAttendance}%`} />
+          ) : (
+            <Stat icon={<CalendarDays className="w-6 h-6 text-primary" />} tone="bg-primary-soft" label={t('Upcoming Events', 'أحداث قادمة')} value={String(upcomingEvents.length)} />
+          )}
           <Stat icon={<Target className="w-6 h-6 text-primary" />} tone="bg-primary-soft" label={t('Active Goals', 'أهداف نشطة')} value={String(activeGoals.length)} />
           <Stat icon={<Target className="w-6 h-6 text-text-muted" />} tone="bg-surface-3" label={t('Completed Goals', 'أهداف مكتملة')} value={String(completedGoals.length)} />
         </div>
@@ -138,10 +153,10 @@ export default function StudentAnalytics({ profile, onMenuClick }: StudentAnalyt
             )}
           </div>
 
-          {/* Attendance bars */}
-          <div className="bg-bg-card rounded-3xl p-6 border border-border shadow-sm">
-            <h2 className="text-sm font-black uppercase tracking-widest text-text-main mb-4">{t('Attendance', 'الحضور')}</h2>
-            {subjects.length ? (
+          {/* Attendance bars (legacy data) OR upcoming calendar events */}
+          {subjects.length ? (
+            <div className="bg-bg-card rounded-3xl p-6 border border-border shadow-sm">
+              <h2 className="text-sm font-black uppercase tracking-widest text-text-main mb-4">{t('Attendance', 'الحضور')}</h2>
               <div className="space-y-3">
                 {subjects.map((s) => {
                   const pct = attendancePct(s);
@@ -159,10 +174,30 @@ export default function StudentAnalytics({ profile, onMenuClick }: StudentAnalyt
                   );
                 })}
               </div>
-            ) : (
-              <p className="text-faint text-sm py-12 text-center">{t('Track subjects in the Attendance page.', 'سجّل موادك في صفحة الحضور.')}</p>
-            )}
-          </div>
+            </div>
+          ) : (
+            <div className="bg-bg-card rounded-3xl p-6 border border-border shadow-sm">
+              <h2 className="text-sm font-black uppercase tracking-widest text-text-main mb-4">{t('Upcoming Events', 'الأحداث القادمة')}</h2>
+              {upcomingEvents.length ? (
+                <div className="space-y-2">
+                  {upcomingEvents.map((e) => (
+                    <div key={e.id} className="flex items-center gap-3 p-2.5 rounded-xl bg-bg-main border border-border">
+                      <div className="text-center shrink-0 w-10">
+                        <div className="text-[10px] font-bold text-text-muted uppercase">{new Date(e.date + 'T00:00:00').toLocaleDateString(isAr ? 'ar-EG' : 'en-US', { month: 'short' })}</div>
+                        <div className="text-base font-black text-text-main leading-none">{new Date(e.date + 'T00:00:00').getDate()}</div>
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="font-bold text-text-main text-sm truncate">{e.title}</div>
+                        {e.time && <div className="flex items-center gap-1 text-[11px] text-text-muted"><Clock className="w-3 h-3" />{e.time}</div>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-faint text-sm py-12 text-center">{t('Add events in the Calendar to see them here.', 'ضيف أحداث في التقويم عشان تظهر هنا.')}</p>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Goals + deadlines */}

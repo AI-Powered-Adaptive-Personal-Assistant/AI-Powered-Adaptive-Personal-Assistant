@@ -32,7 +32,7 @@ const cleanMessagesForFirestore = (newHistory: Message[]) => {
         // 1 MiB, so a big inline attachment would fail the WHOLE thread save.
         // Large files live in Storage (url); only keep tiny inline data as a
         // fallback when there's no url yet.
-        if (a.data && !a.url && a.data.length <= 200000) att.data = a.data;
+        if (a.data && !a.url && a.data.length <= 400000) att.data = a.data;
         return att;
       });
     }
@@ -50,6 +50,48 @@ const cleanMessagesForFirestore = (newHistory: Message[]) => {
 // falling back to inline base64 (fresh, pre-upload). Empty if neither.
 const attSrc = (f: { type?: string; data?: string; url?: string }) =>
   f.url || (f.data ? `data:${f.type};base64,${f.data}` : '');
+
+// Read a File as a base64 data URL.
+const readAsDataURL = (file: File): Promise<string> =>
+  new Promise((resolve) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result as string);
+    r.onerror = () => resolve('');
+    r.readAsDataURL(file);
+  });
+
+// Downscale + JPEG-compress an image in the browser so it's small enough to
+// store inline in Firestore (no Cloud Storage / Blaze plan needed) and cheap to
+// send to the AI. Falls back to the original if anything fails.
+async function compressImage(file: File, maxDim = 1280, quality = 0.72): Promise<{ data: string; type: string }> {
+  try {
+    const url = URL.createObjectURL(file);
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const im = new Image();
+      im.onload = () => resolve(im);
+      im.onerror = reject;
+      im.src = url;
+    });
+    URL.revokeObjectURL(url);
+    let { width, height } = img;
+    if (width > maxDim || height > maxDim) {
+      const scale = maxDim / Math.max(width, height);
+      width = Math.round(width * scale);
+      height = Math.round(height * scale);
+    }
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('no canvas ctx');
+    ctx.drawImage(img, 0, 0, width, height);
+    const dataUrl = canvas.toDataURL('image/jpeg', quality);
+    return { data: dataUrl.split(',')[1] || '', type: 'image/jpeg' };
+  } catch {
+    const dataUrl = await readAsDataURL(file);
+    return { data: dataUrl.split(',')[1] || '', type: file.type };
+  }
+}
 
 interface ChatInterfaceProps {
   profile: UserProfile;
@@ -551,6 +593,17 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
           isAr ? `الملف "${file.name}" كبير جداً، الحد الأقصى 5 ميجا.` : `"${file.name}" is too large — the max is 5 MB.`,
           isAr ? 'ملف كبير' : 'File too large',
         );
+        continue;
+      }
+
+      // Images: compress so they persist inline in Firestore (no Storage needed).
+      if (file.type.startsWith('image/')) {
+        const { data, type } = await compressImage(file);
+        if (!data) {
+          toast.warning(isAr ? `تعذّر قراءة "${file.name}".` : `Couldn't read "${file.name}".`, isAr ? 'خطأ' : 'Error');
+          continue;
+        }
+        newFiles.push({ name: file.name, type, data, url: '' });
         continue;
       }
 

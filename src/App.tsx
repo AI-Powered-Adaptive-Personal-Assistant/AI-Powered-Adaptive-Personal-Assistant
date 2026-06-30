@@ -282,7 +282,9 @@ export default function App() {
     const updatedProfile: UserProfile = {
       ...profile,
       points: profile.points + (score * 5),
-      questionHistory: [...(profile.questionHistory || []), { score, date: new Date().toISOString() }],
+      // Keep only the most recent 200 entries so the profile doc never grows
+      // unbounded (Firestore caps a document at 1 MiB).
+      questionHistory: [...(profile.questionHistory || []), { score, date: new Date().toISOString() }].slice(-200),
       chatThreads: updatedThreads
     };
 
@@ -328,7 +330,7 @@ export default function App() {
             const att: any = { name: a.name || "", type: a.type || "" };
             if (a.url) att.url = a.url;
             // Never persist large base64 — Firestore caps a doc at 1 MiB.
-            if (a.data && !a.url && a.data.length <= 200000) att.data = a.data;
+            if (a.data && !a.url && a.data.length <= 400000) att.data = a.data;
             return att;
           });
         }
