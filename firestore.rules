@@ -64,6 +64,14 @@ service cloud.firestore {
       return request.resource.data.get('isAdmin', false) == resource.data.get('isAdmin', false);
     }
 
+    // Identity fields must never change on an update — protects against an admin
+    // (or a promoted admin) corrupting/spoofing another user's uid or email,
+    // since isValidUser() skips schema checks for admins.
+    function identityPreserved() {
+      return request.resource.data.uid == resource.data.uid
+          && request.resource.data.get('email', '') == resource.data.get('email', '');
+    }
+
     function isValidEmail(email) {
       return email is string && email.size() >= 3 && email.size() <= 256 && email.matches("^[^@]+@[^@]+\\.[^@]+$");
     }
@@ -92,10 +100,10 @@ service cloud.firestore {
       // Either: the user updates their own doc (but can't flip their own admin
       // flag), OR an admin updates anyone's doc — but the admin flag itself can
       // only be changed by a super admin.
-      allow update: if (isOwner(userId) && isValidUser(request.resource.data) &&
-                        request.resource.data.uid == resource.data.uid &&
-                        adminFlagUnchanged())
-                    || (isAdmin() && (adminFlagUnchanged() || isSuperAdmin()));
+      allow update: if identityPreserved() && (
+                      (isOwner(userId) && isValidUser(request.resource.data) && adminFlagUnchanged())
+                      || (isAdmin() && (adminFlagUnchanged() || isSuperAdmin()))
+                    );
       allow delete: if isAdmin();
       
       match /threads/{threadId} {

@@ -230,6 +230,10 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
   // EARLIER save could otherwise overwrite the freshly completed reply.
   const isSendingRef = useRef(false);
   const lastLocalWriteRef = useRef(0);
+  // Tracks the committed message count of the active thread. A remote snapshot
+  // that has FEWER messages than this is stale (within the same thread, history
+  // only grows) — applying it would erase newer messages, so we skip it.
+  const messagesLenRef = useRef(0);
 
   // iOS soft-keyboard fix: bind the chat shell height to the visual viewport so
   // the composer stays above the keyboard instead of being hidden behind it.
@@ -516,13 +520,17 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
 
     setMessagesLoading(true);
     const path = `users/${profile.uid}/threads/${profile.activeThreadId}`;
-    
+    messagesLenRef.current = 0; // new thread — allow its first load through the length guard
+
     const unsubscribe = onSnapshot(doc(db, path), (snapshot) => {
       // Ignore our own un-acknowledged local writes (echoes) and any snapshot
       // that lands while we're sending or just sent — local state is the source
       // of truth during a turn, so a lagging server copy can't erase the reply.
       if (snapshot.metadata.hasPendingWrites) return;
       if (isSendingRef.current || Date.now() - lastLocalWriteRef.current < 2500) return;
+      // Backstop: a snapshot with fewer messages than we already have is stale.
+      const incomingLen = snapshot.exists() ? (snapshot.data().messages?.length || 0) : 0;
+      if (incomingLen < messagesLenRef.current) return;
 
       if (snapshot.exists() && snapshot.data().messages?.length > 0) {
         const data = snapshot.data();
@@ -551,6 +559,11 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
 
     return () => unsubscribe();
   }, [profile.uid, profile.activeThreadId]);
+
+  // Keep the length backstop in sync with whatever is currently rendered.
+  useEffect(() => {
+    messagesLenRef.current = messages.length;
+  }, [messages.length]);
 
   useEffect(() => {
     if (scrollRef.current) {

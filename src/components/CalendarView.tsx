@@ -18,6 +18,9 @@ const TYPE_META: Record<CalendarEventType, { en: string; ar: string; dot: string
   personal: { en: 'Personal', ar: 'شخصي',    dot: 'bg-emerald-500', chip: 'bg-emerald-500/15 text-emerald-500' },
 };
 const TYPES = Object.keys(TYPE_META) as CalendarEventType[];
+// Safe lookup — legacy/unknown event types fall back to 'event' instead of
+// crashing the whole calendar with `undefined.dot`.
+const metaOf = (type?: string) => TYPE_META[(type as CalendarEventType)] || TYPE_META.event;
 
 export default function CalendarView({ profile, onMenuClick }: Props) {
   const t = (en: string, ar: string) => localize(profile.language, en, ar);
@@ -131,7 +134,7 @@ export default function CalendarView({ profile, onMenuClick }: Props) {
                   {dayEvents.length > 0 && (
                     <span className="absolute bottom-1 flex gap-0.5">
                       {dayEvents.slice(0, 3).map((e, i) => (
-                        <span key={i} className={`w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-white' : TYPE_META[e.type].dot}`} />
+                        <span key={i} className={`w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-white' : metaOf(e.type).dot}`} />
                       ))}
                     </span>
                   )}
@@ -185,11 +188,11 @@ export default function CalendarView({ profile, onMenuClick }: Props) {
               <p className="text-faint text-sm text-center py-8">{t('Nothing scheduled. Add your first event above.', 'مفيش حاجة. ضيف أول حدث من فوق.')}</p>
             ) : selectedEvents.map((e) => (
               <div key={e.id} className="flex items-center gap-3 p-3 rounded-2xl bg-bg-main border border-border">
-                <span className={`w-2 h-2 rounded-full shrink-0 ${TYPE_META[e.type].dot}`} />
+                <span className={`w-2 h-2 rounded-full shrink-0 ${metaOf(e.type).dot}`} />
                 <div className="min-w-0 flex-1">
                   <div className="font-bold text-text-main text-sm truncate">{e.title}</div>
                   <div className="flex items-center gap-2 mt-0.5">
-                    <span className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded ${TYPE_META[e.type].chip}`}>{isAr ? TYPE_META[e.type].ar : TYPE_META[e.type].en}</span>
+                    <span className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded ${metaOf(e.type).chip}`}>{isAr ? metaOf(e.type).ar : metaOf(e.type).en}</span>
                     {e.time && <span className="flex items-center gap-1 text-[11px] text-text-muted font-medium"><Clock className="w-3 h-3" />{e.time}</span>}
                   </div>
                 </div>
