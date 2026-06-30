@@ -152,6 +152,10 @@ export default function App() {
 
     const path = `users/${user.uid}`;
     const unsubscribe = onSnapshot(doc(db, path), async (snapshot) => {
+      // Ignore our own un-acknowledged local writes — applying them would replace
+      // the whole profile mid-action and reset activeThreadId (the "new chat
+      // refreshes / doesn't save" bug). The server-confirmed snapshot still applies.
+      if (snapshot.metadata.hasPendingWrites) return;
       if (snapshot.exists()) {
         const data = snapshot.data() as UserProfile;
         setProfile(data);
