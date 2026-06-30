@@ -53,7 +53,7 @@ const IntelligenceHub = React.memo(({ profile, onMenuClick }: IntelligenceHubPro
         <div className="flex items-start gap-4">
           <button 
             onClick={onMenuClick}
-            className="lg:hidden p-2 text-text-muted bg-bg-card dark:bg-slate-900 shadow-sm border border-border hover:bg-bg-main rounded-lg active:scale-95 transition-all"
+            className="lg:hidden p-2 text-text-muted bg-bg-card dark:bg-[#0E0E12] shadow-sm border border-border hover:bg-bg-main rounded-lg active:scale-95 transition-all"
           >
             <Menu className="w-5 h-5" />
           </button>
@@ -68,7 +68,7 @@ const IntelligenceHub = React.memo(({ profile, onMenuClick }: IntelligenceHubPro
             </p>
           </div>
         </div>
-        <div className="hidden md:flex items-center gap-3 px-4 py-2 bg-bg-card dark:bg-slate-900 rounded-full border border-border shadow-sm">
+        <div className="hidden md:flex items-center gap-3 px-4 py-2 bg-bg-card dark:bg-[#0E0E12] rounded-full border border-border shadow-sm">
           <span className="text-[10px] font-black uppercase tracking-widest text-text-muted">Live Sync</span>
           <Activity className="w-4 h-4 text-emerald-500 animate-pulse" />
         </div>
@@ -115,7 +115,7 @@ const IntelligenceHub = React.memo(({ profile, onMenuClick }: IntelligenceHubPro
         <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
           
           {/* Main Chart Area */}
-          <div className="xl:col-span-8 bg-bg-card dark:bg-slate-900 rounded-[28px] border border-border shadow-sm p-6 flex flex-col min-h-[380px] relative overflow-hidden group">
+          <div className="xl:col-span-8 bg-bg-card dark:bg-[#0E0E12] rounded-[28px] border border-border shadow-sm p-6 flex flex-col min-h-[380px] relative overflow-hidden group">
             <div className="flex justify-between items-center mb-6 relative z-10">
               <div>
                 <h3 className="text-sm font-black uppercase tracking-widest text-text-main dark:text-slate-200 flex items-center gap-2">
@@ -182,7 +182,7 @@ const IntelligenceHub = React.memo(({ profile, onMenuClick }: IntelligenceHubPro
           </div>
 
           {/* Radar Chart (Skill Tree) */}
-          <div className="xl:col-span-4 bg-bg-card dark:bg-slate-900 rounded-[28px] border border-border shadow-sm p-6 flex flex-col min-h-[380px]">
+          <div className="xl:col-span-4 bg-bg-card dark:bg-[#0E0E12] rounded-[28px] border border-border shadow-sm p-6 flex flex-col min-h-[380px]">
             <h3 className="text-sm font-black uppercase tracking-widest text-text-main dark:text-slate-200 mb-2 flex items-center gap-2">
               <Zap className="w-4 h-4 text-accent" /> Neural Vector
             </h3>
@@ -230,7 +230,7 @@ const IntelligenceHub = React.memo(({ profile, onMenuClick }: IntelligenceHubPro
           </div>
           
           {/* Bottom Bar Chart - Activity Heat */}
-          <div className="xl:col-span-8 bg-bg-card dark:bg-slate-900 rounded-[28px] border border-border shadow-sm p-6 flex flex-col">
+          <div className="xl:col-span-8 bg-bg-card dark:bg-[#0E0E12] rounded-[28px] border border-border shadow-sm p-6 flex flex-col">
              <div className="flex justify-between items-center mb-6">
                 <h3 className="text-sm font-black uppercase tracking-widest text-text-main dark:text-slate-200 flex items-center gap-2">
                   <GitCommit className="w-4 h-4 text-emerald-500" /> Engagement Frequency
@@ -311,18 +311,18 @@ export default IntelligenceHub;
 
 function BentoMetric({ label, value, icon: Icon, color, bg, trend }: { label: string, value: string | number, icon: any, color: string, bg: string, trend: string }) {
   return (
-    <div className="bg-bg-card dark:bg-slate-900 p-5 rounded-[24px] border border-border shadow-sm flex flex-col justify-between group hover:border-border dark:hover:border-slate-700 transition-colors">
-      <div className="flex justify-between items-start mb-4">
-        <div className={`w-10 h-10 ${bg} ${color} rounded-xl flex items-center justify-center`}>
+    <div className="bg-bg-card dark:bg-[#0E0E12] p-4 sm:p-5 rounded-[24px] border border-border dark:border-white/10 shadow-sm flex flex-col justify-between gap-3 min-w-0 overflow-hidden group hover:border-border dark:hover:border-white/20 transition-colors">
+      <div className="flex justify-between items-start gap-2">
+        <div className={`w-9 h-9 sm:w-10 sm:h-10 shrink-0 ${bg} ${color} rounded-xl flex items-center justify-center`}>
           <Icon className="w-5 h-5" />
         </div>
-        <span className="text-[9px] font-mono px-2 py-1 bg-surface-3 text-text-muted rounded-md">
+        <span className="text-[9px] font-mono px-2 py-1 bg-surface-3 text-text-main/80 rounded-md shrink-0 whitespace-nowrap">
           {trend.toUpperCase()}
         </span>
       </div>
-      <div>
-        <p className="text-[10px] uppercase font-bold text-faint tracking-widest mb-1">{label}</p>
-        <p className="text-2xl font-mono text-text-main dark:text-white font-black tracking-tight">{value}</p>
+      <div className="min-w-0">
+        <p className="text-[10px] uppercase font-bold text-text-muted tracking-widest mb-1 truncate">{label}</p>
+        <p className={`font-mono text-text-main dark:text-white font-black tracking-tight break-words leading-tight ${typeof value === 'string' && value.length > 9 ? 'text-base sm:text-lg' : 'text-2xl'}`}>{value}</p>
       </div>
     </div>
   );
