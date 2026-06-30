@@ -106,7 +106,7 @@ export default function GpaCalculator({ profile, onMenuClick }: GpaCalculatorPro
             </label>
             <label className="flex flex-col gap-1">
               <span className="text-[10px] font-bold uppercase text-faint">{t('Grade', 'الدرجة')}</span>
-              <select value={whatIfGrade} onChange={(e) => setWhatIfGrade(e.target.value)}
+              <select dir="ltr" value={whatIfGrade} onChange={(e) => setWhatIfGrade(e.target.value)}
                 className="bg-bg-main border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-primary/40">
                 {GRADE_OPTIONS.map((g) => <option key={g} value={g}>{g}</option>)}
               </select>
@@ -137,7 +137,7 @@ export default function GpaCalculator({ profile, onMenuClick }: GpaCalculatorPro
             className="w-32 bg-bg-main border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-primary/40" />
           <input type="number" min={0} max={12} value={credits} onChange={(e) => setCredits(e.target.value)}
             className="w-20 bg-bg-main border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-primary/40" title={t('Credits', 'الساعات')} />
-          <select value={grade} onChange={(e) => setGrade(e.target.value)}
+          <select dir="ltr" value={grade} onChange={(e) => setGrade(e.target.value)}
             className="w-20 bg-bg-main border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-primary/40">
             {GRADE_OPTIONS.map((g) => <option key={g} value={g}>{g}</option>)}
           </select>
@@ -169,7 +169,7 @@ export default function GpaCalculator({ profile, onMenuClick }: GpaCalculatorPro
                   <div key={c.id} className="flex items-center gap-3 px-6 py-3">
                     <span className="flex-1 font-bold text-text-main text-sm">{c.name}</span>
                     <span className="text-xs text-faint">{c.credits} {t('cr', 'س')}</span>
-                    <span className={`text-xs font-black px-2.5 py-1 rounded-lg border ${gradeColor(c.grade)}`}>{c.grade}</span>
+                    <span dir="ltr" className={`text-xs font-black px-2.5 py-1 rounded-lg border ${gradeColor(c.grade)}`}>{c.grade}</span>
                     <button onClick={() => profile.uid && deleteCourse(profile.uid, c.id)}
                       className="p-1.5 text-faint hover:text-red-500 transition-colors" title={t('Delete', 'حذف')}>
                       <Trash2 className="w-4 h-4" />
