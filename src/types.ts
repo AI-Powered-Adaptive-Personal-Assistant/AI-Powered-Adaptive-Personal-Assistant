@@ -122,6 +122,18 @@ export interface AttendanceSubject {
   createdAt: string;
 }
 
+// ─── Calendar ────────────────────────────────────────────────────────────────
+export type CalendarEventType = 'event' | 'class' | 'exam' | 'task' | 'reminder' | 'personal';
+export interface CalendarEvent {
+  id: string;
+  title: string;
+  date: string;            // ISO date (YYYY-MM-DD)
+  time?: string;           // optional HH:MM
+  type: CalendarEventType;
+  note?: string;
+  createdAt: string;
+}
+
 // ─── Academic Planner ────────────────────────────────────────────────────────
 export type PlannerTaskType = 'assignment' | 'quiz' | 'midterm' | 'final' | 'project' | 'other';
 export interface PlannerTask {

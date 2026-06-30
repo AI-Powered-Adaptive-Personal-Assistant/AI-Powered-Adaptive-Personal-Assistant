@@ -34,7 +34,7 @@ const SupportCenter = lazy(() => import("./components/SupportCenter"));
 const DisabilityModeView = lazy(() => import("./components/DisabilityModeView"));
 const GoalTracker = lazy(() => import("./components/Goaltracker"));
 const GpaCalculator = lazy(() => import("./components/GpaCalculator"));
-const AttendanceTracker = lazy(() => import("./components/AttendanceTracker"));
+const CalendarView = lazy(() => import("./components/CalendarView"));
 const StudentAnalytics = lazy(() => import("./components/StudentAnalytics"));
 const AcademicPlanner = lazy(() => import("./components/AcademicPlanner"));
 
@@ -444,7 +444,7 @@ export default function App() {
       case 'gpa':
         return <GpaCalculator profile={profile} onMenuClick={() => setIsMobileMenuOpen(true)} />;
       case 'attendance':
-        return <AttendanceTracker profile={profile} onMenuClick={() => setIsMobileMenuOpen(true)} />;
+        return <CalendarView profile={profile} onMenuClick={() => setIsMobileMenuOpen(true)} />;
       case 'analytics':
         return <StudentAnalytics profile={profile} onMenuClick={() => setIsMobileMenuOpen(true)} />;
       case 'planner':
