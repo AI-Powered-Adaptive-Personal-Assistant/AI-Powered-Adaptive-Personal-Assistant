@@ -304,6 +304,12 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
   const [isListening, setIsListening] = useState(false);
   const [interimTranscript, setInterimTranscript] = useState("");
   const recognitionRef = useRef<any>(null);
+  // Text typed before dictation started — we rebuild input = base + transcript,
+  // which is idempotent and prevents the mobile "repeated words" duplication.
+  const baseInputRef = useRef("");
+  // True while the user wants to keep listening — lets us auto-restart if the
+  // engine ends early (fixes desktop "mic closes immediately").
+  const shouldListenRef = useRef(false);
 
   useEffect(() => {
     onSTTStateChange?.(isListening);
@@ -325,45 +331,74 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
       };
       recognition.lang = langMap[profile.language || 'English'] || 'en-US';
 
+      const isAr = profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya';
+
       recognition.onstart = () => setIsListening(true);
+
       recognition.onend = () => {
+        // The engine often stops on its own (silence/timeout). If the user still
+        // wants to listen, restart it so dictation feels continuous.
+        if (shouldListenRef.current) {
+          try { recognition.start(); return; } catch { /* will fall through */ }
+        }
         setIsListening(false);
       };
 
+      recognition.onerror = (event: any) => {
+        const err = event?.error;
+        if (err === 'not-allowed' || err === 'service-not-allowed') {
+          shouldListenRef.current = false;
+          setIsListening(false);
+          toast.error(
+            isAr ? 'مفيش إذن للمايك. اسمح للموقع باستخدام الميكروفون من إعدادات المتصفح.'
+                 : 'Microphone permission is blocked. Allow mic access in your browser settings.',
+            isAr ? 'الميكروفون مقفول' : 'Mic blocked',
+          );
+        } else if (err !== 'no-speech' && err !== 'aborted') {
+          // no-speech/aborted are normal; onend will auto-restart if needed.
+          console.warn('Speech recognition error:', err);
+        }
+      };
+
       recognition.onresult = (event: any) => {
+        // Rebuild the full transcript from ALL results every time (not append),
+        // so engines that re-deliver finals can't duplicate words.
         let finalStr = '';
         let interimStr = '';
-
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          const text = event.results[i][0].transcript;
-          if (event.results[i].isFinal) {
-            finalStr += text;
-          } else {
-            interimStr += text;
-          }
+        for (let i = 0; i < event.results.length; i++) {
+          const res = event.results[i];
+          const text = res[0].transcript;
+          if (res.isFinal) finalStr += text + ' ';
+          else interimStr += text;
         }
-
-        if (finalStr) {
-          setInput(prev => {
-            const newVal = (prev.trim() + " " + finalStr).trim();
-            return newVal;
-          });
-          setInterimTranscript("");
-        } else {
-          setInterimTranscript(interimStr);
-        }
+        const base = baseInputRef.current.trim();
+        setInput(((base ? base + ' ' : '') + finalStr).trim());
+        setInterimTranscript(interimStr.trim());
       };
 
       recognitionRef.current = recognition;
     }
+    return () => {
+      shouldListenRef.current = false;
+      try { recognitionRef.current?.stop(); } catch { /* ignore */ }
+    };
   }, [profile.language]);
 
   const toggleListening = () => {
+    if (!recognitionRef.current) {
+      const isAr = profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya';
+      toast.warning(
+        isAr ? 'الإدخال الصوتي مش مدعوم في المتصفح ده. جرّب Chrome.' : 'Voice input isn’t supported in this browser. Try Chrome.',
+        isAr ? 'غير مدعوم' : 'Unsupported',
+      );
+      return;
+    }
     if (isListening) {
+      shouldListenRef.current = false; // user-initiated stop — don't auto-restart
       const finalFullText = (input + (input && interimTranscript ? " " : "") + interimTranscript).trim();
       setInput(finalFullText);
       setInterimTranscript("");
-      recognitionRef.current?.stop();
+      try { recognitionRef.current?.stop(); } catch { /* ignore */ }
       if (finalFullText && profile.accessibilityMode === 'Visual') {
         const isArabic = profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya';
         const confirmMsg = isArabic ? "تم الإرسال: " + finalFullText : "Sent: " + finalFullText;
@@ -381,8 +416,17 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
         handleSubmit(undefined, finalFullText);
       }
     } else {
+      // Remember what was already typed so dictation appends, not overwrites.
+      baseInputRef.current = input;
       setInterimTranscript("");
-      recognitionRef.current?.start();
+      shouldListenRef.current = true;
+      try {
+        recognitionRef.current.start();
+      } catch {
+        // start() throws if it's already running — restart cleanly.
+        try { recognitionRef.current.stop(); } catch { /* ignore */ }
+        setTimeout(() => { try { recognitionRef.current?.start(); } catch { /* ignore */ } }, 150);
+      }
     }
   };
 
