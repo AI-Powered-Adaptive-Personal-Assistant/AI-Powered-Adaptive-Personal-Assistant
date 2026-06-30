@@ -6,6 +6,7 @@ import { logout, db } from "../lib/firebase";
 import { deleteDoc, doc } from "firebase/firestore";
 import { getTranslation } from "../lib/translations";
 import { isAdminUser } from "../lib/roles";
+import { visibleAcademicSections } from "../lib/academics";
 
 interface SidebarProps {
   profile: UserProfile;
@@ -53,13 +54,17 @@ export default function Sidebar({ profile, setProfile, currentView, setCurrentVi
     { id: 'hub', label: getTranslation(profile.language, 'dashboard'), icon: BarChart3 },
   ] as const;
 
-  const academicItems = [
+  // Academic sections shown depend on the user's education level (University
+  // gets the full set; school & professional get a lighter, relevant set).
+  const allAcademicItems = [
     { id: 'goals', label: localize(profile.language, 'Goals', 'الأهداف'), icon: Target },
     { id: 'gpa', label: localize(profile.language, 'GPA', 'حاسبة GPA'), icon: Calculator },
-    { id: 'attendance', label: localize(profile.language, 'Attendance', 'الحضور'), icon: CalendarCheck },
+    { id: 'attendance', label: localize(profile.language, 'Calendar', 'التقويم'), icon: CalendarCheck },
     { id: 'analytics', label: localize(profile.language, 'Analytics', 'تحليلاتي'), icon: LayoutDashboard },
     { id: 'planner', label: localize(profile.language, 'Planner', 'المخطّط'), icon: CalendarDays },
   ] as const;
+  const visibleSections = visibleAcademicSections(profile.educationLevel);
+  const academicItems = allAcademicItems.filter((i) => visibleSections.includes(i.id as any));
 
   // Admins (incl. runtime-promoted) and super admins see the dashboard link;
   // normal users never do.

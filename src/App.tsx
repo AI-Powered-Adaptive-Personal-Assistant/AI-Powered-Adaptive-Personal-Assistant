@@ -21,6 +21,7 @@ import { Loader2, Settings, Layers, Menu, Moon, Sun, AlertCircle, RefreshCw, Mai
 import { ToastContainer } from "./components/Toast";
 
 import { isRTL, getTranslation } from "./lib/translations";
+import { canAccessSection } from "./lib/academics";
 
 // Heavy, route-specific views are code-split so they don't bloat the initial
 // bundle. They load on demand the first time a user opens that screen, which
@@ -374,6 +375,26 @@ export default function App() {
 
   const renderView = () => {
     if (!profile) return null;
+    // Guard academic sections that aren't available for this education level
+    // (e.g. a school/professional user landing on #gpa or #analytics directly).
+    if (
+      (['gpa', 'attendance', 'analytics', 'goals', 'planner'] as const).includes(currentView as any) &&
+      !canAccessSection(profile.educationLevel, currentView as any)
+    ) {
+      return (
+        <ChatInterface
+          ref={chatRef}
+          profile={profile}
+          onQuestionEvaluated={updateQuestionHistory}
+          syncMessages={syncActiveThread}
+          onMenuClick={() => setIsMobileMenuOpen(true)}
+          externalMessage={externalMessage}
+          onStreamingUpdate={(text) => setCurrentAIResponse(text)}
+          onSTTStateChange={setIsSTTActive}
+          setProfile={setProfile}
+        />
+      );
+    }
     switch (currentView) {
       case 'chat':
         return (
