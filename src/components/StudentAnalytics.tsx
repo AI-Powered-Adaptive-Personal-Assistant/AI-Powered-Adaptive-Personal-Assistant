@@ -119,7 +119,7 @@ export default function StudentAnalytics({ profile, onMenuClick }: StudentAnalyt
             <h2 className="text-sm font-black uppercase tracking-widest text-text-main mb-4">{t('GPA by Semester', 'المعدل لكل ترم')}</h2>
             {gpaTrend.length ? (
               <div className="h-56">
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="100%" height={224} minWidth={0}>
                   <BarChart data={gpaTrend} margin={{ top: 6, right: 0, left: -20, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eef2f7" />
                     <XAxis dataKey="name" tick={{ fontSize: 10 }} />
