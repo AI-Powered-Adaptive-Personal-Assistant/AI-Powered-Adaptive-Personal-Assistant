@@ -9,6 +9,7 @@ export default function Login() {
   const [mode, setMode] = useState<'path-selection' | 'options' | 'email-login' | 'email-register' | 'reset-password'>('options');
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -84,10 +85,29 @@ export default function Login() {
       if (mode === 'email-login') {
         await loginWithEmail(email, password);
       } else {
+        if (password.length < 8) {
+          setError("Password must be at least 8 characters.");
+          setLoading(false);
+          return;
+        }
+        if (password !== confirmPassword) {
+          setError("Passwords don't match. Please re-enter them.");
+          setLoading(false);
+          return;
+        }
         await registerWithEmail(email, password);
       }
     } catch (err: any) {
-      setError(err.message.replace("Firebase: ", ""));
+      const code = err?.code || '';
+      // Friendlier copy for the most common signup failures.
+      const msg = code === 'auth/network-request-failed'
+        ? "Network error — check your connection and try again. (If this keeps happening, the email/password sign-in method may be disabled in Firebase.)"
+        : code === 'auth/email-already-in-use'
+          ? "This email is already registered. Try signing in instead."
+          : code === 'auth/weak-password'
+            ? "Password is too weak — use at least 8 characters with letters, numbers, and symbols."
+            : (err.message || '').replace("Firebase: ", "");
+      setError(msg);
     } finally {
       setLoading(false);
     }
@@ -424,6 +444,22 @@ export default function Login() {
                      </button>
                    </div>
                    <p className="text-[10px] text-faint ml-1 mt-1">Use at least 8 characters with a mix of letters, numbers, and symbols.</p>
+                </div>
+
+                <div className="space-y-1">
+                   <label className="text-xs font-bold text-text-main ml-1">Confirm Password</label>
+                   <div className="relative">
+                     <input
+                       type={showPassword ? "text" : "password"}
+                       required
+                       className="w-full bg-white border border-border rounded-lg py-2.5 px-3 pr-10 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all shadow-sm"
+                       value={confirmPassword}
+                       onChange={(e) => setConfirmPassword(e.target.value)}
+                     />
+                   </div>
+                   {confirmPassword && confirmPassword !== password && (
+                     <p className="text-[10px] text-danger ml-1 mt-1">Passwords don't match.</p>
+                   )}
                 </div>
 
                 {error && (

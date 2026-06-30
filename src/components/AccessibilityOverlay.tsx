@@ -101,13 +101,23 @@ export default function AccessibilityOverlay({
 
   const [currentWord, setCurrentWord] = useState("");
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const [autoSpeak, setAutoSpeak] = useState(
-    mode !== "None" && mode !== "Sign-Only",
-  );
+  // Default to SILENT. The only exception is Visual (blind) mode, where reading
+  // aloud is the whole point and the user can't see the toggle. Everyone else
+  // turns the voice ON explicitly — and turning it off truly stops it (effect below).
+  const [autoSpeak, setAutoSpeak] = useState(mode === "Visual");
   const [avatarImage, setAvatarImage] = useState(
     "https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&q=80&w=400&h=600",
   );
   const [signHistory, setSignHistory] = useState<string[]>([]);
+
+  // The moment the voice is muted, stop any speech that's already playing —
+  // fixes "I muted it but it kept talking".
+  useEffect(() => {
+    if (!autoSpeak && "speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+      setIsSpeaking(false);
+    }
+  }, [autoSpeak]);
 
   // Update sign history when current word changes
   useEffect(() => {
