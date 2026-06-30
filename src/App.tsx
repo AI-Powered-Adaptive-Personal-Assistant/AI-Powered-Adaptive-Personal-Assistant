@@ -326,8 +326,9 @@ export default function App() {
         if (m.attachments !== undefined && m.attachments !== null) {
           item.attachments = m.attachments.map((a: any) => {
             const att: any = { name: a.name || "", type: a.type || "" };
-            if (a.url !== undefined && a.url !== null) att.url = a.url;
-            if (a.data !== undefined && a.data !== null) att.data = a.data;
+            if (a.url) att.url = a.url;
+            // Never persist large base64 — Firestore caps a doc at 1 MiB.
+            if (a.data && !a.url && a.data.length <= 200000) att.data = a.data;
             return att;
           });
         }

@@ -27,8 +27,12 @@ const cleanMessagesForFirestore = (newHistory: Message[]) => {
     if (m.attachments !== undefined && m.attachments !== null) {
       item.attachments = m.attachments.map((a: any) => {
         const att: any = { name: a.name || "", type: a.type || "" };
-        if (a.url !== undefined && a.url !== null) att.url = a.url;
-        if (a.data !== undefined && a.data !== null) att.data = a.data;
+        if (a.url) att.url = a.url;
+        // CRITICAL: never persist large base64 — Firestore caps a document at
+        // 1 MiB, so a big inline attachment would fail the WHOLE thread save.
+        // Large files live in Storage (url); only keep tiny inline data as a
+        // fallback when there's no url yet.
+        if (a.data && !a.url && a.data.length <= 200000) att.data = a.data;
         return att;
       });
     }
@@ -41,6 +45,11 @@ const cleanMessagesForFirestore = (newHistory: Message[]) => {
     return item;
   });
 };
+
+// Best source for an attachment: the Storage URL (persists across reloads),
+// falling back to inline base64 (fresh, pre-upload). Empty if neither.
+const attSrc = (f: { type?: string; data?: string; url?: string }) =>
+  f.url || (f.data ? `data:${f.type};base64,${f.data}` : '');
 
 interface ChatInterfaceProps {
   profile: UserProfile;
@@ -199,7 +208,7 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
   const [selectedFiles, setSelectedFiles] = useState<{ name: string, type: string, data: string, url?: string }[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [previewFile, setPreviewFile] = useState<{ name: string, type: string, data: string } | null>(null);
+  const [previewFile, setPreviewFile] = useState<{ name: string, type: string, data?: string, url?: string } | null>(null);
   const [speakingMessageId, setSpeakingMessageId] = useState<string | null>(null);
   const [isReadingDocument, setIsReadingDocument] = useState(false);
 
@@ -278,8 +287,9 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
     }
   };
 
-  const readDocument = async (file: {name: string, type: string, data: string}) => {
+  const readDocument = async (file: {name: string, type: string, data?: string, url?: string}) => {
     if (isLoading || isReadingDocument) return;
+    if (!file.data) return; // the AI needs the inline bytes; a URL-only file can't be re-read
     setIsReadingDocument(true);
     
     try {
@@ -291,7 +301,7 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
       If it's a PDF/Text, read the key chapters and paragraphs.
       Return the full narrated text.`;
       
-      handleSubmit(undefined, prompt, [file]);
+      handleSubmit(undefined, prompt, [{ name: file.name, type: file.type, data: file.data }]);
     } catch (error) {
       console.error(error);
     } finally {
@@ -890,10 +900,12 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
     });
   };
 
-  const handleDownload = (file: {name: string, type: string, data: string}) => {
-    if (!file || !file.data) return;
+  const handleDownload = (file: {name: string, type: string, data?: string, url?: string}) => {
+    const href = attSrc(file);
+    if (!href) return;
     const link = document.createElement("a");
-    link.href = `data:${file.type};base64,${file.data}`;
+    link.href = href;
+    if (file.url && !file.data) link.target = '_blank'; // remote file → open/download via URL
     link.download = file.name;
     document.body.appendChild(link);
     link.click();
@@ -935,14 +947,14 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
               </button>
             </div>
             {previewFile.type.startsWith('image/') ? (
-              <img 
-                src={`data:${previewFile.type};base64,${previewFile.data}`} 
-                alt={previewFile.name} 
+              <img
+                src={attSrc(previewFile)}
+                alt={previewFile.name}
                 className="max-w-full max-h-full object-contain shadow-2xl rounded-lg"
               />
             ) : previewFile.type.startsWith('video/') ? (
-              <video 
-                src={`data:${previewFile.type};base64,${previewFile.data}`} 
+              <video
+                src={attSrc(previewFile)}
                 controls
                 autoPlay
                 className="max-w-full max-h-full shadow-2xl rounded-lg"
@@ -1231,21 +1243,21 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
                       <div className="flex flex-wrap gap-4 mt-6">
                         {m.attachments.map((file, idx) => (
                           <div key={`${m.id}-gen-att-${idx}`} className="relative group">
-                            <button 
-                              onClick={() => file.data && setPreviewFile(file)}
-                              className={`flex flex-col items-center gap-2 p-2 bg-bg-card border border-border rounded-xl transition-all overflow-hidden ${file.data ? 'hover:border-primary hover:shadow-md cursor-pointer' : 'opacity-80 cursor-default'}`}                             >
-                               {!file.data ? (
+                            <button
+                              onClick={() => attSrc(file) && setPreviewFile(file)}
+                              className={`flex flex-col items-center gap-2 p-2 bg-bg-card border border-border rounded-xl transition-all overflow-hidden ${attSrc(file) ? 'hover:border-primary hover:shadow-md cursor-pointer' : 'opacity-80 cursor-default'}`}                             >
+                               {!attSrc(file) ? (
                                  <div className="w-48 h-48 rounded-lg bg-orange-50 flex items-center justify-center border border-orange-100 flex-col gap-2">
                                    <FileText className="w-10 h-10 text-orange-400" />
                                    <span className="text-[10px] font-bold text-orange-500 uppercase">Media Expired</span>
                                  </div>
                                ) : file.type.startsWith('image/') ? (
                                  <div className="w-48 h-48 rounded-lg overflow-hidden bg-surface-3 border border-border">
-                                   <img src={`data:${file.type};base64,${file.data}`} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                                   <img src={attSrc(file)} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
                                  </div>
                                ) : file.type.startsWith('video/') ? (
                                  <div className="w-48 h-48 rounded-lg bg-slate-800 flex items-center justify-center border border-border overflow-hidden relative">
-                                   <video src={`data:${file.type};base64,${file.data}`} className="w-full h-full object-cover opacity-70" />
+                                   <video src={attSrc(file)} className="w-full h-full object-cover opacity-70" />
                                    <div className="absolute inset-0 flex items-center justify-center group-hover:scale-110 transition-transform">
                                      <div className="w-0 h-0 border-t-[10px] border-t-transparent border-l-[15px] border-l-white border-b-[10px] border-b-transparent ml-1 drop-shadow-lg"></div>
                                    </div>
