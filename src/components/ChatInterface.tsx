@@ -200,14 +200,19 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
   const currentThreadTasks = (profile.tasks || []).filter(t => t.threadId === currentThreadId);
   const [messagesLoading, setMessagesLoading] = useState(false);
 
-  // Handle external message injection
+  // Handle external message injection (e.g. from sign/voice transcription).
+  // Deduped so the same injection can't double-send; the ref resets when the
+  // parent clears externalMessage, so a repeated phrase still sends next time.
+  const lastExternalRef = useRef("");
   useEffect(() => {
-    if (externalMessage && !isLoading) {
-      if (profile.accessibilityMode === 'Vocal-Deaf' || profile.accessibilityMode === 'Sign-Only') {
-        handleSubmit(undefined, externalMessage);
-      } else {
-        setInput(externalMessage);
-      }
+    if (!externalMessage) { lastExternalRef.current = ""; return; }
+    if (isLoading) return;
+    if (externalMessage === lastExternalRef.current) return;
+    lastExternalRef.current = externalMessage;
+    if (profile.accessibilityMode === 'Vocal-Deaf' || profile.accessibilityMode === 'Sign-Only') {
+      handleSubmit(undefined, externalMessage);
+    } else {
+      setInput(externalMessage);
     }
   }, [externalMessage]);
 
@@ -251,7 +256,7 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
     };
   }, []);
   const [streamingText, setStreamingText] = useState("");
-  const [selectedFiles, setSelectedFiles] = useState<{ name: string, type: string, data: string, url?: string }[]>([]);
+  const [selectedFiles, setSelectedFiles] = useState<{ name: string, type: string, data: string, url?: string, localId?: string }[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [previewFile, setPreviewFile] = useState<{ name: string, type: string, data?: string, url?: string } | null>(null);
@@ -581,9 +586,12 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
     }
 
     const isAr = profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya';
-    const newFiles: { name: string, type: string, data: string, url?: string }[] = [];
+    const newFiles: { name: string, type: string, data: string, url?: string, localId?: string }[] = [];
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
+      // Unique id so the async Storage-URL update targets THIS exact attachment,
+      // even when the user adds two identical images (same bytes).
+      const localId = `${Date.now()}-${i}-${Math.random().toString(36).slice(2, 8)}`;
 
       // Word docs aren't readable by the AI — guide the user to PDF instead of
       // silently attaching a file the model will ignore.
@@ -616,7 +624,7 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
           toast.warning(isAr ? `تعذّر قراءة "${file.name}".` : `Couldn't read "${file.name}".`, isAr ? 'خطأ' : 'Error');
           continue;
         }
-        newFiles.push({ name: file.name, type, data, url: '' });
+        newFiles.push({ name: file.name, type, data, url: '', localId });
         continue;
       }
 
@@ -632,7 +640,7 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
         continue;
       }
 
-      newFiles.push({ name: file.name, type: file.type, data: dataStr, url: "" });
+      newFiles.push({ name: file.name, type: file.type, data: dataStr, url: "", localId });
     }
 
     // Show the files and make them available to the AI IMMEDIATELY — the base64
@@ -647,7 +655,7 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
         const storageRef = firebaseStorageRef(storage, `users/${profile.uid}/attachments/${Date.now()}_${att.name}`);
         await uploadString(storageRef, att.data, 'base64', { contentType: att.type });
         const url = await getDownloadURL(storageRef);
-        setSelectedFiles(prev => prev.map(f => (f.data === att.data && !f.url ? { ...f, url } : f)));
+        setSelectedFiles(prev => prev.map(f => (f.localId === att.localId && !f.url ? { ...f, url } : f)));
       } catch (err) {
         console.error("Storage upload error (non-blocking):", err);
       }
@@ -852,13 +860,24 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
         generateChatTitle(submittedMessage, lastText, profile.language)
           .then((title) => {
             if (!title) return;
-            const updatedThreads = (profile.chatThreads || []).map(t =>
-              t.id === threadId ? { ...t, title } : t
-            );
-            if (setProfile) setProfile({ ...profile, chatThreads: updatedThreads });
-            else profile.chatThreads = updatedThreads;
-            setDoc(doc(db, `users/${profile.uid}`), cleanDataForFirestore({ chatThreads: updatedThreads }), { merge: true })
-              .catch(() => { /* title is non-critical */ });
+            // Build from the LATEST threads (not the stale submit-time closure) so
+            // this title write can't revert a lastMessageSnippet/updatedAt that
+            // onQuestionEvaluated just saved for the same thread.
+            const persist = (latest: typeof profile) => {
+              const merged = (latest.chatThreads || []).map(t =>
+                t.id === threadId ? { ...t, title } : t
+              );
+              setDoc(doc(db, `users/${latest.uid}`), cleanDataForFirestore({ chatThreads: merged }), { merge: true })
+                .catch(() => { /* title is non-critical */ });
+              return merged;
+            };
+            if (setProfile) {
+              // App's setProfile is a React state setter — it accepts the
+              // functional form at runtime (prop type is narrowed, so cast).
+              (setProfile as (u: any) => void)((prev: any) => ({ ...prev, chatThreads: persist(prev) }));
+            } else {
+              profile.chatThreads = persist(profile);
+            }
           })
           .catch(() => { /* keep placeholder title */ });
       }
