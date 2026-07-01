@@ -1446,7 +1446,7 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
                             );
                           }}
                           className="text-[10px] font-black uppercase tracking-wider px-2.5 py-1.5 rounded-lg border transition-all flex items-center gap-1.5 text-text-muted bg-bg-card border-border hover:text-primary hover:bg-primary-soft hover:border-primary/20"
-                          title="Copy answer"
+                          title={localize(profile.language, "Copy answer", "نسخ الإجابة")}
                         >
                           <Copy className="w-3.5 h-3.5" />
                           <span>{localize(profile.language, 'Copy', 'نسخ')}</span>
@@ -1692,7 +1692,7 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
                  <button
                    type="button"
                    onClick={toggleListening}
-                   aria-label={isListening ? "Stop voice input" : "Start voice input"}
+                   aria-label={isListening ? localize(profile.language, "Stop voice input", "إيقاف الإدخال الصوتي") : localize(profile.language, "Start voice input", "بدء الإدخال الصوتي")}
                    className={`p-2 transition-colors rounded-lg ${
                      isListening ? 'text-rose-500 bg-danger-soft hover:bg-danger-soft animate-pulse' : 'text-faint hover:text-primary hover:bg-surface-2'
                    }`}
@@ -1741,8 +1741,8 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
                 <button
                   type="button"
                   onClick={() => { stopRef.current = true; }}
-                  title="Stop generating"
-                  aria-label="Stop generating"
+                  title={localize(profile.language, "Stop generating", "إيقاف التوليد")}
+                  aria-label={localize(profile.language, "Stop generating", "إيقاف التوليد")}
                   className="absolute end-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-slate-900 text-white rounded-lg flex items-center justify-center hover:bg-black transition-all shadow-md active:scale-95 z-10"
                 >
                   <Square className="w-4 h-4 fill-current" />
@@ -1751,7 +1751,7 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
                 <button
                   type="submit"
                   disabled={!input.trim() && selectedFiles.length === 0}
-                  aria-label="Send message"
+                  aria-label={localize(profile.language, "Send message", "إرسال")}
                   className="absolute end-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-primary text-white rounded-lg flex items-center justify-center hover:bg-primary-press disabled:bg-surface-3 disabled:text-faint transition-all shadow-md active:scale-95 z-10"
                 >
                   <Send className="w-5 h-5" />

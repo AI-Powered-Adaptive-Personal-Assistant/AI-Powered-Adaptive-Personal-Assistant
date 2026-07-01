@@ -5,6 +5,10 @@ import { sendPasswordResetEmail } from 'firebase/auth';
 import { motion, AnimatePresence } from 'motion/react';
 import { Layers, Chrome, Mail, Lock, AlertCircle, Loader2, Eye, EyeOff, ArrowLeft, Brain, GraduationCap, Heart, CheckCircle, ArrowRight } from 'lucide-react';
 
+// Pre-auth: no profile/language yet, so localize off the browser language.
+const BROWSER_AR = typeof navigator !== 'undefined' && /^ar/i.test(navigator.language || '');
+const L = (en: string, ar: string) => (BROWSER_AR ? ar : en);
+
 export default function Login() {
   const [mode, setMode] = useState<'path-selection' | 'options' | 'email-login' | 'email-register' | 'reset-password'>('options');
   const [email, setEmail] = useState("");
@@ -145,8 +149,8 @@ export default function Login() {
           <div className="w-16 h-16 bg-primary-soft rounded-2xl flex items-center justify-center mx-auto mb-4">
             <Layers className="w-8 h-8 text-primary" />
           </div>
-          <h1 className="text-3xl font-black text-text-main tracking-tighter">Cognify Portal</h1>
-          <p className="text-text-muted text-sm font-medium">Access your account to continue</p>
+          <h1 className="text-3xl font-black text-text-main tracking-tighter">{L("Cognify Portal","بوابة كوجنيفاي")}</h1>
+          <p className="text-text-muted text-sm font-medium">{L("Access your account to continue","سجّل دخولك للمتابعة")}</p>
         </div>
 
         <AnimatePresence mode="wait">
@@ -281,7 +285,7 @@ export default function Login() {
                   onClick={() => setMode('email-login')}
                   className="py-3 text-xs font-black uppercase tracking-widest text-text-muted hover:text-text-main transition-all rounded-xl hover:bg-white/50"
                 >
-                  Sign In
+                  {L("Sign In","تسجيل الدخول")}
                 </button>
                 <button 
                   onClick={() => setMode('email-register')}
@@ -293,7 +297,7 @@ export default function Login() {
 
               <div className="flex items-center gap-4">
                 <div className="h-px bg-surface-3 flex-1" />
-                <span className="text-[10px] font-black text-faint uppercase tracking-widest">Or Continue With</span>
+                <span className="text-[10px] font-black text-faint uppercase tracking-widest">{L("Or Continue With","أو تابع عبر")}</span>
                 <div className="h-px bg-surface-3 flex-1" />
               </div>
 
@@ -307,7 +311,7 @@ export default function Login() {
                 ) : (
                   <Chrome className="w-6 h-6 text-white group-hover:text-primary transition-colors" />
                 )}
-                <span>Continue with Google</span>
+                <span>{L("Continue with Google","المتابعة عبر جوجل")}</span>
               </button>
 
               {error && (
@@ -380,16 +384,16 @@ export default function Login() {
               </button>
               <div className="space-y-2 mb-6 pt-4">
                  <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-surface-3 text-primary rounded-full border border-border text-[10px] font-bold mb-2">
-                    <Lock className="w-3 h-3" /> Secure Initial Sign-in
+                    <Lock className="w-3 h-3" /> {L("Secure Initial Sign-in","تسجيل أولي آمن")}
                  </div>
-                 <h2 className="text-3xl font-extrabold text-text-main tracking-tight">Create your account</h2>
+                 <h2 className="text-3xl font-extrabold text-text-main tracking-tight">{L("Create your account","أنشئ حسابك")}</h2>
                  <p className="text-text-muted text-sm">Create your profile and gain access to personalized cognitive improvements and practice feedback.</p>
               </div>
 
               <form onSubmit={handleManualAuth} className="space-y-4">
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <label className="text-xs font-bold text-text-main ml-1">First Name</label>
+                    <label className="text-xs font-bold text-text-main ml-1">{L("First Name","الاسم الأول")}</label>
                      <input 
                        type="text" 
                        required
@@ -397,7 +401,7 @@ export default function Login() {
                      />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs font-bold text-text-main ml-1">Last Name</label>
+                    <label className="text-xs font-bold text-text-main ml-1">{L("Last Name","اسم العائلة")}</label>
                      <input 
                        type="text" 
                        required
@@ -407,7 +411,7 @@ export default function Login() {
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-text-main ml-1">Phone</label>
+                  <label className="text-xs font-bold text-text-main ml-1">{L("Phone","الهاتف")}</label>
                    <input 
                      type="tel" 
                      className="w-full bg-white border border-border rounded-lg py-2.5 px-3 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all shadow-sm"
@@ -415,7 +419,7 @@ export default function Login() {
                 </div>
 
                 <div className="space-y-1">
-                   <label className="text-xs font-bold text-text-main ml-1">Email Address</label>
+                   <label className="text-xs font-bold text-text-main ml-1">{L("Email Address","البريد الإلكتروني")}</label>
                    <input 
                      type="email" 
                      required
@@ -426,7 +430,7 @@ export default function Login() {
                 </div>
 
                 <div className="space-y-1">
-                   <label className="text-xs font-bold text-text-main ml-1">Password</label>
+                   <label className="text-xs font-bold text-text-main ml-1">{L("Password","كلمة المرور")}</label>
                    <div className="relative">
                      <input 
                        type={showPassword ? "text" : "password"} 
@@ -443,11 +447,11 @@ export default function Login() {
                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                      </button>
                    </div>
-                   <p className="text-[10px] text-faint ml-1 mt-1">Use at least 8 characters with a mix of letters, numbers, and symbols.</p>
+                   <p className="text-[10px] text-faint ml-1 mt-1">{L("Use at least 8 characters with a mix of letters, numbers, and symbols.","استخدم 8 أحرف على الأقل مع مزيج من حروف وأرقام ورموز.")}</p>
                 </div>
 
                 <div className="space-y-1">
-                   <label className="text-xs font-bold text-text-main ml-1">Confirm Password</label>
+                   <label className="text-xs font-bold text-text-main ml-1">{L("Confirm Password","تأكيد كلمة المرور")}</label>
                    <div className="relative">
                      <input
                        type={showPassword ? "text" : "password"}
@@ -478,17 +482,17 @@ export default function Login() {
                   disabled={loading}
                   className="w-full bg-[#4F46E5] text-white py-3.5 rounded-lg flex items-center justify-center font-bold text-sm hover:bg-[#4338CA] transition-all disabled:opacity-50 mt-2 shadow-sm"
                 >
-                  {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Create account'}
+                  {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : L('Create account','إنشاء الحساب')}
                 </button>
               </form>
 
               <div className="pt-2 text-center text-sm">
-                 <span className="text-text-muted">Already have an account? </span>
+                 <span className="text-text-muted">{L("Already have an account? ","عندك حساب بالفعل؟ ")}</span>
                  <button 
                    onClick={() => { setMode('email-login'); setError(null); }}
                    className="text-[#4F46E5] font-bold hover:underline"
                  >
-                   Sign in
+                   {L("Sign in","سجّل دخول")}
                  </button>
               </div>
             </motion.div>
@@ -509,7 +513,7 @@ export default function Login() {
               </button>
               <form onSubmit={handleManualAuth} className="space-y-4 text-left">
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-faint uppercase ml-4">Email Address</label>
+                  <label className="text-[10px] font-black text-faint uppercase ml-4">{L("Email Address","البريد الإلكتروني")}</label>
                   <div className="relative">
                     <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-faint" />
                     <input 
@@ -524,7 +528,7 @@ export default function Login() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-faint uppercase ml-4">Password</label>
+                  <label className="text-[10px] font-black text-faint uppercase ml-4">{L("Password","كلمة المرور")}</label>
                   <div className="relative">
                     <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-faint" />
                     <input 
@@ -606,8 +610,8 @@ export default function Login() {
               </button>
               
               <div className="space-y-2 mb-6">
-                <h2 className="text-2xl font-black text-text-main tracking-tight">Reset Password</h2>
-                <p className="text-text-muted text-sm">Enter your email address to receive password reset instructions.</p>
+                <h2 className="text-2xl font-black text-text-main tracking-tight">{L("Reset Password","إعادة تعيين كلمة المرور")}</h2>
+                <p className="text-text-muted text-sm">{L("Enter your email address to receive password reset instructions.","اكتب بريدك الإلكتروني لاستلام تعليمات إعادة التعيين.")}</p>
               </div>
 
               {resetSuccess ? (
@@ -617,7 +621,7 @@ export default function Login() {
               ) : (
                 <form onSubmit={handleResetPassword} className="space-y-4">
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-faint uppercase ml-4">Email Address</label>
+                    <label className="text-[10px] font-black text-faint uppercase ml-4">{L("Email Address","البريد الإلكتروني")}</label>
                     <div className="relative">
                       <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-faint" />
                       <input 
