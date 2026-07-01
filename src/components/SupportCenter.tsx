@@ -1,14 +1,12 @@
 import { useState } from 'react';
 import { UserProfile } from '../types';
-import { Menu, LifeBuoy, ChevronDown, Mail, MessageSquare, Accessibility, Globe, Activity, ShieldCheck } from 'lucide-react';
+import { Menu, LifeBuoy, ChevronDown, MessageSquare, Accessibility, Globe, Activity, ShieldCheck } from 'lucide-react';
 import { localize } from '../lib/translations';
 
 interface SupportCenterProps {
   profile: UserProfile;
   onMenuClick?: () => void;
 }
-
-const SUPPORT_EMAIL = 'support@addme.solutions';
 
 export default function SupportCenter({ profile, onMenuClick }: SupportCenterProps) {
   const isAr = profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya';
@@ -58,25 +56,11 @@ export default function SupportCenter({ profile, onMenuClick }: SupportCenterPro
           <h1 className="font-display text-2xl md:text-3xl font-bold text-text-main tracking-tight flex items-center gap-3">
             <LifeBuoy className="w-7 h-7 text-primary" /> {t('Support Center', 'مركز الدعم')}
           </h1>
-          <p className="text-sm text-text-muted mt-1">{t('Answers to common questions, and how to reach us.', 'إجابات للأسئلة الشائعة، وإزاي توصلنا.')}</p>
+          <p className="text-sm text-text-muted mt-1">{t('Answers to common questions.', 'إجابات للأسئلة الشائعة.')}</p>
         </div>
       </header>
 
       <div className="max-w-3xl w-full space-y-6 pb-10">
-        {/* Contact card */}
-        <div className="bg-primary text-white rounded-[20px] p-6 md:p-7 shadow-lg shadow-primary/25 flex flex-col md:flex-row md:items-center gap-5">
-          <div className="flex-1">
-            <h2 className="font-display text-lg font-semibold">{t('Need a hand?', 'محتاج مساعدة؟')}</h2>
-            <p className="text-sm text-white/80 mt-1">{t('Email our team and we’ll get back to you.', 'ابعتلنا إيميل وهنرد عليك في أقرب وقت.')}</p>
-          </div>
-          <a
-            href={`mailto:${SUPPORT_EMAIL}`}
-            className="inline-flex items-center justify-center gap-2 bg-white text-primary font-semibold text-sm px-5 py-3 rounded-xl hover:bg-white/90 transition-colors active:scale-[0.98] shrink-0"
-          >
-            <Mail className="w-4 h-4" /> {SUPPORT_EMAIL}
-          </a>
-        </div>
-
         {/* FAQ */}
         <div className="bg-bg-card border border-border rounded-[20px] overflow-hidden shadow-sm">
           <div className="px-5 py-4 border-b border-border">
@@ -106,7 +90,7 @@ export default function SupportCenter({ profile, onMenuClick }: SupportCenterPro
         </div>
 
         <p className="text-center text-xs text-faint">
-          {t('Still stuck? Email', 'لسه محتاج مساعدة؟ ابعتلنا على')} <a href={`mailto:${SUPPORT_EMAIL}`} className="text-primary font-medium underline underline-offset-2">{SUPPORT_EMAIL}</a>
+          {t('Still stuck? Ask the AI chat — it can help with most things.', 'لسه محتاج مساعدة؟ اسأل الشات — بيساعدك في أغلب الحاجات.')}
         </p>
       </div>
     </div>
