@@ -34,6 +34,9 @@ export default function DisabilityModeView({
 
   const updateAccessibilityMode = async (mode: AccessibilityMode) => {
     if (!profile.uid) return;
+    // Apply locally FIRST so the UI switches instantly — without this the change
+    // only showed up after a Firestore round-trip (felt like it needed a refresh).
+    if (setProfile) setProfile({ ...profile, accessibilityMode: mode });
     const path = `users/${profile.uid}`;
     try {
       await setDoc(doc(db, path), { accessibilityMode: mode }, { merge: true });
