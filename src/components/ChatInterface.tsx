@@ -1105,7 +1105,7 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
             </div>
             {profile.accessibilityMode !== 'None' && (
               <div className="hidden sm:flex items-center gap-1.5 px-3 py-1 bg-primary-soft text-primary border border-primary/10 rounded-full text-[10px] font-black uppercase tracking-wider">
-                 <Accessibility className="w-3 h-3" /> {profile.accessibilityMode} Mode
+                 <Accessibility className="w-3 h-3" /> {profile.accessibilityMode} {localize(profile.language, 'Mode', 'وضع')}
               </div>
             )}
             {(profile.accessibilityMode === 'Vocal-Deaf' || profile.accessibilityMode === 'Sign-Only') && (

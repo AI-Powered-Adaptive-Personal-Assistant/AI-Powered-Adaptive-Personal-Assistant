@@ -176,7 +176,12 @@ export default function DisabilityModeView({
                           <h3 className={`text-sm font-semibold mb-1 ${
                             profile.accessibilityMode === mode ? 'text-primary' : 'text-text-main'
                           }`}>
-                            {mode === 'None' ? getTranslation(profile.language, 'standardProtocol') : mode}
+                            {mode === 'None' ? getTranslation(profile.language, 'standardProtocol')
+                              : mode === 'Speech' ? localize(profile.language, 'Speech', 'النطق')
+                              : mode === 'Visual' ? localize(profile.language, 'Visual', 'بصري')
+                              : mode === 'Vocal-Deaf' ? localize(profile.language, 'Vocal-Deaf', 'أصمّ ناطق')
+                              : mode === 'Sign-Only' ? localize(profile.language, 'Sign-Only', 'إشارة فقط')
+                              : mode}
                           </h3>
                           <p className="text-xs text-text-muted leading-relaxed font-medium">
                             {getModeDescription(mode)}

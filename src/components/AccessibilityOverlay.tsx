@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { AccessibilityMode, UserProfile } from "../types";
 import { toast } from "./Toast";
+import { localize } from "../lib/translations";
 import {
   Mic,
   MicOff,
@@ -759,7 +760,7 @@ export default function AccessibilityOverlay({
                   <div className="flex items-center gap-2">
                     <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                     <span className="text-[9px] font-black uppercase text-primary tracking-widest">
-                      Fingerspelling
+                      {localize(profile.language, "Fingerspelling", "تهجئة بالأصابع")}
                     </span>
                     {liveLetter && (
                       <span className="text-[9px] font-mono font-bold text-faint">
@@ -771,7 +772,7 @@ export default function AccessibilityOverlay({
                     <button
                       onClick={() => setTranscription((p) => p.slice(0, -1))}
                       disabled={!transcription}
-                      title="Backspace"
+                      title={localize(profile.language, "Backspace", "مسح حرف")}
                       className="px-2 py-1 bg-surface-3 text-text-muted text-[9px] font-black uppercase rounded-lg hover:bg-surface-3 disabled:opacity-40"
                     >
                       ⌫
@@ -784,12 +785,12 @@ export default function AccessibilityOverlay({
                       disabled={!transcription}
                       className="px-2 py-1 bg-surface-3 text-text-muted text-[9px] font-black uppercase rounded-lg hover:bg-surface-3 disabled:opacity-40"
                     >
-                      Clear
+                      {localize(profile.language, "Clear", "مسح")}
                     </button>
                     <button
                       onClick={interpretWithAI}
                       disabled={!isVisionActive || isVisionAnalyzing}
-                      title="Interpret a full word/gesture with AI"
+                      title={localize(profile.language, "Interpret a full word/gesture with AI", "ترجمة كلمة/إشارة كاملة بالذكاء الاصطناعي")}
                       className="px-2 py-1 bg-primary text-white text-[9px] font-black uppercase rounded-lg hover:bg-primary disabled:opacity-40 flex items-center gap-1"
                     >
                       {isVisionAnalyzing ? (
@@ -797,7 +798,7 @@ export default function AccessibilityOverlay({
                       ) : (
                         <Sparkles className="w-3 h-3" />
                       )}
-                      AI
+                      {localize(profile.language, "AI", "ذكاء")}
                     </button>
                     <button
                       onClick={() => {
@@ -809,12 +810,12 @@ export default function AccessibilityOverlay({
                       disabled={!transcription.trim()}
                       className="px-2 py-1 bg-emerald-500 text-white text-[9px] font-black uppercase rounded-lg hover:bg-emerald-600 disabled:opacity-40"
                     >
-                      Send
+                      {localize(profile.language, "Send", "إرسال")}
                     </button>
                   </div>
                 </div>
                 <p className="text-sm font-bold text-text-main leading-relaxed italic capitalize min-h-[1.25rem]">
-                  {transcription ? `"${transcription}"` : <span className="text-faint not-italic">Spell a word…</span>}
+                  {transcription ? `"${transcription}"` : <span className="text-faint not-italic">{localize(profile.language, "Spell a word…", "تهجّى كلمة…")}</span>}
                 </p>
               </div>
             )}
@@ -927,14 +928,14 @@ export default function AccessibilityOverlay({
                   <>
                     <VideoOff className="w-6 h-6 text-white" />
                     <span className="text-white text-xs font-black uppercase tracking-widest">
-                      Stop Vision
+                      {localize(profile.language, "Stop Vision", "إيقاف الرؤية")}
                     </span>
                   </>
                 ) : (
                   <>
                     <Video className="w-6 h-6 text-white" />
                     <span className="text-white text-xs font-black uppercase tracking-widest">
-                      Start Sign Translation
+                      {localize(profile.language, "Start Sign Translation", "بدء ترجمة الإشارة")}
                     </span>
                   </>
                 )}
