@@ -487,7 +487,7 @@ export default function ProfilePage({ profile, onMenuClick, setProfile }: Profil
                     </h4>
                     <div className="space-y-3">
                       {feedbackStats.improvementSnippets.map((snippet, idx) => (
-                        <div key={idx} className="p-4 bg-bg-main border border-border rounded-2xl text-xs font-medium text-text-muted leading-relaxed italic line-clamp-2 hover:line-clamp-none transition-all cursor-pointer border-l-4 border-l-rose-400">
+                        <div key={idx} className="p-4 bg-bg-main border border-border rounded-2xl text-xs font-medium text-text-muted leading-relaxed italic line-clamp-2 hover:line-clamp-none transition-all cursor-pointer border-s-4 border-s-rose-400">
                           "{snippet}"
                         </div>
                       ))}

@@ -192,7 +192,8 @@ export default function Sidebar({ profile, setProfile, currentView, setCurrentVi
                       if (profile.uid) deleteDoc(doc(db, `users/${profile.uid}/threads/${t.id}`)).catch((er) => console.error(er));
                     }}
                     className="opacity-0 group-hover:opacity-100 p-1.5 me-1 text-faint hover:text-danger rounded-md transition-all"
-                    title="Delete chat"
+                    title={localize(profile.language, 'Delete chat', 'حذف المحادثة')}
+                    aria-label={localize(profile.language, 'Delete chat', 'حذف المحادثة')}
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
@@ -252,7 +253,7 @@ export default function Sidebar({ profile, setProfile, currentView, setCurrentVi
           <button onClick={openLiveCaptions} className="flex-1 flex items-center justify-center gap-2 py-[9px] rounded-[11px] border border-border bg-surface-2 text-text-main text-[12.5px] font-semibold hover:bg-surface-3 transition-colors">
             <Mic className="w-[15px] h-[15px] text-primary" /> {localize(profile.language, 'Captions', 'الكابشن')}
           </button>
-          <button onClick={() => logout()} className="flex items-center justify-center gap-2 px-3 py-[9px] rounded-[11px] border border-border bg-surface-2 text-danger text-[12.5px] font-semibold hover:bg-danger-soft transition-colors" title={getTranslation(profile.language, 'logout')}>
+          <button onClick={() => logout()} className="flex items-center justify-center gap-2 px-3 py-[9px] rounded-[11px] border border-border bg-surface-2 text-danger text-[12.5px] font-semibold hover:bg-danger-soft transition-colors" title={getTranslation(profile.language, 'logout')} aria-label={getTranslation(profile.language, 'logout')}>
             <LogOut className="w-[15px] h-[15px]" />
           </button>
         </div>

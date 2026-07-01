@@ -564,7 +564,11 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
                       <Sparkles className={`w-3 h-3 ${is3DActive ? 'text-emerald-400' : 'text-accent'}`} />
                       {is3DActive ? '3D Avatar' : '2D Mode'}
                     </button>
-                    <button className="text-white/50 hover:text-white transition-colors bg-black/40 p-2 rounded-lg backdrop-blur-md">
+                    <button
+                      title={localize(profile.language, 'Download', 'تحميل')}
+                      aria-label={localize(profile.language, 'Download', 'تحميل')}
+                      className="text-white/50 hover:text-white transition-colors bg-black/40 p-2 rounded-lg backdrop-blur-md"
+                    >
                       <Download className="w-5 h-5" />
                     </button>
                   </div>

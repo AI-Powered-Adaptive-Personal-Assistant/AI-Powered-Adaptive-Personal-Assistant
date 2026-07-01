@@ -644,7 +644,7 @@ export default function AccessibilityOverlay({
       <button
         onClick={() => toggleControlsHidden(false)}
         title="Show accessibility controls"
-        className="fixed bottom-32 left-4 md:left-8 z-50 w-12 h-12 rounded-full bg-slate-900 text-white shadow-xl border-2 border-slate-700 flex items-center justify-center hover:bg-slate-800 active:scale-95 pointer-events-auto"
+        className="fixed bottom-32 start-4 md:start-8 z-50 w-12 h-12 rounded-full bg-slate-900 text-white shadow-xl border-2 border-slate-700 flex items-center justify-center hover:bg-slate-800 active:scale-95 pointer-events-auto"
       >
         <Eye className="w-5 h-5" />
       </button>
@@ -657,7 +657,7 @@ export default function AccessibilityOverlay({
       dragConstraints={{ left: -100, right: 1000, top: -800, bottom: 100 }}
       dragElastic={0.2}
       dragMomentum={false}
-      className="fixed bottom-32 left-4 md:left-8 z-50 flex flex-col gap-6 pointer-events-none"
+      className="fixed bottom-32 start-4 md:start-8 z-50 flex flex-col gap-6 pointer-events-none"
     >
       {/* Hide all accessibility controls */}
       <button

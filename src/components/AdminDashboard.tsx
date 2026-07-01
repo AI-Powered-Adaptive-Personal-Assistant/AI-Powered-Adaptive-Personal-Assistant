@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { UserProfile } from "../types";
 import { db, handleFirestoreError, OperationType } from "../lib/firebase";
-import { collection, onSnapshot, deleteDoc, doc, updateDoc } from "firebase/firestore";
+import { collection, onSnapshot, deleteDoc, doc, updateDoc, query, limit } from "firebase/firestore";
 import { toast } from "./Toast";
 import {
   SUPERADMIN_EMAILS, ADMIN_EMAILS, norm,
@@ -28,7 +28,10 @@ export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardP
   useEffect(() => {
     if (!isAdmin) return;
 
-    const usersRef = collection(db, "users");
+    // Bound the read — streaming the ENTIRE users collection (each doc carries
+    // chat/tasks/history) doesn't scale. Cap it; no orderBy so users that lack a
+    // given field aren't silently dropped from the directory.
+    const usersRef = query(collection(db, "users"), limit(1000));
     const unsubscribe = onSnapshot(usersRef, (snapshot) => {
       const usersData: UserProfile[] = [];
       snapshot.forEach((doc) => {
