@@ -13,6 +13,13 @@ import { getTranslation } from "../lib/translations";
 import { toast } from "./Toast";
 import MarkdownMessage from "./MarkdownMessage";
 
+// Three.js is heavy — only load the sign avatar when a deaf-mode user opens it.
+const SignAvatar3D = React.lazy(() => import("./SignAvatar3D"));
+
+// Strip markdown/sign markers and split into words for the sign avatar.
+const wordsForSigning = (text: string): string[] =>
+  text.replace(/\[Signs:.*?\]/g, "").replace(/[*+#_`~\[\]()>-]/g, " ").split(/\s+/).filter(Boolean).slice(0, 60);
+
 const cleanMessagesForFirestore = (newHistory: Message[]) => {
   // Cap the persisted history so one thread doc can't exceed Firestore's 1 MiB
   // limit (which would fail EVERY future save for that thread). The live UI keeps
@@ -264,6 +271,9 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [previewFile, setPreviewFile] = useState<{ name: string, type: string, data?: string, url?: string } | null>(null);
   const [speakingMessageId, setSpeakingMessageId] = useState<string | null>(null);
+  // Which assistant message is currently being shown on the sign-language avatar
+  // (only one at a time to avoid many WebGL contexts).
+  const [signingId, setSigningId] = useState<string | null>(null);
   const [isReadingDocument, setIsReadingDocument] = useState(false);
 
   const handleSpeak = (m: Message) => {
@@ -1300,30 +1310,25 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
                           </button>
                         </div>
                       )}
-                      {(profile.accessibilityMode === 'Vocal-Deaf' || profile.accessibilityMode === 'Sign-Only') && (
-                        <div className="mb-6 p-4 bg-surface-2 rounded-2xl border border-border flex items-center gap-4">
-                           <div className="w-12 h-12 rounded-xl bg-primary-soft flex items-center justify-center flex-shrink-0 relative overflow-hidden">
-                              <Bot className="w-6 h-6 text-primary relative z-10" />
-                              <motion.div 
-                                animate={{ 
-                                  scale: [1, 1.5, 1],
-                                  opacity: [0.1, 0.3, 0.1]
-                                }}
-                                transition={{ repeat: Infinity, duration: 2 }}
-                                className="absolute inset-0 bg-primary"
-                              />
-                           </div>
-                           <div>
-                             <p className="text-[10px] font-black uppercase text-primary tracking-widest mb-1">Visual Sign Translation</p>
-                             <p className="text-xs text-text-muted font-medium italic">Translating response to sign language visuals...</p>
-                           </div>
-                           <motion.div 
-                             animate={{ x: [0, 5, -5, 0], y: [0, -2, 2, 0] }}
-                             transition={{ repeat: Infinity, duration: 3 }}
-                             className="ml-auto"
-                           >
-                             <BrainCircuit className="w-6 h-6 text-emerald-400 opacity-50" />
-                           </motion.div>
+                      {(profile.accessibilityMode === 'Vocal-Deaf' || profile.accessibilityMode === 'Sign-Only') && m.id !== 'welcome' && m.content?.trim() && (
+                        <div className="mb-4">
+                          <button
+                            onClick={() => setSigningId(signingId === m.id ? null : m.id)}
+                            aria-label={localize(profile.language, 'Show this reply in sign language', 'اعرض الرد بلغة الإشارة')}
+                            className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-primary-soft text-primary text-xs font-bold hover:bg-primary/20 transition-colors"
+                          >
+                            <Accessibility className="w-4 h-4" />
+                            {signingId === m.id
+                              ? localize(profile.language, 'Hide sign avatar', 'إخفاء الأفاتار')
+                              : localize(profile.language, 'Show in sign language', 'اعرض بلغة الإشارة')}
+                          </button>
+                          {signingId === m.id && (
+                            <div className="mt-3 h-64 sm:h-72 rounded-2xl overflow-hidden bg-slate-950 border border-border relative">
+                              <React.Suspense fallback={<div className="absolute inset-0 flex items-center justify-center text-text-muted text-xs font-bold uppercase tracking-widest">Loading avatar…</div>}>
+                                <SignAvatar3D words={wordsForSigning(m.content)} playing={true} onDone={() => { /* stays on last pose */ }} />
+                              </React.Suspense>
+                            </div>
+                          )}
                         </div>
                       )}
                       <MarkdownMessage content={m.content} />
