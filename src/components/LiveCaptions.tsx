@@ -107,6 +107,11 @@ const SOUNDBOARD_DATA: Record<'essentials' | 'needs' | 'social' | 'emergencies',
 // MAIN COMPONENT
 // ──────────────────────────────────────────────────────────────────────────
 export default function LiveCaptions({ language = 'en-US', onClose }: LiveCaptionsProps) {
+  // `language` is a BCP-47 code here (e.g. "ar-EG"), NOT a language name — so
+  // localize()/isRTL (which compare against "Arabic") don't work on it. Derive
+  // the Arabic flag directly from the code.
+  const isAr = language.toLowerCase().startsWith('ar');
+  const dir = isAr ? 'rtl' : 'ltr';
   // ── Core listening state
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
@@ -276,7 +281,7 @@ export default function LiveCaptions({ language = 'en-US', onClose }: LiveCaptio
         utterance.rate = speechRate;
         utterance.pitch = speechPitch;
         const voices = window.speechSynthesis.getVoices();
-        const voice = voices.find(v => v.lang.startsWith(localize(language, 'en', 'ar')));
+        const voice = voices.find(v => v.lang.toLowerCase().startsWith(isAr ? 'ar' : 'en'));
         if (voice) utterance.voice = voice;
         window.speechSynthesis.speak(utterance);
       };
@@ -1259,8 +1264,8 @@ export default function LiveCaptions({ language = 'en-US', onClose }: LiveCaptio
             <textarea
               value={customText}
               onChange={e => setCustomText(e.target.value)}
-              placeholder={localize(language, "Type a sentence to speak aloud…", "اكتب شيئاً لنطقه بالصوت…")}
-              dir={localize(language, 'ltr', 'rtl')}
+              placeholder={isAr ? "اكتب شيئاً لنطقه بالصوت…" : "Type a sentence to speak aloud…"}
+              dir={dir}
               className="w-full text-sm bg-neutral-950 border border-white/10 rounded-xl p-3 focus:outline-none focus:border-purple-500/50 text-white placeholder-neutral-600 resize-none h-16"
             />
             <div className="flex items-center gap-2 justify-end flex-wrap">
@@ -1474,7 +1479,7 @@ export default function LiveCaptions({ language = 'en-US', onClose }: LiveCaptio
               </button>
             </div>
             <div className="flex-1 flex items-center justify-center text-center px-4">
-              <h1 dir={localize(language, 'ltr', 'rtl')} className="text-5xl md:text-7xl lg:text-9xl font-black leading-relaxed text-white select-none break-words">
+              <h1 dir={dir} className="text-5xl md:text-7xl lg:text-9xl font-black leading-relaxed text-white select-none break-words">
                 {customText}
               </h1>
             </div>

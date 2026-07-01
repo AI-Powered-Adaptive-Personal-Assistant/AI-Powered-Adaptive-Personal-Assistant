@@ -265,7 +265,7 @@ export function goalSuccessProbability(goal: Goal, now = Date.now()): MetricResu
     ],
     improvementActions: value >= 50
       ? ['On track — keep your current pace.']
-      : [`Complete one milestone in the next ${Math.max(1, round(daysRemaining / Math.max(1, goal.milestones.length)))} days to get back on track.`],
+      : [`Complete one milestone in the next ${Math.max(1, round(daysRemaining / Math.max(1, (goal.milestones || []).length)))} days to get back on track.`],
   };
 }
 

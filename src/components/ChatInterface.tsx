@@ -14,7 +14,10 @@ import { toast } from "./Toast";
 import MarkdownMessage from "./MarkdownMessage";
 
 const cleanMessagesForFirestore = (newHistory: Message[]) => {
-  return newHistory.map(m => {
+  // Cap the persisted history so one thread doc can't exceed Firestore's 1 MiB
+  // limit (which would fail EVERY future save for that thread). The live UI keeps
+  // the full in-memory history for the session; only very old turns drop on reload.
+  return newHistory.slice(-300).map(m => {
     const item: any = {
       id: m.id,
       role: m.role,
@@ -533,9 +536,12 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
       // of truth during a turn, so a lagging server copy can't erase the reply.
       if (snapshot.metadata.hasPendingWrites) return;
       if (isSendingRef.current || Date.now() - lastLocalWriteRef.current < 2500) return;
-      // Backstop: a snapshot with fewer messages than we already have is stale.
+      // Backstop: a snapshot with fewer messages than we already have is treated
+      // as a stale echo — but ONLY within a few seconds of our own last write.
+      // Beyond that window a genuinely shorter remote state (another device
+      // deleting/regenerating) is allowed through, so cross-device edits sync.
       const incomingLen = snapshot.exists() ? (snapshot.data().messages?.length || 0) : 0;
-      if (incomingLen < messagesLenRef.current) return;
+      if (incomingLen < messagesLenRef.current && Date.now() - lastLocalWriteRef.current < 8000) return;
 
       if (snapshot.exists() && snapshot.data().messages?.length > 0) {
         const data = snapshot.data();

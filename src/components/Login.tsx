@@ -65,7 +65,7 @@ export default function Login() {
     } catch (err: any) {
       clearTimeout(helpTimer);
       if (err.code === 'auth/cancelled-popup-request') {
-        console.log("Sign-in request already in progress.");
+        /* another sign-in popup is already open — ignore */
       } else if (err.code === 'auth/popup-closed-by-user') {
         setError("Authorization window was closed. Please try again.");
       } else {

@@ -18,6 +18,10 @@ const TYPE_META: Record<PlannerTaskType, { en: string; ar: string; color: string
   other: { en: 'Other', ar: 'أخرى', color: 'bg-surface-3 text-text-muted border-border' },
 };
 
+// Safe lookup — legacy/unknown task types fall back to 'other' instead of
+// crashing the planner with `undefined.color`.
+const metaOf = (type?: string) => TYPE_META[(type as PlannerTaskType)] || TYPE_META.other;
+
 export default function AcademicPlanner({ profile, onMenuClick }: AcademicPlannerProps) {
   const isAr = profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya';
   const t = (en: string, ar: string) => localize(profile.language, en, ar);
@@ -76,7 +80,7 @@ export default function AcademicPlanner({ profile, onMenuClick }: AcademicPlanne
   };
 
   const TaskRow = ({ task }: { task: PlannerTask }) => {
-    const meta = TYPE_META[task.type];
+    const meta = metaOf(task.type);
     const cd = countdown(task);
     return (
       <div className="flex items-center gap-3 px-4 py-3 bg-bg-card border border-border rounded-2xl">

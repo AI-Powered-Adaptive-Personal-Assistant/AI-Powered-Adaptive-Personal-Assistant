@@ -56,6 +56,13 @@ export default function App() {
 
   const direction = isRTL(profile?.language) ? 'rtl' : 'ltr';
 
+  // Keep the document root's dir/lang in sync so screen readers pronounce Arabic
+  // with the right rules and portalled/native UI (dialogs, popovers) inherits RTL.
+  useEffect(() => {
+    document.documentElement.dir = direction;
+    document.documentElement.lang = direction === 'rtl' ? 'ar' : 'en';
+  }, [direction]);
+
   // Theme management: Default to system, but respect manual override if present
   const [isDarkMode, setIsDarkMode] = useState(() => {
     const saved = localStorage.getItem('theme');
@@ -135,7 +142,7 @@ export default function App() {
 
   // Custom navigation function that updates URL and state
  const navigateTo = (
-  view: 'chat' | 'hub' | 'profile' | 'settings' | 'video' | 'disability' | 'admin' | 'goals'
+  view: 'chat' | 'hub' | 'profile' | 'settings' | 'video' | 'disability' | 'admin' | 'goals' | 'gpa' | 'attendance' | 'analytics' | 'planner' | 'support'
 ) => {
   window.history.pushState(null, '', `#${view}`);
   setCurrentView(view);
@@ -268,47 +275,33 @@ export default function App() {
   const updateQuestionHistory = async (score: number, lastMessageSnippet?: string) => {
     if (!user || !profile) return;
     const path = `users/${user.uid}`;
-    
-    // If we have an active thread, update its metadata
-    let updatedThreads = profile.chatThreads || [];
-    if (profile.activeThreadId && lastMessageSnippet) {
-      updatedThreads = updatedThreads.map(t => 
-        t.id === profile.activeThreadId 
-          ? { ...t, lastMessageSnippet, updatedAt: new Date().toISOString() } 
-          : t
-      );
-    }
 
-    const updatedProfile: UserProfile = {
-      ...profile,
-      points: profile.points + (score * 5),
-      // Keep only the most recent 200 entries so the profile doc never grows
-      // unbounded (Firestore caps a document at 1 MiB).
-      questionHistory: [...(profile.questionHistory || []), { score, date: new Date().toISOString() }].slice(-200),
-      chatThreads: updatedThreads
-    };
-
-    try {
-      // Explicitly prune large legacy arrays from the main document to resolve 1MB limit
-      const cleanProfile = JSON.parse(JSON.stringify(updatedProfile));
-      
-      // Ensure chatThreads in the profile doc only contains metadata
-      if (cleanProfile.chatThreads) {
-        cleanProfile.chatThreads = cleanProfile.chatThreads.map((t: any) => ({
-          id: t.id,
-          title: t.title,
-          updatedAt: t.updatedAt,
-          lastMessageSnippet: t.lastMessageSnippet
-        }));
+    // Build from the LATEST profile state (functional update). Writing back the
+    // whole (possibly stale) profile used to clobber `tasks` and thread titles
+    // that other paths had just saved. We now persist ONLY the fields we change.
+    setProfile((prev) => {
+      if (!prev) return prev;
+      let updatedThreads = prev.chatThreads || [];
+      if (prev.activeThreadId && lastMessageSnippet) {
+        updatedThreads = updatedThreads.map((t) =>
+          t.id === prev.activeThreadId
+            ? { ...t, lastMessageSnippet, updatedAt: new Date().toISOString() }
+            : t,
+        );
       }
-      
-      // Clear legacy global history if it exists to save space
-      cleanProfile.chatHistory = []; 
-
-      await setDoc(doc(db, path), cleanProfile, { merge: true });
-    } catch (err) {
-      handleFirestoreError(err, OperationType.UPDATE, path);
-    }
+      const nextPoints = prev.points + score * 5;
+      // Cap history at 200 so the profile doc never grows unbounded (1 MiB cap).
+      const nextHistory = [...(prev.questionHistory || []), { score, date: new Date().toISOString() }].slice(-200);
+      const threadMeta = updatedThreads.map((t) => ({
+        id: t.id, title: t.title, updatedAt: t.updatedAt, lastMessageSnippet: t.lastMessageSnippet,
+      }));
+      setDoc(
+        doc(db, path),
+        cleanDataForFirestore({ points: nextPoints, questionHistory: nextHistory, chatThreads: threadMeta }),
+        { merge: true },
+      ).catch((err) => handleFirestoreError(err, OperationType.UPDATE, path));
+      return { ...prev, points: nextPoints, questionHistory: nextHistory, chatThreads: updatedThreads };
+    });
   };
 
   const syncActiveThread = async (updatedHistory: Message[]) => {
@@ -642,8 +635,8 @@ export default function App() {
 
         <AnimatePresence>
           {isLiveCaptionsOpen && (
-            <LiveCaptions 
-              language={profile?.language === 'Arabic' ? 'ar-SA' : 'en-US'}
+            <LiveCaptions
+              language={(profile?.language === 'Arabic' || profile?.language === 'Egyptian Ammiya') ? 'ar-EG' : 'en-US'}
               onClose={() => setIsLiveCaptionsOpen(false)} 
             />
           )}

@@ -23,8 +23,8 @@ const IntelligenceHub = React.memo(({ profile, onMenuClick }: IntelligenceHubPro
   ], [profile.level]);
 
   // Area Chart Data
-  const chartData = useMemo(() => 
-    profile.questionHistory.map((h, i) => ({
+  const chartData = useMemo(() =>
+    (profile.questionHistory || []).map((h, i) => ({
       name: `Q${i + 1}`,
       score: h.score,
       fullDate: formatDate(h.date)
@@ -83,7 +83,7 @@ const IntelligenceHub = React.memo(({ profile, onMenuClick }: IntelligenceHubPro
             icon={Target} 
             color="text-primary" 
             bg="bg-primary-soft dark:bg-primary/10" 
-            trend={`+${(profile.questionHistory.length * 0.5).toFixed(1)} pts`} 
+            trend={`+${((profile.questionHistory?.length || 0) * 0.5).toFixed(1)} pts`}
           />
           <BentoMetric 
             label="Merit Points" 
