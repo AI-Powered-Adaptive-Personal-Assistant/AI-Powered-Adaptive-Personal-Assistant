@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { doc, setDoc } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import SignVideoStudio from './SignVideoStudio';
-import ChatInterface from './ChatInterface';
+import ChatInterface, { ChatInterfaceRef } from './ChatInterface';
 import { getTranslation } from '../lib/translations';
 
 interface DisabilityModeViewProps {
@@ -17,19 +17,21 @@ interface DisabilityModeViewProps {
   syncMessages?: (updatedHistory: Message[]) => void;
   externalMessage?: string;
   onStreamingUpdate?: (text: string) => void;
+  onSTTStateChange?: (active: boolean) => void;
   setProfile?: (profile: UserProfile) => void;
 }
 
-export default function DisabilityModeView({ 
-  profile, 
-  onMenuClick, 
+const DisabilityModeView = React.forwardRef<ChatInterfaceRef, DisabilityModeViewProps>(function DisabilityModeView({
+  profile,
+  onMenuClick,
   onNavigate,
   onQuestionEvaluated,
   syncMessages,
   externalMessage,
   onStreamingUpdate,
+  onSTTStateChange,
   setProfile
-}: DisabilityModeViewProps) {
+}, ref) {
   const [activeTab, setActiveTab] = React.useState<'chat' | 'settings' | 'video'>('chat');
 
   const updateAccessibilityMode = async (mode: AccessibilityMode) => {
@@ -126,13 +128,15 @@ export default function DisabilityModeView({
               className="w-full h-full flex flex-col p-4 md:p-6 lg:p-10 pb-0"
             >
               <div className="flex-1 bg-bg-card rounded-t-3xl shadow-sm border border-border overflow-hidden relative flex flex-col">
-                <ChatInterface 
-                  profile={profile} 
-                  onQuestionEvaluated={onQuestionEvaluated || (() => {})} 
-                  syncMessages={syncMessages || (() => {})} 
-                  onMenuClick={onMenuClick} 
+                <ChatInterface
+                  ref={ref}
+                  profile={profile}
+                  onQuestionEvaluated={onQuestionEvaluated || (() => {})}
+                  syncMessages={syncMessages || (() => {})}
+                  onMenuClick={onMenuClick}
                   externalMessage={externalMessage}
                   onStreamingUpdate={onStreamingUpdate}
+                  onSTTStateChange={onSTTStateChange}
                   isEmbedded={true}
                   setProfile={setProfile}
                 />
@@ -228,4 +232,6 @@ export default function DisabilityModeView({
       </main>
     </div>
   );
-}
+});
+
+export default DisabilityModeView;

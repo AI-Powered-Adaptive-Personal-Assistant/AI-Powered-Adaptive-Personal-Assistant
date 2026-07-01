@@ -417,14 +417,16 @@ export default function App() {
       case 'video':
         return <SignVideoStudio profile={profile} onMenuClick={() => setIsMobileMenuOpen(true)} />;
       case 'disability':
-        return <DisabilityModeView 
-          profile={profile} 
-          onMenuClick={() => setIsMobileMenuOpen(true)} 
-          onNavigate={navigateTo} 
-          onQuestionEvaluated={updateQuestionHistory} 
+        return <DisabilityModeView
+          ref={chatRef}
+          profile={profile}
+          onMenuClick={() => setIsMobileMenuOpen(true)}
+          onNavigate={navigateTo}
+          onQuestionEvaluated={updateQuestionHistory}
           syncMessages={syncActiveThread}
           externalMessage={externalMessage}
           onStreamingUpdate={(text) => setCurrentAIResponse(text)}
+          onSTTStateChange={setIsSTTActive}
           setProfile={setProfile}
         />;
       case 'profile':
