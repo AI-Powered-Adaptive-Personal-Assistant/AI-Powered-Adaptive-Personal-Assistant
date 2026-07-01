@@ -21,12 +21,12 @@ import {
 import { db, handleFirestoreError, OperationType, cleanDataForFirestore } from './firebase';
 import { Course } from '../types';
 
-/** Letter grade → 4.0-scale quality points (A+ capped at 4.0, D- = 0.7). */
+/** Letter grade → quality points (matches the university's official 4.0 scale). */
 export const GRADE_POINTS: Record<string, number> = {
-  'A+': 4.0, 'A': 4.0, 'A-': 3.7,
-  'B+': 3.3, 'B': 3.0, 'B-': 2.7,
-  'C+': 2.3, 'C': 2.0, 'C-': 1.7,
-  'D+': 1.3, 'D': 1.0, 'D-': 0.7,
+  'A+': 4.0, 'A': 3.7, 'A-': 3.4,
+  'B+': 3.2, 'B': 3.0, 'B-': 2.8,
+  'C+': 2.6, 'C': 2.4, 'C-': 2.2,
+  'D+': 2.0, 'D': 1.5, 'D-': 1.0,
   'F': 0.0,
 };
 
