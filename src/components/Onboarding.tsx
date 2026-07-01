@@ -104,7 +104,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
     >
       <div className="space-y-2 text-center">
         <h2 className="text-3xl font-extrabold tracking-tight text-text-main leading-tight">{getTranslation(formData.language, 'language')}</h2>
-        <p className="text-text-muted">Pick your preferred cognitive interaction language.</p>
+        <p className="text-text-muted">{localize(formData.language, "Pick your preferred cognitive interaction language.", "اختر لغتك المفضّلة للتفاعل.")}</p>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
@@ -280,7 +280,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
            <Sprout className="w-10 h-10 text-success" />
         </div>
         <div className="space-y-2">
-          <h2 className="text-3xl font-extrabold tracking-tight text-text-main leading-tight">Sustainability & Life Goals</h2>
+          <h2 className="text-3xl font-extrabold tracking-tight text-text-main leading-tight">{localize(formData.language, "Sustainability & Life Goals", "الاستدامة وأهداف الحياة")}</h2>
           <p className="text-text-muted">Cognify is built for long-term human growth. Which UN Sustainable Development Goal do you care about most?</p>
         </div>
       </div>
@@ -311,7 +311,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
         onClick={handleNextStep}
         className="w-full bg-slate-900 text-white font-bold py-4 rounded-xl shadow-lg hover:bg-black transition-all flex items-center justify-center gap-2 group"
       >
-        Continue <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+        {getTranslation(formData.language, "continue")} <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
       </button>
     </motion.div>
   );
@@ -356,7 +356,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
         onClick={() => logout()}
         className="absolute top-6 right-6 md:top-8 md:right-8 flex items-center gap-2 px-4 py-2 bg-white hover:bg-surface-3 text-text-muted hover:text-text-main rounded-xl transition-all text-xs font-bold uppercase tracking-widest z-50 shadow-sm border border-border"
       >
-        <LogOut className="w-4 h-4" /> Logout
+        <LogOut className="w-4 h-4" /> {getTranslation(formData.language, "logout")}
       </button>
 
       {step < 4 && (
