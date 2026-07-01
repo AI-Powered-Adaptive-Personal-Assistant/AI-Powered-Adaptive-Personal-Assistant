@@ -110,6 +110,9 @@ export default function LiveCaptions({ language = 'en-US', onClose }: LiveCaptio
   // ── Core listening state
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
+  // Mirror of `transcript` so the recognizer effect doesn't need it as a dep
+  // (having it as a dep re-created the recognizer on every word → dropped audio).
+  const transcriptRef = useRef('');
   const [interimTranscript, setInterimTranscript] = useState('');
   const [volume, setVolume] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -337,14 +340,14 @@ export default function LiveCaptions({ language = 'en-US', onClose }: LiveCaptio
         else interimStr += text;
       }
       if (finalStr) {
-        setTranscript(prev => prev + ' ' + finalStr);
+        setTranscript(prev => { const next = (prev + ' ' + finalStr).trim(); transcriptRef.current = next; return next; });
         setInterimTranscript('');
       } else {
         setInterimTranscript(interimStr);
       }
       if (silenceTimeoutRef.current) clearTimeout(silenceTimeoutRef.current);
       silenceTimeoutRef.current = setTimeout(async () => {
-        const fullText = (transcript + ' ' + (finalStr || interimStr)).trim();
+        const fullText = (transcriptRef.current + ' ' + (finalStr || interimStr)).trim();
         if (fullText.length > 2) {
           await processUtterance(fullText);
         }
@@ -355,7 +358,9 @@ export default function LiveCaptions({ language = 'en-US', onClose }: LiveCaptio
       if (recognitionRef.current) recognitionRef.current.stop();
       stopAudioLevelTracking();
     };
-  }, [language, transcript, speechProfile, pauseThreshold]);
+    // NOTE: `transcript` intentionally NOT a dep — recreating the recognizer
+    // mid-sentence dropped words. We read the latest via transcriptRef instead.
+  }, [language, speechProfile, pauseThreshold]);
 
   const toggleListening = () => {
     if (isListening) {
@@ -444,6 +449,7 @@ export default function LiveCaptions({ language = 'en-US', onClose }: LiveCaptio
     };
 
     setSegments(prev => [...prev.slice(-20), newSegment]); // Keep last 20
+    transcriptRef.current = '';
     setTranscript('');
     setInterimTranscript('');
   };

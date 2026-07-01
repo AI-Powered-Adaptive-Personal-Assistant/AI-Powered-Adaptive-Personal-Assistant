@@ -98,8 +98,9 @@ export const geminiService = {
     return (await callGemini([{ text: prompt }])) || text;
   },
 
-  async askGeneralQuestion(text: string, language: string = "English") {
-    const prompt = `Answer clearly and concisely in ${language}:\n\n${text}`;
+  async askGeneralQuestion(text: string, _language: string = "English") {
+    // Mirror the QUESTION's language (fixes "Arabic in → English out").
+    const prompt = `Answer the following clearly and concisely. IMPORTANT: reply in the SAME language and dialect as the question — if it's Arabic (incl. Egyptian), answer in Arabic; if English, answer in English.\n\nQuestion: ${text}`;
     return (await callGemini([{ text: prompt }])) || "";
   },
 
