@@ -616,9 +616,12 @@ export default function App() {
           </Suspense>
         </main>
 
-        {profile && (
-          <AccessibilityOverlay 
-            mode={profile.accessibilityMode === 'None' ? 'Vocal-Deaf' : profile.accessibilityMode} 
+        {/* The floating accessibility overlay (sign avatar / mic / vision) is only for
+            users who actually need it — a real accessibility mode, the Special Needs
+            path, or while inside the disability view. Normal users never see it. */}
+        {profile && (profile.accessibilityMode && profile.accessibilityMode !== 'None' || profile.accountPath === 'Special Needs' || currentView === 'disability') && (
+          <AccessibilityOverlay
+            mode={!profile.accessibilityMode || profile.accessibilityMode === 'None' ? 'Vocal-Deaf' : profile.accessibilityMode}
             profile={profile}
             aiResponse={currentAIResponse}
             isListening={isSTTActive}

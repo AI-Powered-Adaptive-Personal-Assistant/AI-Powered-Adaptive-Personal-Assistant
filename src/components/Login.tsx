@@ -10,7 +10,7 @@ const BROWSER_AR = typeof navigator !== 'undefined' && /^ar/i.test(navigator.lan
 const L = (en: string, ar: string) => (BROWSER_AR ? ar : en);
 
 export default function Login() {
-  const [mode, setMode] = useState<'path-selection' | 'options' | 'email-login' | 'email-register' | 'reset-password'>('options');
+  const [mode, setMode] = useState<'path-selection' | 'options' | 'email-login' | 'email-register' | 'reset-password'>('path-selection');
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -162,14 +162,19 @@ export default function Login() {
               exit={{ opacity: 0, scale: 1.05 }}
               className="flex flex-col gap-6 w-full"
             >
+              <div className="space-y-1">
+                <h2 className="text-xl font-black text-text-main tracking-tight">{L("Choose your path", "اختر مسارك")}</h2>
+                <p className="text-xs text-text-muted font-medium">{L("Pick the experience that fits you before you sign in.", "اختر التجربة اللي تناسبك قبل ما تسجّل دخولك.")}</p>
+              </div>
               <div className="flex flex-col gap-3">
                 {(["Normal", "Graduation Project", "Special Needs"] as const).map((path) => (
                   <button
                     key={path}
                     onClick={() => setAccountPath(path)}
-                    className={`flex items-center gap-4 p-5 rounded-2xl border-2 transition-all text-left ${
-                      accountPath === path 
-                        ? 'border-primary bg-primary-soft text-primary' 
+                    aria-pressed={accountPath === path}
+                    className={`flex items-center gap-4 p-5 rounded-2xl border-2 transition-all text-start ${
+                      accountPath === path
+                        ? 'border-primary bg-primary-soft text-primary'
                         : 'border-border bg-white text-text-muted hover:border-primary/20'
                     }`}
                   >
@@ -179,30 +184,34 @@ export default function Login() {
                       {path === "Special Needs" && <Heart className="w-6 h-6 text-red-400" />}
                     </div>
                     <div>
-                      <span className="font-bold text-base block">{path}</span>
+                      <span className="font-bold text-base block">
+                        {path === "Normal" && L("Normal", "عادي")}
+                        {path === "Graduation Project" && L("Graduation Project", "مشروع تخرّج")}
+                        {path === "Special Needs" && L("Special Needs", "احتياجات خاصة")}
+                      </span>
                       <span className="text-xs text-text-muted font-medium">
-                        {path === "Normal" && "Standard cognitive evaluation path."}
-                        {path === "Graduation Project" && "For university students."}
-                        {path === "Special Needs" && "Customized accessible experience."}
+                        {path === "Normal" && L("Standard cognitive evaluation path.", "المسار القياسي للتقييم المعرفي.")}
+                        {path === "Graduation Project" && L("For university students.", "لطلاب الجامعة ومشاريع التخرّج.")}
+                        {path === "Special Needs" && L("Customized accessible experience.", "تجربة مخصّصة وسهلة الوصول لذوي الهمم.")}
                       </span>
                     </div>
                     {accountPath === path && (
-                      <CheckCircle className="w-5 h-5 ml-auto text-primary" />
+                      <CheckCircle className="w-5 h-5 ms-auto text-primary" />
                     )}
                   </button>
                 ))}
               </div>
 
               {accountPath === 'Graduation Project' && (
-                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="space-y-4 text-left">
+                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="space-y-4 text-start">
                   <div className="space-y-2">
-                    <label className="text-[11px] font-bold text-text-muted uppercase tracking-[0.05em]">Faculty / College</label>
+                    <label className="text-[11px] font-bold text-text-muted uppercase tracking-[0.05em]">{L("Faculty / College", "الكلية")}</label>
                     <select
                       className="w-full bg-white border border-border rounded-xl px-4 py-3 text-sm focus:ring-4 focus:ring-primary/5 focus:border-primary outline-none transition-all"
                       value={faculty}
                       onChange={(e) => setFaculty(e.target.value)}
                     >
-                      <option value="" disabled>Select your faculty</option>
+                      <option value="" disabled>{L("Select your faculty", "اختر كليتك")}</option>
                       <option value="Computers and Artificial Intelligence">Computers and Artificial Intelligence</option>
                       <option value="Engineering">Engineering</option>
                       <option value="Medicine">Medicine</option>
@@ -216,18 +225,18 @@ export default function Login() {
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-[11px] font-bold text-text-muted uppercase tracking-[0.05em]">Department / Major</label>
+                    <label className="text-[11px] font-bold text-text-muted uppercase tracking-[0.05em]">{L("Department / Major", "القسم / التخصّص")}</label>
                     <input
                       type="text"
-                      placeholder="e.g. Computer Science, AI, etc."
+                      placeholder={L("e.g. Computer Science, AI, etc.", "مثال: علوم حاسب، ذكاء اصطناعي...")}
                       className="w-full bg-white border border-border rounded-xl px-4 py-3 text-sm focus:ring-4 focus:ring-primary/5 focus:border-primary outline-none transition-all"
                       value={department}
                       onChange={(e) => setDepartment(e.target.value)}
                     />
                   </div>
-                  
+
                   <div className="space-y-2">
-                    <label className="text-[11px] font-bold text-text-muted uppercase tracking-[0.05em]">University Email</label>
+                    <label className="text-[11px] font-bold text-text-muted uppercase tracking-[0.05em]">{L("University Email", "البريد الجامعي")}</label>
                     <input
                       type="email"
                       placeholder="e.g. id@university.edu.eg"
@@ -236,27 +245,27 @@ export default function Login() {
                       onChange={(e) => setUniversityEmail(e.target.value)}
                     />
                     {!validateUniversityEmail(universityEmail) && universityEmail.length > 0 && (
-                      <p className="text-xs text-red-500 mt-1">Please enter a valid university email (e.g., .edu.eg)</p>
+                      <p className="text-xs text-red-500 mt-1">{L("Please enter a valid university email (e.g., .edu.eg)", "من فضلك اكتب بريد جامعي صحيح (مثل ‎.edu.eg)")}</p>
                     )}
                   </div>
                 </motion.div>
               )}
 
               {accountPath === 'Special Needs' && (
-                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="space-y-2 text-left">
-                  <label className="text-[11px] font-bold text-text-muted uppercase tracking-[0.05em]">Disability Type</label>
+                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="space-y-2 text-start">
+                  <label className="text-[11px] font-bold text-text-muted uppercase tracking-[0.05em]">{L("Disability Type", "نوع الإعاقة")}</label>
                   <select
                     className="w-full bg-white border border-border rounded-xl px-4 py-3 text-sm focus:ring-4 focus:ring-primary/5 focus:border-primary outline-none transition-all"
                     value={disabilityType}
                     onChange={(e) => setDisabilityType(e.target.value)}
                   >
-                    <option value="" disabled>Select your disability type</option>
-                    <option value="Visual Impairment">Visual Impairment</option>
-                    <option value="Hearing Impairment">Hearing Impairment</option>
-                    <option value="Motor Impairment">Motor Impairment</option>
-                    <option value="Cognitive/Learning Disability">Cognitive/Learning Disability</option>
-                    <option value="Speech Impairment">Speech Impairment</option>
-                    <option value="Other">Other</option>
+                    <option value="" disabled>{L("Select your disability type", "اختر نوع الإعاقة")}</option>
+                    <option value="Visual Impairment">{L("Visual Impairment", "إعاقة بصرية (كفيف)")}</option>
+                    <option value="Hearing Impairment">{L("Hearing Impairment", "إعاقة سمعية (أصمّ)")}</option>
+                    <option value="Motor Impairment">{L("Motor Impairment", "إعاقة حركية")}</option>
+                    <option value="Cognitive/Learning Disability">{L("Cognitive/Learning Disability", "صعوبات إدراكية / تعلّم")}</option>
+                    <option value="Speech Impairment">{L("Speech Impairment", "إعاقة في النطق")}</option>
+                    <option value="Other">{L("Other", "أخرى")}</option>
                   </select>
                 </motion.div>
               )}
@@ -269,7 +278,7 @@ export default function Login() {
                 }
                 className="w-full h-16 bg-primary text-white font-bold py-4 rounded-xl shadow-lg hover:bg-primary-press disabled:bg-surface-3 disabled:text-faint transition-all flex items-center justify-center gap-2 group"
               >
-                Continue <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                {L("Continue", "متابعة")} <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform rtl:rotate-180" />
               </button>
             </motion.div>
           ) : mode === 'options' ? (
@@ -287,13 +296,20 @@ export default function Login() {
                 >
                   {L("Sign In","تسجيل الدخول")}
                 </button>
-                <button 
+                <button
                   onClick={() => setMode('email-register')}
                   className="py-3 text-xs font-black uppercase tracking-widest text-text-muted hover:text-text-main transition-all rounded-xl hover:bg-white/50"
                 >
-                  Create
+                  {L("Create", "حساب جديد")}
                 </button>
               </div>
+
+              <button
+                onClick={() => setMode('path-selection')}
+                className="flex items-center justify-center gap-1.5 mx-auto text-[10px] font-black text-faint hover:text-text-muted uppercase tracking-widest transition-colors"
+              >
+                <ArrowLeft className="w-3.5 h-3.5 rtl:rotate-180" /> {L("Change path", "تغيير المسار")}
+              </button>
 
               <div className="flex items-center gap-4">
                 <div className="h-px bg-surface-3 flex-1" />

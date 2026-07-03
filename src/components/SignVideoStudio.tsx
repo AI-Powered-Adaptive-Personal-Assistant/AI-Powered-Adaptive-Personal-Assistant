@@ -2,7 +2,7 @@ import { localize } from '../lib/translations';
 import { useState, useEffect, useRef } from "react";
 import { UserProfile } from "../types";
 import { motion, AnimatePresence } from "motion/react";
-import { Mic, Square, Play, RefreshCw, Menu, Download, FileText, Settings, Video, Sparkles, Brain, Zap, Activity } from "lucide-react";
+import { Mic, Square, Play, RefreshCw, Menu, Download, FileText, Settings, Video, Sparkles, Brain, Zap, Activity, Camera, CameraOff, Hand, Keyboard, Volume2 } from "lucide-react";
 import SignAvatar3D from "./SignAvatar3D";
 import { geminiService } from "../services/geminiService";
 
@@ -37,6 +37,15 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
   const audioChunksRef = useRef<Blob[]>([]);
   const recordingTimerRef = useRef<any>(null);
 
+  // Unified input mode: the user fills the script by SIGNING (camera), TYPING, or SPEAKING.
+  const [inputMode, setInputMode] = useState<'sign' | 'text' | 'voice'>('text');
+  const [isSignCamActive, setIsSignCamActive] = useState(false);
+  const [isInterpreting, setIsInterpreting] = useState(false);
+  const [signCamError, setSignCamError] = useState("");
+  const signVideoRef = useRef<HTMLVideoElement | null>(null);
+  const signCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const signStreamRef = useRef<MediaStream | null>(null);
+
   const KANEVSKY_PRESETS = [
     { id: 'ep_k1', phrase: "fanku", translation: "Thank you" },
     { id: 'ep_k2', phrase: "tanku", translation: "Thank you" },
@@ -70,7 +79,16 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
     askAI: localize(profile.language, "Ask AI (Get Answer)", "اسأل الذكاء الاصطناعي"),
     aiResult: localize(profile.language, "AI Answer / Result", "نتيجة الإجابة (AI Answer)"),
     useAnswer: localize(profile.language, "Sign Answer", "عرض بلغة الإشارة"),
-    asking: localize(profile.language, "AI thinking...", "جاري التفكير والتوليد...")
+    asking: localize(profile.language, "AI thinking...", "جاري التفكير والتوليد..."),
+    modeSign: localize(profile.language, "Sign", "إشارة"),
+    modeText: localize(profile.language, "Type", "كتابة"),
+    modeVoice: localize(profile.language, "Speak", "صوت"),
+    howToInput: localize(profile.language, "How do you want to talk to Cognify?", "عايز تكلّم كوجنيفاي إزاي؟"),
+    startCamera: localize(profile.language, "Start Camera", "تشغيل الكاميرا"),
+    stopCamera: localize(profile.language, "Stop Camera", "إيقاف الكاميرا"),
+    captureSign: localize(profile.language, "Capture Sign", "التقاط الإشارة"),
+    interpreting: localize(profile.language, "Interpreting sign...", "جاري تفسير الإشارة..."),
+    signHint: localize(profile.language, "Sign in front of the camera, then press Capture. Repeat to build a sentence.", "أشِر أمام الكاميرا ثم اضغط التقاط. كرّر لتكوين جملة.")
   };
 
   useEffect(() => {
@@ -284,6 +302,72 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
     if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
   };
 
+  // --- SIGN LANGUAGE CAMERA INPUT (capture a frame → Gemini vision → text) ---
+  const startSignCam = async () => {
+    setSignCamError("");
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { width: 640, height: 480, facingMode: "user" },
+      });
+      signStreamRef.current = stream;
+      if (signVideoRef.current) {
+        signVideoRef.current.srcObject = stream;
+      }
+      setIsSignCamActive(true);
+    } catch (e) {
+      console.error("Sign camera failed", e);
+      setSignCamError(localize(profile.language, "Camera access failed. Please allow camera permission.", "تعذّر الوصول للكاميرا. من فضلك اسمح بإذن الكاميرا."));
+    }
+  };
+
+  const stopSignCam = () => {
+    if (signStreamRef.current) {
+      signStreamRef.current.getTracks().forEach((tr) => tr.stop());
+      signStreamRef.current = null;
+    }
+    if (signVideoRef.current) signVideoRef.current.srcObject = null;
+    setIsSignCamActive(false);
+  };
+
+  const captureSign = async () => {
+    if (!signVideoRef.current || !signCanvasRef.current || isInterpreting) return;
+    const canvas = signCanvasRef.current;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.drawImage(signVideoRef.current, 0, 0, canvas.width, canvas.height);
+    const imageData = canvas.toDataURL("image/jpeg", 0.6).split(",")[1];
+
+    setIsInterpreting(true);
+    try {
+      const text = await geminiService.translateSign(
+        imageData,
+        profile.language || "English",
+        profile.level || "Basic",
+      );
+      if (text && !text.toUpperCase().includes("[NO_SIGN]")) {
+        const clean = text.replace(/[\[\]]/g, "").trim();
+        // Append to the running script so several signs build a sentence.
+        setInputText((prev) => (prev ? prev.trim() + " " : "") + clean);
+      } else {
+        setSignCamError(localize(profile.language, "No clear sign detected — try again.", "لم يتم التعرف على إشارة واضحة — حاول تاني."));
+      }
+    } catch (e) {
+      console.error("Sign interpretation failed", e);
+      setSignCamError(localize(profile.language, "Interpretation failed. Try again.", "فشل التفسير. حاول تاني."));
+    } finally {
+      setIsInterpreting(false);
+    }
+  };
+
+  // Release the camera when leaving sign mode or unmounting.
+  useEffect(() => {
+    if (inputMode !== 'sign') stopSignCam();
+  }, [inputMode]);
+
+  useEffect(() => {
+    return () => stopSignCam();
+  }, []);
+
   const generateVideo = async () => {
     if (!inputText.trim()) return;
     setIsGenerating(true);
@@ -395,23 +479,103 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
                        {t.scriptInput}
                      </h2>
 
-                     {/* Audio recording mode toggle: Continuous ASR vs Raw Acoustic AI */}
-                     <button
-                       onClick={() => {
-                         setIsDirectAudioMode(!isDirectAudioMode);
-                         if (isRecording) stopRecording();
-                         if (isRecordingDirectAudio) stopDirectAudioRecord();
-                       }}
-                       className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider transition-all border ${
-                         isDirectAudioMode
-                           ? 'bg-purple-100 text-accent border-border'
-                           : 'bg-surface-3 text-text-muted border-border hover:bg-surface-3'
-                       }`}
-                     >
-                        <Zap className="w-3.5 h-3.5 text-current" />
-                        {isDirectAudioMode ? (localize(profile.language, "Acoustic Decrypt", "فك التشفير المباشر")) : (localize(profile.language, "ASR Dictate", "إملاء مستمر"))}
-                     </button>
+                     {/* Audio recording mode toggle: Continuous ASR vs Raw Acoustic AI — voice mode only */}
+                     {inputMode === 'voice' && (
+                       <button
+                         onClick={() => {
+                           setIsDirectAudioMode(!isDirectAudioMode);
+                           if (isRecording) stopRecording();
+                           if (isRecordingDirectAudio) stopDirectAudioRecord();
+                         }}
+                         className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider transition-all border ${
+                           isDirectAudioMode
+                             ? 'bg-purple-100 text-accent border-border'
+                             : 'bg-surface-3 text-text-muted border-border hover:bg-surface-3'
+                         }`}
+                       >
+                          <Zap className="w-3.5 h-3.5 text-current" />
+                          {isDirectAudioMode ? (localize(profile.language, "Acoustic Decrypt", "فك التشفير المباشر")) : (localize(profile.language, "ASR Dictate", "إملاء مستمر"))}
+                       </button>
+                     )}
                   </div>
+
+                  {/* Unified input-mode selector: SIGN / TYPE / SPEAK */}
+                  <div className="mb-4">
+                    <p className="text-[11px] font-bold text-text-muted mb-2">{t.howToInput}</p>
+                    <div className="grid grid-cols-3 gap-2 p-1 bg-surface-2 rounded-2xl border border-border" role="tablist" aria-label={t.howToInput}>
+                      {([
+                        { id: 'sign', label: t.modeSign, Icon: Hand },
+                        { id: 'text', label: t.modeText, Icon: Keyboard },
+                        { id: 'voice', label: t.modeVoice, Icon: Volume2 },
+                      ] as const).map(({ id, label, Icon }) => (
+                        <button
+                          key={id}
+                          role="tab"
+                          aria-selected={inputMode === id}
+                          onClick={() => setInputMode(id)}
+                          className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                            inputMode === id
+                              ? 'bg-primary text-white shadow-sm'
+                              : 'text-text-muted hover:bg-surface-3'
+                          }`}
+                        >
+                          <Icon className="w-4 h-4" /> {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* SIGN camera capture panel */}
+                  {inputMode === 'sign' && (
+                    <div className="mb-4 rounded-2xl border border-border bg-slate-900 overflow-hidden">
+                      <div className="relative aspect-video bg-slate-950 flex items-center justify-center">
+                        <video
+                          ref={signVideoRef}
+                          autoPlay
+                          playsInline
+                          muted
+                          className={`w-full h-full object-cover ${isSignCamActive ? 'opacity-100' : 'opacity-0'}`}
+                          style={{ transform: 'scaleX(-1)' }}
+                        />
+                        <canvas ref={signCanvasRef} width={640} height={480} className="hidden" />
+                        {!isSignCamActive && (
+                          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-white/50">
+                            <Camera className="w-10 h-10" />
+                            <span className="text-[11px] font-bold px-6 text-center">{t.signHint}</span>
+                          </div>
+                        )}
+                        {isInterpreting && (
+                          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm flex flex-col items-center justify-center gap-2 text-white">
+                            <RefreshCw className="w-8 h-8 animate-spin text-primary" />
+                            <span className="text-xs font-bold">{t.interpreting}</span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="p-3 flex gap-2">
+                        <button
+                          onClick={isSignCamActive ? stopSignCam : startSignCam}
+                          className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                            isSignCamActive ? 'bg-red-500/20 text-red-300 border border-red-500/40' : 'bg-white/10 text-white border border-white/10 hover:bg-white/20'
+                          }`}
+                        >
+                          {isSignCamActive ? <CameraOff className="w-4 h-4" /> : <Camera className="w-4 h-4" />}
+                          {isSignCamActive ? t.stopCamera : t.startCamera}
+                        </button>
+                        {isSignCamActive && (
+                          <button
+                            onClick={captureSign}
+                            disabled={isInterpreting}
+                            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-primary text-white hover:bg-primary-press disabled:opacity-50 transition-all active:scale-95"
+                          >
+                            <Hand className="w-4 h-4" /> {t.captureSign}
+                          </button>
+                        )}
+                      </div>
+                      {signCamError && (
+                        <p className="px-3 pb-3 text-[11px] font-bold text-red-300">{signCamError}</p>
+                      )}
+                    </div>
+                  )}
 
                   <div className="relative flex-1 min-h-[160px] flex flex-col">
                      <textarea
@@ -481,7 +645,8 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
                   )}
 
                   <div className="mt-4 flex flex-col sm:flex-row gap-3">
-                     {isDirectAudioMode ? (
+                     {inputMode === 'voice' && (
+                      isDirectAudioMode ? (
                         isRecordingDirectAudio ? (
                            <button
                              onClick={stopDirectAudioRecord}
@@ -520,7 +685,7 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
                               {t.recordSpeech}
                            </button>
                         )
-                     )}
+                     ))}
 
                      {/* Ask AI Button to get answer result output */}
                      <button
