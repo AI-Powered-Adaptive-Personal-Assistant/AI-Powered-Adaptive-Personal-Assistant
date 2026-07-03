@@ -14,6 +14,51 @@ function geminiKey(): string {
   return GEMINI_KEYS[0] || "";
 }
 
+// OpenAI-compatible free fallbacks (Groq / xAI) — same keys the main chat uses.
+// The sign/accessibility TEXT helpers fall back to these when Gemini is missing
+// or rate-limited, so a free Groq key alone still powers the disability section.
+// (Vision/audio helpers stay Gemini-only — Groq text models aren't multimodal.)
+const GROQ_KEYS: string[] = (((import.meta as any).env?.VITE_GROQ_API_KEY as string) || "")
+  .split(/[,\s]+/).map((k: string) => k.trim()).filter(Boolean);
+const XAI_KEYS: string[] = (((import.meta as any).env?.VITE_XAI_API_KEY as string) || "")
+  .split(/[,\s]+/).map((k: string) => k.trim()).filter(Boolean);
+
+function fallbackKey(): string {
+  return [...GROQ_KEYS, ...XAI_KEYS][0] || "";
+}
+
+/** Text-only completion via an OpenAI-compatible provider (Groq/xAI). "" on failure. */
+async function callGroqText(prompt: string): Promise<string> {
+  const key = fallbackKey();
+  if (!key) return "";
+  const isXai = key.startsWith("xai-");
+  const url = isXai ? "https://api.x.ai/v1/chat/completions" : "https://api.groq.com/openai/v1/chat/completions";
+  const model = isXai ? "grok-2-latest" : "llama-3.3-70b-versatile";
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+      body: JSON.stringify({ model, messages: [{ role: "user", content: prompt }], temperature: 0.7 }),
+    });
+    if (!res.ok) {
+      console.error(`Fallback text provider failed (${res.status})`);
+      return "";
+    }
+    const d = await res.json();
+    return d.choices?.[0]?.message?.content || "";
+  } catch (e) {
+    console.error("Fallback text provider threw:", e);
+    return "";
+  }
+}
+
+/** Text helper: try Gemini, then fall back to Groq/xAI so a free key still works. */
+async function callText(prompt: string): Promise<string> {
+  const viaGemini = await callGemini([{ text: prompt }]);
+  if (viaGemini) return viaGemini;
+  return callGroqText(prompt);
+}
+
 // Known-good Gemini model IDs, tried in order (there is NO "gemini-3.5-flash").
 const MODELS = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-flash-latest"];
 
@@ -75,7 +120,7 @@ export const geminiService = {
 
   async enhanceCaptions(text: string, language: string = "English") {
     const prompt = `Clean up and punctuate this live caption into a clear ${language} sentence. Fix obvious speech-to-text errors but keep the meaning. Reply with ONLY the cleaned text:\n\n${text}`;
-    return (await callGemini([{ text: prompt }])) || text;
+    return (await callText(prompt)) || text;
   },
 
   async transcribeAudio(audioData: string, language: string = "English", mimeType: string = "audio/webm") {
@@ -90,23 +135,23 @@ export const geminiService = {
 
   async generateSignSequence(text: string, language: string = "English") {
     const prompt = `Convert this ${language} sentence into a simple sign-language gloss sequence (UPPERCASE keywords in signing order, no grammar words). Reply with ONLY the gloss:\n\n${text}`;
-    return (await callGemini([{ text: prompt }])) || text;
+    return (await callText(prompt)) || text;
   },
 
   async optimizeSignScript(text: string, language: string = "English") {
     const prompt = `Rewrite this ${language} script so it is clear and easy to sign: short sentences, concrete words, signing order. Reply with ONLY the rewritten script:\n\n${text}`;
-    return (await callGemini([{ text: prompt }])) || text;
+    return (await callText(prompt)) || text;
   },
 
   async askGeneralQuestion(text: string, _language: string = "English") {
     // Mirror the QUESTION's language (fixes "Arabic in → English out").
     const prompt = `Answer the following clearly and concisely. IMPORTANT: reply in the SAME language and dialect as the question — if it's Arabic (incl. Egyptian), answer in Arabic; if English, answer in English.\n\nQuestion: ${text}`;
-    return (await callGemini([{ text: prompt }])) || "";
+    return (await callText(prompt)) || "";
   },
 
   async generateQuickReplies(text: string, language: string = "English"): Promise<string[]> {
     const prompt = `Someone just said: "${text}". Suggest 3 short, natural ${language} replies the listener could send back. Reply with ONLY a JSON array of strings, e.g. ["...","...","..."].`;
-    const out = await callGemini([{ text: prompt }]);
+    const out = await callText(prompt);
     return parseJson<string[]>(out, []);
   },
 
@@ -120,7 +165,7 @@ export const geminiService = {
       ? `\nKnown personal mappings (phrase => meaning): ${customMappings.map((m) => `"${m.phrase}" => "${m.translation}"`).join(", ")}`
       : "";
     const prompt = `This ${language} text comes from a speaker with dysarthria/atypical speech (profile: ${profile}). Infer the intended meaning and rewrite it as clear ${language}. Reply with ONLY the corrected sentence.${mappings}\n\nText: ${text}`;
-    return (await callGemini([{ text: prompt }])) || text;
+    return (await callText(prompt)) || text;
   },
 
   async correctTranscript(
@@ -136,7 +181,7 @@ export const geminiService = {
       : "";
     const ctx = context.length ? ` Recent context: ${context.slice(-3).join(" | ")}.` : "";
     const prompt = `Correct this speech-to-text transcript (language: ${language}, speaker profile: ${profile}).${mappings}${ctx} Reply with ONLY JSON: {"corrected": string, "confidence": number 0-100, "alternatives": string[]}.\n\nTranscript: ${text}`;
-    const out = await callGemini([{ text: prompt }]);
+    const out = await callText(prompt);
     const parsed = parseJson<Partial<typeof fallback>>(out, {});
     return {
       corrected: parsed.corrected || text,
