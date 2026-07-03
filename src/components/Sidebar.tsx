@@ -7,6 +7,7 @@ import { deleteDoc, doc } from "firebase/firestore";
 import { getTranslation } from "../lib/translations";
 import { isAdminUser } from "../lib/roles";
 import { visibleAcademicSections } from "../lib/academics";
+import { isAccessibilityUser } from "../lib/access";
 
 interface SidebarProps {
   profile: UserProfile;
@@ -137,12 +138,14 @@ export default function Sidebar({ profile, setProfile, currentView, setCurrentVi
           </div>
         )}
 
-        {/* Accessibility */}
-        <button onClick={() => setCurrentView('disability')} className={navBtn(currentView === 'disability') + ' relative'}>
-          <Accessibility className={navIcon(currentView === 'disability')} />
-          {localize(profile.language, 'Accessibility', 'الإتاحة')}
-          <span className="ms-auto text-[10px] font-bold text-primary bg-primary-soft px-[7px] py-[3px] rounded-full">{localize(profile.language, 'Live', 'مباشر')}</span>
-        </button>
+        {/* Accessibility — only for accessibility users (Special Needs path or a real mode) */}
+        {isAccessibilityUser(profile) && (
+          <button onClick={() => setCurrentView('disability')} className={navBtn(currentView === 'disability') + ' relative'}>
+            <Accessibility className={navIcon(currentView === 'disability')} />
+            {localize(profile.language, 'Accessibility', 'الإتاحة')}
+            <span className="ms-auto text-[10px] font-bold text-primary bg-primary-soft px-[7px] py-[3px] rounded-full">{localize(profile.language, 'Live', 'مباشر')}</span>
+          </button>
+        )}
 
         {/* Support */}
         <button onClick={() => setCurrentView('support')} className={navBtn(currentView === 'support')}>

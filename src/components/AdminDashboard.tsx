@@ -8,17 +8,28 @@ import {
   isSuperAdmin, isPermanentAdmin, isPermanent, isAdminUser,
   canManageAdmins as canManageAdminsFor,
 } from "../lib/roles";
-import { Loader2, Users, Search, Activity, Menu, ShieldAlert, Mail, Trash2, Shield, ShieldCheck, Crown, UserPlus, UserMinus } from "lucide-react";
+import { Loader2, Users, Search, Activity, Menu, ShieldAlert, Mail, Trash2, Shield, ShieldCheck, Crown, UserPlus, UserMinus, Brain, Heart, GraduationCap } from "lucide-react";
+import { AccountPath } from "../types";
+import { sectionOf } from "../lib/access";
 
 interface AdminDashboardProps {
   profile: UserProfile;
   onMenuClick: () => void;
 }
 
+// Visual identity for each enrolment section, shown in the directory.
+const SECTION_META: Record<AccountPath, { label: string; Icon: typeof Brain; cls: string }> = {
+  'Normal': { label: 'Normal', Icon: Brain, cls: 'bg-primary-soft text-primary' },
+  'Special Needs': { label: 'Special Needs', Icon: Heart, cls: 'bg-rose-500/15 text-rose-500' },
+  'Graduation Project': { label: 'Graduation', Icon: GraduationCap, cls: 'bg-amber-500/15 text-amber-600 dark:text-amber-400' },
+};
+const SECTION_ORDER: (AccountPath | 'all')[] = ['all', 'Normal', 'Special Needs', 'Graduation Project'];
+
 export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardProps) {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [sectionFilter, setSectionFilter] = useState<AccountPath | 'all'>('all');
   const [busyUid, setBusyUid] = useState<string | null>(null);
 
   const isAdmin = isAdminUser(profile);
@@ -128,10 +139,17 @@ export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardP
     );
   }
 
-  const filteredUsers = users.filter(u =>
-    u.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (u.name && u.name.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  const filteredUsers = users.filter(u => {
+    const matchesSearch =
+      u.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (u.name && u.name.toLowerCase().includes(searchTerm.toLowerCase()));
+    const matchesSection = sectionFilter === 'all' || sectionOf(u) === sectionFilter;
+    return matchesSearch && matchesSection;
+  });
+
+  // How many users are enrolled in each section (for the summary chips).
+  const sectionCounts: Record<AccountPath, number> = { 'Normal': 0, 'Special Needs': 0, 'Graduation Project': 0 };
+  users.forEach(u => { sectionCounts[sectionOf(u)] = (sectionCounts[sectionOf(u)] || 0) + 1; });
 
   // The team, grouped by tier. Permanent members are always shown (even if they
   // haven't signed in yet), plus anyone promoted via this dashboard.
@@ -237,15 +255,52 @@ export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardP
             </div>
           </section>
 
-          <div className="relative w-full max-w-md">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-faint" />
-            <input
-              type="text"
-              placeholder="Search users by email or name..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-11 pr-4 py-3 bg-bg-card border border-border rounded-2xl shadow-sm text-sm font-medium focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
-            />
+          {/* ── Enrolment sections summary ──────────────────────────────── */}
+          <section className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {(['Normal', 'Special Needs', 'Graduation Project'] as AccountPath[]).map((sec) => {
+              const meta = SECTION_META[sec];
+              const active = sectionFilter === sec;
+              return (
+                <button
+                  key={sec}
+                  onClick={() => setSectionFilter(active ? 'all' : sec)}
+                  aria-pressed={active}
+                  className={`flex items-center gap-3 p-4 rounded-2xl border text-left transition-all ${active ? 'border-primary ring-2 ring-primary/20 bg-bg-card' : 'border-border bg-bg-card hover:border-primary/30'}`}
+                >
+                  <div className={`p-2.5 rounded-xl ${meta.cls}`}>
+                    <meta.Icon className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="text-2xl font-black text-text-main leading-none">{sectionCounts[sec]}</div>
+                    <div className="text-[11px] font-bold text-text-muted uppercase tracking-widest mt-1">{meta.label}</div>
+                  </div>
+                </button>
+              );
+            })}
+          </section>
+
+          <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
+            <div className="relative w-full max-w-md">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-faint" />
+              <input
+                type="text"
+                placeholder="Search users by email or name..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-11 pr-4 py-3 bg-bg-card border border-border rounded-2xl shadow-sm text-sm font-medium focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
+              />
+            </div>
+            <div className="flex items-center gap-1.5 p-1 bg-bg-main border border-border rounded-2xl">
+              {SECTION_ORDER.map((sec) => (
+                <button
+                  key={sec}
+                  onClick={() => setSectionFilter(sec)}
+                  className={`px-3 py-2 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all ${sectionFilter === sec ? 'bg-primary text-white shadow-sm' : 'text-text-muted hover:bg-bg-card'}`}
+                >
+                  {sec === 'all' ? 'All' : SECTION_META[sec].label}
+                </button>
+              ))}
+            </div>
           </div>
 
           {loading ? (
@@ -260,6 +315,7 @@ export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardP
                    <thead>
                      <tr className="bg-bg-main text-[10px] uppercase font-black tracking-widest text-faint border-b border-border">
                        <th className="p-4">User</th>
+                       <th className="p-4">Section</th>
                        <th className="p-4">Role & Level</th>
                        <th className="p-4">Points</th>
                        <th className="p-4">Score</th>
@@ -274,6 +330,17 @@ export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardP
                          <td className="p-4">
                            <div className="font-bold text-text-main">{u.name || 'Unnamed User'}</div>
                            <div className="text-[10px] text-text-muted">{u.field}</div>
+                         </td>
+                         <td className="p-4">
+                           {(() => {
+                             const meta = SECTION_META[sectionOf(u)];
+                             return (
+                               <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider ${meta.cls}`} title={sectionOf(u)}>
+                                 <meta.Icon className="w-3.5 h-3.5" /> {meta.label}
+                                 {sectionOf(u) === 'Special Needs' && u.disabilityType ? ` · ${u.disabilityType}` : ''}
+                               </span>
+                             );
+                           })()}
                          </td>
                          <td className="p-4">
                            <div className="flex flex-col gap-1">
@@ -337,7 +404,7 @@ export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardP
                        </tr>
                      )) : (
                        <tr>
-                         <td colSpan={7} className="p-10 text-center text-faint font-medium">
+                         <td colSpan={8} className="p-10 text-center text-faint font-medium">
                            No users found matching "{searchTerm}"
                          </td>
                        </tr>
