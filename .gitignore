@@ -6,3 +6,8 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# Internal business documents — never publish (public repo)
+Cognify_Fund_Plan.html
+Cognify_Accessibility_Proposal_AlResala.docx
+*.docx
