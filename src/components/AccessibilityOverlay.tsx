@@ -446,6 +446,8 @@ export default function AccessibilityOverlay({
     const video = videoRef.current;
     const canvas = canvasRef.current;
     if (!video || !canvas || isVisionAnalyzing) return;
+    // Camera not warmed up yet → the frame is black. Don't burn a Gemini call on it.
+    if (!video.videoWidth || !video.videoHeight) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     canvas.width = video.videoWidth || 640;

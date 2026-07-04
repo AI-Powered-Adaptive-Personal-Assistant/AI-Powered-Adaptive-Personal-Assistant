@@ -39,6 +39,8 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const recordingTimerRef = useRef<any>(null);
+  const directStreamRef = useRef<MediaStream | null>(null); // safety handle to release the mic
+  const directElapsedRef = useRef(0);
 
   // Unified input mode: the user fills the script by SIGNING (camera), TYPING, or SPEAKING.
   const [inputMode, setInputMode] = useState<'sign' | 'text' | 'voice'>('text');
@@ -246,6 +248,7 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
   const startDirectAudioRecord = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      directStreamRef.current = stream;
       audioChunksRef.current = [];
       const mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
       mediaRecorderRef.current = mediaRecorder;
@@ -282,20 +285,19 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
           }
         };
         stream.getTracks().forEach(t => t.stop());
+        directStreamRef.current = null;
       };
 
       mediaRecorder.start();
       setIsRecordingDirectAudio(true);
+      directElapsedRef.current = 0;
       setDirectRecordingTime(0);
 
+      // Plain ref-driven timer — no setState call inside a state updater.
       recordingTimerRef.current = setInterval(() => {
-        setDirectRecordingTime((prev) => {
-          if (prev >= 12) {
-            stopDirectAudioRecord();
-            return 12;
-          }
-          return prev + 1;
-        });
+        directElapsedRef.current += 1;
+        setDirectRecordingTime(directElapsedRef.current);
+        if (directElapsedRef.current >= 12) stopDirectAudioRecord();
       }, 1000);
     } catch (e) {
       console.error(e);
@@ -304,11 +306,14 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
   };
 
   const stopDirectAudioRecord = () => {
+    if (recordingTimerRef.current) { clearInterval(recordingTimerRef.current); recordingTimerRef.current = null; }
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
       mediaRecorderRef.current.stop();
     }
+    // Safety net: if onstop never fires (recorder error), still release the mic.
+    directStreamRef.current?.getTracks().forEach((t) => t.stop());
+    directStreamRef.current = null;
     setIsRecordingDirectAudio(false);
-    if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
   };
 
   // --- SIGN LANGUAGE CAMERA INPUT (on-device fingerspelling, no API) ---
@@ -421,7 +426,9 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
   useEffect(() => {
     return () => {
       stopSignCam();
+      stopDirectAudioRecord();
       signClfRef.current?.dispose();
+      signClfRef.current = null; // no stale handle a late frame could touch
     };
   }, []);
 
