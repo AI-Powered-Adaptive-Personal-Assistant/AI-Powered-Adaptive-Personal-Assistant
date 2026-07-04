@@ -48,6 +48,8 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
   const signStreamRef = useRef<MediaStream | null>(null);
   const interpretingRef = useRef(false); // ref mirror so the auto-scan timer never overlaps calls
   const scanTimerRef = useRef<any>(null);
+  const pendingSignRef = useRef(""); // a sign must be seen twice in a row before it's committed
+  const lastAppendedRef = useRef(""); // avoid repeating the same sign back-to-back
 
   const KANEVSKY_PRESETS = [
     { id: 'ep_k1', phrase: "fanku", translation: "Thank you" },
@@ -353,15 +355,34 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
         profile.language || "English",
         profile.level || "Basic",
       );
-      if (text && !text.toUpperCase().includes("[NO_SIGN]")) {
-        const clean = text.replace(/[\[\]]/g, "").trim();
-        if (clean) {
+      const clean = (text || "").replace(/[\[\]]/g, "").trim();
+      const isNoSign = !clean || /no[_\s-]?sign/i.test(text || "");
+      // Reject hallucinated narration: a real sign is 1–2 words, not a sentence.
+      const looksLikeSentence = clean.split(/\s+/).length > 2;
+
+      if (!isNoSign && !looksLikeSentence) {
+        const norm = clean.toLowerCase();
+        const commit = () => {
+          lastAppendedRef.current = norm;
+          pendingSignRef.current = "";
           setSignCamError("");
-          // Append to the running script so several signs build a sentence.
           setInputText((prev) => (prev ? prev.trim() + " " : "") + clean);
+        };
+        if (!silent) {
+          // Manual "Capture now": user chose this frame → commit it (unless exact repeat).
+          if (norm !== lastAppendedRef.current) commit();
+        } else if (norm === lastAppendedRef.current) {
+          // same sign still held — ignore so it isn't written repeatedly
+        } else if (norm === pendingSignRef.current) {
+          commit(); // confirmed across two consecutive auto frames
+        } else {
+          pendingSignRef.current = norm; // first sighting — wait for confirmation
         }
-      } else if (!silent) {
-        setSignCamError(localize(profile.language, "No clear sign detected — try again.", "لم يتم التعرف على إشارة واضحة — حاول تاني."));
+      } else {
+        // Nothing clear this frame: reset the "held" sign so it can re-fire later.
+        lastAppendedRef.current = "";
+        pendingSignRef.current = "";
+        if (!silent) setSignCamError(localize(profile.language, "No clear sign detected — try again.", "لم يتم التعرف على إشارة واضحة — حاول تاني."));
       }
     } catch (e) {
       console.error("Sign interpretation failed", e);

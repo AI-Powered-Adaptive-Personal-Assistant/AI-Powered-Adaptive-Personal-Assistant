@@ -119,7 +119,18 @@ function parseJson<T>(text: string, fallback: T): T {
 
 export const geminiService = {
   async translateSign(imageData: string, language: string = "English", level: string = "Basic") {
-    const prompt = `You are a sign-language interpreter. Look at this image of a person signing and translate it into natural ${language}. Calibrate the wording to a ${level} reader. Reply with ONLY the translated sentence, no preamble. If no clear sign is visible, reply with an empty string.`;
+    // STRICT anti-hallucination prompt. A single webcam frame is ambiguous, so
+    // the model MUST refuse unless it sees a clear, deliberate sign — otherwise
+    // it invents sentences ("the mobile device is secured…") from random hands.
+    const prompt = `You read sign language (ASL fingerspelling A–Z / 0–9 and common word signs) from a single webcam frame.
+
+STRICT RULES — follow exactly:
+1. Reply ONLY with the single word or short sign the hand is CLEARLY and DELIBERATELY forming, in ${language}, calibrated to a ${level} reader.
+2. If the hand is at rest, mid-transition, blurry, ambiguous, holding an object/phone, or you are AT ALL unsure — reply with EXACTLY: [NO_SIGN]
+3. NEVER describe the scene, the person, the room, objects, or the phone. NEVER guess. NEVER write a full sentence or narration.
+4. When uncertain, ALWAYS prefer [NO_SIGN]. A wrong word is worse than [NO_SIGN].
+
+Reply with just the sign, or [NO_SIGN]. Nothing else.`;
     return callGemini([
       { text: prompt },
       { inlineData: { mimeType: "image/jpeg", data: rawBase64(imageData) } },
