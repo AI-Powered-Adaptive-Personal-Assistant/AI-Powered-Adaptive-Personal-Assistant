@@ -192,11 +192,20 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
       const recognition = new SpeechRecognition();
-      recognition.continuous = false;
+      // Hands-free flow: keep listening while the user talks (no cut-off at the
+      // first pause), auto-stop after ~3s of silence, then auto-ask the AI and
+      // auto-sign the answer — zero extra button presses.
+      recognition.continuous = true;
       recognition.interimResults = true;
       recognition.lang = profile.language === 'Arabic' ? 'ar-SA' : profile.language === 'Egyptian Ammiya' ? 'ar-EG' : 'en-US';
 
       let latestTranscript = "";
+      let silenceTimer: any = null;
+      const armSilenceTimer = () => {
+        if (silenceTimer) clearTimeout(silenceTimer);
+        // 3s of silence = the user finished their thought → stop and answer.
+        silenceTimer = setTimeout(() => { try { recognition.stop(); } catch { /* ignore */ } }, 3000);
+      };
 
       recognition.onresult = (event: any) => {
         let fullTranscript = "";
@@ -205,33 +214,43 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
         }
         latestTranscript = fullTranscript;
         setInputText(fullTranscript);
+        armSilenceTimer(); // still talking — push the auto-stop back
       };
 
-      recognition.onerror = () => { setIsRecording(false); };
-      recognition.onend = async () => {
+      recognition.onerror = () => {
+        if (silenceTimer) clearTimeout(silenceTimer);
         setIsRecording(false);
-        if (latestTranscript.trim()) {
+      };
+      recognition.onend = async () => {
+        if (silenceTimer) clearTimeout(silenceTimer);
+        setIsRecording(false);
+        let finalText = latestTranscript.trim();
+        if (finalText) {
           setIsEnhancing(true);
           try {
             const enhanced = await geminiService.decodeDysarthria(
-              latestTranscript, 
-              'Multilingual', 
-              profile.language || 'English', 
+              latestTranscript,
+              'Multilingual',
+              profile.language || 'English',
               euphoniaPatterns
             );
             if (enhanced) {
               setInputText(enhanced);
+              finalText = enhanced;
             }
           } catch (e) {
             console.error("ASR rehabilitation failed:", e);
           } finally {
             setIsEnhancing(false);
           }
+          // AUTO: question → answer → avatar signs it. No button press.
+          handleAskAI(finalText);
         }
       };
 
       recognitionRef.current = recognition;
       recognition.start();
+      armSilenceTimer(); // if the user never speaks at all, stop after the grace period
       setIsRecording(true);
     } else {
       alert("Speech recognition is not supported in this browser.");
@@ -277,6 +296,8 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
             );
             if (decoded) {
               setInputText(decoded);
+              // AUTO: decoded speech → answer → avatar signs it.
+              handleAskAI(decoded);
             }
           } catch (err) {
             console.error("Acoustic decode failed:", err);
@@ -456,13 +477,16 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
     }
   };
 
-  const handleAskAI = async () => {
-    if (!inputText.trim()) return;
+  // `textOverride` lets auto-flows (voice) pass the fresh transcript directly,
+  // avoiding a stale inputText from React state.
+  const handleAskAI = async (textOverride?: string) => {
+    const question = (textOverride ?? inputText).trim();
+    if (!question) return;
     setIsAnswering(true);
     setAiResponse("");
     try {
       const language = localize(profile.language, "English", "Arabic");
-      const answer = await geminiService.askGeneralQuestion(inputText, language);
+      const answer = await geminiService.askGeneralQuestion(question, language);
       setAiResponse(answer);
       // Auto-sign the answer on the avatar immediately — no extra button press.
       if (answer) {
@@ -777,7 +801,7 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
 
                      {/* Ask AI Button to get answer result output */}
                      <button
-                       onClick={handleAskAI}
+                       onClick={() => handleAskAI()}
                        disabled={!inputText.trim() || isAnswering || isGenerating || isEnhancing}
                        className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-tr from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 disabled:opacity-50 disabled:active:scale-100 active:scale-95 transform transition-all text-white font-bold rounded-xl shadow-lg shadow-emerald-500/20"
                      >
