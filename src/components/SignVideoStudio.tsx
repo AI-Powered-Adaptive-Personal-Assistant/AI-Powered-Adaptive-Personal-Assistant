@@ -464,6 +464,15 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
       const language = localize(profile.language, "English", "Arabic");
       const answer = await geminiService.askGeneralQuestion(inputText, language);
       setAiResponse(answer);
+      // Auto-sign the answer on the avatar immediately — no extra button press.
+      if (answer) {
+        const words = answer.trim().split(/\s+/).filter(Boolean);
+        if (words.length) {
+          setSequence(words);
+          setPlaybackProgress(0);
+          setIsPlaying(true);
+        }
+      }
     } catch (e) {
       console.error("Failed to ask general question:", e);
       setAiResponse(localize(profile.language, "Failed to connect to AI for answering.", "حدث خطأ أثناء الاتصال بالذكاء الاصطناعي.")
