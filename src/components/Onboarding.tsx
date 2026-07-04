@@ -141,7 +141,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
     >
       <div className="space-y-2 text-center">
         <h2 className="text-3xl font-extrabold tracking-tight text-text-main leading-tight">{getTranslation(formData.language, 'userRole')}</h2>
-        <p className="text-text-muted">How would you describe your current path?</p>
+        <p className="text-text-muted">{localize(formData.language, "How would you describe your current path?", "إزاي توصف مسارك الحالي؟")}</p>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
@@ -189,8 +189,8 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
         <div className="space-y-4">
           <div className="space-y-2">
             <label className="text-[11px] font-bold text-text-muted uppercase tracking-[0.05em]">
-              {formData.educationLevel === "University" ? "Educational Institution" :
-               formData.educationLevel === "Professional" ? "Primary Workspace" : "School Name"}
+              {formData.educationLevel === "University" ? localize(formData.language, "Educational Institution", "المؤسسة التعليمية") :
+               formData.educationLevel === "Professional" ? localize(formData.language, "Primary Workspace", "مكان العمل") : localize(formData.language, "School Name", "اسم المدرسة")}
             </label>
             {formData.educationLevel === 'University' ? (
               <select
@@ -224,8 +224,8 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
         <div className="space-y-4">
           <div className="space-y-2">
             <label className="text-[11px] font-bold text-text-muted uppercase tracking-[0.05em]">
-              {formData.educationLevel === "University" ? "Academic Faculty" :
-               formData.role === "Professional" ? "Operational Role" : "Current Grade"}
+              {formData.educationLevel === "University" ? localize(formData.language, "Academic Faculty", "الكلية") :
+               formData.role === "Professional" ? localize(formData.language, "Operational Role", "الدور الوظيفي") : localize(formData.language, "Current Grade", "الصف الدراسي")}
             </label>
             {formData.educationLevel === 'University' ? (
               <select
@@ -265,7 +265,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
         }
         className="w-full bg-primary text-white font-bold py-4 rounded-xl shadow-lg hover:bg-primary-press disabled:bg-surface-3 disabled:text-faint transition-all flex items-center justify-center gap-2 group"
       >
-        Next: Personalized Goals <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+        {localize(formData.language, "Next: Personalized Goals", "التالي: الأهداف الشخصية")} <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform rtl:rotate-180" />
       </button>
     </motion.div>
   );
@@ -281,7 +281,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
         </div>
         <div className="space-y-2">
           <h2 className="text-3xl font-extrabold tracking-tight text-text-main leading-tight">{localize(formData.language, "Sustainability & Life Goals", "الاستدامة وأهداف الحياة")}</h2>
-          <p className="text-text-muted">Cognify is built for long-term human growth. Which UN Sustainable Development Goal do you care about most?</p>
+          <p className="text-text-muted">{localize(formData.language, "Cognify is built for long-term human growth. Which UN Sustainable Development Goal do you care about most?", "كوجنيفاي مبني للنمو الإنساني طويل المدى. أنهي هدف من أهداف التنمية المستدامة يهمّك أكتر؟")}</p>
         </div>
       </div>
 

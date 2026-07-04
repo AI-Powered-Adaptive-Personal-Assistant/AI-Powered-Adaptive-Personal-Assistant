@@ -1150,7 +1150,14 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
 
       {/* Messages */}
       <div className="flex flex-1 overflow-hidden relative">
-        <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 md:p-8 lg:p-12 flex flex-col items-center custom-scrollbar">
+        {/* Screen-reader announcer for blind users: speaks the "thinking" status
+            and the FINAL AI reply (not every streamed token, to avoid spam). */}
+        <div className="sr-only" role="status" aria-live="assertive" aria-atomic="true">
+          {isLoading
+            ? getTranslation(profile.language, 'analyzing')
+            : ([...messages].reverse().find((m) => m.role !== 'user' && m.id !== 'welcome')?.content || '')}
+        </div>
+        <div ref={scrollRef} role="region" aria-label={getTranslation(profile.language, 'aiAssistant')} className="flex-1 overflow-y-auto p-4 md:p-8 lg:p-12 flex flex-col items-center custom-scrollbar">
         {messagesLoading && messages.length === 0 ? (
           <div className="flex-1 flex items-center justify-center">
              <Loader2 className="w-8 h-8 text-primary animate-spin" />
