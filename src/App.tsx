@@ -20,11 +20,10 @@ import { doc, setDoc, onSnapshot, getDocFromServer } from "firebase/firestore";
 import { Loader2, Settings, Layers, Menu, Moon, Sun, AlertCircle, RefreshCw, Mail } from "lucide-react";
 import { ToastContainer } from "./components/Toast";
 
-import { isRTL, getTranslation, localize } from "./lib/translations";
+import { isRTL, getTranslation } from "./lib/translations";
 import { canAccessSection } from "./lib/academics";
 import { canAccessView, homeViewFor } from "./lib/access";
 import { isAdminUser } from "./lib/roles";
-import { toast } from "./components/Toast";
 
 // Heavy, route-specific views are code-split so they don't bloat the initial
 // bundle. They load on demand the first time a user opens that screen, which
@@ -55,6 +54,7 @@ export default function App() {
   const [externalMessage, setExternalMessage] = useState("");
   const [currentAIResponse, setCurrentAIResponse] = useState("");
   const [isSTTActive, setIsSTTActive] = useState(false);
+  const [disabilityTab, setDisabilityTab] = useState<'chat' | 'settings' | 'video'>('chat');
   const [isLiveCaptionsOpen, setIsLiveCaptionsOpen] = useState(false);
 
   const direction = isRTL(profile?.language) ? 'rtl' : 'ltr';
@@ -158,11 +158,10 @@ export default function App() {
   useEffect(() => {
     if (!profile) return;
     if (!canAccessView(profile, currentView as any, isAdminUser(profile))) {
+      // Redirect SILENTLY to the user's home section. No scary red toast — this
+      // also fires on deep-links and on the user's own mode change, where an
+      // error would be alarming and confusing. The redirect itself is feedback.
       const home = homeViewFor(profile);
-      toast.error(
-        localize(profile.language, "This section isn't part of your account path.", "هذا القسم غير متاح ضمن مسار حسابك."),
-        localize(profile.language, "Access restricted", "وصول مقيّد"),
-      );
       window.history.replaceState(null, '', `#${home}`);
       setCurrentView(home);
     }
@@ -446,6 +445,7 @@ export default function App() {
           externalMessage={externalMessage}
           onStreamingUpdate={(text) => setCurrentAIResponse(text)}
           onSTTStateChange={setIsSTTActive}
+          onTabChange={setDisabilityTab}
           setProfile={setProfile}
         />;
       case 'profile':
@@ -638,7 +638,10 @@ export default function App() {
         {/* The floating accessibility overlay (sign avatar / mic / vision) is only for
             users who actually need it — a real accessibility mode, the Special Needs
             path, or while inside the disability view. Normal users never see it. */}
-        {profile && (profile.accessibilityMode && profile.accessibilityMode !== 'None' || profile.accountPath === 'Special Needs' || currentView === 'disability') && (
+        {profile && (profile.accessibilityMode && profile.accessibilityMode !== 'None' || profile.accountPath === 'Special Needs' || currentView === 'disability')
+          // Hide while the Sign Studio tab is open — it runs its own camera, and
+          // two MediaPipe pipelines on one device conflict (camera-in-use / light stuck on).
+          && !(currentView === 'disability' && disabilityTab === 'video') && (
           <AccessibilityOverlay
             mode={!profile.accessibilityMode || profile.accessibilityMode === 'None' ? 'Vocal-Deaf' : profile.accessibilityMode}
             profile={profile}

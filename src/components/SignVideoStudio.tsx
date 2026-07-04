@@ -317,7 +317,9 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
   const onSignResults = (results: Results) => {
     const video = signVideoRef.current;
     const clf = signClfRef.current;
-    if (!video || !clf) return;
+    // A stopped camera nulls the stream ref; bail so a late in-flight frame
+    // can't append a stray letter after the user stopped.
+    if (!video || !clf || !signStreamRef.current) return;
 
     const landmarks = results.multiHandLandmarks?.[0];
     const handScore = results.multiHandedness?.[0]?.score ?? 0;

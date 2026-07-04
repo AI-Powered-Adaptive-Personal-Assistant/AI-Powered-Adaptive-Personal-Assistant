@@ -18,6 +18,7 @@ interface DisabilityModeViewProps {
   externalMessage?: string;
   onStreamingUpdate?: (text: string) => void;
   onSTTStateChange?: (active: boolean) => void;
+  onTabChange?: (tab: 'chat' | 'settings' | 'video') => void;
   setProfile?: (profile: UserProfile) => void;
 }
 
@@ -30,9 +31,16 @@ const DisabilityModeView = React.forwardRef<ChatInterfaceRef, DisabilityModeView
   externalMessage,
   onStreamingUpdate,
   onSTTStateChange,
+  onTabChange,
   setProfile
 }, ref) {
   const [activeTab, setActiveTab] = React.useState<'chat' | 'settings' | 'video'>('chat');
+
+  // Tell the parent which tab is active so it can hide the floating overlay
+  // (with its own camera) while the Sign Studio tab is using the camera —
+  // otherwise two MediaPipe camera pipelines fight over the device.
+  React.useEffect(() => { onTabChange?.(activeTab); }, [activeTab]);
+  React.useEffect(() => () => { onTabChange?.('chat'); }, []);
 
   const updateAccessibilityMode = async (mode: AccessibilityMode) => {
     if (!profile.uid) return;

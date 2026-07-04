@@ -257,13 +257,16 @@ export default function AccessibilityOverlay({
         .replace(/[.,/#!$%^&*;:{}=\-_`~()]/g, "")
         .split(/\s+/);
 
+      // Track EVERY timeout so a new response (or unmount) cancels the old
+      // playback — otherwise two answers' words interleave on the avatar.
+      const timers: any[] = [];
       words.forEach((w, i) => {
-        setTimeout(() => {
+        timers.push(setTimeout(() => {
           if (w.length > 0) setCurrentWord(w.toLowerCase());
-        }, i * 450);
+        }, i * 450));
       });
 
-      const timer = setTimeout(
+      timers.push(setTimeout(
         () => {
           setIsAvatarSigning(false);
           setCurrentWord("");
@@ -272,8 +275,8 @@ export default function AccessibilityOverlay({
           ); // Back to neutral
         },
         words.length * 450 + 500,
-      );
-      return () => clearTimeout(timer);
+      ));
+      return () => timers.forEach(clearTimeout);
     }
   }, [aiResponse]);
 
@@ -288,7 +291,8 @@ export default function AccessibilityOverlay({
   const onResults = (results: Results) => {
     const video = videoRef.current;
     const clf = signClfRef.current;
-    if (!video || !clf) return;
+    // A stopped camera nulls streamRef; bail so a late frame can't mutate state.
+    if (!video || !clf || !streamRef.current) return;
 
     const landmarks = results.multiHandLandmarks?.[0];
     const handScore = results.multiHandedness?.[0]?.score ?? 0;
@@ -360,42 +364,43 @@ export default function AccessibilityOverlay({
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { width: 640, height: 480, facingMode: "user" },
       });
+      // Assign the ref IMMEDIATELY so any later failure (or missing video el) can
+      // still stop the stream — otherwise the camera light stays on with no handle.
+      streamRef.current = stream;
 
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        streamRef.current = stream;
+      if (!videoRef.current) throw new Error("no-video-el");
+      videoRef.current.srcObject = stream;
 
-        // Initialize MediaPipe Hands
-        const hands = new Hands({
-          locateFile: (file) =>
-            `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`,
-        });
+      // Initialize MediaPipe Hands
+      const hands = new Hands({
+        locateFile: (file) =>
+          `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`,
+      });
 
-        hands.setOptions({
-          maxNumHands: 2,
-          modelComplexity: 1,
-          minDetectionConfidence: 0.7,
-          minTrackingConfidence: 0.6,
-        });
+      hands.setOptions({
+        maxNumHands: 2,
+        modelComplexity: 1,
+        minDetectionConfidence: 0.7,
+        minTrackingConfidence: 0.6,
+      });
 
-        hands.onResults(onResults);
-        handsRef.current = hands;
+      hands.onResults(onResults);
+      handsRef.current = hands;
 
-        const camera = new MediaPipeCamera(videoRef.current, {
-          onFrame: async () => {
-            if (handsRef.current && videoRef.current) {
-              await handsRef.current.send({ image: videoRef.current });
-            }
-          },
-          width: 640,
-          height: 480,
-        });
+      const camera = new MediaPipeCamera(videoRef.current, {
+        onFrame: async () => {
+          if (handsRef.current && videoRef.current) {
+            await handsRef.current.send({ image: videoRef.current });
+          }
+        },
+        width: 640,
+        height: 480,
+      });
 
-        camera.start();
-        cameraRef.current = camera;
-        setIsVisionActive(true);
-        setVisionStatus("Live Tracking...");
-      }
+      camera.start();
+      cameraRef.current = camera;
+      setIsVisionActive(true);
+      setVisionStatus("Live Tracking...");
     } catch (err: any) {
       console.error("Camera access failed", err);
       // Translate the failure into a clear, actionable message (shown as a toast
@@ -406,20 +411,26 @@ export default function AccessibilityOverlay({
       else if (name === "NotFoundError" || name === "DevicesNotFoundError") msg = "No camera was found on this device.";
       else if (name === "NotReadableError" || name === "TrackStartError") msg = "The camera is in use by another app. Close it and try again.";
       else if (err?.message === "model-timeout") msg = "The sign recognizer took too long to load — check the internet connection and try again.";
-      setVisionStatus("Camera Error");
-      toast.error(msg, "Camera");
-      // Clean up any partial stream so the light doesn't stay on.
+      if (err?.message !== "no-video-el") { setVisionStatus("Camera Error"); toast.error(msg, "Camera"); }
+      // Full teardown so nothing leaks (camera light off, WASM freed).
       try { cameraRef.current?.stop(); } catch { /* ignore */ }
+      cameraRef.current = null;
+      try { handsRef.current?.close(); } catch { /* ignore */ }
+      handsRef.current = null;
       streamRef.current?.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
+      setIsVisionActive(false);
     }
   };
 
   const stopVision = () => {
-    if (cameraRef.current) cameraRef.current.stop();
-    if (handsRef.current) handsRef.current.close();
+    try { cameraRef.current?.stop(); } catch { /* ignore */ }
+    cameraRef.current = null;
+    try { handsRef.current?.close(); } catch { /* ignore */ }
+    handsRef.current = null;
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
     }
     signClfRef.current?.smoother.reset();
     setIsVisionActive(false);
