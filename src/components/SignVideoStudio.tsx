@@ -655,6 +655,9 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
 
                   <div className={`relative flex-1 flex flex-col ${isEmbedded ? 'min-h-[90px]' : 'min-h-[160px]'}`}>
                      <textarea
+                       id="sign-script-input"
+                       name="sign-script"
+                       aria-label={t.scriptInput}
                        value={inputText}
                        onChange={(e) => setInputText(e.target.value)}
                        placeholder={t.placeholder}

@@ -535,7 +535,8 @@ export default function SignAvatar3D({ words, playing, onProgress, onDone, class
     const ro = new ResizeObserver(resize);
     ro.observe(container);
 
-    const clock = new THREE.Clock();
+    // Delta is derived from performance.now() below — avoids the deprecated THREE.Clock.
+    let lastTime = performance.now();
     const fromV = new THREE.Vector3();
     const dirV = new THREE.Vector3();
     const up = new THREE.Vector3(0, 1, 0);
@@ -545,8 +546,9 @@ export default function SignAvatar3D({ words, playing, onProgress, onDone, class
       raf = requestAnimationFrame(animate);
       // Don't burn GPU/battery when the tab is backgrounded (hospital tablets).
       if (document.hidden) return;
-      const dt = Math.min(clock.getDelta(), 0.05);
       const now = performance.now();
+      const dt = Math.min((now - lastTime) / 1000, 0.05);
+      lastTime = now;
       const t = target.current;
       const kFinger = 1 - Math.exp(-13 * dt);
       const kBody = 1 - Math.exp(-8 * dt);
