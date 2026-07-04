@@ -467,12 +467,12 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
          FINGERSPELLING ENGINE (A–Z, 0–9, ARABIC MAPPING) + WORD GESTURES — RENDERED IN REAL-TIME WEBGL.
       </div>
 
-      <div className="flex-1 overflow-y-auto p-6 md:p-10 z-10 relative flex flex-col items-center">
-         <div className="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-2 gap-8 h-full">
+      <div className={`flex-1 overflow-y-auto z-10 relative flex flex-col items-center ${isEmbedded ? 'p-3 md:p-5' : 'p-6 md:p-10'}`}>
+         <div className={`w-full max-w-5xl grid grid-cols-1 lg:grid-cols-2 ${isEmbedded ? 'gap-4' : 'gap-8 h-full'}`}>
 
             {/* Input Section */}
             <div className="flex flex-col gap-6 w-full h-full">
-               <div className="bg-white rounded-2xl shadow-sm border border-border p-6 flex-1 flex flex-col">
+               <div className={`bg-white rounded-2xl shadow-sm border border-border flex-1 flex flex-col ${isEmbedded ? 'p-4' : 'p-6'}`}>
                   <div className="flex items-center justify-between mb-4">
                      <h2 className="text-lg font-bold text-text-main flex items-center gap-2">
                        <FileText className="w-5 h-5 text-primary" />
@@ -577,7 +577,7 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
                     </div>
                   )}
 
-                  <div className="relative flex-1 min-h-[160px] flex flex-col">
+                  <div className={`relative flex-1 flex flex-col ${isEmbedded ? 'min-h-[90px]' : 'min-h-[160px]'}`}>
                      <textarea
                        value={inputText}
                        onChange={(e) => setInputText(e.target.value)}
@@ -710,7 +710,7 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
             </div>
 
             {/* Output Section */}
-            <div className="bg-slate-900 rounded-3xl shadow-2xl border border-slate-800 p-2 flex flex-col relative overflow-hidden h-[500px] lg:h-full min-h-[500px]">
+            <div className={`bg-slate-900 rounded-3xl shadow-2xl border border-slate-800 p-2 flex flex-col relative overflow-hidden ${isEmbedded ? 'h-[340px] lg:h-[440px]' : 'h-[500px] lg:h-full min-h-[500px]'}`}>
                {/* Player Header */}
                <div className="absolute top-4 left-6 right-6 z-40 flex items-center justify-between">
                   <div className="flex items-center gap-2">

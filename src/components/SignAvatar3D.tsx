@@ -492,10 +492,11 @@ export default function SignAvatar3D({ words, playing, onProgress, onDone, class
     if (!container) return;
 
     const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(34, 1, 0.1, 20);
-    // Pulled back and centred lower so the whole avatar fits (was cropping it).
-    camera.position.set(0, 1.15, 2.55);
-    camera.lookAt(0, 1.0, 0);
+    const camera = new THREE.PerspectiveCamera(36, 1, 0.1, 20);
+    // Pulled further back and centred lower so the whole avatar (bust + raised
+    // hand) fits inside the panel instead of overflowing/cropping.
+    camera.position.set(0, 1.05, 3.35);
+    camera.lookAt(0, 0.9, 0);
 
     // Some hospital/locked-down devices have no GPU or blocked WebGL. Fail
     // gracefully to a visible message instead of a permanent black "loading" box.
