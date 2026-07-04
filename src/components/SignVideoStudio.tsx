@@ -41,10 +41,13 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
   const [inputMode, setInputMode] = useState<'sign' | 'text' | 'voice'>('text');
   const [isSignCamActive, setIsSignCamActive] = useState(false);
   const [isInterpreting, setIsInterpreting] = useState(false);
+  const [autoScan, setAutoScan] = useState(true); // auto-detect signs continuously (no button press)
   const [signCamError, setSignCamError] = useState("");
   const signVideoRef = useRef<HTMLVideoElement | null>(null);
   const signCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const signStreamRef = useRef<MediaStream | null>(null);
+  const interpretingRef = useRef(false); // ref mirror so the auto-scan timer never overlaps calls
+  const scanTimerRef = useRef<any>(null);
 
   const KANEVSKY_PRESETS = [
     { id: 'ep_k1', phrase: "fanku", translation: "Thank you" },
@@ -88,7 +91,11 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
     stopCamera: localize(profile.language, "Stop Camera", "إيقاف الكاميرا"),
     captureSign: localize(profile.language, "Capture Sign", "التقاط الإشارة"),
     interpreting: localize(profile.language, "Interpreting sign...", "جاري تفسير الإشارة..."),
-    signHint: localize(profile.language, "Sign in front of the camera, then press Capture. Repeat to build a sentence.", "أشِر أمام الكاميرا ثم اضغط التقاط. كرّر لتكوين جملة.")
+    signHint: localize(profile.language, "Just sign in front of the camera — it reads you automatically.", "أشِر قدّام الكاميرا وهي تقرأ لوحدها تلقائيًا."),
+    autoOn: localize(profile.language, "Auto-scan ON", "المسح التلقائي مفعّل"),
+    autoOff: localize(profile.language, "Auto-scan OFF", "المسح التلقائي متوقف"),
+    scanning: localize(profile.language, "Auto-scanning…", "بيمسح تلقائيًا…"),
+    captureNow: localize(profile.language, "Capture now", "التقاط الآن")
   };
 
   useEffect(() => {
@@ -329,14 +336,16 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
     setIsSignCamActive(false);
   };
 
-  const captureSign = async () => {
-    if (!signVideoRef.current || !signCanvasRef.current || isInterpreting) return;
+  // `silent` = auto-scan tick: don't flash the "no sign" error on empty frames.
+  const captureSign = async (silent = false) => {
+    if (!signVideoRef.current || !signCanvasRef.current || interpretingRef.current) return;
     const canvas = signCanvasRef.current;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     ctx.drawImage(signVideoRef.current, 0, 0, canvas.width, canvas.height);
     const imageData = canvas.toDataURL("image/jpeg", 0.6).split(",")[1];
 
+    interpretingRef.current = true;
     setIsInterpreting(true);
     try {
       const text = await geminiService.translateSign(
@@ -346,15 +355,19 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
       );
       if (text && !text.toUpperCase().includes("[NO_SIGN]")) {
         const clean = text.replace(/[\[\]]/g, "").trim();
-        // Append to the running script so several signs build a sentence.
-        setInputText((prev) => (prev ? prev.trim() + " " : "") + clean);
-      } else {
+        if (clean) {
+          setSignCamError("");
+          // Append to the running script so several signs build a sentence.
+          setInputText((prev) => (prev ? prev.trim() + " " : "") + clean);
+        }
+      } else if (!silent) {
         setSignCamError(localize(profile.language, "No clear sign detected — try again.", "لم يتم التعرف على إشارة واضحة — حاول تاني."));
       }
     } catch (e) {
       console.error("Sign interpretation failed", e);
-      setSignCamError(localize(profile.language, "Interpretation failed. Try again.", "فشل التفسير. حاول تاني."));
+      if (!silent) setSignCamError(localize(profile.language, "Interpretation failed. Try again.", "فشل التفسير. حاول تاني."));
     } finally {
+      interpretingRef.current = false;
       setIsInterpreting(false);
     }
   };
@@ -367,6 +380,15 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
   useEffect(() => {
     return () => stopSignCam();
   }, []);
+
+  // AUTOMATIC sign scanning: while the camera is on and auto-scan is enabled,
+  // grab and interpret a frame every ~2.5s — no button press needed. The
+  // interpretingRef guard means ticks that land mid-request are skipped.
+  useEffect(() => {
+    if (inputMode !== 'sign' || !isSignCamActive || !autoScan) return;
+    scanTimerRef.current = setInterval(() => { captureSign(true); }, 2500);
+    return () => { if (scanTimerRef.current) clearInterval(scanTimerRef.current); };
+  }, [inputMode, isSignCamActive, autoScan]);
 
   const generateVideo = async () => {
     if (!inputText.trim()) return;
@@ -538,6 +560,12 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
                           style={{ transform: 'scaleX(-1)' }}
                         />
                         <canvas ref={signCanvasRef} width={640} height={480} className="hidden" />
+                        {/* Live auto-scan badge so the user knows it's reading on its own */}
+                        {isSignCamActive && autoScan && (
+                          <div className="absolute top-2 left-2 flex items-center gap-1.5 bg-emerald-500/90 text-white text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded-full">
+                            <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" /> {t.scanning}
+                          </div>
+                        )}
                         {!isSignCamActive && (
                           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-white/50">
                             <Camera className="w-10 h-10" />
@@ -545,30 +573,43 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
                           </div>
                         )}
                         {isInterpreting && (
-                          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm flex flex-col items-center justify-center gap-2 text-white">
-                            <RefreshCw className="w-8 h-8 animate-spin text-primary" />
-                            <span className="text-xs font-bold">{t.interpreting}</span>
+                          <div className="absolute bottom-2 right-2 flex items-center gap-1.5 bg-black/60 backdrop-blur-sm text-white text-[10px] font-bold px-2 py-1 rounded-full">
+                            <RefreshCw className="w-3 h-3 animate-spin text-primary" />
+                            {t.interpreting}
                           </div>
                         )}
                       </div>
-                      <div className="p-3 flex gap-2">
+                      <div className="p-3 flex flex-wrap gap-2">
                         <button
                           onClick={isSignCamActive ? stopSignCam : startSignCam}
                           className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${
-                            isSignCamActive ? 'bg-red-500/20 text-red-300 border border-red-500/40' : 'bg-white/10 text-white border border-white/10 hover:bg-white/20'
+                            isSignCamActive ? 'bg-red-500/20 text-red-300 border border-red-500/40' : 'flex-1 bg-primary text-white hover:bg-primary-press'
                           }`}
                         >
                           {isSignCamActive ? <CameraOff className="w-4 h-4" /> : <Camera className="w-4 h-4" />}
                           {isSignCamActive ? t.stopCamera : t.startCamera}
                         </button>
                         {isSignCamActive && (
-                          <button
-                            onClick={captureSign}
-                            disabled={isInterpreting}
-                            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-primary text-white hover:bg-primary-press disabled:opacity-50 transition-all active:scale-95"
-                          >
-                            <Hand className="w-4 h-4" /> {t.captureSign}
-                          </button>
+                          <>
+                            <button
+                              onClick={() => setAutoScan((v) => !v)}
+                              aria-pressed={autoScan}
+                              className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all border ${
+                                autoScan ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' : 'bg-white/10 text-white/70 border-white/10 hover:bg-white/20'
+                              }`}
+                            >
+                              <RefreshCw className={`w-4 h-4 ${autoScan ? 'animate-spin' : ''}`} /> {autoScan ? t.autoOn : t.autoOff}
+                            </button>
+                            {!autoScan && (
+                              <button
+                                onClick={() => captureSign(false)}
+                                disabled={isInterpreting}
+                                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-white/10 text-white border border-white/10 hover:bg-white/20 disabled:opacity-50 transition-all active:scale-95"
+                              >
+                                <Hand className="w-4 h-4" /> {t.captureNow}
+                              </button>
+                            )}
+                          </>
                         )}
                       </div>
                       {signCamError && (
