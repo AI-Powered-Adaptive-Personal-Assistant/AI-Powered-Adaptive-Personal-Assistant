@@ -5,6 +5,9 @@ import { motion, AnimatePresence } from "motion/react";
 import { Mic, Square, Play, RefreshCw, Menu, Download, FileText, Settings, Video, Sparkles, Brain, Zap, Activity, Camera, CameraOff, Hand, Keyboard, Volume2 } from "lucide-react";
 import SignAvatar3D from "./SignAvatar3D";
 import { geminiService } from "../services/geminiService";
+import { Hands, Results } from "@mediapipe/hands";
+import { Camera as MediaPipeCamera } from "@mediapipe/camera_utils";
+import type { SignClassifier } from "../lib/signClassifier";
 
 interface SignVideoStudioProps {
   profile: UserProfile;
@@ -40,16 +43,16 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
   // Unified input mode: the user fills the script by SIGNING (camera), TYPING, or SPEAKING.
   const [inputMode, setInputMode] = useState<'sign' | 'text' | 'voice'>('text');
   const [isSignCamActive, setIsSignCamActive] = useState(false);
-  const [isInterpreting, setIsInterpreting] = useState(false);
-  const [autoScan, setAutoScan] = useState(true); // auto-detect signs continuously (no button press)
+  const [signCamStatus, setSignCamStatus] = useState(""); // loading / live / error label
+  const [liveLetter, setLiveLetter] = useState(""); // current recognised letter + confidence
   const [signCamError, setSignCamError] = useState("");
   const signVideoRef = useRef<HTMLVideoElement | null>(null);
-  const signCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const signStreamRef = useRef<MediaStream | null>(null);
-  const interpretingRef = useRef(false); // ref mirror so the auto-scan timer never overlaps calls
-  const scanTimerRef = useRef<any>(null);
-  const pendingSignRef = useRef(""); // a sign must be seen twice in a row before it's committed
-  const lastAppendedRef = useRef(""); // avoid repeating the same sign back-to-back
+  // Local, on-device fingerspelling recognition (MediaPipe hands + tiny CNN) —
+  // real-time, accurate for the 24 static letters, and ZERO API cost/quota.
+  const handsRef = useRef<Hands | null>(null);
+  const signCameraRef = useRef<MediaPipeCamera | null>(null);
+  const signClfRef = useRef<SignClassifier | null>(null);
 
   const KANEVSKY_PRESETS = [
     { id: 'ep_k1', phrase: "fanku", translation: "Thank you" },
@@ -91,13 +94,10 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
     howToInput: localize(profile.language, "How do you want to talk to Cognify?", "عايز تكلّم كوجنيفاي إزاي؟"),
     startCamera: localize(profile.language, "Start Camera", "تشغيل الكاميرا"),
     stopCamera: localize(profile.language, "Stop Camera", "إيقاف الكاميرا"),
-    captureSign: localize(profile.language, "Capture Sign", "التقاط الإشارة"),
-    interpreting: localize(profile.language, "Interpreting sign...", "جاري تفسير الإشارة..."),
-    signHint: localize(profile.language, "Just sign in front of the camera — it reads you automatically.", "أشِر قدّام الكاميرا وهي تقرأ لوحدها تلقائيًا."),
-    autoOn: localize(profile.language, "Auto-scan ON", "المسح التلقائي مفعّل"),
-    autoOff: localize(profile.language, "Auto-scan OFF", "المسح التلقائي متوقف"),
-    scanning: localize(profile.language, "Auto-scanning…", "بيمسح تلقائيًا…"),
-    captureNow: localize(profile.language, "Capture now", "التقاط الآن")
+    signHint: localize(profile.language, "Fingerspell (A–Y) in front of the camera — letters are read live and added automatically.", "اهجِ الحروف (A–Y) قدّام الكاميرا — بتتقري لحظيًا وتتضاف تلقائيًا."),
+    space: localize(profile.language, "Space", "مسافة"),
+    del: localize(profile.language, "Delete", "حذف"),
+    clear: localize(profile.language, "Clear", "مسح")
   };
 
   useEffect(() => {
@@ -311,86 +311,104 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
     if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
   };
 
-  // --- SIGN LANGUAGE CAMERA INPUT (capture a frame → Gemini vision → text) ---
+  // --- SIGN LANGUAGE CAMERA INPUT (on-device fingerspelling, no API) ---
+  // Each recognised frame is classified locally; the smoother commits a stable
+  // letter which gets appended to the script. Real-time, accurate, zero quota.
+  const onSignResults = (results: Results) => {
+    const video = signVideoRef.current;
+    const clf = signClfRef.current;
+    if (!video || !clf) return;
+
+    const landmarks = results.multiHandLandmarks?.[0];
+    const handScore = results.multiHandedness?.[0]?.score ?? 0;
+
+    if (!landmarks || landmarks.length === 0 || handScore <= 0.7) {
+      setLiveLetter("");
+      clf.smoother.handLost();
+      return;
+    }
+
+    const pred = clf.classify(video, landmarks as any);
+    if (!pred) return;
+    setLiveLetter(`${pred.letter} · ${(pred.confidence * 100).toFixed(0)}%`);
+
+    const stable = clf.smoother.push(pred);
+    if (stable) {
+      setSignCamError("");
+      setInputText((prev) => prev + stable);
+    }
+  };
+
   const startSignCam = async () => {
     setSignCamError("");
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setSignCamError(localize(profile.language, "Camera isn't available on this browser/connection.", "الكاميرا مش متاحة على المتصفح/الاتصال ده."));
+      return;
+    }
     try {
+      // Lazy-load the on-device recognizer (and TF.js) the first time.
+      if (!signClfRef.current) {
+        setSignCamStatus(localize(profile.language, "Loading recognizer…", "جاري تحميل المُميِّز…"));
+        const { SignClassifier } = await import("../lib/signClassifier");
+        const clf = new SignClassifier();
+        await Promise.race([
+          clf.load("/models/sign/model.json"),
+          new Promise((_, reject) => setTimeout(() => reject(new Error("model-timeout")), 20000)),
+        ]);
+        signClfRef.current = clf;
+      }
+
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { width: 640, height: 480, facingMode: "user" },
       });
       signStreamRef.current = stream;
-      if (signVideoRef.current) {
-        signVideoRef.current.srcObject = stream;
-      }
+      if (signVideoRef.current) signVideoRef.current.srcObject = stream;
+
+      const hands = new Hands({ locateFile: (f) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}` });
+      hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.7, minTrackingConfidence: 0.6 });
+      hands.onResults(onSignResults);
+      handsRef.current = hands;
+
+      const camera = new MediaPipeCamera(signVideoRef.current!, {
+        onFrame: async () => {
+          if (handsRef.current && signVideoRef.current) {
+            await handsRef.current.send({ image: signVideoRef.current });
+          }
+        },
+        width: 640, height: 480,
+      });
+      camera.start();
+      signCameraRef.current = camera;
       setIsSignCamActive(true);
-    } catch (e) {
-      console.error("Sign camera failed", e);
-      setSignCamError(localize(profile.language, "Camera access failed. Please allow camera permission.", "تعذّر الوصول للكاميرا. من فضلك اسمح بإذن الكاميرا."));
+      setSignCamStatus(localize(profile.language, "Live", "مباشر"));
+    } catch (err: any) {
+      console.error("Sign camera failed", err);
+      const name = err?.name || "";
+      let msg = localize(profile.language, "Couldn't start the camera. Please try again.", "تعذّر تشغيل الكاميرا. حاول تاني.");
+      if (name === "NotAllowedError" || name === "SecurityError") msg = localize(profile.language, "Camera permission was blocked. Enable it in your browser settings.", "إذن الكاميرا مرفوض. فعّله من إعدادات المتصفح.");
+      else if (err?.message === "model-timeout") msg = localize(profile.language, "The recognizer took too long to load — check the connection.", "المُميِّز أخد وقت طويل في التحميل — راجِع الاتصال.");
+      setSignCamError(msg);
+      setSignCamStatus("");
+      try { signCameraRef.current?.stop(); } catch { /* ignore */ }
+      signStreamRef.current?.getTracks().forEach((tr) => tr.stop());
+      signStreamRef.current = null;
     }
   };
 
   const stopSignCam = () => {
+    try { signCameraRef.current?.stop(); } catch { /* ignore */ }
+    signCameraRef.current = null;
+    try { handsRef.current?.close(); } catch { /* ignore */ }
+    handsRef.current = null;
     if (signStreamRef.current) {
       signStreamRef.current.getTracks().forEach((tr) => tr.stop());
       signStreamRef.current = null;
     }
     if (signVideoRef.current) signVideoRef.current.srcObject = null;
+    signClfRef.current?.smoother.reset();
     setIsSignCamActive(false);
-  };
-
-  // `silent` = auto-scan tick: don't flash the "no sign" error on empty frames.
-  const captureSign = async (silent = false) => {
-    if (!signVideoRef.current || !signCanvasRef.current || interpretingRef.current) return;
-    const canvas = signCanvasRef.current;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    ctx.drawImage(signVideoRef.current, 0, 0, canvas.width, canvas.height);
-    const imageData = canvas.toDataURL("image/jpeg", 0.6).split(",")[1];
-
-    interpretingRef.current = true;
-    setIsInterpreting(true);
-    try {
-      const text = await geminiService.translateSign(
-        imageData,
-        profile.language || "English",
-        profile.level || "Basic",
-      );
-      const clean = (text || "").replace(/[\[\]]/g, "").trim();
-      const isNoSign = !clean || /no[_\s-]?sign/i.test(text || "");
-      // Reject hallucinated narration: a real sign is 1–2 words, not a sentence.
-      const looksLikeSentence = clean.split(/\s+/).length > 2;
-
-      if (!isNoSign && !looksLikeSentence) {
-        const norm = clean.toLowerCase();
-        const commit = () => {
-          lastAppendedRef.current = norm;
-          pendingSignRef.current = "";
-          setSignCamError("");
-          setInputText((prev) => (prev ? prev.trim() + " " : "") + clean);
-        };
-        if (!silent) {
-          // Manual "Capture now": user chose this frame → commit it (unless exact repeat).
-          if (norm !== lastAppendedRef.current) commit();
-        } else if (norm === lastAppendedRef.current) {
-          // same sign still held — ignore so it isn't written repeatedly
-        } else if (norm === pendingSignRef.current) {
-          commit(); // confirmed across two consecutive auto frames
-        } else {
-          pendingSignRef.current = norm; // first sighting — wait for confirmation
-        }
-      } else {
-        // Nothing clear this frame: reset the "held" sign so it can re-fire later.
-        lastAppendedRef.current = "";
-        pendingSignRef.current = "";
-        if (!silent) setSignCamError(localize(profile.language, "No clear sign detected — try again.", "لم يتم التعرف على إشارة واضحة — حاول تاني."));
-      }
-    } catch (e) {
-      console.error("Sign interpretation failed", e);
-      if (!silent) setSignCamError(localize(profile.language, "Interpretation failed. Try again.", "فشل التفسير. حاول تاني."));
-    } finally {
-      interpretingRef.current = false;
-      setIsInterpreting(false);
-    }
+    setLiveLetter("");
+    setSignCamStatus("");
   };
 
   // Release the camera when leaving sign mode or unmounting.
@@ -399,17 +417,11 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
   }, [inputMode]);
 
   useEffect(() => {
-    return () => stopSignCam();
+    return () => {
+      stopSignCam();
+      signClfRef.current?.dispose();
+    };
   }, []);
-
-  // AUTOMATIC sign scanning: while the camera is on and auto-scan is enabled,
-  // grab and interpret a frame every ~2.5s — no button press needed. The
-  // interpretingRef guard means ticks that land mid-request are skipped.
-  useEffect(() => {
-    if (inputMode !== 'sign' || !isSignCamActive || !autoScan) return;
-    scanTimerRef.current = setInterval(() => { captureSign(true); }, 2500);
-    return () => { if (scanTimerRef.current) clearInterval(scanTimerRef.current); };
-  }, [inputMode, isSignCamActive, autoScan]);
 
   const generateVideo = async () => {
     if (!inputText.trim()) return;
@@ -568,7 +580,7 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
                     </div>
                   </div>
 
-                  {/* SIGN camera capture panel */}
+                  {/* SIGN camera panel — on-device live fingerspelling */}
                   {inputMode === 'sign' && (
                     <div className="mb-4 rounded-2xl border border-border bg-slate-900 overflow-hidden">
                       <div className="relative aspect-video bg-slate-950 flex items-center justify-center">
@@ -580,23 +592,22 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
                           className={`w-full h-full object-cover ${isSignCamActive ? 'opacity-100' : 'opacity-0'}`}
                           style={{ transform: 'scaleX(-1)' }}
                         />
-                        <canvas ref={signCanvasRef} width={640} height={480} className="hidden" />
-                        {/* Live auto-scan badge so the user knows it's reading on its own */}
-                        {isSignCamActive && autoScan && (
+                        {/* Live status badge */}
+                        {isSignCamActive && (
                           <div className="absolute top-2 left-2 flex items-center gap-1.5 bg-emerald-500/90 text-white text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded-full">
-                            <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" /> {t.scanning}
+                            <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" /> {signCamStatus || 'Live'}
+                          </div>
+                        )}
+                        {/* Big live letter read-out */}
+                        {isSignCamActive && liveLetter && (
+                          <div className="absolute bottom-2 right-2 bg-black/60 backdrop-blur-sm text-white text-lg font-black px-3 py-1 rounded-xl border border-white/10">
+                            {liveLetter}
                           </div>
                         )}
                         {!isSignCamActive && (
                           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-white/50">
                             <Camera className="w-10 h-10" />
                             <span className="text-[11px] font-bold px-6 text-center">{t.signHint}</span>
-                          </div>
-                        )}
-                        {isInterpreting && (
-                          <div className="absolute bottom-2 right-2 flex items-center gap-1.5 bg-black/60 backdrop-blur-sm text-white text-[10px] font-bold px-2 py-1 rounded-full">
-                            <RefreshCw className="w-3 h-3 animate-spin text-primary" />
-                            {t.interpreting}
                           </div>
                         )}
                       </div>
@@ -613,23 +624,17 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
                         {isSignCamActive && (
                           <>
                             <button
-                              onClick={() => setAutoScan((v) => !v)}
-                              aria-pressed={autoScan}
-                              className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all border ${
-                                autoScan ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' : 'bg-white/10 text-white/70 border-white/10 hover:bg-white/20'
-                              }`}
+                              onClick={() => setInputText((p) => p + ' ')}
+                              className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-white/10 text-white border border-white/10 hover:bg-white/20 transition-all active:scale-95"
                             >
-                              <RefreshCw className={`w-4 h-4 ${autoScan ? 'animate-spin' : ''}`} /> {autoScan ? t.autoOn : t.autoOff}
+                              {t.space}
                             </button>
-                            {!autoScan && (
-                              <button
-                                onClick={() => captureSign(false)}
-                                disabled={isInterpreting}
-                                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-white/10 text-white border border-white/10 hover:bg-white/20 disabled:opacity-50 transition-all active:scale-95"
-                              >
-                                <Hand className="w-4 h-4" /> {t.captureNow}
-                              </button>
-                            )}
+                            <button
+                              onClick={() => setInputText((p) => p.slice(0, -1))}
+                              className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-white/10 text-white border border-white/10 hover:bg-white/20 transition-all active:scale-95"
+                            >
+                              ⌫ {t.del}
+                            </button>
                           </>
                         )}
                       </div>
