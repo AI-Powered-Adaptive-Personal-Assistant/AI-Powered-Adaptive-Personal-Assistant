@@ -10,10 +10,6 @@ const GEMINI_KEYS: string[] = (((import.meta as any).env?.VITE_GEMINI_API_KEY as
   .map((k: string) => k.trim())
   .filter(Boolean);
 
-function geminiKey(): string {
-  return GEMINI_KEYS[0] || "";
-}
-
 // OpenAI-compatible free fallbacks (Groq / xAI) — same keys the main chat uses.
 // The sign/accessibility TEXT helpers fall back to these when Gemini is missing
 // or rate-limited, so a free Groq key alone still powers the disability section.
@@ -23,33 +19,34 @@ const GROQ_KEYS: string[] = (((import.meta as any).env?.VITE_GROQ_API_KEY as str
 const XAI_KEYS: string[] = (((import.meta as any).env?.VITE_XAI_API_KEY as string) || "")
   .split(/[,\s]+/).map((k: string) => k.trim()).filter(Boolean);
 
-function fallbackKey(): string {
-  return [...GROQ_KEYS, ...XAI_KEYS][0] || "";
-}
+const FALLBACK_KEYS: string[] = [...GROQ_KEYS, ...XAI_KEYS];
 
-/** Text-only completion via an OpenAI-compatible provider (Groq/xAI). "" on failure. */
+/** Text-only completion via an OpenAI-compatible provider (Groq/xAI). Rotates
+ *  across every key on quota/overload so the free tier lasts longer. "" on failure. */
 async function callGroqText(prompt: string): Promise<string> {
-  const key = fallbackKey();
-  if (!key) return "";
-  const isXai = key.startsWith("xai-");
-  const url = isXai ? "https://api.x.ai/v1/chat/completions" : "https://api.groq.com/openai/v1/chat/completions";
-  const model = isXai ? "grok-2-latest" : "llama-3.3-70b-versatile";
-  try {
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-      body: JSON.stringify({ model, messages: [{ role: "user", content: prompt }], temperature: 0.7 }),
-    });
-    if (!res.ok) {
+  if (!FALLBACK_KEYS.length) return "";
+  for (const key of FALLBACK_KEYS) {
+    const isXai = key.startsWith("xai-");
+    const url = isXai ? "https://api.x.ai/v1/chat/completions" : "https://api.groq.com/openai/v1/chat/completions";
+    const model = isXai ? "grok-2-latest" : "llama-3.3-70b-versatile";
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+        body: JSON.stringify({ model, messages: [{ role: "user", content: prompt }], temperature: 0.7 }),
+      });
+      if (res.ok) {
+        const d = await res.json();
+        return d.choices?.[0]?.message?.content || "";
+      }
       console.error(`Fallback text provider failed (${res.status})`);
-      return "";
+      if (res.status === 400) return ""; // malformed — no key will fix it
+      // 429/rate-limit or bad key → rotate to the next key.
+    } catch (e) {
+      console.error("Fallback text provider threw:", e);
     }
-    const d = await res.json();
-    return d.choices?.[0]?.message?.content || "";
-  } catch (e) {
-    console.error("Fallback text provider threw:", e);
-    return "";
   }
+  return "";
 }
 
 /** Text helper: try Gemini, then fall back to Groq/xAI so a free key still works. */
@@ -68,29 +65,40 @@ function rawBase64(data: string): string {
   return i >= 0 ? data.slice(i + 7) : data;
 }
 
-/** Low-level Gemini call. `parts` is the user content (text and/or inlineData). */
+/**
+ * Low-level Gemini call. `parts` is the user content (text and/or inlineData).
+ * Rotates across ALL configured keys: when one key is quota-exhausted/overloaded
+ * (429/503) or invalid (401/403), it moves to the next key instead of giving up.
+ * This spreads the free-tier quota across every key so the disability section
+ * (which many users hit at once) doesn't die on a single key's limit.
+ */
 async function callGemini(parts: any[]): Promise<string> {
-  const key = geminiKey();
-  if (!key) {
+  if (!GEMINI_KEYS.length) {
     console.error("Gemini accessibility call skipped: VITE_GEMINI_API_KEY is not set.");
     return "";
   }
   const body = JSON.stringify({ contents: [{ role: "user", parts }] });
-  for (const model of MODELS) {
-    try {
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`,
-        { method: "POST", headers: { "Content-Type": "application/json" }, body },
-      );
-      if (res.ok) {
-        const d = await res.json();
-        return d.candidates?.[0]?.content?.parts?.[0]?.text || "";
+  for (const key of GEMINI_KEYS) {
+    for (const model of MODELS) {
+      try {
+        const res = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`,
+          { method: "POST", headers: { "Content-Type": "application/json" }, body },
+        );
+        if (res.ok) {
+          const d = await res.json();
+          return d.candidates?.[0]?.content?.parts?.[0]?.text || "";
+        }
+        const errText = await res.text().catch(() => "");
+        console.error(`Gemini model "${model}" failed (${res.status}):`, errText.slice(0, 300));
+        // 400 = malformed request — no key or model will fix it.
+        if (res.status === 400) return "";
+        // Quota/overload or bad key → stop trying models on THIS key, rotate to the next key.
+        if (res.status === 429 || res.status === 503 || res.status === 401 || res.status === 403) break;
+        // Other statuses (e.g. 404 model): try the next model on the same key.
+      } catch (e) {
+        console.error(`Gemini model "${model}" threw:`, e);
       }
-      const errText = await res.text().catch(() => "");
-      console.error(`Gemini model "${model}" failed (${res.status}):`, errText.slice(0, 300));
-      if (res.status === 400 || res.status === 401 || res.status === 403) break;
-    } catch (e) {
-      console.error(`Gemini model "${model}" threw:`, e);
     }
   }
   return "";
