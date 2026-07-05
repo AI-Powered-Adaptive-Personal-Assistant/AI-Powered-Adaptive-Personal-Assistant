@@ -8,7 +8,7 @@ import {
   isSuperAdmin, isPermanentAdmin, isPermanent, isAdminUser,
   canManageAdmins as canManageAdminsFor,
 } from "../lib/roles";
-import { Loader2, Users, Search, Activity, Menu, ShieldAlert, Mail, Trash2, Shield, ShieldCheck, Crown, UserPlus, UserMinus, Brain, Heart, GraduationCap, Accessibility, Eye, Ear, Mic, User as UserIcon, Copy, CheckCircle2 } from "lucide-react";
+import { Loader2, Users, Search, Activity, Menu, ShieldAlert, Mail, Trash2, Shield, ShieldCheck, Crown, UserPlus, UserMinus, Brain, Heart, GraduationCap, Accessibility, Eye, Ear, Mic, User as UserIcon, Copy, CheckCircle2, Download, Printer, AlertTriangle } from "lucide-react";
 import { AccountPath, AccessibilityMode } from "../types";
 import { sectionOf, isAccessibilityUser } from "../lib/access";
 
@@ -216,6 +216,112 @@ export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardP
     }
   };
 
+  // Users who stopped using the app (14+ days) — the charity should follow up.
+  const idleUsers = a11yAll
+    .filter(u => { const d = daysSinceActive(u); return d >= 14 && d !== Infinity; })
+    .sort((a, b) => daysSinceActive(b) - daysSinceActive(a));
+
+  // Weekly activity trend (last 8 weeks). Every thread update / activity date of
+  // an accessibility user counts as one usage event in its week's bucket.
+  const weeklyActivity = (() => {
+    const buckets = Array.from({ length: 8 }, (_, i) => ({
+      label: i === 7 ? 'This wk' : `-${7 - i}w`,
+      count: 0,
+    }));
+    const now = Date.now();
+    a11yAll.forEach((u) => {
+      const events: (string | undefined)[] = [
+        u.lastActiveDate, u.lastQuizDate,
+        ...(u.chatThreads || []).map(t => t.updatedAt),
+      ];
+      events.forEach((iso) => {
+        if (!iso) return;
+        const weeksAgo = Math.floor((now - new Date(iso).getTime()) / (7 * 86400000));
+        if (weeksAgo >= 0 && weeksAgo < 8) buckets[7 - weeksAgo].count++;
+      });
+    });
+    return buckets;
+  })();
+  const maxWeekly = Math.max(1, ...weeklyActivity.map(w => w.count));
+
+  // CSV export (Excel-friendly: BOM so Arabic names open correctly).
+  const exportA11yCsv = () => {
+    const rows = [
+      ['Name', 'Email', 'Section', 'Disability Type', 'Active Mode', 'Last Active', 'Status'],
+      ...a11yAll.map((u) => {
+        const d = daysSinceActive(u);
+        return [
+          u.name || 'Unnamed', u.email || '', sectionOf(u), u.disabilityType || 'Other',
+          u.accessibilityMode || 'None',
+          formatDate(u.lastActiveDate || u.lastQuizDate || u.chatThreads?.[0]?.updatedAt),
+          d <= 7 ? 'Active' : d === Infinity ? 'Never' : `${Math.floor(d)}d idle`,
+        ];
+      }),
+    ];
+    const csv = '﻿' + rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `cognify-accessibility-users-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+    toast.success(`${a11yAll.length} user(s) exported.`, 'CSV downloaded');
+  };
+
+  // Print-ready monthly report in a fresh window (admin saves it as PDF).
+  const openMonthlyReport = () => {
+    const win = window.open('', '_blank');
+    if (!win) { toast.error('Popup blocked — allow popups to print the report.', 'Report'); return; }
+    const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+    const monthName = new Date().toLocaleDateString('ar-EG', { month: 'long', year: 'numeric' });
+    const kpi = (label: string, value: number | string) =>
+      `<div class="kpi"><div class="v">${value}</div><div class="l">${label}</div></div>`;
+    const disRows = disabilityCounts.map(({ key, count }) =>
+      `<tr><td>${esc(DISABILITY_META[key].label)}</td><td class="c">${count}</td></tr>`).join('');
+    const modeRows = modeCounts.map(({ mode, count }) =>
+      `<tr><td>${esc(MODE_META[mode].label)}</td><td class="c">${count}</td></tr>`).join('');
+    const weekCells = weeklyActivity.map(w =>
+      `<td class="c"><div class="bar" style="height:${Math.round((w.count / maxWeekly) * 60) + 4}px"></div><div class="wl">${w.label}</div><div class="wc">${w.count}</div></td>`).join('');
+    const idleRows = idleUsers.length
+      ? idleUsers.map(u => `<tr><td>${esc(u.name || 'Unnamed')}</td><td>${esc(u.email || '')}</td><td class="c">${Math.floor(daysSinceActive(u))} يوم</td></tr>`).join('')
+      : '<tr><td colspan="3" class="c">لا يوجد مستخدمون خاملون 🎉</td></tr>';
+    const userRows = a11yAll.map(u => {
+      const d = daysSinceActive(u);
+      return `<tr><td>${esc(u.name || 'Unnamed')}</td><td>${esc(u.disabilityType || 'Other')}</td><td>${esc(u.accessibilityMode || 'None')}</td><td class="c">${d <= 7 ? 'نشط' : d === Infinity ? 'لم يبدأ' : Math.floor(d) + ' يوم خمول'}</td></tr>`;
+    }).join('');
+    win.document.write(`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>تقرير كوجنيفاي الشهري — قسم ذوي الهمم</title><style>
+      body{font-family:'Segoe UI',Tahoma,sans-serif;color:#141E38;margin:32px;line-height:1.6}
+      h1{font-size:24px;margin:0 0 2px} .sub{color:#54617C;font-size:13px;margin:0 0 24px}
+      h2{font-size:15px;margin:26px 0 8px;border-bottom:2px solid #2E42C9;padding-bottom:4px;color:#2E42C9}
+      .kpis{display:flex;gap:12px} .kpi{flex:1;border:1px solid #E3E8F0;border-radius:10px;padding:12px;text-align:center}
+      .kpi .v{font-size:26px;font-weight:800} .kpi .l{font-size:11px;color:#54617C;font-weight:700}
+      table{width:100%;border-collapse:collapse;font-size:12.5px} td,th{border:1px solid #E3E8F0;padding:6px 10px;text-align:right}
+      th{background:#F5F7FA;font-size:11px} .c{text-align:center}
+      .chart td{border:0;vertical-align:bottom} .bar{width:26px;background:#2E42C9;border-radius:4px 4px 0 0;margin:0 auto}
+      .wl{font-size:10px;color:#54617C;margin-top:4px}.wc{font-size:11px;font-weight:800}
+      .foot{margin-top:28px;color:#8B96AB;font-size:11px;border-top:1px solid #E3E8F0;padding-top:10px}
+      @media print{ .noprint{display:none} }
+    </style></head><body>
+      <button class="noprint" onclick="window.print()" style="padding:8px 18px;font-weight:700;margin-bottom:16px">🖨️ طباعة / حفظ PDF</button>
+      <h1>تقرير كوجنيفاي الشهري — قسم ذوي الهمم</h1>
+      <p class="sub">${monthName} · أُنشئ في ${new Date().toLocaleDateString('ar-EG')} · إعداد فريق كوجنيفاي</p>
+      <div class="kpis">
+        ${kpi('إجمالي المستخدمين', a11yAll.length)}
+        ${kpi('نشطون آخر 7 أيام', a11yActive7)}
+        ${kpi('مستخدمو لغة الإشارة', a11ySigners)}
+        ${kpi('خاملون +14 يوم', idleUsers.length)}
+      </div>
+      <h2>النشاط الأسبوعي (آخر 8 أسابيع)</h2>
+      <table class="chart"><tr>${weekCells}</tr></table>
+      <h2>التوزيع حسب نوع الإعاقة</h2><table><tr><th>النوع</th><th class="c">العدد</th></tr>${disRows}</table>
+      <h2>التوزيع حسب الوضع المفعّل</h2><table><tr><th>الوضع</th><th class="c">العدد</th></tr>${modeRows}</table>
+      <h2>مستخدمون يحتاجون متابعة (خمول +14 يوم)</h2><table><tr><th>الاسم</th><th>البريد</th><th class="c">مدة الخمول</th></tr>${idleRows}</table>
+      <h2>كل المستخدمين</h2><table><tr><th>الاسم</th><th>نوع الإعاقة</th><th>الوضع</th><th class="c">الحالة</th></tr>${userRows}</table>
+      <p class="foot">كوجنيفاي — نسخة إمكانية الوصول · تقرير آلي من لوحة الإدارة</p>
+    </body></html>`);
+    win.document.close();
+  };
+
   // The team, grouped by tier. Permanent members are always shown (even if they
   // haven't signed in yet), plus anyone promoted via this dashboard.
   const adminUsers = users.filter(isAdminUser);
@@ -309,6 +415,61 @@ export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardP
               ))}
             </section>
 
+            {/* ── Idle-users alert: people the charity should follow up ── */}
+            {idleUsers.length > 0 && (
+              <section className="bg-amber-500/10 border border-amber-500/30 rounded-3xl p-5 md:p-6">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="p-2.5 bg-amber-500/15 rounded-xl">
+                    <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black text-text-main uppercase tracking-tight leading-none">Needs follow-up</h3>
+                    <p className="text-[11px] font-bold text-text-muted tracking-widest uppercase mt-1">
+                      {idleUsers.length} user{idleUsers.length === 1 ? '' : 's'} inactive for 14+ days
+                    </p>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {idleUsers.slice(0, 8).map((u) => (
+                    <a
+                      key={u.uid}
+                      href={`mailto:${u.email}?subject=We miss you at Cognify`}
+                      title={`Notify ${u.email}`}
+                      className="inline-flex items-center gap-2 px-3 py-1.5 bg-bg-card border border-amber-500/30 rounded-xl text-xs font-bold text-text-main hover:border-amber-500 transition-colors"
+                    >
+                      <Mail className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                      {u.name || u.email?.split('@')[0]}
+                      <span className="text-[10px] font-black text-amber-600 dark:text-amber-400 tabular-nums">{Math.floor(daysSinceActive(u))}d</span>
+                    </a>
+                  ))}
+                  {idleUsers.length > 8 && (
+                    <span className="inline-flex items-center px-3 py-1.5 text-xs font-bold text-text-muted">+{idleUsers.length - 8} more…</span>
+                  )}
+                </div>
+              </section>
+            )}
+
+            {/* ── Weekly activity trend ────────────────────────────────── */}
+            <section className="bg-bg-card border border-border shadow-sm rounded-3xl p-5 md:p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-black text-text-main uppercase tracking-tight">Weekly activity — last 8 weeks</h3>
+                <span className="text-[10px] font-bold text-text-muted uppercase tracking-widest">usage events</span>
+              </div>
+              <div className="flex items-end gap-2 h-28">
+                {weeklyActivity.map((w, i) => (
+                  <div key={i} className="flex-1 flex flex-col items-center gap-1.5">
+                    <span className="text-[10px] font-black text-text-main tabular-nums">{w.count}</span>
+                    <div
+                      className={`w-full max-w-[46px] rounded-t-lg transition-all ${i === 7 ? 'bg-primary' : 'bg-primary/35'}`}
+                      style={{ height: `${Math.max(4, (w.count / maxWeekly) * 80)}px` }}
+                      title={`${w.label}: ${w.count}`}
+                    />
+                    <span className="text-[9px] font-bold text-faint uppercase">{w.label}</span>
+                  </div>
+                ))}
+              </div>
+            </section>
+
             {/* ── Breakdown: disability types + active modes ───────────── */}
             <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <div className="bg-bg-card border border-border shadow-sm rounded-3xl p-5 md:p-6">
@@ -367,6 +528,18 @@ export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardP
                 {copiedEmails ? <CheckCircle2 className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
                 {copiedEmails ? 'Copied!' : 'Copy all emails'}
               </button>
+              <button
+                onClick={exportA11yCsv}
+                className="inline-flex items-center justify-center gap-2 px-4 py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black uppercase tracking-widest rounded-2xl transition-colors shrink-0"
+              >
+                <Download className="w-4 h-4" /> Export CSV
+              </button>
+              <button
+                onClick={openMonthlyReport}
+                className="inline-flex items-center justify-center gap-2 px-4 py-3 bg-primary hover:bg-primary-press text-white text-xs font-black uppercase tracking-widest rounded-2xl transition-colors shrink-0"
+              >
+                <Printer className="w-4 h-4" /> Monthly Report
+              </button>
             </div>
 
             {/* ── Accessibility users table ────────────────────────────── */}
@@ -394,8 +567,9 @@ export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardP
                         const days = daysSinceActive(u);
                         const dis = DISABILITY_META[u.disabilityType || 'Other'] || DISABILITY_META['Other'];
                         const mode = MODE_META[(u.accessibilityMode || 'None') as AccessibilityMode] || MODE_META['None'];
+                        const needsFollowUp = days >= 14 && days !== Infinity;
                         return (
-                          <tr key={u.uid} className="hover:bg-bg-main transition-colors">
+                          <tr key={u.uid} className={`transition-colors ${needsFollowUp ? 'bg-amber-500/5 hover:bg-amber-500/10' : 'hover:bg-bg-main'}`}>
                             <td className="p-4">
                               <div className="font-bold text-text-main">{u.name || 'Unnamed User'}</div>
                               <div className="text-[10px] text-text-muted">{sectionOf(u)}</div>
