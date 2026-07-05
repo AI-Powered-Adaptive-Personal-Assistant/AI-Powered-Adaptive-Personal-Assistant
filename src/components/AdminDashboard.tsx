@@ -8,9 +8,9 @@ import {
   isSuperAdmin, isPermanentAdmin, isPermanent, isAdminUser,
   canManageAdmins as canManageAdminsFor,
 } from "../lib/roles";
-import { Loader2, Users, Search, Activity, Menu, ShieldAlert, Mail, Trash2, Shield, ShieldCheck, Crown, UserPlus, UserMinus, Brain, Heart, GraduationCap } from "lucide-react";
-import { AccountPath } from "../types";
-import { sectionOf } from "../lib/access";
+import { Loader2, Users, Search, Activity, Menu, ShieldAlert, Mail, Trash2, Shield, ShieldCheck, Crown, UserPlus, UserMinus, Brain, Heart, GraduationCap, Accessibility, Eye, Ear, Mic, User as UserIcon, Copy, CheckCircle2 } from "lucide-react";
+import { AccountPath, AccessibilityMode } from "../types";
+import { sectionOf, isAccessibilityUser } from "../lib/access";
 
 interface AdminDashboardProps {
   profile: UserProfile;
@@ -25,12 +25,40 @@ const SECTION_META: Record<AccountPath, { label: string; Icon: typeof Brain; cls
 };
 const SECTION_ORDER: (AccountPath | 'all')[] = ['all', 'Normal', 'Special Needs', 'Graduation Project'];
 
+// Visual identity for disability types (Accessibility Center).
+const DISABILITY_META: Record<string, { label: string; Icon: typeof Eye; bar: string }> = {
+  'Visual Impairment': { label: 'Visual', Icon: Eye, bar: 'bg-indigo-500' },
+  'Hearing Impairment': { label: 'Hearing', Icon: Ear, bar: 'bg-rose-500' },
+  'Speech Impairment': { label: 'Speech', Icon: Mic, bar: 'bg-emerald-500' },
+  'Motor Impairment': { label: 'Motor', Icon: Accessibility, bar: 'bg-amber-500' },
+  'Cognitive/Learning Disability': { label: 'Cognitive', Icon: Brain, bar: 'bg-purple-500' },
+  'Other': { label: 'Other', Icon: UserIcon, bar: 'bg-slate-400' },
+};
+
+// Visual identity for the active accessibility mode.
+const MODE_META: Record<AccessibilityMode, { label: string; cls: string }> = {
+  'Visual': { label: 'Visual', cls: 'bg-indigo-500/15 text-indigo-500' },
+  'Speech': { label: 'Speech', cls: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' },
+  'Vocal-Deaf': { label: 'Vocal-Deaf', cls: 'bg-rose-500/15 text-rose-500' },
+  'Sign-Only': { label: 'Sign-Only', cls: 'bg-purple-500/15 text-purple-500' },
+  'None': { label: 'Standard', cls: 'bg-surface-3 text-text-muted' },
+};
+
+/** Days since the user's last activity signal; Infinity when unknown. */
+function daysSinceActive(u: UserProfile): number {
+  const iso = u.lastActiveDate || u.lastQuizDate || u.chatThreads?.[0]?.updatedAt;
+  if (!iso) return Infinity;
+  return (Date.now() - new Date(iso).getTime()) / 86400000;
+}
+
 export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardProps) {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [sectionFilter, setSectionFilter] = useState<AccountPath | 'all'>('all');
   const [busyUid, setBusyUid] = useState<string | null>(null);
+  const [adminView, setAdminView] = useState<'directory' | 'accessibility'>('directory');
+  const [copiedEmails, setCopiedEmails] = useState(false);
 
   const isAdmin = isAdminUser(profile);
   // Only super admins can grant/revoke admin rights.
@@ -151,6 +179,43 @@ export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardP
   const sectionCounts: Record<AccountPath, number> = { 'Normal': 0, 'Special Needs': 0, 'Graduation Project': 0 };
   users.forEach(u => { sectionCounts[sectionOf(u)] = (sectionCounts[sectionOf(u)] || 0) + 1; });
 
+  // ── Accessibility Center data ─────────────────────────────────────
+  const a11yUsers = users
+    .filter(isAccessibilityUser)
+    .filter(u =>
+      u.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (u.name && u.name.toLowerCase().includes(searchTerm.toLowerCase()))
+    )
+    .sort((a, b) => daysSinceActive(a) - daysSinceActive(b)); // most recently active first
+  const a11yAll = users.filter(isAccessibilityUser);
+  const a11yActive7 = a11yAll.filter(u => daysSinceActive(u) <= 7).length;
+  const a11ySigners = a11yAll.filter(u => u.accessibilityMode === 'Sign-Only' || u.accessibilityMode === 'Vocal-Deaf').length;
+  const a11yNew30 = a11yAll.filter(u => {
+    const d = u.lastActiveDate || u.lastQuizDate; // proxy for recency when no createdAt exists
+    return d ? (Date.now() - new Date(d).getTime()) / 86400000 <= 30 : false;
+  }).length;
+  const disabilityCounts = Object.keys(DISABILITY_META).map((key) => ({
+    key,
+    count: a11yAll.filter(u => (u.disabilityType || 'Other') === key).length,
+  }));
+  const maxDisability = Math.max(1, ...disabilityCounts.map(d => d.count));
+  const modeCounts = (Object.keys(MODE_META) as AccessibilityMode[]).map((m) => ({
+    mode: m,
+    count: a11yAll.filter(u => (u.accessibilityMode || 'None') === m).length,
+  }));
+
+  const copyA11yEmails = async () => {
+    const emails = a11yAll.map(u => u.email).filter(Boolean).join(', ');
+    try {
+      await navigator.clipboard.writeText(emails);
+      setCopiedEmails(true);
+      toast.success(`${a11yAll.length} email(s) copied to clipboard.`, 'Outreach list ready');
+      setTimeout(() => setCopiedEmails(false), 2500);
+    } catch {
+      toast.error('Could not copy to clipboard.', 'Copy failed');
+    }
+  };
+
   // The team, grouped by tier. Permanent members are always shown (even if they
   // haven't signed in yet), plus anyone promoted via this dashboard.
   const adminUsers = users.filter(isAdminUser);
@@ -186,17 +251,35 @@ export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardP
         </button>
         <div className="flex-1 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="p-3 bg-danger-soft rounded-xl">
-              <Users className="w-6 h-6 text-danger" />
+            <div className={`p-3 rounded-xl ${adminView === 'accessibility' ? 'bg-rose-500/15' : 'bg-danger-soft'}`}>
+              {adminView === 'accessibility' ? <Accessibility className="w-6 h-6 text-rose-500" /> : <Users className="w-6 h-6 text-danger" />}
             </div>
             <div>
               <h2 className="text-xl md:text-2xl font-black text-text-main uppercase tracking-tighter leading-none">Admin Dashboard</h2>
-              <p className="text-xs font-bold text-text-muted tracking-widest uppercase mt-1">Global User Directory</p>
+              <p className="text-xs font-bold text-text-muted tracking-widest uppercase mt-1">
+                {adminView === 'accessibility' ? 'Accessibility Center — Special Needs' : 'Global User Directory'}
+              </p>
             </div>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
+             <div className="flex items-center gap-1 p-1 bg-bg-main border border-border rounded-2xl">
+               <button
+                 onClick={() => setAdminView('directory')}
+                 aria-pressed={adminView === 'directory'}
+                 className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all ${adminView === 'directory' ? 'bg-primary text-white shadow-sm' : 'text-text-muted hover:bg-bg-card'}`}
+               >
+                 <Users className="w-3.5 h-3.5" /> Directory
+               </button>
+               <button
+                 onClick={() => setAdminView('accessibility')}
+                 aria-pressed={adminView === 'accessibility'}
+                 className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all ${adminView === 'accessibility' ? 'bg-rose-500 text-white shadow-sm' : 'text-text-muted hover:bg-bg-card'}`}
+               >
+                 <Accessibility className="w-3.5 h-3.5" /> Accessibility
+               </button>
+             </div>
              <div className="bg-slate-900 text-white px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest hidden md:flex items-center gap-2 shadow-lg">
-                <Activity className="w-4 h-4 text-emerald-400" /> Total Users: {users.length}
+                <Activity className="w-4 h-4 text-emerald-400" /> {adminView === 'accessibility' ? `A11y Users: ${a11yAll.length}` : `Total Users: ${users.length}`}
              </div>
           </div>
         </div>
@@ -204,6 +287,165 @@ export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardP
 
       <div className="flex-1 overflow-y-auto p-6 md:p-10">
         <div className="max-w-7xl mx-auto space-y-6">
+          {adminView === 'accessibility' ? (
+          <>
+            {/* ── KPI cards ────────────────────────────────────────────── */}
+            <section className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              {[
+                { label: 'Accessibility Users', value: a11yAll.length, Icon: Accessibility, cls: 'bg-rose-500/15 text-rose-500' },
+                { label: 'Active · last 7 days', value: a11yActive7, Icon: Activity, cls: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' },
+                { label: 'Sign-language users', value: a11ySigners, Icon: Ear, cls: 'bg-purple-500/15 text-purple-500' },
+                { label: 'Active · last 30 days', value: a11yNew30, Icon: CheckCircle2, cls: 'bg-primary-soft text-primary' },
+              ].map(({ label, value, Icon, cls }) => (
+                <div key={label} className="bg-bg-card border border-border shadow-sm rounded-2xl p-4 flex items-center gap-3">
+                  <div className={`p-2.5 rounded-xl ${cls}`}>
+                    <Icon className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="text-2xl font-black text-text-main leading-none">{value}</div>
+                    <div className="text-[10px] font-bold text-text-muted uppercase tracking-widest mt-1">{label}</div>
+                  </div>
+                </div>
+              ))}
+            </section>
+
+            {/* ── Breakdown: disability types + active modes ───────────── */}
+            <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <div className="bg-bg-card border border-border shadow-sm rounded-3xl p-5 md:p-6">
+                <h3 className="text-sm font-black text-text-main uppercase tracking-tight mb-4">By disability type</h3>
+                <div className="space-y-3">
+                  {disabilityCounts.map(({ key, count }) => {
+                    const meta = DISABILITY_META[key];
+                    return (
+                      <div key={key} className="flex items-center gap-3">
+                        <meta.Icon className="w-4 h-4 text-text-muted shrink-0" />
+                        <span className="w-24 text-xs font-bold text-text-main shrink-0">{meta.label}</span>
+                        <div className="flex-1 h-2.5 bg-surface-3 rounded-full overflow-hidden">
+                          <div className={`h-full ${meta.bar} rounded-full transition-all`} style={{ width: `${(count / maxDisability) * 100}%` }} />
+                        </div>
+                        <span className="w-8 text-right text-xs font-black text-text-main tabular-nums">{count}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="bg-bg-card border border-border shadow-sm rounded-3xl p-5 md:p-6">
+                <h3 className="text-sm font-black text-text-main uppercase tracking-tight mb-4">By active accessibility mode</h3>
+                <div className="flex flex-wrap gap-2">
+                  {modeCounts.map(({ mode, count }) => (
+                    <span key={mode} className={`inline-flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-black ${MODE_META[mode].cls}`}>
+                      {MODE_META[mode].label}
+                      <span className="bg-bg-card/60 px-1.5 py-0.5 rounded-md tabular-nums">{count}</span>
+                    </span>
+                  ))}
+                </div>
+                <p className="text-[11px] text-text-muted font-medium mt-4 leading-relaxed">
+                  The mode is what the user currently runs the app in — it can differ from the registered
+                  disability type (e.g. a hearing-impaired user trying Speech mode).
+                </p>
+              </div>
+            </section>
+
+            {/* ── Search + outreach ────────────────────────────────────── */}
+            <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
+              <div className="relative w-full max-w-md">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-faint" />
+                <input
+                  type="text"
+                  id="a11y-search"
+                  name="a11y-search"
+                  placeholder="Search accessibility users..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-11 pr-4 py-3 bg-bg-card border border-border rounded-2xl shadow-sm text-sm font-medium focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
+                />
+              </div>
+              <button
+                onClick={copyA11yEmails}
+                className="inline-flex items-center justify-center gap-2 px-4 py-3 bg-slate-900 hover:bg-black text-white text-xs font-black uppercase tracking-widest rounded-2xl transition-colors shrink-0"
+              >
+                {copiedEmails ? <CheckCircle2 className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+                {copiedEmails ? 'Copied!' : 'Copy all emails'}
+              </button>
+            </div>
+
+            {/* ── Accessibility users table ────────────────────────────── */}
+            {loading ? (
+              <div className="flex flex-col items-center justify-center p-20">
+                <Loader2 className="w-10 h-10 text-primary animate-spin" />
+              </div>
+            ) : (
+              <div className="bg-bg-card border border-border shadow-sm rounded-3xl overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-bg-main text-[10px] uppercase font-black tracking-widest text-faint border-b border-border">
+                        <th className="p-4">User</th>
+                        <th className="p-4">Disability</th>
+                        <th className="p-4">Mode</th>
+                        <th className="p-4">Status</th>
+                        <th className="p-4">Last Active</th>
+                        <th className="p-4">Email</th>
+                        <th className="p-4 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="text-sm font-medium text-text-main divide-y divide-slate-100">
+                      {a11yUsers.length > 0 ? a11yUsers.map((u) => {
+                        const days = daysSinceActive(u);
+                        const dis = DISABILITY_META[u.disabilityType || 'Other'] || DISABILITY_META['Other'];
+                        const mode = MODE_META[(u.accessibilityMode || 'None') as AccessibilityMode] || MODE_META['None'];
+                        return (
+                          <tr key={u.uid} className="hover:bg-bg-main transition-colors">
+                            <td className="p-4">
+                              <div className="font-bold text-text-main">{u.name || 'Unnamed User'}</div>
+                              <div className="text-[10px] text-text-muted">{sectionOf(u)}</div>
+                            </td>
+                            <td className="p-4">
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-surface-3 text-text-main">
+                                <dis.Icon className="w-3.5 h-3.5" /> {dis.label}
+                              </span>
+                            </td>
+                            <td className="p-4">
+                              <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider ${mode.cls}`}>{mode.label}</span>
+                            </td>
+                            <td className="p-4">
+                              {days <= 7 ? (
+                                <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase text-emerald-600 dark:text-emerald-400">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Active
+                                </span>
+                              ) : days === Infinity ? (
+                                <span className="text-[10px] font-black uppercase text-faint">Never</span>
+                              ) : (
+                                <span className="text-[10px] font-black uppercase text-text-muted">{Math.floor(days)}d idle</span>
+                              )}
+                            </td>
+                            <td className="p-4 text-xs font-bold text-text-muted">{formatDate(u.lastActiveDate || u.lastQuizDate || u.chatThreads?.[0]?.updatedAt)}</td>
+                            <td className="p-4 text-xs text-text-muted truncate max-w-[180px]" title={u.email}>{u.email}</td>
+                            <td className="p-4 text-right">
+                              <a
+                                href={`mailto:${u.email}?subject=Cognify Accessibility Support`}
+                                className="inline-flex items-center gap-2 px-3 py-1.5 bg-slate-900 hover:bg-black text-white text-[10px] font-bold uppercase tracking-widest rounded-lg transition-colors"
+                              >
+                                <Mail className="w-3 h-3" /> Notify
+                              </a>
+                            </td>
+                          </tr>
+                        );
+                      }) : (
+                        <tr>
+                          <td colSpan={7} className="p-10 text-center text-faint font-medium">
+                            {searchTerm ? `No accessibility users match "${searchTerm}"` : 'No accessibility users yet.'}
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </>
+          ) : (
+          <>
           {/* ── Administrators team ─────────────────────────────────────── */}
           <section className="bg-bg-card border border-border shadow-sm rounded-3xl p-5 md:p-6">
             <div className="flex items-center gap-3 mb-4">
@@ -413,6 +655,8 @@ export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardP
                  </table>
                </div>
              </div>
+          )}
+          </>
           )}
         </div>
       </div>
