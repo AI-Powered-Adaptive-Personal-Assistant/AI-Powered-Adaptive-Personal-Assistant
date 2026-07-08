@@ -134,13 +134,10 @@ service cloud.firestore {
                           && (!isProtectedTarget() || isOwner(userId) || isSuperAdmin()))
                     );
       // Deletion policy:
+      //  - ONLY super admins can delete users. Regular admins can delete no one.
       //  - Permanent members (super admins + permanent admins) can NEVER be
-      //    deleted from the app — by anyone.
-      //  - Promoted admins can only be deleted by a super admin.
-      //  - Regular users can be deleted by any admin.
-      allow delete: if isAdmin()
-                    && !isProtectedTarget()
-                    && (isSuperAdmin() || resource.data.get('isAdmin', false) == false);
+      //    deleted — not even by another super admin.
+      allow delete: if isSuperAdmin() && !isProtectedTarget();
       
       // Subcollections (threads, sandbox, goals, courses, attendance, planner,
       // notes, ...): the owner has full access; admins can read everything but

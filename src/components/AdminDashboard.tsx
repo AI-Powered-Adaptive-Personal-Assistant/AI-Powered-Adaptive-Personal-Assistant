@@ -130,19 +130,18 @@ export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardP
   }, [isAdmin]);
 
   // Deletion policy (mirrors firestore.rules — the rules are the real enforcement):
+  //  - ONLY super admins can delete users. Regular admins can delete no one.
   //  - Permanent members (super admins + permanent admins) can never be deleted.
-  //  - Promoted admins can only be deleted by a super admin.
-  //  - Regular users can be deleted by any admin.
   const canDeleteUser = (u: UserProfile) =>
-    !isPermanent(u.email) && (canManageAdmins || !isAdminUser(u));
+    canManageAdmins && !isPermanent(u.email);
 
   const handleDeleteUser = async (u: UserProfile) => {
-    if (isPermanent(u.email)) {
-      toast.error("Super admins and permanent admins can never be deleted.", "Protected account");
+    if (!canManageAdmins) {
+      toast.error("Only a super admin can delete users.", "Not allowed");
       return;
     }
-    if (isAdminUser(u) && !canManageAdmins) {
-      toast.error("Only a super admin can delete another admin.", "Not allowed");
+    if (isPermanent(u.email)) {
+      toast.error("Super admins and permanent admins can never be deleted.", "Protected account");
       return;
     }
     if (window.confirm(`Delete "${u.name || u.email}"? This action cannot be undone.`)) {
@@ -854,7 +853,7 @@ export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardP
                                </button>
                              ) : (
                                <span
-                                 title={isPermanent(u.email) ? "Permanent members can never be deleted" : "Only a super admin can delete an admin"}
+                                 title={isPermanent(u.email) ? "Permanent members can never be deleted" : "Only a super admin can delete users"}
                                  className="inline-flex items-center gap-2 px-3 py-1.5 bg-surface-3 text-faint text-[10px] font-bold uppercase tracking-widest rounded-lg cursor-not-allowed"
                                >
                                  <Shield className="w-3 h-3" /> Protected
