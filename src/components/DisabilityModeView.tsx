@@ -99,7 +99,7 @@ const DisabilityModeView = React.forwardRef<ChatInterfaceRef, DisabilityModeView
             <h1 className="text-lg sm:text-2xl font-bold text-text-main tracking-tight flex items-center gap-2 sm:gap-3">
               <Accessibility className="w-5 h-5 sm:w-6 sm:h-6 text-primary shrink-0" /> {getTranslation(profile.language, 'disabilityModeTitle')}
             </h1>
-            <p className="text-xs sm:text-sm text-text-muted mt-1">{getTranslation(profile.language, 'disabilityModeSubtitle')}</p>
+            <p className="hidden sm:block text-xs sm:text-sm text-text-muted mt-1">{getTranslation(profile.language, 'disabilityModeSubtitle')}</p>
           </div>
         </div>
 
@@ -127,7 +127,10 @@ const DisabilityModeView = React.forwardRef<ChatInterfaceRef, DisabilityModeView
         </div>
       </header>
       
-      <main className="flex-1 flex flex-col overflow-hidden relative">
+      {/* min-h-0 lets this flex child actually shrink so its children's
+          overflow-y-auto engages instead of pushing the layout off-screen
+          (the classic mobile "bottom controls clipped, no scroll" bug). */}
+      <main className="flex-1 min-h-0 flex flex-col overflow-hidden relative">
         <AnimatePresence mode="wait">
           {activeTab === 'chat' ? (
             <motion.div
@@ -135,9 +138,9 @@ const DisabilityModeView = React.forwardRef<ChatInterfaceRef, DisabilityModeView
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              className="w-full h-full flex flex-col p-4 md:p-6 lg:p-10 pb-0"
+              className="w-full h-full min-h-0 flex flex-col p-3 sm:p-4 md:p-6 lg:p-10 pb-0"
             >
-              <div className="flex-1 bg-bg-card rounded-t-3xl shadow-sm border border-border overflow-hidden relative flex flex-col">
+              <div className="flex-1 min-h-0 bg-bg-card rounded-t-3xl shadow-sm border border-border overflow-hidden relative flex flex-col">
                 <ChatInterface
                   ref={ref}
                   profile={profile}
@@ -243,7 +246,7 @@ const DisabilityModeView = React.forwardRef<ChatInterfaceRef, DisabilityModeView
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              className="w-full h-full pb-32 md:pb-0"
+              className="w-full h-full min-h-0"
             >
               <SignVideoStudio profile={profile} onMenuClick={onMenuClick} isEmbedded={true} />
             </motion.div>

@@ -529,15 +529,16 @@ export default function SignAvatar3D({ words, playing, onProgress, onDone, class
       const h = container.clientHeight || 1;
       renderer.setSize(w, h, false);
       camera.aspect = w / h;
-      // Responsive framing: the FOV is vertical, so on narrow/portrait
-      // containers (phones) the horizontal view shrinks and the raised hand
-      // gets cropped. Dolly the camera back proportionally as the aspect
-      // narrows so the FULL avatar always fits; desktop (wide) is unchanged.
-      const BASE_Z = 3.35;
-      const BASE_ASPECT = 1.15;
-      camera.position.z = camera.aspect < BASE_ASPECT
-        ? Math.min(BASE_Z * (BASE_ASPECT / Math.max(camera.aspect, 0.45)), 7.2)
-        : BASE_Z;
+      // Responsive framing. The FOV is VERTICAL, so on narrow/portrait
+      // containers (phones) the horizontal view shrinks and the raised hand/arm
+      // (world x ≈ ±1.6) gets cropped — "half the avatar" on mobile. Compute the
+      // camera distance needed to always show that horizontal extent, and never
+      // zoom in closer than the desktop baseline (so wide screens are unchanged).
+      const HALF_W = 1.75;                         // world half-width to keep visible
+      const HALF_FOV = (36 * Math.PI) / 180 / 2;   // vertical fov is 36°
+      const tan = Math.tan(HALF_FOV);
+      const zForWidth = HALF_W / (tan * Math.max(camera.aspect, 0.42));
+      camera.position.z = Math.min(Math.max(3.35, zForWidth), 8.5);
       camera.updateProjectionMatrix();
     };
     resize();

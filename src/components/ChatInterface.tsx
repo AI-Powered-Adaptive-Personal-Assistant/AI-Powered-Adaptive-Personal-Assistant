@@ -1149,7 +1149,7 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
       )}
 
       {/* Messages */}
-      <div className="flex flex-1 overflow-hidden relative">
+      <div className="flex flex-1 min-h-0 overflow-hidden relative">
         {/* Screen-reader announcer for blind users: speaks the "thinking" status
             and the FINAL AI reply (not every streamed token, to avoid spam). */}
         <div className="sr-only" role="status" aria-live="assertive" aria-atomic="true">

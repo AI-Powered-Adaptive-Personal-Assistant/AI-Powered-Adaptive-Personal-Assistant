@@ -564,7 +564,7 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
          FINGERSPELLING ENGINE (A–Z, 0–9, ARABIC MAPPING) + WORD GESTURES — RENDERED IN REAL-TIME WEBGL.
       </div>
 
-      <div className={`flex-1 overflow-y-auto z-10 relative flex flex-col items-center ${isEmbedded ? 'p-3 md:p-5' : 'p-6 md:p-10'}`}>
+      <div className={`flex-1 min-h-0 overflow-y-auto z-10 relative flex flex-col items-center ${isEmbedded ? 'p-3 md:p-5' : 'p-6 md:p-10'}`}>
          <div className={`w-full max-w-5xl grid grid-cols-1 lg:grid-cols-2 ${isEmbedded ? 'gap-4' : 'gap-8 h-full'}`}>
 
             {/* Input Section */}
