@@ -58,10 +58,9 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
-    // A "protected" doc belongs to a permanent member (super admin or permanent
-    // admin). Their profiles can never be deleted or tampered with by lower tiers.
-    function isProtectedTarget() {
-      return resource.data.get('email', '') in [
+    // All permanent members (super admins + permanent admins), lowercase.
+    function protectedEmails() {
+      return [
         "modyhashim2006@gmail.com",
         "mariemsayedr33@gmail.com",
         "pro.mahmoud.h@gmail.com",
@@ -70,6 +69,20 @@ service cloud.firestore {
         "esraahosni8@gmail.com",
         "nermeenatefateffarouk@gmail.com"
       ];
+    }
+
+    // A "protected" doc belongs to a permanent member (super admin or permanent
+    // admin). Their profiles can never be deleted or tampered with by lower
+    // tiers. lower() guards against a stored email with different casing.
+    function isProtectedTarget() {
+      return resource.data.get('email', '').lower() in protectedEmails();
+    }
+
+    // Same protection for a user's SUBCOLLECTIONS (threads, goals, ...): checks
+    // the parent /users doc's email. Costs one get() — only on the admin path.
+    function isProtectedUser(userId) {
+      return exists(/databases/$(database)/documents/users/$(userId)) &&
+             get(/databases/$(database)/documents/users/$(userId)).data.get('email', '').lower() in protectedEmails();
     }
 
     // The isAdmin flag must NOT change unless the writer is an admin. This blocks
@@ -129,18 +142,14 @@ service cloud.firestore {
                     && !isProtectedTarget()
                     && (isSuperAdmin() || resource.data.get('isAdmin', false) == false);
       
-      match /threads/{threadId} {
-        allow read, write: if isOwner(userId) || isAdmin();
-      }
-
-      match /sandbox/{sandboxId} {
-        allow read, write: if isOwner(userId) || isAdmin();
-      }
-
-      // Owner-scoped access to all per-user academic subcollections
-      // (goals, courses, attendance, planner, notes, etc.).
+      // Subcollections (threads, sandbox, goals, courses, attendance, planner,
+      // notes, ...): the owner has full access; admins can read everything but
+      // may only WRITE to a non-protected user's data — a permanent member's
+      // data can only be modified by themselves or a super admin.
       match /{document=**} {
-        allow read, write: if isOwner(userId) || isAdmin();
+        allow read: if isOwner(userId) || isAdmin();
+        allow write: if isOwner(userId)
+                     || (isAdmin() && (isSuperAdmin() || !isProtectedUser(userId)));
       }
     }
 
