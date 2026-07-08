@@ -822,7 +822,7 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
             </div>
 
             {/* Output Section */}
-            <div className={`bg-slate-900 rounded-3xl shadow-2xl border border-slate-800 p-2 flex flex-col relative overflow-hidden ${isEmbedded ? 'h-[340px] lg:h-[440px]' : 'h-[500px] lg:h-full min-h-[500px]'}`}>
+            <div className={`bg-slate-900 rounded-3xl shadow-2xl border border-slate-800 p-2 flex flex-col relative overflow-hidden ${isEmbedded ? 'h-[min(340px,52dvh)] lg:h-[440px]' : 'h-[min(500px,60dvh)] sm:h-[500px] lg:h-full sm:min-h-[500px]'}`}>
                {/* Player Header */}
                <div className="absolute top-4 left-6 right-6 z-40 flex items-center justify-between">
                   <div className="flex items-center gap-2">

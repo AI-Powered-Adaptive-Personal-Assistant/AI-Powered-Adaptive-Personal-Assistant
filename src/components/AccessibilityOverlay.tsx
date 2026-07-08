@@ -668,10 +668,17 @@ export default function AccessibilityOverlay({
   return (
     <motion.div
       drag
-      dragConstraints={{ left: -100, right: 1000, top: -800, bottom: 100 }}
+      // Drag bounds derived from the REAL viewport (were hardcoded 1000/-800px,
+      // which let the panel be dragged fully off a phone screen).
+      dragConstraints={{
+        left: -(typeof window !== 'undefined' ? Math.max(window.innerWidth - 160, 24) : 800),
+        right: typeof window !== 'undefined' ? Math.max(window.innerWidth - 160, 24) : 800,
+        top: -(typeof window !== 'undefined' ? Math.max(window.innerHeight - 240, 120) : 600),
+        bottom: 110,
+      }}
       dragElastic={0.2}
       dragMomentum={false}
-      className="fixed bottom-32 start-4 md:start-8 z-50 flex flex-col gap-6 pointer-events-none"
+      className="fixed bottom-32 start-4 md:start-8 z-50 flex flex-col gap-6 pointer-events-none max-w-[calc(100vw-1.5rem)]"
     >
       {/* Hide all accessibility controls */}
       <button
@@ -892,7 +899,7 @@ export default function AccessibilityOverlay({
                 ref={videoRef}
                 autoPlay
                 playsInline
-                className={`object-cover bg-slate-900 ${camExpanded ? "w-full h-full" : "w-72 h-56"} ${isVisionActive ? "opacity-100" : "opacity-20"}`}
+                className={`object-cover bg-slate-900 ${camExpanded ? "w-full h-full" : "w-56 h-44 sm:w-72 sm:h-56"} ${isVisionActive ? "opacity-100" : "opacity-20"}`}
               />
               <canvas
                 ref={canvasRef}

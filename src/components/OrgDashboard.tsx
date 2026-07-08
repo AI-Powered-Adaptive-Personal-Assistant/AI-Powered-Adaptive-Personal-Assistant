@@ -93,8 +93,8 @@ export default function OrgDashboard({ profile }: OrgDashboardProps) {
           </div>
         </div>
 
-        {/* KPIs */}
-        <div className="grid grid-cols-3 gap-3">
+        {/* KPIs — single column on narrow phones so the numbers stay readable */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {[
             { label: L("Total users", "إجمالي المستخدمين"), value: members.length, Icon: Users, cls: "bg-primary-soft text-primary" },
             { label: L("Active · 7 days", "نشطون · ٧ أيام"), value: active7, Icon: Activity, cls: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" },

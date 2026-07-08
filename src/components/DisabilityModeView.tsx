@@ -81,9 +81,12 @@ const DisabilityModeView = React.forwardRef<ChatInterfaceRef, DisabilityModeView
     }
   };
 
+  // h-full (not h-screen): 100vh overflows the real mobile viewport (URL bar),
+  // clipping the bottom controls — the parent App container already sizes us.
   return (
-    <div className="flex-1 flex flex-col h-screen bg-bg-main overflow-hidden relative">
-      <header className="p-6 md:px-10 md:py-8 shrink-0 flex items-center justify-between border-b border-border bg-bg-card shadow-sm">
+    <div className="flex-1 flex flex-col h-full bg-bg-main overflow-hidden relative">
+      {/* Stacks on mobile: title row + full-width scrollable tabs. Single row again ≥md. */}
+      <header className="p-4 sm:p-6 md:px-10 md:py-8 shrink-0 flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-4 border-b border-border bg-bg-card shadow-sm">
         <div className="flex items-center gap-4">
           <button 
             onClick={() => onNavigate ? onNavigate('chat') : onMenuClick()}
@@ -92,49 +95,35 @@ const DisabilityModeView = React.forwardRef<ChatInterfaceRef, DisabilityModeView
             <ArrowLeft className={`w-5 h-5 ${localize(profile.language, '', 'rotate-180')}`} /> 
             <span className="hidden sm:inline text-xs font-semibold uppercase tracking-widest text-text-muted">{getTranslation(profile.language, 'back')}</span>
           </button>
-          <div>
-            <h1 className="text-2xl font-bold text-text-main tracking-tight flex items-center gap-3">
-              <Accessibility className="w-6 h-6 text-primary" /> {getTranslation(profile.language, 'disabilityModeTitle')}
+          <div className="min-w-0">
+            <h1 className="text-lg sm:text-2xl font-bold text-text-main tracking-tight flex items-center gap-2 sm:gap-3">
+              <Accessibility className="w-5 h-5 sm:w-6 sm:h-6 text-primary shrink-0" /> {getTranslation(profile.language, 'disabilityModeTitle')}
             </h1>
-            <p className="text-sm text-text-muted mt-1">{getTranslation(profile.language, 'disabilityModeSubtitle')}</p>
+            <p className="text-xs sm:text-sm text-text-muted mt-1">{getTranslation(profile.language, 'disabilityModeSubtitle')}</p>
           </div>
         </div>
 
-        <div className="flex items-center bg-surface-3 p-1 rounded-xl">
-          <button
-            onClick={() => setActiveTab('chat')}
-            className={`px-6 py-2.5 rounded-lg text-sm font-medium transition-all ${
-              activeTab === 'chat' ? 'bg-bg-card text-text-main shadow-sm' : 'text-text-muted hover:text-text-main'
-            }`}
-          >
-            {getTranslation(profile.language, 'aiAssistant')}
-          </button>
+        {/* Tabs: full-width equal columns on mobile (never wider than the screen,
+            scrolls if a long label still overflows); compact pills again ≥md. */}
+        <div role="tablist" className="flex items-center bg-surface-3 p-1 rounded-xl w-full md:w-auto overflow-x-auto shrink-0">
+          {([
+            { id: 'chat' as const, label: getTranslation(profile.language, 'aiAssistant') },
+            { id: 'settings' as const, label: getTranslation(profile.language, 'preferences') },
+            { id: 'video' as const, label: getTranslation(profile.language, 'signStudio') },
+            ...(isOrgStaff ? [{ id: 'org' as const, label: localize(profile.language, 'My Organization', 'لوحة الجهة') }] : []),
+          ]).map(({ id, label }) => (
             <button
-              onClick={() => setActiveTab('settings')}
-              className={`px-6 py-2.5 rounded-lg text-sm font-medium transition-all ${
-                activeTab === 'settings' ? 'bg-bg-card text-text-main shadow-sm' : 'text-text-muted hover:text-text-main'
+              key={id}
+              role="tab"
+              aria-selected={activeTab === id}
+              onClick={() => setActiveTab(id)}
+              className={`flex-1 md:flex-none min-h-[44px] px-2.5 sm:px-4 md:px-6 py-2 md:py-2.5 rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap transition-all ${
+                activeTab === id ? 'bg-bg-card text-text-main shadow-sm' : 'text-text-muted hover:text-text-main'
               }`}
             >
-            {getTranslation(profile.language, 'preferences')}
-          </button>
-          <button
-            onClick={() => setActiveTab('video')}
-            className={`px-6 py-2.5 rounded-lg text-sm font-medium transition-all ${
-              activeTab === 'video' ? 'bg-bg-card text-text-main shadow-sm' : 'text-text-muted hover:text-text-main'
-            }`}
-          >
-            {getTranslation(profile.language, 'signStudio')}
-          </button>
-          {isOrgStaff && (
-            <button
-              onClick={() => setActiveTab('org')}
-              className={`px-6 py-2.5 rounded-lg text-sm font-medium transition-all ${
-                activeTab === 'org' ? 'bg-bg-card text-text-main shadow-sm' : 'text-text-muted hover:text-text-main'
-              }`}
-            >
-              {localize(profile.language, 'My Organization', 'لوحة الجهة')}
+              {label}
             </button>
-          )}
+          ))}
         </div>
       </header>
       
