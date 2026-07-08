@@ -510,6 +510,14 @@ export default function SignAvatar3D({ words, playing, onProgress, onDone, class
     }
     renderer.setClearColor(0x000000, 0);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    // CRITICAL for mobile: setSize(..., false) only sizes the drawing BUFFER, not
+    // the element's CSS box. With devicePixelRatio 2–3 (phones) the canvas would
+    // otherwise display at 2–3× its container and overflow — showing only part of
+    // the avatar ("half avatar on phone"). Pin the CSS box to fill the container
+    // so the canvas always matches its parent regardless of DPR.
+    renderer.domElement.style.width = '100%';
+    renderer.domElement.style.height = '100%';
+    renderer.domElement.style.display = 'block';
     container.appendChild(renderer.domElement);
 
     const hemi = new THREE.HemisphereLight(0xbfd7ff, 0x0b1120, 0.9);
