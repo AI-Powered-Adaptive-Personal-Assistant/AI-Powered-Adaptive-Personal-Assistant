@@ -152,8 +152,9 @@ export default function Sidebar({ profile, setProfile, currentView, setCurrentVi
         )}
 
         {/* Accessibility — for accessibility users (Special Needs path or a real
-            mode) AND for admins, who must be able to inspect every section. */}
-        {(isAccessibilityUser(profile) || isAdmin) && (
+            mode), admins (inspect everything), and org managers (their org
+            dashboard lives inside the hub). */}
+        {(isAccessibilityUser(profile) || isAdmin || profile.isOrgManager === true) && (
           <button onClick={() => setCurrentView('disability')} className={navBtn(currentView === 'disability') + ' relative'}>
             <Accessibility className={navIcon(currentView === 'disability')} />
             {localize(profile.language, 'Accessibility', 'الإتاحة')}

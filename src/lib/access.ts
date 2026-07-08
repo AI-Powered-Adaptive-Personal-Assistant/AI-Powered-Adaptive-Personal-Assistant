@@ -43,7 +43,9 @@ export function canAccessView(
   if (isAdmin) return true; // admins/testers bypass section scoping
 
   const accessibility = isAccessibilityUser(profile);
-  if (view === 'disability') return accessibility;
+  // Org managers (charity staff, e.g. Al-Resala) can open the disability hub —
+  // their org dashboard lives inside it — regardless of their own account path.
+  if (view === 'disability') return accessibility || profile.isOrgManager === true;
   if (accessibility) return ACCESSIBILITY_ALLOWED.includes(view);
   return true;
 }
