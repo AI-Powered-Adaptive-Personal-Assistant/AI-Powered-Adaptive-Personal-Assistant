@@ -8,7 +8,7 @@ import {
   isSuperAdmin, isPermanentAdmin, isPermanent, isAdminUser,
   canManageAdmins as canManageAdminsFor,
 } from "../lib/roles";
-import { Loader2, Users, Search, Activity, Menu, ShieldAlert, Mail, Trash2, Shield, ShieldCheck, Crown, UserPlus, UserMinus, Brain, Heart, GraduationCap, Accessibility, Eye, Ear, Mic, User as UserIcon, Copy, CheckCircle2, Download, Printer, AlertTriangle } from "lucide-react";
+import { Loader2, Users, Search, Activity, Menu, ShieldAlert, Mail, Trash2, Shield, ShieldCheck, Crown, UserPlus, UserMinus, Brain, Heart, GraduationCap, Accessibility, Eye, Ear, Mic, User as UserIcon, Copy, CheckCircle2, Download, Printer, AlertTriangle, Building2 } from "lucide-react";
 import { AccountPath, AccessibilityMode } from "../types";
 import { sectionOf, isAccessibilityUser } from "../lib/access";
 
@@ -227,6 +227,30 @@ export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardP
       setTimeout(() => setCopiedEmails(false), 2500);
     } catch {
       toast.error('Could not copy to clipboard.', 'Copy failed');
+    }
+  };
+
+  // Grant/revoke "organization manager": org staff (e.g. Al-Resala) who can see
+  // THEIR organization's users inside the disability hub. Super admins only.
+  const handleToggleOrgManager = async (u: UserProfile, make: boolean) => {
+    if (!canManageAdmins) return;
+    let org = (u.organization || '').trim();
+    if (make) {
+      const input = window.prompt("Organization code for this manager (e.g. RESALA):", org || "RESALA");
+      if (!input || !input.trim()) return;
+      org = input.trim().toUpperCase();
+    }
+    setBusyUid(u.uid);
+    try {
+      await updateDoc(doc(db, "users", u.uid), make ? { isOrgManager: true, organization: org } : { isOrgManager: false });
+      toast.success(
+        make ? `${u.name || u.email} can now follow up on ${org} users.` : `${u.name || u.email} is no longer an org manager.`,
+        "Organization access updated",
+      );
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, "users");
+    } finally {
+      setBusyUid(null);
     }
   };
 
@@ -589,7 +613,17 @@ export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardP
                           <tr key={u.uid} className={`transition-colors ${needsFollowUp ? 'bg-amber-500/5 hover:bg-amber-500/10' : 'hover:bg-bg-main'}`}>
                             <td className="p-4">
                               <div className="font-bold text-text-main">{u.name || 'Unnamed User'}</div>
-                              <div className="text-[10px] text-text-muted">{sectionOf(u)}</div>
+                              <div className="text-[10px] text-text-muted flex items-center gap-1.5">
+                                {sectionOf(u)}
+                                {u.organization && (
+                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-primary-soft text-primary font-black uppercase">
+                                    <Building2 className="w-2.5 h-2.5" /> {u.organization}
+                                  </span>
+                                )}
+                                {u.isOrgManager && (
+                                  <span className="px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-black uppercase">Mgr</span>
+                                )}
+                              </div>
                             </td>
                             <td className="p-4">
                               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-surface-3 text-text-main">
@@ -613,12 +647,29 @@ export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardP
                             <td className="p-4 text-xs font-bold text-text-muted">{formatDate(u.lastActiveDate || u.lastQuizDate || u.chatThreads?.[0]?.updatedAt)}</td>
                             <td className="p-4 text-xs text-text-muted truncate max-w-[180px]" title={u.email}>{u.email}</td>
                             <td className="p-4 text-right">
-                              <a
-                                href={`mailto:${u.email}?subject=Cognify Accessibility Support`}
-                                className="inline-flex items-center gap-2 px-3 py-1.5 bg-slate-900 hover:bg-black text-white text-[10px] font-bold uppercase tracking-widest rounded-lg transition-colors"
-                              >
-                                <Mail className="w-3 h-3" /> Notify
-                              </a>
+                              <div className="flex items-center justify-end gap-2">
+                                {canManageAdmins && (
+                                  <button
+                                    onClick={() => handleToggleOrgManager(u, !u.isOrgManager)}
+                                    disabled={busyUid === u.uid}
+                                    title={u.isOrgManager ? "Revoke organization dashboard access" : "Let this user follow up on their organization's users"}
+                                    className={`inline-flex items-center gap-2 px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-colors disabled:opacity-50 ${
+                                      u.isOrgManager
+                                        ? 'bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-600 dark:text-emerald-400'
+                                        : 'bg-primary-soft hover:bg-primary/20 text-primary'
+                                    }`}
+                                  >
+                                    {busyUid === u.uid ? <Loader2 className="w-3 h-3 animate-spin" /> : <Building2 className="w-3 h-3" />}
+                                    {u.isOrgManager ? 'Org Mgr ✓' : 'Make Org Mgr'}
+                                  </button>
+                                )}
+                                <a
+                                  href={`mailto:${u.email}?subject=Cognify Accessibility Support`}
+                                  className="inline-flex items-center gap-2 px-3 py-1.5 bg-slate-900 hover:bg-black text-white text-[10px] font-bold uppercase tracking-widest rounded-lg transition-colors"
+                                >
+                                  <Mail className="w-3 h-3" /> Notify
+                                </a>
+                              </div>
                             </td>
                           </tr>
                         );

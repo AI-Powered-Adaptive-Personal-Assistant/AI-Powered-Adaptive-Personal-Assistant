@@ -7,6 +7,7 @@ import { doc, setDoc } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import SignVideoStudio from './SignVideoStudio';
 import ChatInterface, { ChatInterfaceRef } from './ChatInterface';
+import OrgDashboard from './OrgDashboard';
 import { getTranslation } from '../lib/translations';
 
 interface DisabilityModeViewProps {
@@ -18,7 +19,7 @@ interface DisabilityModeViewProps {
   externalMessage?: string;
   onStreamingUpdate?: (text: string) => void;
   onSTTStateChange?: (active: boolean) => void;
-  onTabChange?: (tab: 'chat' | 'settings' | 'video') => void;
+  onTabChange?: (tab: 'chat' | 'settings' | 'video' | 'org') => void;
   setProfile?: (profile: UserProfile) => void;
 }
 
@@ -34,7 +35,9 @@ const DisabilityModeView = React.forwardRef<ChatInterfaceRef, DisabilityModeView
   onTabChange,
   setProfile
 }, ref) {
-  const [activeTab, setActiveTab] = React.useState<'chat' | 'settings' | 'video'>('chat');
+  const [activeTab, setActiveTab] = React.useState<'chat' | 'settings' | 'video' | 'org'>('chat');
+  // Organization staff (e.g. Al-Resala) get an extra tab scoped to THEIR users.
+  const isOrgStaff = !!profile.isOrgManager && !!(profile.organization || '').trim();
 
   // Tell the parent which tab is active so it can hide the floating overlay
   // (with its own camera) while the Sign Studio tab is using the camera —
@@ -122,6 +125,16 @@ const DisabilityModeView = React.forwardRef<ChatInterfaceRef, DisabilityModeView
           >
             {getTranslation(profile.language, 'signStudio')}
           </button>
+          {isOrgStaff && (
+            <button
+              onClick={() => setActiveTab('org')}
+              className={`px-6 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                activeTab === 'org' ? 'bg-bg-card text-text-main shadow-sm' : 'text-text-muted hover:text-text-main'
+              }`}
+            >
+              {localize(profile.language, 'My Organization', 'لوحة الجهة')}
+            </button>
+          )}
         </div>
       </header>
       
@@ -224,6 +237,16 @@ const DisabilityModeView = React.forwardRef<ChatInterfaceRef, DisabilityModeView
                 </div>
               </div>
               </div>
+            </motion.div>
+          ) : activeTab === 'org' ? (
+            <motion.div
+              key="org"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="w-full h-full"
+            >
+              <OrgDashboard profile={profile} />
             </motion.div>
           ) : (
             <motion.div

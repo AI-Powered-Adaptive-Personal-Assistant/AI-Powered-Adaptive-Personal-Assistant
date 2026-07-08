@@ -44,6 +44,10 @@ export interface UserProfile {
   accountPath?: AccountPath;
   universityEmail?: string;
   disabilityType?: string;
+  /** Organization/charity code this user belongs to (e.g. "RESALA"). */
+  organization?: string;
+  /** Org staff: can view THEIR organization's users inside the disability hub. */
+  isOrgManager?: boolean;
   name?: string;
   religion?: string;
   bio?: string;

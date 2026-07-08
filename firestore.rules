@@ -91,6 +91,25 @@ service cloud.firestore {
       return request.resource.data.get('isAdmin', false) == resource.data.get('isAdmin', false);
     }
 
+    // Org-manager privileges (isOrgManager + organization) can only be changed
+    // by a super admin — blocks self-promotion AND org-hopping after sign-up.
+    function orgFieldsUnchanged() {
+      return request.resource.data.get('isOrgManager', false) == resource.data.get('isOrgManager', false)
+          && request.resource.data.get('organization', '') == resource.data.get('organization', '');
+    }
+
+    // An organization manager (charity staff, e.g. Al-Resala) may READ the
+    // profiles of users who signed up with THEIR organization's code — only.
+    // Direct field access (not .get()) so LIST queries filtered with
+    // where('organization','==',X) are statically provable against this rule.
+    function isOrgManagerOfTarget() {
+      return isAuthenticated()
+          && resource.data.organization != ''
+          && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+          && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isOrgManager', false) == true
+          && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('organization', '') == resource.data.organization;
+    }
+
     // Identity fields must never change on an update — protects against an admin
     // (or a promoted admin) corrupting/spoofing another user's uid or email,
     // since isValidUser() skips schema checks for admins.
@@ -119,18 +138,21 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      allow read: if isOwner(userId) || isAdmin();
+      // Owner + admins as before, PLUS org managers for their own org's users.
+      allow read: if isOwner(userId) || isAdmin() || isOrgManagerOfTarget();
       // A new user can create only their own doc and may NOT self-assign admin
-      // (only super admins can create an admin doc).
+      // or org-manager (the organization CODE itself may be set at sign-up).
       allow create: if isOwner(userId) && isValidUser(request.resource.data) &&
-                    (isSuperAdmin() || request.resource.data.get('isAdmin', false) == false);
+                    (isSuperAdmin() ||
+                     (request.resource.data.get('isAdmin', false) == false &&
+                      request.resource.data.get('isOrgManager', false) == false));
       // Either: the user updates their own doc (but can't flip their own admin
-      // flag), OR an admin updates anyone's doc — but the admin flag itself can
-      // only be changed by a super admin, and NON-super admins can never touch a
-      // permanent member's (super admin / permanent admin) profile.
+      // or org-manager privileges), OR an admin updates anyone's doc — but the
+      // privilege flags can only be changed by a super admin, and NON-super
+      // admins can never touch a permanent member's profile.
       allow update: if identityPreserved() && (
-                      (isOwner(userId) && isValidUser(request.resource.data) && adminFlagUnchanged())
-                      || (isAdmin() && (adminFlagUnchanged() || isSuperAdmin())
+                      (isOwner(userId) && isValidUser(request.resource.data) && adminFlagUnchanged() && orgFieldsUnchanged())
+                      || (isAdmin() && ((adminFlagUnchanged() && orgFieldsUnchanged()) || isSuperAdmin())
                           && (!isProtectedTarget() || isOwner(userId) || isSuperAdmin()))
                     );
       // Deletion policy:

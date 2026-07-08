@@ -54,7 +54,7 @@ export default function App() {
   const [externalMessage, setExternalMessage] = useState("");
   const [currentAIResponse, setCurrentAIResponse] = useState("");
   const [isSTTActive, setIsSTTActive] = useState(false);
-  const [disabilityTab, setDisabilityTab] = useState<'chat' | 'settings' | 'video'>('chat');
+  const [disabilityTab, setDisabilityTab] = useState<'chat' | 'settings' | 'video' | 'org'>('chat');
   const [isLiveCaptionsOpen, setIsLiveCaptionsOpen] = useState(false);
 
   const direction = isRTL(profile?.language) ? 'rtl' : 'ltr';
@@ -233,6 +233,9 @@ export default function App() {
             accountPath: 'Special Needs',
             disabilityType: disabilityType,
             accessibilityMode: accessibilityMode,
+            // Charity/organization code entered at sign-up (e.g. RESALA) — lets
+            // that organization's staff follow up on their own users.
+            organization: localStorage.getItem('preLoginOrgCode') || '',
             questionScore: 0,
             onboardingComplete: true,
           };

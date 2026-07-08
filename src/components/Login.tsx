@@ -24,6 +24,7 @@ export default function Login() {
   const [faculty, setFaculty] = useState("");
   const [department, setDepartment] = useState("");
   const [disabilityType, setDisabilityType] = useState("");
+  const [orgCode, setOrgCode] = useState("");
 
   const [showHelp, setShowHelp] = useState(false);
   const [isInIframe] = useState(() => {
@@ -41,7 +42,12 @@ export default function Login() {
       localStorage.setItem('preLoginFaculty', faculty);
       localStorage.setItem('preLoginDepartment', department);
     }
-    if (accountPath === 'Special Needs') localStorage.setItem('preLoginDisability', disabilityType);
+    if (accountPath === 'Special Needs') {
+      localStorage.setItem('preLoginDisability', disabilityType);
+      // Optional organization/charity code (e.g. RESALA) — links the account to
+      // its organization so the org's staff can follow up on their own users.
+      localStorage.setItem('preLoginOrgCode', orgCode.trim().toUpperCase());
+    }
     setMode('options');
   };
 
@@ -267,6 +273,17 @@ export default function Login() {
                     <option value="Speech Impairment">{L("Speech Impairment", "إعاقة في النطق")}</option>
                     <option value="Other">{L("Other", "أخرى")}</option>
                   </select>
+
+                  <label className="text-[11px] font-bold text-text-muted uppercase tracking-[0.05em] block pt-2">{L("Organization code (optional)", "كود الجهة (اختياري)")}</label>
+                  <input
+                    type="text"
+                    id="org-code"
+                    name="org-code"
+                    placeholder={L("e.g. RESALA — if a charity gave you a code", "مثال: RESALA — لو جهة/جمعية إدتك كود")}
+                    className="w-full bg-white border border-border rounded-xl px-4 py-3 text-sm focus:ring-4 focus:ring-primary/5 focus:border-primary outline-none transition-all uppercase"
+                    value={orgCode}
+                    onChange={(e) => setOrgCode(e.target.value)}
+                  />
                 </motion.div>
               )}
 
