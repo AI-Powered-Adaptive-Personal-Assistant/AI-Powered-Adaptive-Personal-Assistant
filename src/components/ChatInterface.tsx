@@ -1648,8 +1648,8 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
         </AnimatePresence>
       </div>
 
-      {/* Input Area */}
-      <div className="p-4 md:p-8 border-t border-border bg-bg-main relative shadow-[0_-10px_20px_-15px_rgba(0,0,0,0.05)]">
+      {/* Input Area — shrink-0 so the composer is never squeezed and always pinned. */}
+      <div className="shrink-0 p-3 sm:p-4 md:p-8 border-t border-border bg-bg-main relative shadow-[0_-10px_20px_-15px_rgba(0,0,0,0.05)]">
         <div className="max-w-3xl mx-auto space-y-4">
           <AnimatePresence>
             {selectedFiles.length > 0 && (
