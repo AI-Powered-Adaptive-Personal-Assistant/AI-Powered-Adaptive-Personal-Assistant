@@ -400,7 +400,10 @@ export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardP
                </button>
              </div>
              <div className="bg-slate-900 text-white px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest hidden md:flex items-center gap-2 shadow-lg">
-                <Activity className="w-4 h-4 text-emerald-400" /> {adminView === 'accessibility' ? `A11y Users: ${a11yAll.length}` : `Total Users: ${users.length}`}
+                <Activity className="w-4 h-4 text-emerald-400" />
+                {adminView === 'accessibility'
+                  ? `A11y: ${a11yAll.length} · Total: ${users.length}`
+                  : `Total Users: ${users.length}`}
              </div>
           </div>
         </div>
@@ -686,8 +689,26 @@ export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardP
             </div>
           </section>
 
-          {/* ── Enrolment sections summary ──────────────────────────────── */}
-          <section className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {/* ── Enrolment sections summary (Total = all sections combined) ── */}
+          <section className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <button
+              onClick={() => setSectionFilter('all')}
+              aria-pressed={sectionFilter === 'all'}
+              className={`flex items-center gap-3 p-4 rounded-2xl border text-left transition-all ${sectionFilter === 'all' ? 'border-primary ring-2 ring-primary/20 bg-bg-card' : 'border-border bg-bg-card hover:border-primary/30'}`}
+            >
+              <div className="p-2.5 rounded-xl bg-slate-900 text-white dark:bg-white/10">
+                <Users className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="text-2xl font-black text-text-main leading-none">{users.length}</div>
+                <div className="text-[11px] font-bold text-text-muted uppercase tracking-widest mt-1">
+                  Total · All Sections
+                </div>
+                <div className="text-[10px] font-bold text-faint mt-0.5 tabular-nums">
+                  {sectionCounts['Normal']} N · {sectionCounts['Special Needs']} SN · {sectionCounts['Graduation Project']} G
+                </div>
+              </div>
+            </button>
             {(['Normal', 'Special Needs', 'Graduation Project'] as AccountPath[]).map((sec) => {
               const meta = SECTION_META[sec];
               const active = sectionFilter === sec;
