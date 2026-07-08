@@ -58,6 +58,20 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
+    // A "protected" doc belongs to a permanent member (super admin or permanent
+    // admin). Their profiles can never be deleted or tampered with by lower tiers.
+    function isProtectedTarget() {
+      return resource.data.get('email', '') in [
+        "modyhashim2006@gmail.com",
+        "mariemsayedr33@gmail.com",
+        "pro.mahmoud.h@gmail.com",
+        "marwaneltaweel0@gmail.com",
+        "its.alkhateeb@gmail.com",
+        "esraahosni8@gmail.com",
+        "nermeenatefateffarouk@gmail.com"
+      ];
+    }
+
     // The isAdmin flag must NOT change unless the writer is an admin. This blocks
     // a normal user from self-promoting by writing isAdmin:true to their own doc.
     function adminFlagUnchanged() {
@@ -99,12 +113,21 @@ service cloud.firestore {
                     (isSuperAdmin() || request.resource.data.get('isAdmin', false) == false);
       // Either: the user updates their own doc (but can't flip their own admin
       // flag), OR an admin updates anyone's doc — but the admin flag itself can
-      // only be changed by a super admin.
+      // only be changed by a super admin, and NON-super admins can never touch a
+      // permanent member's (super admin / permanent admin) profile.
       allow update: if identityPreserved() && (
                       (isOwner(userId) && isValidUser(request.resource.data) && adminFlagUnchanged())
-                      || (isAdmin() && (adminFlagUnchanged() || isSuperAdmin()))
+                      || (isAdmin() && (adminFlagUnchanged() || isSuperAdmin())
+                          && (!isProtectedTarget() || isOwner(userId) || isSuperAdmin()))
                     );
-      allow delete: if isAdmin();
+      // Deletion policy:
+      //  - Permanent members (super admins + permanent admins) can NEVER be
+      //    deleted from the app — by anyone.
+      //  - Promoted admins can only be deleted by a super admin.
+      //  - Regular users can be deleted by any admin.
+      allow delete: if isAdmin()
+                    && !isProtectedTarget()
+                    && (isSuperAdmin() || resource.data.get('isAdmin', false) == false);
       
       match /threads/{threadId} {
         allow read, write: if isOwner(userId) || isAdmin();

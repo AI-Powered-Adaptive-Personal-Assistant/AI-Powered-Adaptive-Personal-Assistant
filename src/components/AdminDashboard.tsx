@@ -129,10 +129,25 @@ export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardP
     return () => unsubscribe();
   }, [isAdmin]);
 
-  const handleDeleteUser = async (uid: string) => {
-    if (window.confirm("Are you sure you want to delete this user profile? This action cannot be undone.")) {
+  // Deletion policy (mirrors firestore.rules — the rules are the real enforcement):
+  //  - Permanent members (super admins + permanent admins) can never be deleted.
+  //  - Promoted admins can only be deleted by a super admin.
+  //  - Regular users can be deleted by any admin.
+  const canDeleteUser = (u: UserProfile) =>
+    !isPermanent(u.email) && (canManageAdmins || !isAdminUser(u));
+
+  const handleDeleteUser = async (u: UserProfile) => {
+    if (isPermanent(u.email)) {
+      toast.error("Super admins and permanent admins can never be deleted.", "Protected account");
+      return;
+    }
+    if (isAdminUser(u) && !canManageAdmins) {
+      toast.error("Only a super admin can delete another admin.", "Not allowed");
+      return;
+    }
+    if (window.confirm(`Delete "${u.name || u.email}"? This action cannot be undone.`)) {
       try {
-        await deleteDoc(doc(db, "users", uid));
+        await deleteDoc(doc(db, "users", u.uid));
       } catch (error) {
         handleFirestoreError(error, OperationType.DELETE, "users");
       }
@@ -809,12 +824,21 @@ export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardP
                              >
                                <Mail className="w-3 h-3" /> Notify
                              </a>
-                             <button
-                               onClick={() => handleDeleteUser(u.uid)}
-                               className="inline-flex items-center gap-2 px-3 py-1.5 bg-danger-soft hover:bg-rose-200 text-danger text-[10px] font-bold uppercase tracking-widest rounded-lg transition-colors"
-                             >
-                               <Trash2 className="w-3 h-3" /> Delete
-                             </button>
+                             {canDeleteUser(u) ? (
+                               <button
+                                 onClick={() => handleDeleteUser(u)}
+                                 className="inline-flex items-center gap-2 px-3 py-1.5 bg-danger-soft hover:bg-rose-200 text-danger text-[10px] font-bold uppercase tracking-widest rounded-lg transition-colors"
+                               >
+                                 <Trash2 className="w-3 h-3" /> Delete
+                               </button>
+                             ) : (
+                               <span
+                                 title={isPermanent(u.email) ? "Permanent members can never be deleted" : "Only a super admin can delete an admin"}
+                                 className="inline-flex items-center gap-2 px-3 py-1.5 bg-surface-3 text-faint text-[10px] font-bold uppercase tracking-widest rounded-lg cursor-not-allowed"
+                               >
+                                 <Shield className="w-3 h-3" /> Protected
+                               </span>
+                             )}
                            </div>
                          </td>
                        </tr>
