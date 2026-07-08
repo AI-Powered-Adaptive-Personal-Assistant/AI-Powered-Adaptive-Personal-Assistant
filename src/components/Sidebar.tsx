@@ -71,6 +71,11 @@ export default function Sidebar({ profile, setProfile, currentView, setCurrentVi
   // normal users never do.
   const isAdmin = isAdminUser(profile);
 
+  // Accessibility (Special Needs) users live in their own isolated world: they
+  // must not even SEE the normal experience's navigation (chat, dashboard,
+  // academics, new-chat). Admins bypass so they can inspect everything.
+  const a11yOnly = isAccessibilityUser(profile) && !isAdmin;
+
   const academicIds = academicItems.map((i) => i.id) as readonly string[];
   const [academicsOpen, setAcademicsOpen] = useState(academicIds.includes(currentView));
 
@@ -96,19 +101,23 @@ export default function Sidebar({ profile, setProfile, currentView, setCurrentVi
         </div>
       </div>
 
-      {/* New chat */}
-      <button
-        onClick={startNewChat}
-        className="w-full flex items-center justify-center gap-2 py-3 rounded-[14px] bg-primary text-white font-semibold text-sm shadow-sm hover:bg-primary-press transition-colors active:scale-[0.98]"
-      >
-        <Plus className="w-[17px] h-[17px]" /> {getTranslation(profile.language, 'newThread')}
-      </button>
+      {/* New chat — hidden for accessibility-only users (their chat lives inside the Accessibility Center) */}
+      {!a11yOnly && (
+        <button
+          onClick={startNewChat}
+          className="w-full flex items-center justify-center gap-2 py-3 rounded-[14px] bg-primary text-white font-semibold text-sm shadow-sm hover:bg-primary-press transition-colors active:scale-[0.98]"
+        >
+          <Plus className="w-[17px] h-[17px]" /> {getTranslation(profile.language, 'newThread')}
+        </button>
+      )}
 
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto custom-scrollbar -mx-1 my-[18px] px-1 flex flex-col gap-[3px]">
         <div className="text-[11px] font-bold text-faint tracking-wide px-3 pt-1.5 pb-1 uppercase">{getTranslation(profile.language, 'mainNavigation')}</div>
 
-        {primaryItems.map((item) => {
+        {/* Normal-experience navigation — completely hidden from accessibility-only
+            users so their world is ONLY the Accessibility Center + account pages. */}
+        {!a11yOnly && primaryItems.map((item) => {
           const active = currentView === item.id;
           return (
             <button key={item.id} onClick={() => setCurrentView(item.id as any)} className={navBtn(active)}>
@@ -118,24 +127,28 @@ export default function Sidebar({ profile, setProfile, currentView, setCurrentVi
         })}
 
         {/* Academics group */}
-        <button
-          onClick={() => setAcademicsOpen((v) => !v)}
-          className={navBtn(academicIds.includes(currentView) && !academicsOpen) + ' justify-between'}
-        >
-          <span className="flex items-center gap-3"><GraduationCap className={navIcon(false)} /> {localize(profile.language, 'Academics', 'الأكاديميات')}</span>
-          <ChevronRight className={`w-4 h-4 transition-transform ${academicsOpen ? 'rotate-90' : (localize(profile.language, '', 'rotate-180'))}`} />
-        </button>
-        {academicsOpen && (
-          <div className="flex flex-col gap-[3px] ms-3 ps-2 border-s border-border">
-            {academicItems.map((item) => {
-              const active = currentView === item.id;
-              return (
-                <button key={item.id} onClick={() => setCurrentView(item.id as any)} className={navBtn(active)}>
-                  <item.icon className={navIcon(active)} /> {item.label}
-                </button>
-              );
-            })}
-          </div>
+        {!a11yOnly && (
+          <>
+            <button
+              onClick={() => setAcademicsOpen((v) => !v)}
+              className={navBtn(academicIds.includes(currentView) && !academicsOpen) + ' justify-between'}
+            >
+              <span className="flex items-center gap-3"><GraduationCap className={navIcon(false)} /> {localize(profile.language, 'Academics', 'الأكاديميات')}</span>
+              <ChevronRight className={`w-4 h-4 transition-transform ${academicsOpen ? 'rotate-90' : (localize(profile.language, '', 'rotate-180'))}`} />
+            </button>
+            {academicsOpen && (
+              <div className="flex flex-col gap-[3px] ms-3 ps-2 border-s border-border">
+                {academicItems.map((item) => {
+                  const active = currentView === item.id;
+                  return (
+                    <button key={item.id} onClick={() => setCurrentView(item.id as any)} className={navBtn(active)}>
+                      <item.icon className={navIcon(active)} /> {item.label}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </>
         )}
 
         {/* Accessibility — only for accessibility users (Special Needs path or a real mode) */}
