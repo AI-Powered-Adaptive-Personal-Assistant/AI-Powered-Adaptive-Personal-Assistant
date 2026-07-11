@@ -4,8 +4,8 @@ import { UserProfile, AccountPath } from '../types';
 // selector). Access is scoped by this so nobody wanders into another section's
 // experience without belonging to it.
 export type AppView =
-  | 'chat' | 'hub' | 'profile' | 'settings' | 'video' | 'disability'
-  | 'admin' | 'goals' | 'gpa' | 'attendance' | 'analytics' | 'planner' | 'support';
+  | 'chat' | 'profile' | 'settings' | 'video' | 'disability'
+  | 'admin' | 'goals' | 'gpa' | 'analytics' | 'planner' | 'support';
 
 /** A user counts as an accessibility user if they picked the Special Needs path
  *  OR have a real accessibility mode enabled. */

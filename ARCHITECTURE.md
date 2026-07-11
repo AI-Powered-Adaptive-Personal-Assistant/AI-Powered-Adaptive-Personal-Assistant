@@ -107,9 +107,9 @@ Auth & data → Firebase (src/lib/firebase.ts) → Cloud Firestore / Storage
 | `RightPanel.tsx` | Small panel: IQ score, points, growth suggestion. |
 | `Onboarding.tsx` | Sign‑up steps → **AI field‑based assessment** (replaces the old IQ quiz). |
 | `Login.tsx` | Auth flow: path selection, Google, email/password, reset. |
-| `IntelligenceHub.tsx` | Analytics dashboard (Recharts): progress, skills, activity. |
-| `LogicSandbox.tsx` | Logic training + **entrance test that enhances the IQ score**. |
-| `AdminDashboard.tsx` | Admin: list users, delete, email. |
+| `StudentAnalytics.tsx` | Academic analytics (Recharts): GPA, goals, deadlines, health score. |
+| `AdminDashboard.tsx` | Admin: Directory + Accessibility Center; users, roles, org managers, reports. |
+| `OrgDashboard.tsx` | Org (charity) staff view — their organization's users only, read‑only. |
 | `ProfilePage.tsx` | View/edit profile + AI feedback stats. |
 | `Toast.tsx` | Global toast notifications (via CustomEvent). |
 | `ErrorBoundary.tsx` | Catches React render errors and shows a styled screen. |

@@ -43,7 +43,7 @@ export default function App() {
   const chatRef = useRef<any>(null);
   
   const [currentView, setCurrentView] = useState<
-  'chat' | 'hub' | 'profile' | 'settings' | 'video' | 'disability' | 'admin' | 'goals' | 'gpa' | 'attendance' | 'analytics' | 'planner' | 'support'
+  'chat' | 'profile' | 'settings' | 'video' | 'disability' | 'admin' | 'goals' | 'gpa' | 'analytics' | 'planner' | 'support'
 >('chat');
   
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -143,7 +143,7 @@ export default function App() {
 
   // Custom navigation function that updates URL and state
  const navigateTo = (
-  view: 'chat' | 'hub' | 'profile' | 'settings' | 'video' | 'disability' | 'admin' | 'goals' | 'gpa' | 'attendance' | 'analytics' | 'planner' | 'support'
+  view: 'chat' | 'profile' | 'settings' | 'video' | 'disability' | 'admin' | 'goals' | 'gpa' | 'analytics' | 'planner' | 'support'
 ) => {
   window.history.pushState(null, '', `#${view}`);
   setCurrentView(view);

@@ -13,7 +13,7 @@ import { getTranslation } from '../lib/translations';
 interface DisabilityModeViewProps {
   profile: UserProfile;
   onMenuClick: () => void;
-  onNavigate?: (view: 'chat' | 'hub' | 'profile' | 'settings' | 'video' | 'disability') => void;
+  onNavigate?: (view: 'chat' | 'profile' | 'settings' | 'video' | 'disability') => void;
   onQuestionEvaluated?: (score: number, lastMessageSnippet?: string) => void;
   syncMessages?: (updatedHistory: Message[]) => void;
   externalMessage?: string;

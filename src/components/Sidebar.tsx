@@ -12,8 +12,8 @@ import { isAccessibilityUser } from "../lib/access";
 interface SidebarProps {
   profile: UserProfile;
   setProfile: (profile: UserProfile) => void;
-  currentView: 'chat' | 'hub' | 'profile' | 'settings' | 'video' | 'disability' | 'admin' | 'goals' | 'gpa' | 'attendance' | 'analytics' | 'planner' | 'support';
-  setCurrentView: (view: 'chat' | 'hub' | 'profile' | 'settings' | 'video' | 'disability' | 'admin' | 'goals' | 'gpa' | 'attendance' | 'analytics' | 'planner' | 'support') => void;
+  currentView: 'chat' | 'profile' | 'settings' | 'video' | 'disability' | 'admin' | 'goals' | 'gpa' | 'analytics' | 'planner' | 'support';
+  setCurrentView: (view: 'chat' | 'profile' | 'settings' | 'video' | 'disability' | 'admin' | 'goals' | 'gpa' | 'analytics' | 'planner' | 'support') => void;
   isDarkMode: boolean;
   toggleTheme: () => void;
   openLiveCaptions: () => void;
