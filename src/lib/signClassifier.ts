@@ -42,10 +42,12 @@ export class SignSmoother {
   private gapSinceEmit = false;
 
   constructor(
-    private windowSize = 7,        // frames considered
-    private minAgreement = 5,      // frames that must agree
-    private minConfidence = 0.6,   // mean confidence threshold
-    private repeatCooldownMs = 900 // before the same letter can fire again
+    // Stricter defaults so an ambiguous/held hand doesn't spam a wrong letter
+    // (e.g. "PPPP"): more frames must agree, at higher confidence.
+    private windowSize = 10,       // frames considered
+    private minAgreement = 7,      // frames that must agree
+    private minConfidence = 0.82,  // mean confidence threshold
+    private repeatCooldownMs = 900 // (kept for API compatibility; see push)
   ) {}
 
   /** Feed one frame's prediction. Returns a letter when it stabilizes, else null. */
@@ -69,8 +71,11 @@ export class SignSmoother {
 
     const now = performance.now();
     const isRepeat = best === this.lastEmitted;
-    // same letter again only after a hand-gap or cooldown (enables "LL", "EE"...)
-    if (isRepeat && !this.gapSinceEmit && now - this.lastEmitTime < this.repeatCooldownMs) {
+    // The SAME letter only re-fires after the hand actually left (handLost →
+    // gapSinceEmit). A still hand therefore commits ONE letter, not a stream of
+    // repeats — this is what kills the "PPPP" spam. Double letters (LL, EE) just
+    // need a brief lower-and-raise of the hand.
+    if (isRepeat && !this.gapSinceEmit) {
       return null;
     }
     this.lastEmitted = best;
