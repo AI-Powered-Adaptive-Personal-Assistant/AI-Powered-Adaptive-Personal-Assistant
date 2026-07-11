@@ -52,7 +52,6 @@ export default function Sidebar({ profile, setProfile, currentView, setCurrentVi
 
   const primaryItems = [
     { id: 'chat', label: getTranslation(profile.language, 'chatSession'), icon: MessageSquare },
-    { id: 'hub', label: getTranslation(profile.language, 'dashboard'), icon: BarChart3 },
   ] as const;
 
   // Academic sections shown depend on the user's education level (University
@@ -60,7 +59,6 @@ export default function Sidebar({ profile, setProfile, currentView, setCurrentVi
   const allAcademicItems = [
     { id: 'goals', label: localize(profile.language, 'Goals', 'الأهداف'), icon: Target },
     { id: 'gpa', label: localize(profile.language, 'GPA', 'حاسبة GPA'), icon: Calculator },
-    { id: 'attendance', label: localize(profile.language, 'Calendar', 'التقويم'), icon: CalendarCheck },
     { id: 'analytics', label: localize(profile.language, 'Analytics', 'تحليلاتي'), icon: LayoutDashboard },
     { id: 'planner', label: localize(profile.language, 'Planner', 'المخطّط'), icon: CalendarDays },
   ] as const;

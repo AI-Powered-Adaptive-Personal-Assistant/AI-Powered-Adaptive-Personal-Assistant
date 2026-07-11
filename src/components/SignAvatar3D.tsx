@@ -246,7 +246,14 @@ interface Rig {
   elbow: THREE.Vector3;
   rings: THREE.Mesh[];
   chestCore: THREE.Mesh;
-  leftHand: THREE.Group; // static resting hand (subtle idle sway)
+  // Left hand — fully articulated and driven as a MIRROR of the right, so the
+  // avatar signs with BOTH hands (real sign language is two-handed).
+  leftHandRoot: THREE.Group;
+  leftWrist: THREE.Group;
+  leftFingers: FingerRig[];
+  leftThumbBase: THREE.Group;
+  leftForearm: THREE.Mesh;
+  leftElbow: THREE.Vector3;
 }
 
 const CURL_MAX = [1.45, 1.55, 1.05]; // per joint
@@ -275,6 +282,54 @@ function buildFinger(scale: number, rad: number, mat: THREE.Material, spreadDir:
     parent = j;
   }
   return { joints, spreadDir };
+}
+
+/** Build one fully-articulated hand (palm + cuff + thumb + 4 fingers). Used for
+ *  BOTH hands; the left is mirrored via scale.x = -1 by the caller. */
+function buildHand(skinMat: THREE.Material, bodyMat: THREE.Material): {
+  handRoot: THREE.Group; wrist: THREE.Group; fingers: FingerRig[]; thumbBase: THREE.Group;
+} {
+  const handRoot = new THREE.Group();
+  const wrist = new THREE.Group();
+  wrist.rotation.set(-0.12, 0, 0.06);
+  handRoot.add(wrist);
+
+  const palm = new THREE.Mesh(new THREE.BoxGeometry(0.165, 0.185, 0.055), skinMat);
+  palm.position.y = 0.05;
+  wrist.add(palm);
+  const wristCuff = new THREE.Mesh(new THREE.CylinderGeometry(0.052, 0.058, 0.06, 14), bodyMat);
+  wristCuff.position.y = -0.06;
+  wrist.add(wristCuff);
+
+  const baseX = [0.058, 0.02, -0.02, -0.058]; // index..pinky
+  const spreadDirs = [-1, -0.3, 0.35, 1];
+  const fingers: FingerRig[] = [];
+
+  const thumbBase = new THREE.Group();
+  thumbBase.position.set(0.082, -0.01, 0.012);
+  thumbBase.rotation.set(0.35, 0.2, -0.9);
+  wrist.add(thumbBase);
+  const tJoints: THREE.Group[] = [];
+  let tParent: THREE.Group = thumbBase;
+  const tLens = [0.06, 0.045];
+  for (let i = 0; i < 2; i++) {
+    const j = fingerSegment(tLens[i], 0.021 - i * 0.002, skinMat);
+    if (i > 0) j.position.y = tLens[i - 1];
+    tParent.add(j);
+    tJoints.push(j);
+    tParent = j;
+  }
+  fingers.push({ joints: [tJoints[0], tJoints[1], tJoints[1]], spreadDir: 0 });
+
+  for (let fi = 0; fi < 4; fi++) {
+    const base = new THREE.Group();
+    base.position.set(baseX[fi], 0.142, 0);
+    wrist.add(base);
+    const f = buildFinger(FINGER_SCALE[fi + 1], 0.018, skinMat, spreadDirs[fi]);
+    base.add(f.joints[0]);
+    fingers.push(f);
+  }
+  return { handRoot, wrist, fingers, thumbBase };
 }
 
 function buildRig(scene: THREE.Scene): Rig {
@@ -330,43 +385,7 @@ function buildRig(scene: THREE.Scene): Rig {
   shoulderL.position.x = -0.3;
   root.add(shoulderR, shoulderL);
 
-  const leftArm = new THREE.Mesh(new THREE.CapsuleGeometry(0.052, 0.32, 4, 12), bodyMat);
-  leftArm.position.set(-0.34, 0.99, 0.10);
-  leftArm.rotation.set(0.32, 0, 0.12); // angled forward so the hand sits in view
-  root.add(leftArm);
-
-  /* ---- left hand (static, relaxed rest pose — natural two-handed look) ---- */
-  const leftHand = new THREE.Group();
-  leftHand.position.set(-0.34, 0.82, 0.24); // forward + clearly visible beside the body
-  leftHand.rotation.set(Math.PI - 0.45, 0, -0.12); // hangs down, tilted toward camera
-  root.add(leftHand);
-  const lPalm = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.19, 0.055), skinMat);
-  lPalm.position.y = 0.05;
-  leftHand.add(lPalm);
-  const lCuff = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.055, 0.06, 14), bodyMat);
-  lCuff.position.y = -0.06;
-  leftHand.add(lCuff);
-  const lBaseX = [0.052, 0.018, -0.018, -0.052];
-  for (let fi = 0; fi < 4; fi++) {
-    const sc = FINGER_SCALE[fi + 1];
-    const base = new THREE.Group();
-    base.position.set(lBaseX[fi], 0.135, 0);
-    base.rotation.x = 0.35; // gentle relaxed curl
-    leftHand.add(base);
-    const s1 = fingerSegment(SEG_LEN[0] * sc, 0.017, skinMat);
-    base.add(s1);
-    const s2 = fingerSegment(SEG_LEN[1] * sc, 0.015, skinMat);
-    s2.position.y = SEG_LEN[0] * sc;
-    s2.rotation.x = 0.45;
-    s1.add(s2);
-  }
-  const lThumbBase = new THREE.Group();
-  lThumbBase.position.set(0.078, 0.0, 0.02);
-  lThumbBase.rotation.set(0.3, 0.2, 0.95);
-  leftHand.add(lThumbBase);
-  lThumbBase.add(fingerSegment(0.055, 0.02, skinMat));
-
-  /* ---- right arm (dynamic forearm follows the hand) ---- */
+  /* ---- arms: symmetric dynamic forearms that follow each hand ---- */
   const elbow = new THREE.Vector3(0.36, 1.0, 0.12);
   const upperArm = new THREE.Mesh(new THREE.CapsuleGeometry(0.052, 0.24, 4, 12), bodyMat);
   upperArm.position.copy(new THREE.Vector3().addVectors(new THREE.Vector3(0.3, 1.22, 0), elbow).multiplyScalar(0.5));
@@ -379,52 +398,30 @@ function buildRig(scene: THREE.Scene): Rig {
   const forearm = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.05, 1, 12), bodyMat);
   root.add(forearm);
 
-  /* ---- right hand ---- */
-  const handRoot = new THREE.Group();
+  // left arm (mirror of the right)
+  const leftElbow = new THREE.Vector3(-0.36, 1.0, 0.12);
+  const upperArmL = new THREE.Mesh(new THREE.CapsuleGeometry(0.052, 0.24, 4, 12), bodyMat);
+  upperArmL.position.copy(new THREE.Vector3().addVectors(new THREE.Vector3(-0.3, 1.22, 0), leftElbow).multiplyScalar(0.5));
+  upperArmL.lookAt(leftElbow);
+  upperArmL.rotateX(Math.PI / 2);
+  root.add(upperArmL);
+  const elbowBallL = new THREE.Mesh(new THREE.SphereGeometry(0.055, 14, 12), bodyMat);
+  elbowBallL.position.copy(leftElbow);
+  root.add(elbowBallL);
+  const leftForearm = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.05, 1, 12), bodyMat);
+  root.add(leftForearm);
+
+  /* ---- right hand (articulated) ---- */
+  const right = buildHand(skinMat, bodyMat);
+  const { handRoot, wrist, fingers, thumbBase } = right;
   handRoot.position.set(...HAND_HOME);
   root.add(handRoot);
 
-  const wrist = new THREE.Group();
-  wrist.rotation.set(-0.12, 0, 0.06); // slight natural tilt, palm to camera
-  handRoot.add(wrist);
-
-  const palm = new THREE.Mesh(new THREE.BoxGeometry(0.165, 0.185, 0.055), skinMat);
-  palm.position.y = 0.05;
-  wrist.add(palm);
-  const wristCuff = new THREE.Mesh(new THREE.CylinderGeometry(0.052, 0.058, 0.06, 14), bodyMat);
-  wristCuff.position.y = -0.06;
-  wrist.add(wristCuff);
-
-  // viewer sees the avatar's right hand palm-out: thumb on the +X side
-  const baseX = [0.058, 0.02, -0.02, -0.058]; // index..pinky
-  const spreadDirs = [-1, -0.3, 0.35, 1];
-  const fingers: FingerRig[] = [];
-
-  // thumb (index 0)
-  const thumbBase = new THREE.Group();
-  thumbBase.position.set(0.082, -0.01, 0.012);
-  thumbBase.rotation.set(0.35, 0.2, -0.9);
-  wrist.add(thumbBase);
-  const tJoints: THREE.Group[] = [];
-  let tParent: THREE.Group = thumbBase;
-  const tLens = [0.06, 0.045];
-  for (let i = 0; i < 2; i++) {
-    const j = fingerSegment(tLens[i], 0.021 - i * 0.002, skinMat);
-    if (i > 0) j.position.y = tLens[i - 1];
-    tParent.add(j);
-    tJoints.push(j);
-    tParent = j;
-  }
-  fingers.push({ joints: [tJoints[0], tJoints[1], tJoints[1]], spreadDir: 0 });
-
-  for (let fi = 0; fi < 4; fi++) {
-    const base = new THREE.Group();
-    base.position.set(baseX[fi], 0.142, 0);
-    wrist.add(base);
-    const f = buildFinger(FINGER_SCALE[fi + 1], 0.018, skinMat, spreadDirs[fi]);
-    base.add(f.joints[0]);
-    fingers.push(f);
-  }
+  /* ---- left hand (same rig, mirrored so it reads as a real left hand) ---- */
+  const left = buildHand(skinMat, bodyMat);
+  left.handRoot.position.set(-HAND_HOME[0], HAND_HOME[1], HAND_HOME[2]);
+  left.handRoot.scale.x = -1; // mirror geometry → left hand
+  root.add(left.handRoot);
 
   /* ---- pedestal rings ---- */
   const ringMat = new THREE.MeshStandardMaterial({
@@ -439,7 +436,12 @@ function buildRig(scene: THREE.Scene): Rig {
   ring2.position.y = 0.55;
   root.add(ring1, ring2);
 
-  return { root, handRoot, wrist, fingers, thumbBase, head, forearm, elbow, rings: [ring1, ring2], chestCore, leftHand };
+  return {
+    root, handRoot, wrist, fingers, thumbBase, head, forearm, elbow,
+    rings: [ring1, ring2], chestCore,
+    leftHandRoot: left.handRoot, leftWrist: left.wrist, leftFingers: left.fingers,
+    leftThumbBase: left.thumbBase, leftForearm, leftElbow,
+  };
 }
 
 /* ------------------------------------------------------------------ */
@@ -585,47 +587,58 @@ export default function SignAvatar3D({ words, playing, onProgress, onDone, class
         case "circle": posAdd = [Math.cos(elapsed * 5) * 0.045, Math.sin(elapsed * 5) * 0.045, 0]; break;
       }
 
-      // fingers
-      for (let fi = 0; fi < 5; fi++) {
-        const curl = THREE.MathUtils.clamp(t.curls[fi] + curlAdd[fi], 0, 1.15);
-        const rigF = rig.fingers[fi];
-        for (let ji = 0; ji < 3; ji++) {
-          const j = rigF.joints[ji];
-          if (fi === 0 && ji === 2) continue; // thumb alias
-          const goal = curl * CURL_MAX[ji] * (fi === 0 ? 0.8 : 1);
-          j.rotation.x += (goal - j.rotation.x) * kFinger;
-          if (ji === 0 && fi > 0) {
-            const spreadGoal = t.spread * 0.32 * rigF.spreadDir;
-            j.rotation.z += (spreadGoal - j.rotation.z) * kFinger;
+      const idle = t.motion ? 0 : Math.sin(now / 900) * 0.008;
+
+      // Drive BOTH hands from the same target. The left hand's group is
+      // scale.x = -1, so identical finger/thumb/wrist values render as a true
+      // mirror; only the hand's world X position is negated (mirrorX = -1).
+      const hands = [
+        { fingers: rig.fingers, thumbBase: rig.thumbBase, wrist: rig.wrist, pos: rig.handRoot.position, forearm: rig.forearm, elbow: rig.elbow, mirrorX: 1 },
+        { fingers: rig.leftFingers, thumbBase: rig.leftThumbBase, wrist: rig.leftWrist, pos: rig.leftHandRoot.position, forearm: rig.leftForearm, elbow: rig.leftElbow, mirrorX: -1 },
+      ];
+      for (const H of hands) {
+        // fingers
+        for (let fi = 0; fi < 5; fi++) {
+          const curl = THREE.MathUtils.clamp(t.curls[fi] + curlAdd[fi], 0, 1.15);
+          const rigF = H.fingers[fi];
+          for (let ji = 0; ji < 3; ji++) {
+            const j = rigF.joints[ji];
+            if (fi === 0 && ji === 2) continue; // thumb alias
+            const goal = curl * CURL_MAX[ji] * (fi === 0 ? 0.8 : 1);
+            j.rotation.x += (goal - j.rotation.x) * kFinger;
+            if (ji === 0 && fi > 0) {
+              const spreadGoal = t.spread * 0.32 * rigF.spreadDir;
+              j.rotation.z += (spreadGoal - j.rotation.z) * kFinger;
+            }
           }
         }
+        // thumb base: out + wrap across palm as it curls
+        const tb = H.thumbBase.rotation;
+        const outGoal = -0.9 - t.out * 0.55 + t.curls[0] * 0.7;
+        const wrapGoal = 0.2 + t.curls[0] * 0.9;
+        tb.z += (outGoal - tb.z) * kFinger;
+        tb.y += (wrapGoal - tb.y) * kFinger;
+
+        // wrist
+        const w = H.wrist.rotation;
+        w.x += (-0.12 + t.wrist[0] + wristAdd[0] - w.x) * kBody;
+        w.y += (t.wrist[1] + wristAdd[1] - w.y) * kBody;
+        w.z += (0.06 + t.wrist[2] + wristAdd[2] - w.z) * kBody;
+
+        // hand position (X mirrored for the left hand)
+        const p = H.pos;
+        p.x += ((t.pos[0] + posAdd[0]) * H.mirrorX - p.x) * kBody;
+        p.y += (t.pos[1] + posAdd[1] + idle - p.y) * kBody;
+        p.z += (t.pos[2] + posAdd[2] - p.z) * kBody;
+
+        // forearm follows this hand
+        fromV.copy(H.elbow);
+        dirV.copy(p).sub(fromV);
+        const len = Math.max(dirV.length(), 0.001);
+        H.forearm.position.copy(fromV).addScaledVector(dirV, 0.5);
+        H.forearm.scale.set(1, len, 1);
+        H.forearm.quaternion.setFromUnitVectors(up, dirV.clone().normalize());
       }
-      // thumb base: out + wrap across palm as it curls
-      const tb = rig.thumbBase.rotation;
-      const outGoal = -0.9 - t.out * 0.55 + t.curls[0] * 0.7;
-      const wrapGoal = 0.2 + t.curls[0] * 0.9;
-      tb.z += (outGoal - tb.z) * kFinger;
-      tb.y += (wrapGoal - tb.y) * kFinger;
-
-      // wrist + hand position
-      const w = rig.wrist.rotation;
-      w.x += (-0.12 + t.wrist[0] + wristAdd[0] - w.x) * kBody;
-      w.y += (t.wrist[1] + wristAdd[1] - w.y) * kBody;
-      w.z += (0.06 + t.wrist[2] + wristAdd[2] - w.z) * kBody;
-
-      const idle = t.motion ? 0 : Math.sin(now / 900) * 0.008;
-      const p = rig.handRoot.position;
-      p.x += (t.pos[0] + posAdd[0] - p.x) * kBody;
-      p.y += (t.pos[1] + posAdd[1] + idle - p.y) * kBody;
-      p.z += (t.pos[2] + posAdd[2] - p.z) * kBody;
-
-      // forearm follows hand
-      fromV.copy(rig.elbow);
-      dirV.copy(p).sub(fromV);
-      const len = Math.max(dirV.length(), 0.001);
-      rig.forearm.position.copy(fromV).addScaledVector(dirV, 0.5);
-      rig.forearm.scale.set(1, len, 1);
-      rig.forearm.quaternion.setFromUnitVectors(up, dirV.normalize());
 
       // life: breathing, head, rings, chest pulse
       rig.root.position.y = Math.sin(now / 1600) * 0.006;
@@ -635,9 +648,6 @@ export default function SignAvatar3D({ words, playing, onProgress, onDone, class
       rig.rings[1].rotation.z -= dt * 0.25;
       const pulse = 1.1 + Math.sin(now / 500) * 0.35;
       (rig.chestCore.material as THREE.MeshStandardMaterial).emissiveIntensity = pulse;
-      // gentle idle sway on the resting left hand so it reads as alive
-      rig.leftHand.rotation.z = -0.12 + Math.sin(now / 1800) * 0.045;
-      rig.leftHand.rotation.x = (Math.PI - 0.45) + Math.sin(now / 2200) * 0.03;
 
       renderer.render(scene, camera);
     };

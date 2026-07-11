@@ -28,7 +28,6 @@ import { isAdminUser } from "./lib/roles";
 // Heavy, route-specific views are code-split so they don't bloat the initial
 // bundle. They load on demand the first time a user opens that screen, which
 // keeps the app fast to start (important on mobile / slow connections).
-const IntelligenceHub = lazy(() => import("./components/IntelligenceHub"));
 const ProfilePage = lazy(() => import("./components/ProfilePage"));
 const SignVideoStudio = lazy(() => import("./components/SignVideoStudio"));
 const AdminDashboard = lazy(() => import("./components/AdminDashboard"));
@@ -36,7 +35,6 @@ const SupportCenter = lazy(() => import("./components/SupportCenter"));
 const DisabilityModeView = lazy(() => import("./components/DisabilityModeView"));
 const GoalTracker = lazy(() => import("./components/Goaltracker"));
 const GpaCalculator = lazy(() => import("./components/GpaCalculator"));
-const CalendarView = lazy(() => import("./components/CalendarView"));
 const StudentAnalytics = lazy(() => import("./components/StudentAnalytics"));
 const AcademicPlanner = lazy(() => import("./components/AcademicPlanner"));
 
@@ -131,7 +129,7 @@ export default function App() {
 
     const handlePopState = () => {
       const hash = window.location.hash.replace('#', '');
-      if (['chat', 'hub', 'profile', 'settings', 'video', 'disability', 'admin','goals','gpa','attendance','analytics','planner','support'].includes(hash)) {
+      if (['chat', 'profile', 'settings', 'video', 'disability', 'admin','goals','gpa','analytics','planner','support'].includes(hash)) {
         setCurrentView(hash as any);
       } else {
         setCurrentView('chat');
@@ -399,7 +397,7 @@ export default function App() {
     // Guard academic sections that aren't available for this education level
     // (e.g. a school/professional user landing on #gpa or #analytics directly).
     if (
-      (['gpa', 'attendance', 'analytics', 'goals', 'planner'] as const).includes(currentView as any) &&
+      (['gpa', 'analytics', 'goals', 'planner'] as const).includes(currentView as any) &&
       !canAccessSection(profile.educationLevel, currentView as any)
     ) {
       return (
@@ -433,8 +431,6 @@ export default function App() {
             />
           </>
         );
-      case 'hub':
-        return <IntelligenceHub profile={profile} onMenuClick={() => setIsMobileMenuOpen(true)} />;
       case 'video':
         return <SignVideoStudio profile={profile} onMenuClick={() => setIsMobileMenuOpen(true)} />;
       case 'disability':
@@ -467,8 +463,6 @@ export default function App() {
   );
       case 'gpa':
         return <GpaCalculator profile={profile} onMenuClick={() => setIsMobileMenuOpen(true)} />;
-      case 'attendance':
-        return <CalendarView profile={profile} onMenuClick={() => setIsMobileMenuOpen(true)} />;
       case 'analytics':
         return <StudentAnalytics profile={profile} onMenuClick={() => setIsMobileMenuOpen(true)} />;
       case 'planner':
