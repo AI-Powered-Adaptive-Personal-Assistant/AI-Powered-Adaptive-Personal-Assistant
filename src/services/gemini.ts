@@ -76,11 +76,16 @@ async function* generateGroqStream(
   history: Message[],
   apiKey: string,
 ) {
+  const mapped = history
+    .filter((m) => m.id !== "welcome" && m.content?.trim())
+    .map((m) => ({ role: m.role === "user" ? "user" : "assistant", content: m.content }));
+  // The caller's history already ends with the just-sent user message; we add it
+  // again below. Drop the trailing duplicate so it isn't sent twice.
+  const lastM = mapped[mapped.length - 1];
+  const dedupedMapped = (lastM?.role === "user" && lastM.content === message) ? mapped.slice(0, -1) : mapped;
   const messages = [
     { role: "system", content: buildPersona(profile) },
-    ...history
-      .filter((m) => m.id !== "welcome" && m.content?.trim())
-      .map((m) => ({ role: m.role === "user" ? "user" : "assistant", content: m.content })),
+    ...dedupedMapped,
     { role: "user", content: message },
   ];
 
@@ -477,7 +482,15 @@ ${otherThreadsSummary}
     }));
 
   const cleanHistory = historyForModel[0]?.role === 'model' ? historyForModel.slice(1) : historyForModel;
-  contents.push(...cleanHistory);
+  // The caller passes the just-sent user message as the LAST item of `history`,
+  // and we also append it explicitly below (with its attachments). Drop that
+  // trailing duplicate so the question isn't sent to the model twice — that
+  // both wastes tokens/quota and muddies the context.
+  const last = cleanHistory[cleanHistory.length - 1];
+  const dedupedHistory = (last?.role === 'user' && last.parts?.[0]?.text === message)
+    ? cleanHistory.slice(0, -1)
+    : cleanHistory;
+  contents.push(...dedupedHistory);
 
   const currentParts: any[] = [{ text: message }];
   attachments.forEach(file => {

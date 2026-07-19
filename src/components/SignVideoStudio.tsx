@@ -2,7 +2,7 @@ import { localize } from '../lib/translations';
 import { useState, useEffect, useRef } from "react";
 import { UserProfile } from "../types";
 import { motion, AnimatePresence } from "motion/react";
-import { Mic, Square, Play, RefreshCw, Menu, Download, FileText, Settings, Video, Sparkles, Brain, Zap, Activity, Camera, CameraOff, Hand, Keyboard, Volume2 } from "lucide-react";
+import { Mic, Square, Play, RefreshCw, Menu, FileText, Settings, Video, Sparkles, Brain, Zap, Activity, Camera, CameraOff, Hand, Keyboard, Volume2 } from "lucide-react";
 import SignAvatar3D from "./SignAvatar3D";
 import { geminiService } from "../services/geminiService";
 import { Hands, Results } from "@mediapipe/hands";
@@ -482,6 +482,10 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
   const handleAskAI = async (textOverride?: string) => {
     const question = (textOverride ?? inputText).trim();
     if (!question) return;
+    // Claim this input as already-handled so the 1s auto-translate debounce
+    // (which watches inputText) doesn't fire afterwards and overwrite the
+    // avatar's ANSWER sequence with the raw QUESTION text.
+    prevInputRef.current = question;
     setIsAnswering(true);
     setAiResponse("");
     try {
@@ -840,13 +844,6 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
                     >
                       <Sparkles className={`w-3 h-3 ${is3DActive ? 'text-emerald-400' : 'text-accent'}`} />
                       {is3DActive ? '3D Avatar' : '2D Mode'}
-                    </button>
-                    <button
-                      title={localize(profile.language, 'Download', 'تحميل')}
-                      aria-label={localize(profile.language, 'Download', 'تحميل')}
-                      className="text-white/50 hover:text-white transition-colors bg-black/40 p-2 rounded-lg backdrop-blur-md"
-                    >
-                      <Download className="w-5 h-5" />
                     </button>
                   </div>
                </div>

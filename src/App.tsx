@@ -22,7 +22,7 @@ import { ToastContainer } from "./components/Toast";
 
 import { isRTL, getTranslation } from "./lib/translations";
 import { canAccessSection } from "./lib/academics";
-import { canAccessView, homeViewFor } from "./lib/access";
+import { canAccessView, homeViewFor, isAccessibilityUser } from "./lib/access";
 import { isAdminUser } from "./lib/roles";
 
 // Heavy, route-specific views are code-split so they don't bloat the initial
@@ -632,10 +632,12 @@ export default function App() {
           </Suspense>
         </main>
 
-        {/* The floating accessibility overlay (sign avatar / mic / vision) is only for
-            users who actually need it — a real accessibility mode, the Special Needs
-            path, or while inside the disability view. Normal users never see it. */}
-        {profile && (profile.accessibilityMode && profile.accessibilityMode !== 'None' || profile.accountPath === 'Special Needs' || currentView === 'disability')
+        {/* The floating accessibility overlay (sign avatar / mic / vision) is ONLY for
+            users who actually need it — a real accessibility mode or the Special Needs
+            path. Sighted staff who can also open the disability hub (admins, org/charity
+            managers viewing their OrgDashboard) must NOT get a camera/mic overlay, so we
+            gate on isAccessibilityUser rather than on the current view. */}
+        {profile && isAccessibilityUser(profile)
           // Hide while the Sign Studio tab is open — it runs its own camera, and
           // two MediaPipe pipelines on one device conflict (camera-in-use / light stuck on).
           && !(currentView === 'disability' && disabilityTab === 'video') && (

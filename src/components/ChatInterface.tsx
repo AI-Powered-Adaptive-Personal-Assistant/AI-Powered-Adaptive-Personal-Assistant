@@ -209,6 +209,7 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
 
   const currentThreadTasks = (profile.tasks || []).filter(t => t.threadId === currentThreadId);
   const [messagesLoading, setMessagesLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   // Handle external message injection (e.g. from sign/voice transcription).
   // Deduped so the same injection can't double-send; the ref resets when the
@@ -216,6 +217,9 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
   const lastExternalRef = useRef("");
   useEffect(() => {
     if (!externalMessage) { lastExternalRef.current = ""; return; }
+    // If a turn is still streaming, don't drop the message — bail WITHOUT
+    // marking it handled. `isLoading` is a dep, so this effect re-runs the
+    // moment streaming ends and the queued sentence is sent then.
     if (isLoading) return;
     if (externalMessage === lastExternalRef.current) return;
     lastExternalRef.current = externalMessage;
@@ -224,7 +228,7 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
     } else {
       setInput(externalMessage);
     }
-  }, [externalMessage]);
+  }, [externalMessage, isLoading]);
 
   // Warm up Speech Synthesis voices list on mount
   useEffect(() => {
@@ -238,7 +242,6 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
     }
   }, []);
 
-  const [isLoading, setIsLoading] = useState(false);
   const stopRef = useRef(false);
   // Guards against the live Firestore listener clobbering local state mid-turn:
   // while we're sending (and briefly after), a lagging server snapshot of an
@@ -365,7 +368,9 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
       If it's a PDF/Text, read the key chapters and paragraphs.
       Return the full narrated text.`;
       
-      handleSubmit(undefined, prompt, [{ name: file.name, type: file.type, data: file.data }]);
+      // Await the full turn so the "reading…" spinner stays up for the whole
+      // narration instead of flashing off the instant the request is fired.
+      await handleSubmit(undefined, prompt, [{ name: file.name, type: file.type, data: file.data }]);
     } catch (error) {
       console.error(error);
     } finally {
@@ -411,9 +416,17 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
 
       recognition.onend = () => {
         // The engine often stops on its own (silence/timeout). If the user still
-        // wants to listen, restart it so dictation feels continuous.
+        // wants to listen, restart it so dictation feels continuous. Restart on a
+        // short delay rather than synchronously: calling start() inside onend can
+        // throw InvalidState on some engines and, on repeated no-speech, spins a
+        // tight restart loop that pins the CPU. The delay yields the main thread
+        // and rechecks the intent flag in case the user toggled off meanwhile.
         if (shouldListenRef.current) {
-          try { recognition.start(); return; } catch { /* will fall through */ }
+          setTimeout(() => {
+            if (!shouldListenRef.current) return;
+            try { recognition.start(); } catch { setIsListening(false); }
+          }, 300);
+          return;
         }
         setIsListening(false);
       };

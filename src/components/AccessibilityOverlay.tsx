@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { AccessibilityMode, UserProfile } from "../types";
 import { toast } from "./Toast";
 import { localize } from "../lib/translations";
@@ -7,7 +8,6 @@ import {
   MicOff,
   Video,
   VideoOff,
-  Brain,
   Sparkles,
   MessageSquare,
   Eye,
@@ -840,8 +840,14 @@ export default function AccessibilityOverlay({
               </div>
             )}
 
+            {(() => {
+            // When expanded, portal the camera to <body>. Otherwise `position:
+            // fixed` would resolve against the framer-motion draggable panel's
+            // transform (a containing block) and render the "fullscreen" camera
+            // off-screen once the panel has been dragged.
+            const cameraStudio = (
             <div
-              className={`overflow-hidden shadow-2xl border-4 transition-all ${camExpanded ? "fixed inset-3 sm:inset-8 z-[200] rounded-2xl bg-black" : "relative rounded-[32px]"} ${isVisionActive ? (isVisionAnalyzing ? "border-accent/20" : "border-primary") : "border-border opacity-50"}`}
+              className={`overflow-hidden shadow-2xl border-4 transition-all ${camExpanded ? "fixed inset-3 sm:inset-8 z-[200] rounded-2xl bg-black pointer-events-auto" : "relative rounded-[32px]"} ${isVisionActive ? (isVisionAnalyzing ? "border-accent/20" : "border-primary") : "border-border opacity-50"}`}
             >
               <button
                 onClick={() => setCamExpanded((v) => !v)}
@@ -923,21 +929,11 @@ export default function AccessibilityOverlay({
                 </div>
               )}
             </div>
+            );
+            return camExpanded ? createPortal(cameraStudio, document.body) : cameraStudio;
+            })()}
 
             <div className="flex gap-3">
-              {isVisionActive && (
-                <button
-                  onClick={() => {
-                    setIsVisionAnalyzing(true);
-                    // We rely on the existing loop or can trigger one-off if needed
-                    // But for simplicity, we just show feedback
-                  }}
-                  className="p-4 bg-bg-card/10 hover:bg-bg-card/20 text-white rounded-3xl backdrop-blur-md transition-all active:scale-95 border border-white/5"
-                  title="Force Analysis"
-                >
-                  <Brain className="w-5 h-5" />
-                </button>
-              )}
               <button
                 onClick={isVisionActive ? stopVision : startVision}
                 className={`p-5 rounded-3xl shadow-2xl transition-all active:scale-95 flex items-center gap-3 ${

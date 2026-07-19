@@ -135,14 +135,20 @@ export function academicHealthScore(input: MetricsInput): MetricResult {
   const consistency = consistencyScore(input).value;
   const engagement = engagementValue(input);
 
-  const parts: { label: string; norm: number; w: number }[] = [
-    { label: 'Grades', norm: gradeNorm, w: 0.3 },
-    { label: 'Attendance', norm: attendanceNorm, w: 0.2 },
-    { label: 'Task completion', norm: completionNorm, w: 0.2 },
-    { label: 'Consistency', norm: consistency, w: 0.15 },
-    { label: 'Engagement', norm: engagement, w: 0.15 },
+  // Only score dimensions the student actually has data for, then renormalize
+  // the weights across the present ones. Otherwise an absent dimension (e.g. the
+  // retired Attendance section, which leaves `subjects` empty) would count as a
+  // hard 0 and silently cap the score / give permanent "fix attendance" advice.
+  const allParts: { label: string; norm: number; w: number; present: boolean }[] = [
+    { label: 'Grades', norm: gradeNorm, w: 0.3, present: courses.length > 0 },
+    { label: 'Attendance', norm: attendanceNorm, w: 0.2, present: subjects.length > 0 },
+    { label: 'Task completion', norm: completionNorm, w: 0.2, present: tasks.length > 0 },
+    { label: 'Consistency', norm: consistency, w: 0.15, present: input.questionHistory.length > 0 },
+    { label: 'Engagement', norm: engagement, w: 0.15, present: input.questionHistory.length > 0 },
   ];
-  const value = round(parts.reduce((s, p) => s + p.w * p.norm, 0));
+  const parts = allParts.filter((p) => p.present);
+  const totalW = parts.reduce((s, p) => s + p.w, 0) || 1;
+  const value = round(parts.reduce((s, p) => s + p.w * p.norm, 0) / totalW);
 
   // Explainability: rank parts by weighted contribution to flag best/worst.
   const ranked = [...parts].sort((a, b) => b.norm - a.norm);

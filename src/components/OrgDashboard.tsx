@@ -25,10 +25,22 @@ const DIS_ICON: Record<string, typeof Eye> = {
   'Other': UserIcon,
 };
 
+/** ISO string of the user's MOST-RECENT activity signal, or undefined. */
+function lastActiveIso(u: UserProfile): string | undefined {
+  const ts = [u.lastActiveDate, u.lastQuizDate, ...(u.chatThreads || []).map((t) => t.updatedAt)]
+    .filter(Boolean) as string[];
+  if (ts.length === 0) return undefined;
+  return ts.reduce((a, b) => (new Date(b).getTime() > new Date(a).getTime() ? b : a));
+}
+
 function daysSinceActive(u: UserProfile): number {
-  const iso = u.lastActiveDate || u.lastQuizDate || u.chatThreads?.[0]?.updatedAt;
+  // Most-recent signal (newest thread, not the oldest) so active members
+  // never read as idle.
+  const iso = lastActiveIso(u);
   if (!iso) return Infinity;
-  return (Date.now() - new Date(iso).getTime()) / 86400000;
+  const t = new Date(iso).getTime();
+  if (isNaN(t)) return Infinity;
+  return (Date.now() - t) / 86400000;
 }
 
 export default function OrgDashboard({ profile }: OrgDashboardProps) {
@@ -156,7 +168,7 @@ export default function OrgDashboard({ profile }: OrgDashboardProps) {
                             </span>
                           )}
                         </td>
-                        <td className="p-4 text-xs font-bold text-text-muted">{formatDate(u.lastActiveDate || u.lastQuizDate || u.chatThreads?.[0]?.updatedAt)}</td>
+                        <td className="p-4 text-xs font-bold text-text-muted">{formatDate(lastActiveIso(u))}</td>
                         <td className="p-4 text-end">
                           <a
                             href={`mailto:${u.email}`}

@@ -656,7 +656,6 @@ export default function SignAvatar3D({ words, playing, onProgress, onDone, class
     return () => {
       cancelAnimationFrame(raf);
       ro.disconnect();
-      renderer.dispose();
       scene.traverse((obj) => {
         const mesh = obj as THREE.Mesh;
         if (mesh.geometry) mesh.geometry.dispose();
@@ -664,6 +663,11 @@ export default function SignAvatar3D({ words, playing, onProgress, onDone, class
         if (Array.isArray(mat)) mat.forEach((m) => m.dispose());
         else mat?.dispose();
       });
+      renderer.dispose();
+      // Browsers cap live WebGL contexts (~16). dispose() alone doesn't release
+      // the GPU context, so toggling the avatar on/off repeatedly eventually
+      // blacks it out ("too many active contexts"). Force the loss explicitly.
+      renderer.forceContextLoss();
       if (renderer.domElement.parentElement === container) container.removeChild(renderer.domElement);
     };
   }, []);

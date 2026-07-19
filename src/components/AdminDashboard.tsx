@@ -44,11 +44,16 @@ const MODE_META: Record<AccessibilityMode, { label: string; cls: string }> = {
   'None': { label: 'Standard', cls: 'bg-surface-3 text-text-muted' },
 };
 
-/** Days since the user's last activity signal; Infinity when unknown. */
+/** Days since the user's MOST-RECENT activity signal; Infinity when unknown.
+ *  Uses the newest thread updatedAt (not chatThreads[0], which is the oldest)
+ *  so an active member never shows up as idle. */
 function daysSinceActive(u: UserProfile): number {
-  const iso = u.lastActiveDate || u.lastQuizDate || u.chatThreads?.[0]?.updatedAt;
-  if (!iso) return Infinity;
-  return (Date.now() - new Date(iso).getTime()) / 86400000;
+  const candidates = [u.lastActiveDate, u.lastQuizDate, ...(u.chatThreads || []).map((t) => t.updatedAt)]
+    .filter(Boolean)
+    .map((d) => new Date(d as string).getTime())
+    .filter((t) => !isNaN(t));
+  if (candidates.length === 0) return Infinity;
+  return (Date.now() - Math.max(...candidates)) / 86400000;
 }
 
 export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardProps) {
@@ -183,7 +188,7 @@ export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardP
 
   const filteredUsers = users.filter(u => {
     const matchesSearch =
-      u.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (u.email || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
       (u.name && u.name.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesSection = sectionFilter === 'all' || sectionOf(u) === sectionFilter;
     return matchesSearch && matchesSection;
@@ -197,17 +202,15 @@ export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardP
   const a11yUsers = users
     .filter(isAccessibilityUser)
     .filter(u =>
-      u.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (u.email || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
       (u.name && u.name.toLowerCase().includes(searchTerm.toLowerCase()))
     )
     .sort((a, b) => daysSinceActive(a) - daysSinceActive(b)); // most recently active first
   const a11yAll = users.filter(isAccessibilityUser);
   const a11yActive7 = a11yAll.filter(u => daysSinceActive(u) <= 7).length;
   const a11ySigners = a11yAll.filter(u => u.accessibilityMode === 'Sign-Only' || u.accessibilityMode === 'Vocal-Deaf').length;
-  const a11yNew30 = a11yAll.filter(u => {
-    const d = u.lastActiveDate || u.lastQuizDate; // proxy for recency when no createdAt exists
-    return d ? (Date.now() - new Date(d).getTime()) / 86400000 <= 30 : false;
-  }).length;
+  // Same recency signal as active7 (incl. threads) so 30-day is never < 7-day.
+  const a11yNew30 = a11yAll.filter(u => daysSinceActive(u) <= 30).length;
   const disabilityCounts = Object.keys(DISABILITY_META).map((key) => ({
     key,
     count: a11yAll.filter(u => (u.disabilityType || 'Other') === key).length,
