@@ -38,11 +38,15 @@ const STATUS_ICON = {
 export default function GoalCard({ goal, uid, onEdit, onDelete, language }: GoalCardProps) {
   const [expanded, setExpanded] = useState(false);
   const [localGoal, setLocalGoal] = useState<Goal>(goal);
+  const [prevGoal, setPrevGoal] = useState<Goal>(goal);
   const overdue = isGoalOverdue(localGoal);
   const isArabic = language === 'Arabic' || language === 'Egyptian Ammiya';
 
-  // Keep local state in sync when parent passes a new goal object (e.g. after Firestore update)
-  if (goal.id === localGoal.id && JSON.stringify(goal) !== JSON.stringify(localGoal)) {
+  // Sync local state only when the PARENT actually passes a changed goal — compare
+  // prop-to-prev-prop, not prop-to-local. Comparing against localGoal would revert
+  // the component's own optimistic milestone edit before it commits.
+  if (JSON.stringify(goal) !== JSON.stringify(prevGoal)) {
+    setPrevGoal(goal);
     setLocalGoal(goal);
   }
 
@@ -53,7 +57,7 @@ export default function GoalCard({ goal, uid, onEdit, onDelete, language }: Goal
     await updateGoal(uid, localGoal.id, { milestones, progress, status });
   };
 
-  const pri = PRIORITY_STYLES[localGoal.priority];
+  const pri = PRIORITY_STYLES[localGoal.priority] ?? PRIORITY_STYLES.medium;
 
   return (
     <motion.div

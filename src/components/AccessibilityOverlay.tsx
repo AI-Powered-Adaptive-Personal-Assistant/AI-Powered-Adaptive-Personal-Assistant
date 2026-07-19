@@ -120,6 +120,16 @@ export default function AccessibilityOverlay({
     }
   }, [autoSpeak]);
 
+  // MediaPipe's onResults is registered once at startVision, so it closes over
+  // stale autoSpeak/mode/language. Mirror the live values in refs and read those
+  // inside onResults, so toggling Auto-Speak mid-session takes effect immediately.
+  const autoSpeakRef = useRef(autoSpeak);
+  useEffect(() => { autoSpeakRef.current = autoSpeak; }, [autoSpeak]);
+  const modeRef = useRef(mode);
+  useEffect(() => { modeRef.current = mode; }, [mode]);
+  const langRef = useRef(profile.language);
+  useEffect(() => { langRef.current = profile.language; }, [profile.language]);
+
   // Update sign history when current word changes
   useEffect(() => {
     if (currentWord) {
@@ -160,6 +170,11 @@ export default function AccessibilityOverlay({
       setAvatarImage(
         "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&q=80&w=400&h=600",
       ); // Speaking/Active expression
+
+      // Track EVERY timeout (incl. the TTS speak timer below) so a new response
+      // or unmount cancels them — otherwise speech can start after the overlay
+      // unmounts and bleed into the next screen.
+      const timers: any[] = [];
 
       // text-to-speech for AI response
       if (
@@ -246,9 +261,9 @@ export default function AccessibilityOverlay({
           utterance.onerror = () => setIsSpeaking(false);
 
           window.speechSynthesis.cancel(); // stop any ongoing synthesis
-          setTimeout(() => {
+          timers.push(setTimeout(() => {
             window.speechSynthesis.speak(utterance);
-          }, 100);
+          }, 100));
         }
       }
 
@@ -257,9 +272,6 @@ export default function AccessibilityOverlay({
         .replace(/[.,/#!$%^&*;:{}=\-_`~()]/g, "")
         .split(/\s+/);
 
-      // Track EVERY timeout so a new response (or unmount) cancels the old
-      // playback — otherwise two answers' words interleave on the avatar.
-      const timers: any[] = [];
       words.forEach((w, i) => {
         timers.push(setTimeout(() => {
           if (w.length > 0) setCurrentWord(w.toLowerCase());
@@ -319,17 +331,18 @@ export default function AccessibilityOverlay({
       // Build up the fingerspelled word; the user confirms it to send to the AI.
       setTranscription((prev) => prev + stable);
 
-      // Optional audio feedback for the committed letter.
+      // Optional audio feedback for the committed letter. Read live values via
+      // refs (this handler was registered once and would otherwise be stale).
       if (
         "speechSynthesis" in window &&
-        autoSpeak &&
-        (mode === "Sign-Only" || mode === "Vocal-Deaf")
+        autoSpeakRef.current &&
+        (modeRef.current === "Sign-Only" || modeRef.current === "Vocal-Deaf")
       ) {
         const utterance = new SpeechSynthesisUtterance(stable);
         utterance.lang =
-          profile.language === "Egyptian Ammiya"
+          langRef.current === "Egyptian Ammiya"
             ? "ar-EG"
-            : profile.language === "Arabic"
+            : langRef.current === "Arabic"
               ? "ar-SA"
               : "en-US";
         setTimeout(() => window.speechSynthesis.speak(utterance), 50);
@@ -439,6 +452,35 @@ export default function AccessibilityOverlay({
     setDetectionConfidence(0);
     setLiveLetter("");
   };
+
+  // Expanding/shrinking the camera swaps the <video> between an inline element and
+  // a portal, which remounts it as a FRESH DOM node with no srcObject — the preview
+  // goes black and the MediaPipe pump keeps sending the old detached element. When
+  // the toggle actually flips while vision is live, re-attach the stream and rebuild
+  // the camera around the new <video>. Gated on a genuine toggle so it doesn't
+  // needlessly restart the camera the moment vision first starts.
+  const prevExpandedRef = useRef(camExpanded);
+  useEffect(() => {
+    const toggled = prevExpandedRef.current !== camExpanded;
+    prevExpandedRef.current = camExpanded;
+    if (!toggled || !isVisionActive) return;
+    const video = videoRef.current;
+    const stream = streamRef.current;
+    if (!video || !stream) return;
+    video.srcObject = stream;
+    try { cameraRef.current?.stop(); } catch { /* ignore */ }
+    const camera = new MediaPipeCamera(video, {
+      onFrame: async () => {
+        if (handsRef.current && videoRef.current) {
+          await handsRef.current.send({ image: videoRef.current });
+        }
+      },
+      width: 640,
+      height: 480,
+    });
+    camera.start();
+    cameraRef.current = camera;
+  }, [camExpanded, isVisionActive]);
 
   // Hybrid fallback: on demand (NOT per frame), send the current camera frame to
   // Gemini to interpret a full word/gesture the local letter model can't cover.

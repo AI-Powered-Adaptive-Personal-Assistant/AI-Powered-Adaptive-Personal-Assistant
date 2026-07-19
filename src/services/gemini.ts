@@ -75,6 +75,7 @@ async function* generateGroqStream(
   profile: UserProfile,
   history: Message[],
   apiKey: string,
+  signal?: AbortSignal,
 ) {
   const mapped = history
     .filter((m) => m.id !== "welcome" && m.content?.trim())
@@ -99,6 +100,7 @@ async function* generateGroqStream(
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
       body: JSON.stringify({ model: m, messages, temperature: 0.7, stream: true }),
+      signal,
     });
     if (r.ok && r.body) { res = r; break; }
     const errText = await r.text().catch(() => "");
@@ -142,6 +144,10 @@ async function* generateGroqStream(
     }
   } catch (e) {
     console.error('Fallback stream interrupted — keeping partial text:', e);
+  } finally {
+    // Stop early -> generator .return() -> cancel the reader so the provider
+    // stops streaming/generating instead of running on after the user hit Stop.
+    reader.cancel().catch(() => {});
   }
   yield { text: fullText, done: true };
 }
@@ -425,7 +431,8 @@ async function* generateAdaptiveResponseStreamClient(
   profile: UserProfile,
   history: Message[],
   attachments: { name: string, type: string, data: string }[] = [],
-  apiKey: string
+  apiKey: string,
+  signal?: AbortSignal
 ) {
   const otherThreadsSummary = profile.chatThreads
     ?.filter(t => t.id !== profile.activeThreadId)
@@ -516,14 +523,17 @@ ${otherThreadsSummary}
   // also protects us if Google retires a model. Log the real reason on failure
   // so it's never an invisible "the chat just broke".
   let res: Response | null = null;
+  let lastStatus = 0; // real HTTP status of the last failed attempt (res is null on failure)
   for (const model of GEMINI_MODELS) {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${apiKey}`;
     const r = await fetchGeminiWithRetry(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body
+      body,
+      signal
     });
     if (r.ok && r.body) { res = r; break; }
+    lastStatus = r.status;
     const errText = await r.text().catch(() => "");
     console.error(`Gemini model "${model}" failed (${r.status}):`, errText.slice(0, 300));
     if (r.status === 400 || r.status === 401 || r.status === 403) break; // bad key/request — other models won't help
@@ -536,11 +546,11 @@ ${otherThreadsSummary}
       // Signal the fallback so the UI can warn if attachments (images/PDFs) were
       // sent — the text-only fallback provider can't see them.
       yield { text: '', done: false, usedFallback: true };
-      yield* generateGroqStream(message, profile, history, groqKey);
+      yield* generateGroqStream(message, profile, history, groqKey, signal);
       return;
     }
     const isArabic = profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya';
-    const status = res?.status ?? 0;
+    const status = res?.status ?? lastStatus; // res is null here, so use the captured status
     if (status === 503) {
       toast.error(
         isArabic
@@ -611,6 +621,10 @@ ${otherThreadsSummary}
     }
   } catch (e) {
     console.error('Gemini stream interrupted — keeping partial text:', e);
+  } finally {
+    // When the consumer stops early (Stop button -> generator .return()), cancel
+    // the reader so the HTTP stream closes and Google stops generating (and billing).
+    reader.cancel().catch(() => {});
   }
 
   yield { text: fullText, done: true };
@@ -620,14 +634,15 @@ export async function* generateAdaptiveResponseStream(
   message: string,
   profile: UserProfile,
   history: Message[],
-  attachments: { name: string, type: string, data: string }[] = []
+  attachments: { name: string, type: string, data: string }[] = [],
+  signal?: AbortSignal
 ) {
   // Once we know there's no backend, go straight to the direct path.
   if (backendUp === false) {
     const apiKey = geminiPrimaryKey();
-    if (apiKey) { yield* generateAdaptiveResponseStreamClient(message, profile, history, attachments, apiKey); return; }
+    if (apiKey) { yield* generateAdaptiveResponseStreamClient(message, profile, history, attachments, apiKey, signal); return; }
     const groqKey = groqPrimaryKey();
-    if (groqKey) { yield* generateGroqStream(message, profile, history, groqKey); return; }
+    if (groqKey) { yield* generateGroqStream(message, profile, history, groqKey, signal); return; }
     const ar = profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya';
     yield { text: ar ? '⚠️ مفيش مفتاح ذكاء اصطناعي متفعّل.' : '⚠️ No AI key configured.', done: true, error: true };
     return;
@@ -636,7 +651,8 @@ export async function* generateAdaptiveResponseStream(
     const res = await fetch('/api/gemini/generateAdaptiveResponseStream', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message, profile, history, attachments })
+      body: JSON.stringify({ message, profile, history, attachments }),
+      signal
     });
 
     const isHtml = res.headers.get('Content-Type')?.includes('text/html') || false;
@@ -645,13 +661,13 @@ export async function* generateAdaptiveResponseStream(
       backendUp = false; // remember: skip the backend next time
       const apiKey = geminiPrimaryKey();
       if (apiKey) {
-        yield* generateAdaptiveResponseStreamClient(message, profile, history, attachments, apiKey);
+        yield* generateAdaptiveResponseStreamClient(message, profile, history, attachments, apiKey, signal);
         return;
       }
       // No Gemini key configured → use Groq directly if available.
       const groqKey = groqPrimaryKey();
       if (groqKey) {
-        yield* generateGroqStream(message, profile, history, groqKey);
+        yield* generateGroqStream(message, profile, history, groqKey, signal);
         return;
       }
 
@@ -716,27 +732,34 @@ To experience Cognify's full-stack features, please use our fully integrated **C
     const decoder = new TextDecoder("utf-8");
     let buffer = '';
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
 
-      const lines = buffer.split('\n\n');
-      buffer = lines.pop() || '';
+        const lines = buffer.split('\n\n');
+        buffer = lines.pop() || '';
 
-      for (const line of lines) {
-        if (line.startsWith('data: ')) {
-          const jsonStr = line.replace('data: ', '');
-          try {
-            const chunk = JSON.parse(jsonStr);
-            yield chunk;
-          } catch (e) {
-            console.error("Stream parsing error", e);
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const jsonStr = line.replace('data: ', '');
+            try {
+              const chunk = JSON.parse(jsonStr);
+              yield chunk;
+            } catch (e) {
+              console.error("Stream parsing error", e);
+            }
           }
         }
       }
+    } finally {
+      // Stop early -> cancel the server stream so it stops proxying tokens.
+      reader.cancel().catch(() => {});
     }
   } catch (err: any) {
+    // User pressed Stop (AbortController) — not a real error, don't toast.
+    if (err?.name === 'AbortError') { yield { text: '', done: true }; return; }
     const isArabic = profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya';
     toast.error(
       isArabic

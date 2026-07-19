@@ -58,32 +58,44 @@ interface ToastContainerProps {
 
 export function ToastContainer({ rtl = false }: ToastContainerProps) {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
+  // Track each toast's auto-dismiss timer so we can clear it on manual dismiss
+  // and on unmount (they were previously fire-and-forget and leaked).
+  const timers = React.useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+
+  const removeToast = (id: string) => {
+    const t = timers.current.get(id);
+    if (t) { clearTimeout(t); timers.current.delete(id); }
+    setToasts(prev => prev.filter(x => x.id !== id));
+  };
 
   useEffect(() => {
     const handleAddToast = (event: Event) => {
       const customEvent = event as CustomEvent<ToastItem>;
       const newToast = customEvent.detail;
-      setToasts(prev => [...prev, newToast]);
+      // Cap the visible stack so a burst can't fill the screen.
+      setToasts(prev => [...prev, newToast].slice(-5));
 
       if (newToast.duration !== 0) {
-        setTimeout(() => {
-          removeToast(newToast.id);
-        }, newToast.duration || 6000);
+        const t = setTimeout(() => removeToast(newToast.id), newToast.duration || 6000);
+        timers.current.set(newToast.id, t);
       }
     };
 
     window.addEventListener("cognify-toast", handleAddToast);
+    const pending = timers.current;
     return () => {
       window.removeEventListener("cognify-toast", handleAddToast);
+      pending.forEach(clearTimeout);
+      pending.clear();
     };
   }, []);
 
-  const removeToast = (id: string) => {
-    setToasts(prev => prev.filter(t => t.id !== id));
-  };
-
   return (
-    <div 
+    <div
+      role="region"
+      aria-label="Notifications"
+      aria-live="polite"
+      aria-atomic="false"
       className={`fixed top-4 z-[9999] flex flex-col gap-3 w-full max-w-sm pointer-events-none px-4 ${
         rtl ? "left-0 sm:left-4" : "right-0 sm:right-4"
       }`}
@@ -121,6 +133,8 @@ export function ToastContainer({ rtl = false }: ToastContainerProps) {
             <motion.div
               key={item.id}
               layout
+              role={item.type === "error" ? "alert" : "status"}
+              aria-live={item.type === "error" ? "assertive" : "polite"}
               initial={{ opacity: 0, y: -20, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}

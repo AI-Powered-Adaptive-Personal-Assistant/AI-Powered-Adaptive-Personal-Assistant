@@ -56,6 +56,16 @@ function daysSinceActive(u: UserProfile): number {
   return (Date.now() - Math.max(...candidates)) / 86400000;
 }
 
+/** ISO string of the user's MOST-RECENT activity signal, or undefined.
+ *  The displayed "Last Active" date MUST use this (not chatThreads[0], the
+ *  oldest) so it agrees with the Status/sort/KPIs, which use daysSinceActive. */
+function newestActiveIso(u: UserProfile): string | undefined {
+  const candidates = [u.lastActiveDate, u.lastQuizDate, ...(u.chatThreads || []).map((t) => t.updatedAt)]
+    .filter(Boolean) as string[];
+  if (candidates.length === 0) return undefined;
+  return candidates.reduce((a, b) => (new Date(b).getTime() > new Date(a).getTime() ? b : a));
+}
+
 export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardProps) {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -213,7 +223,14 @@ export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardP
   const a11yNew30 = a11yAll.filter(u => daysSinceActive(u) <= 30).length;
   const disabilityCounts = Object.keys(DISABILITY_META).map((key) => ({
     key,
-    count: a11yAll.filter(u => (u.disabilityType || 'Other') === key).length,
+    // disabilityType is free-form; collapse any non-canonical value into 'Other'
+    // so every accessibility user lands in exactly one bar (was: counted in none,
+    // making the chart under-count and disagree with the table).
+    count: a11yAll.filter(u => {
+      const raw = u.disabilityType || 'Other';
+      const canonical = DISABILITY_META[raw] ? raw : 'Other';
+      return canonical === key;
+    }).length,
   }));
   const maxDisability = Math.max(1, ...disabilityCounts.map(d => d.count));
   const modeCounts = (Object.keys(MODE_META) as AccessibilityMode[]).map((m) => ({
@@ -294,7 +311,7 @@ export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardP
         return [
           u.name || 'Unnamed', u.email || '', sectionOf(u), u.disabilityType || 'Other',
           u.accessibilityMode || 'None',
-          formatDate(u.lastActiveDate || u.lastQuizDate || u.chatThreads?.[0]?.updatedAt),
+          formatDate(newestActiveIso(u)),
           d <= 7 ? 'Active' : d === Infinity ? 'Never' : `${Math.floor(d)}d idle`,
         ];
       }),
@@ -647,7 +664,7 @@ export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardP
                                 <span className="text-[10px] font-black uppercase text-text-muted">{Math.floor(days)}d idle</span>
                               )}
                             </td>
-                            <td className="p-4 text-xs font-bold text-text-muted">{formatDate(u.lastActiveDate || u.lastQuizDate || u.chatThreads?.[0]?.updatedAt)}</td>
+                            <td className="p-4 text-xs font-bold text-text-muted">{formatDate(newestActiveIso(u))}</td>
                             <td className="p-4 text-xs text-text-muted truncate max-w-[180px]" title={u.email}>{u.email}</td>
                             <td className="p-4 text-right">
                               <div className="flex items-center justify-end gap-2">
@@ -838,7 +855,7 @@ export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardP
                          </td>
                          <td className="p-4">
                            {(() => {
-                             const meta = SECTION_META[sectionOf(u)];
+                             const meta = SECTION_META[sectionOf(u)] || SECTION_META['Normal'];
                              return (
                                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider ${meta.cls}`} title={sectionOf(u)}>
                                  <meta.Icon className="w-3.5 h-3.5" /> {meta.label}
@@ -856,7 +873,7 @@ export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardP
                          <td className="p-4 font-black text-text-main">{u.points}</td>
                          <td className="p-4 font-black text-text-main">{u.iqScore || '--'}</td>
                          <td className="p-4 text-xs font-bold text-text-muted">
-                           {formatDate(u.lastActiveDate || u.lastQuizDate || u.chatThreads?.[0]?.updatedAt)}
+                           {formatDate(newestActiveIso(u))}
                          </td>
                          <td className="p-4 text-xs text-text-muted truncate max-w-[200px]" title={u.email}>{u.email}</td>
                          <td className="p-4 text-right">

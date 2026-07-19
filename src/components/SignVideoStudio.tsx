@@ -55,6 +55,10 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
   const handsRef = useRef<Hands | null>(null);
   const signCameraRef = useRef<MediaPipeCamera | null>(null);
   const signClfRef = useRef<SignClassifier | null>(null);
+  // Set true by stopSignCam so an in-flight startSignCam (awaiting model load /
+  // camera permission) can bail and release the camera instead of leaking it when
+  // the user switches input mode during the load.
+  const signCamCancelRef = useRef(false);
 
   const KANEVSKY_PRESETS = [
     { id: 'ep_k1', phrase: "fanku", translation: "Thank you" },
@@ -322,6 +326,11 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
       }, 1000);
     } catch (e) {
       console.error(e);
+      // Release the mic if getUserMedia succeeded but MediaRecorder threw (e.g.
+      // Safari, which lacks audio/webm) — otherwise the mic stays live forever.
+      directStreamRef.current?.getTracks().forEach((t) => t.stop());
+      directStreamRef.current = null;
+      setIsRecordingDirectAudio(false);
       alert("Microphone connection failed.");
     }
   };
@@ -369,6 +378,7 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
 
   const startSignCam = async () => {
     setSignCamError("");
+    signCamCancelRef.current = false;
     if (!navigator.mediaDevices?.getUserMedia) {
       setSignCamError(localize(profile.language, "Camera isn't available on this browser/connection.", "الكاميرا مش متاحة على المتصفح/الاتصال ده."));
       return;
@@ -389,6 +399,15 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { width: 640, height: 480, facingMode: "user" },
       });
+      // If the user left sign mode (or hit Stop) while we were awaiting the model
+      // or camera permission, release the freshly-acquired camera instead of
+      // leaking it. The !signVideoRef.current clause also avoids building a
+      // MediaPipe camera around a null (unmounted) video element.
+      if (signCamCancelRef.current || !signVideoRef.current) {
+        stream.getTracks().forEach((tr) => tr.stop());
+        setSignCamStatus("");
+        return;
+      }
       signStreamRef.current = stream;
       if (signVideoRef.current) signVideoRef.current.srcObject = stream;
 
@@ -424,6 +443,7 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
   };
 
   const stopSignCam = () => {
+    signCamCancelRef.current = true; // abort any in-flight startSignCam
     try { signCameraRef.current?.stop(); } catch { /* ignore */ }
     signCameraRef.current = null;
     try { handsRef.current?.close(); } catch { /* ignore */ }
@@ -447,6 +467,8 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
   useEffect(() => {
     return () => {
       stopSignCam();
+      try { recognitionRef.current?.stop(); } catch { /* ignore */ }
+      recognitionRef.current = null; // stop the live STT session too, not just the camera
       stopDirectAudioRecord();
       signClfRef.current?.dispose();
       signClfRef.current = null; // no stale handle a late frame could touch
@@ -742,6 +764,10 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
                                 <button
                                   onClick={() => {
                                     setInputText(aiResponse);
+                                    // Claim this input as already-handled so the 1s
+                                    // auto-translate debounce doesn't re-fire and
+                                    // restart playback from the top.
+                                    prevInputRef.current = aiResponse.trim();
                                     // Trigger signing immediately
                                     const words = aiResponse.trim().split(/\s+/).filter(Boolean);
                                     setSequence(words);

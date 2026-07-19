@@ -197,8 +197,10 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
                 className="w-full bg-white border border-border rounded-xl px-4 py-3 shadow-sm focus:ring-4 focus:ring-primary/5 focus:border-primary outline-none transition-all text-sm appearance-none cursor-pointer"
                 value={UNIVERSITIES.includes(formData.university || "") ? formData.university : "Other"}
                 onChange={(e) => {
-                  const val = e.target.value;
-                  setFormData({ ...formData, university: val === "Other" ? "" : val });
+                  // Keep the literal "Other" (a valid list member) rather than
+                  // storing "" — an empty value fails the Continue validation and
+                  // there is no text-input fallback in the University branch.
+                  setFormData({ ...formData, university: e.target.value });
                 }}
               >
                 <option value="" disabled>Select Institution</option>
@@ -232,8 +234,9 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
                 className="w-full bg-white border border-border rounded-xl px-4 py-3 shadow-sm focus:ring-4 focus:ring-primary/5 focus:border-primary outline-none transition-all text-sm appearance-none cursor-pointer"
                 value={FACULTIES.includes(formData.faculty || "") ? formData.faculty : "Other"}
                 onChange={(e) => {
-                  const val = e.target.value;
-                  setFormData({ ...formData, faculty: val === "Other" ? "" : val });
+                  // See the University field above — keep "Other" verbatim so
+                  // Continue is not permanently disabled.
+                  setFormData({ ...formData, faculty: e.target.value });
                 }}
               >
                 <option value="" disabled>Select Faculty</option>

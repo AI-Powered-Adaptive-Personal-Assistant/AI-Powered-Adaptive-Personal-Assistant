@@ -118,6 +118,10 @@ export default function LiveCaptions({ language = 'en-US', onClose }: LiveCaptio
   // Mirror of `transcript` so the recognizer effect doesn't need it as a dep
   // (having it as a dep re-created the recognizer on every word → dropped audio).
   const transcriptRef = useRef('');
+  // Always points at the freshest processUtterance closure (over repeat-mode,
+  // dictionaries, context) so the once-registered onresult handler doesn't run a
+  // stale copy. Assigned in the render body just after processUtterance is defined.
+  const processUtteranceRef = useRef<((t: string) => Promise<void>) | undefined>(undefined);
   const [interimTranscript, setInterimTranscript] = useState('');
   const [volume, setVolume] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -217,6 +221,10 @@ export default function LiveCaptions({ language = 'en-US', onClose }: LiveCaptio
   const audioChunksRef = useRef<Blob[]>([]);
   const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
   const segmentsEndRef = useRef<HTMLDivElement | null>(null);
+  // The getUserMedia stream feeding the level meter. Closing the AudioContext
+  // does NOT stop these tracks, so we hold + stop them explicitly (else the mic
+  // stays live and the browser indicator stays on after listening ends).
+  const levelStreamRef = useRef<MediaStream | null>(null);
 
   const isArabic = language.startsWith('ar');
 
@@ -241,6 +249,7 @@ export default function LiveCaptions({ language = 'en-US', onClose }: LiveCaptio
   const startAudioLevelTracking = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      levelStreamRef.current = stream;
       audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
       const source = audioContextRef.current.createMediaStreamSource(stream);
       analyserRef.current = audioContextRef.current.createAnalyser();
@@ -260,7 +269,12 @@ export default function LiveCaptions({ language = 'en-US', onClose }: LiveCaptio
 
   const stopAudioLevelTracking = () => {
     if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
-    if (audioContextRef.current) audioContextRef.current.close();
+    // Stop the mic tracks — closing the AudioContext alone leaves them live.
+    levelStreamRef.current?.getTracks().forEach((t) => t.stop());
+    levelStreamRef.current = null;
+    // Guard against double-close (onerror then onend both call this).
+    if (audioContextRef.current && audioContextRef.current.state !== 'closed') audioContextRef.current.close();
+    audioContextRef.current = null;
     setVolume(0);
   };
 
@@ -304,6 +318,17 @@ export default function LiveCaptions({ language = 'en-US', onClose }: LiveCaptio
   useEffect(() => () => {
     if ('speechSynthesis' in window) { try { window.speechSynthesis.cancel(); } catch { /* ignore */ } }
     if (silenceTimeoutRef.current) clearTimeout(silenceTimeoutRef.current);
+    // Tear down any in-progress recording so closing the panel mid-record doesn't
+    // leak the mic or fire setState/API calls after unmount.
+    if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+    const mr = mediaRecorderRef.current;
+    if (mr) {
+      try {
+        mr.onstop = null;                              // prevent post-unmount processUtterance / Gemini call
+        mr.stream?.getTracks().forEach((t) => t.stop()); // release the mic immediately
+        if (mr.state !== 'inactive') mr.stop();
+      } catch { /* ignore */ }
+    }
   }, []);
 
   // ──────────────────────────────────────────────────────────────────────
@@ -352,9 +377,14 @@ export default function LiveCaptions({ language = 'en-US', onClose }: LiveCaptio
       }
       if (silenceTimeoutRef.current) clearTimeout(silenceTimeoutRef.current);
       silenceTimeoutRef.current = setTimeout(async () => {
-        const fullText = (transcriptRef.current + ' ' + (finalStr || interimStr)).trim();
+        // transcriptRef.current already contains any finalStr committed above, so
+        // don't re-append it (that duplicated the last phrase, e.g. "I need water
+        // I need water"). Only the still-uncommitted interimStr must be appended.
+        const fullText = interimStr ? (transcriptRef.current + ' ' + interimStr).trim() : transcriptRef.current.trim();
         if (fullText.length > 2) {
-          await processUtterance(fullText);
+          // Call through a ref so mid-session changes to repeat-mode / dictionaries /
+          // context are honored without recreating the recognizer (which drops words).
+          await processUtteranceRef.current?.(fullText);
         }
       }, pauseThreshold);
     };
@@ -458,6 +488,8 @@ export default function LiveCaptions({ language = 'en-US', onClose }: LiveCaptio
     setTranscript('');
     setInterimTranscript('');
   };
+  // Keep the ref pointing at the latest closure every render (see declaration).
+  processUtteranceRef.current = processUtterance;
 
   // ──────────────────────────────────────────────────────────────────────
   // USER CORRECTION → LEARN (continuously updates the pronunciation dictionary)

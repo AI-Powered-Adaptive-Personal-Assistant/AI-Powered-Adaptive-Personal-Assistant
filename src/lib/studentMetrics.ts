@@ -226,7 +226,11 @@ export function predictedGPA(input: MetricsInput): MetricResult {
   let trendAdj = 0;
   if (sems.length >= 2) {
     const perSem = sems.map((s) => calculateGPA(courses.filter((c) => (c.semester || 'Unspecified') === s)));
-    trendAdj = clamp((perSem[perSem.length - 1] - perSem[0]) / (perSem.length - 1), -0.3, 0.3);
+    // semestersOf returns newest-first (courses arrive orderBy createdAt desc), so
+    // perSem[0] is the MOST RECENT semester and the last is the earliest. Trend =
+    // most-recent minus earliest, matching the comment above — do NOT flip these,
+    // or an improving student is scored as declining.
+    trendAdj = clamp((perSem[0] - perSem[perSem.length - 1]) / (perSem.length - 1), -0.3, 0.3);
   }
   const value = clamp(baseline + trendAdj, 0, 4);
   // Confidence widens (lower) with few courses / one semester.

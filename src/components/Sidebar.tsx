@@ -204,7 +204,13 @@ export default function Sidebar({ profile, setProfile, currentView, setCurrentVi
                     onClick={(e) => {
                       e.stopPropagation();
                       const updated = profile.chatThreads?.filter((th) => th.id !== t.id) || [];
-                      setProfile({ ...profile, chatThreads: updated, activeThreadId: updated.length ? updated[updated.length - 1].id : undefined });
+                      // Only move the active thread if THIS (the deleted) one was active;
+                      // deleting a different thread must not yank the user out of the
+                      // conversation they're currently reading.
+                      const nextActive = t.id === profile.activeThreadId
+                        ? (updated.length ? updated[updated.length - 1].id : undefined)
+                        : profile.activeThreadId;
+                      setProfile({ ...profile, chatThreads: updated, activeThreadId: nextActive });
                       if (profile.uid) deleteDoc(doc(db, `users/${profile.uid}/threads/${t.id}`)).catch((er) => console.error(er));
                     }}
                     className="opacity-0 group-hover:opacity-100 p-1.5 me-1 text-faint hover:text-danger rounded-md transition-all"

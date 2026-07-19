@@ -173,6 +173,12 @@ export default function App() {
       return;
     }
 
+    // Re-show the loading gate on every logged-out -> authenticated transition.
+    // Without this, a returning user briefly renders with profile=null and
+    // profileLoading=false, flashing <Onboarding/> — which for a Special-Needs
+    // account fires its onComplete and overwrites the existing profile (points/level).
+    setProfileLoading(true);
+
     const path = `users/${user.uid}`;
     const unsubscribe = onSnapshot(doc(db, path), async (snapshot) => {
       // Ignore our own un-acknowledged local writes — applying them would replace

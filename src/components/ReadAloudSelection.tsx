@@ -84,6 +84,16 @@ export default function ReadAloudSelection({ language }: ReadAloudSelectionProps
     };
   }, []);
 
+  // When the selection is dismissed (scroll/resize/clear) mid-read, the Stop
+  // button unmounts — so stop the speech here too, otherwise a long read-aloud
+  // keeps playing with no way to halt it.
+  useEffect(() => {
+    if (!anchor && speaking) {
+      cancelSpeech();
+      setSpeaking(false);
+    }
+  }, [anchor, speaking]);
+
   if (!anchor) return null;
 
   const handleClick = () => {

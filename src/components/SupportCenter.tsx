@@ -58,7 +58,7 @@ export default function SupportCenter({ profile, onMenuClick }: SupportCenterPro
   return (
     <div dir={isAr ? 'rtl' : 'ltr'} className="flex-1 h-screen overflow-y-auto bg-bg-main flex flex-col custom-scrollbar p-6 md:p-10 gap-6">
       <header className="flex items-start gap-4">
-        <button onClick={onMenuClick} className="lg:hidden p-2 mt-1 text-text-muted bg-bg-card shadow-sm border border-border hover:bg-surface-2 rounded-lg active:scale-95 shrink-0">
+        <button onClick={onMenuClick} aria-label={t('Open menu', 'افتح القائمة')} className="lg:hidden p-2 mt-1 text-text-muted bg-bg-card shadow-sm border border-border hover:bg-surface-2 rounded-lg active:scale-95 shrink-0">
           <Menu className="w-6 h-6" />
         </button>
         <div>

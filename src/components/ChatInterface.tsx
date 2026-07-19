@@ -243,6 +243,9 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
   }, []);
 
   const stopRef = useRef(false);
+  // Aborts the in-flight AI request so pressing Stop actually cancels generation
+  // (and stops burning quota) instead of only hiding the stream locally.
+  const abortRef = useRef<AbortController | null>(null);
   // Guards against the live Firestore listener clobbering local state mid-turn:
   // while we're sending (and briefly after), a lagging server snapshot of an
   // EARLIER save could otherwise overwrite the freshly completed reply.
@@ -344,9 +347,14 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
         }
       }
       
-      utterance.onend = () => setSpeakingMessageId(null);
-      utterance.onerror = () => setSpeakingMessageId(null);
-      
+      // Only clear the indicator if THIS message still owns it. Starting speech on
+      // a new message calls cancel(), which fires the previous utterance's onend
+      // AFTER speakingMessageId was set to the new id — a plain `null` would wrongly
+      // clear the new one.
+      const messageId = m.id;
+      utterance.onend = () => setSpeakingMessageId(prev => (prev === messageId ? null : prev));
+      utterance.onerror = () => setSpeakingMessageId(prev => (prev === messageId ? null : prev));
+
       // Safety delay to allow browser to clear audio queue before playing
       setTimeout(() => {
         window.speechSynthesis.speak(utterance);
@@ -386,6 +394,9 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
   // Text typed before dictation started — we rebuild input = base + transcript,
   // which is idempotent and prevents the mobile "repeated words" duplication.
   const baseInputRef = useRef("");
+  // Live mirror of `input` — onend/onresult are captured once inside the STT
+  // effect and close over a stale `input`, so we read the current value here.
+  const inputRef = useRef("");
   // True while the user wants to keep listening — lets us auto-restart if the
   // engine ends early (fixes desktop "mic closes immediately").
   const shouldListenRef = useRef(false);
@@ -393,6 +404,8 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
   useEffect(() => {
     onSTTStateChange?.(isListening);
   }, [isListening, onSTTStateChange]);
+
+  useEffect(() => { inputRef.current = input; }, [input]);
 
   useEffect(() => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -422,6 +435,11 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
         // tight restart loop that pins the CPU. The delay yields the main thread
         // and rechecks the intent flag in case the user toggled off meanwhile.
         if (shouldListenRef.current) {
+          // Fold everything finalized so far into the base BEFORE restarting.
+          // The next session's results index from 0, and onresult rebuilds
+          // input = base + newFinals; without advancing base here, the restart
+          // would erase all previously dictated text.
+          baseInputRef.current = inputRef.current;
           setTimeout(() => {
             if (!shouldListenRef.current) return;
             try { recognition.start(); } catch { setIsListening(false); }
@@ -550,6 +568,7 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
     }
 
     setMessagesLoading(true);
+    setMessages([]); // clear the previous thread so it doesn't render under the new thread's title while the snapshot loads
     const path = `users/${profile.uid}/threads/${profile.activeThreadId}`;
     messagesLenRef.current = 0; // new thread — allow its first load through the length guard
 
@@ -812,6 +831,7 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
     setInput("");
     setIsLoading(true);
     stopRef.current = false;
+    abortRef.current = new AbortController();
     isSendingRef.current = true;
     lastLocalWriteRef.current = Date.now();
     setStreamingText("");
@@ -824,7 +844,7 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
     let streamedAttachments: any[] = [];
     let usedFallback = false;
     try {
-      const stream = generateAdaptiveResponseStream(submittedMessage, profile, newHistory, attachmentsToSubmit);
+      const stream = generateAdaptiveResponseStream(submittedMessage, profile, newHistory, attachmentsToSubmit, abortRef.current?.signal);
 
       for await (const chunk of stream) {
         if (stopRef.current) break; // user pressed Stop — keep what's generated so far
@@ -911,6 +931,23 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
           .catch(() => { /* keep placeholder title */ });
       }
     } catch (error: any) {
+      // User pressed Stop (aborted the fetch) — not a real error. Keep whatever
+      // streamed so far and finalize quietly, no error toast.
+      if (error?.name === 'AbortError' || stopRef.current) {
+        if (lastText) {
+          const stopped: Message = {
+            id: `assistant-${Date.now()}`,
+            role: 'assistant',
+            content: lastText,
+            timestamp: new Date().toISOString(),
+            attachments: streamedAttachments,
+          };
+          const kept = [...newHistory, stopped];
+          setMessages(kept);
+          if (syncMessages) syncMessages(kept);
+        }
+        return; // finally still runs (clears isLoading/streamingText)
+      }
       console.error(error);
       const isArabic = profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya';
       // Preserve the user's message. If the model already streamed some text,
@@ -1760,7 +1797,7 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
               {isLoading ? (
                 <button
                   type="button"
-                  onClick={() => { stopRef.current = true; }}
+                  onClick={() => { stopRef.current = true; abortRef.current?.abort(); }}
                   title={localize(profile.language, "Stop generating", "إيقاف التوليد")}
                   aria-label={localize(profile.language, "Stop generating", "إيقاف التوليد")}
                   className="absolute end-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-slate-900 text-white rounded-lg flex items-center justify-center hover:bg-black transition-all shadow-md active:scale-95 z-10"

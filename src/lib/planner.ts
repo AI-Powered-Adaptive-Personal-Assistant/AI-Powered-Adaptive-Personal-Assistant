@@ -23,7 +23,10 @@ export function daysUntilDue(task: PlannerTask): number {
   due.setHours(23, 59, 59, 999);
   const start = new Date();
   start.setHours(0, 0, 0, 0);
-  return Math.round((due.getTime() - start.getTime()) / 86400000);
+  // floor, not round: the span ends at 23:59:59.999, so a task due today is
+  // ~0.9999 days — round() would report 1 ("tomorrow") and a task due yesterday
+  // would round to 0 ("today") instead of overdue. floor gives 0 / -1 correctly.
+  return Math.floor((due.getTime() - start.getTime()) / 86400000);
 }
 
 export function isOverdue(task: PlannerTask): boolean {
