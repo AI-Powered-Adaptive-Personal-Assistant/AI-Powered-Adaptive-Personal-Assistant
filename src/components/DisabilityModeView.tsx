@@ -8,6 +8,7 @@ import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import SignVideoStudio from './SignVideoStudio';
 import ChatInterface, { ChatInterfaceRef } from './ChatInterface';
 import OrgDashboard from './OrgDashboard';
+import { isAccessibilityUser } from '../lib/access';
 import { getTranslation } from '../lib/translations';
 
 interface DisabilityModeViewProps {
@@ -88,12 +89,30 @@ const DisabilityModeView = React.forwardRef<ChatInterfaceRef, DisabilityModeView
       {/* Stacks on mobile: title row + full-width scrollable tabs. Single row again ≥md. */}
       <header className="p-4 sm:p-6 md:px-10 md:py-8 shrink-0 flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-4 border-b border-border bg-bg-card shadow-sm">
         <div className="flex items-center gap-4">
-          <button 
-            onClick={() => onNavigate ? onNavigate('chat') : onMenuClick()}
+          {/* Accessibility users are scoped OUT of 'chat' by canAccessView, so
+              navigating there just bounces straight back here — which left blind
+              users with NO way to reach their profile, settings or logout. For
+              them this opens the sidebar (their real escape hatch) instead. */}
+          <button
+            onClick={() => {
+              if (isAccessibilityUser(profile) || !onNavigate) onMenuClick();
+              else onNavigate('chat');
+            }}
+            // The visible label is hidden on mobile, so without this the control
+            // is announced as an unlabelled button to a screen reader.
+            aria-label={isAccessibilityUser(profile)
+              ? localize(profile.language, 'Open menu (account, settings, sign out)', 'افتح القائمة (الحساب، الإعدادات، تسجيل الخروج)')
+              : getTranslation(profile.language, 'back')}
             className="p-2 text-text-muted bg-bg-main border border-border hover:bg-surface-3 rounded-lg active:scale-95 transition-all flex items-center gap-2"
           >
-            <ArrowLeft className={`w-5 h-5 ${localize(profile.language, '', 'rotate-180')}`} /> 
-            <span className="hidden sm:inline text-xs font-semibold uppercase tracking-widest text-text-muted">{getTranslation(profile.language, 'back')}</span>
+            {isAccessibilityUser(profile)
+              ? <Menu className="w-5 h-5" />
+              : <ArrowLeft className={`w-5 h-5 ${localize(profile.language, '', 'rotate-180')}`} />}
+            <span className="hidden sm:inline text-xs font-semibold uppercase tracking-widest text-text-muted">
+              {isAccessibilityUser(profile)
+                ? localize(profile.language, 'Menu', 'القائمة')
+                : getTranslation(profile.language, 'back')}
+            </span>
           </button>
           <div className="min-w-0">
             <h1 className="text-lg sm:text-2xl font-bold text-text-main tracking-tight flex items-center gap-2 sm:gap-3">

@@ -109,7 +109,26 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
 export const signInWithGoogle = () => signInWithPopup(auth, googleProvider);
 export const registerWithEmail = (email: string, pass: string) => createUserWithEmailAndPassword(auth, email, pass);
 export const loginWithEmail = (email: string, pass: string) => signInWithEmailAndPassword(auth, email, pass);
-export const logout = () => signOut(auth);
+
+// Session-scoped choices made on the login screen (account path / disability /
+// org code). These MUST be cleared on logout — they are per-sign-in, not
+// per-device. If they survive, the next person to sign in on this device
+// inherits them: a brand-new account with no Firestore profile gets
+// auto-provisioned using the PREVIOUS user's path (e.g. a Normal user silently
+// created as a Special-Needs/Visual profile), and Onboarding pre-fills with
+// someone else's answers.
+export const PRE_LOGIN_KEYS = ['preLoginAccountPath', 'preLoginDisability', 'preLoginOrgCode'];
+
+export function clearPreLoginState() {
+  try {
+    PRE_LOGIN_KEYS.forEach((k) => localStorage.removeItem(k));
+  } catch { /* storage unavailable (private mode) — nothing to clear */ }
+}
+
+export const logout = async () => {
+  clearPreLoginState();
+  await signOut(auth);
+};
 
 export function cleanDataForFirestore(data: any): any {
   if (data === undefined) {

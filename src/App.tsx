@@ -14,7 +14,7 @@ import LiveCaptions from "./components/LiveCaptions";
 import ReadAloudSelection from "./components/ReadAloudSelection";
 import { motion, AnimatePresence } from "motion/react";
 import { Message, UserProfile } from "./types";
-import { auth, db, handleFirestoreError, OperationType, cleanDataForFirestore } from "./lib/firebase";
+import { auth, db, handleFirestoreError, OperationType, cleanDataForFirestore, clearPreLoginState } from "./lib/firebase";
 import { useAuthState } from "react-firebase-hooks/auth";
 import { doc, setDoc, onSnapshot, getDocFromServer } from "firebase/firestore";
 import { Loader2, Settings, Layers, Menu, Moon, Sun, AlertCircle, RefreshCw, Mail } from "lucide-react";
@@ -48,6 +48,11 @@ export default function App() {
   
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
+  // True once a profile snapshot has actually been applied for the current user.
+  // Guards the "ignore our own pending writes" rule so it can only skip AFTER we
+  // have real data — otherwise the very first snapshot can be skipped and the
+  // loading gate never releases ("SYNCING PROFILE…" forever).
+  const profileAppliedRef = useRef(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [externalMessage, setExternalMessage] = useState("");
   const [currentAIResponse, setCurrentAIResponse] = useState("");
@@ -178,16 +183,37 @@ export default function App() {
     // profileLoading=false, flashing <Onboarding/> — which for a Special-Needs
     // account fires its onComplete and overwrites the existing profile (points/level).
     setProfileLoading(true);
+    profileAppliedRef.current = false;
+
+    // Watchdog: never let the app hang on "SYNCING PROFILE…". If Firestore is
+    // unreachable (captive-portal / conference Wi-Fi / offline) onSnapshot can
+    // fire NEITHER the success nor the error callback, leaving the gate stuck
+    // forever. Release it after 10s so the user reaches a usable screen.
+    const watchdog = setTimeout(() => {
+      setProfileLoading((stillLoading) => {
+        if (stillLoading) console.warn('[Cognify] Profile sync timed out — releasing the loading gate.');
+        return false;
+      });
+    }, 10000);
 
     const path = `users/${user.uid}`;
     const unsubscribe = onSnapshot(doc(db, path), async (snapshot) => {
       // Ignore our own un-acknowledged local writes — applying them would replace
       // the whole profile mid-action and reset activeThreadId (the "new chat
       // refreshes / doesn't save" bug). The server-confirmed snapshot still applies.
-      if (snapshot.metadata.hasPendingWrites) return;
+      // BUT only skip once we already hold real data: skipping the FIRST snapshot
+      // would return before setProfileLoading(false) below and hang the app on
+      // "SYNCING PROFILE…" (reported in the field, "fixed" by localStorage.clear()
+      // only because that wipes the auth session and forces a fresh login).
+      if (snapshot.metadata.hasPendingWrites && profileAppliedRef.current) return;
       if (snapshot.exists()) {
         const data = snapshot.data() as UserProfile;
         setProfile(data);
+        // The profile is established, so the login-screen hints have served their
+        // purpose. Drop them now so they can never be re-applied to a different
+        // account later on this device. (Not cleared in the no-profile branch
+        // below — Onboarding still reads them to pre-fill the user's choices.)
+        clearPreLoginState();
 
         // Redirect special needs users to the disability view by default
         const hash = window.location.hash.replace('#', '');
@@ -247,6 +273,7 @@ export default function App() {
           try {
             await setDoc(doc(db, path), defaultProfile);
             setProfile(defaultProfile);
+            clearPreLoginState(); // consumed — must not apply to a future account
             setCurrentView('disability');
             window.history.replaceState(null, '', '#disability');
           } catch (err) {
@@ -257,13 +284,24 @@ export default function App() {
           setProfile(null);
         }
       }
+      // Reached on EVERY delivered snapshot (existing profile, auto-created
+      // Special-Needs profile, or no-profile-yet) — so the gate always releases.
+      profileAppliedRef.current = true;
+      clearTimeout(watchdog);
       setProfileLoading(false);
     }, (err) => {
-      handleFirestoreError(err, OperationType.LIST, path);
+      // Release the gate FIRST: handleFirestoreError throws by design, which
+      // would otherwise skip these lines and strand the user on the spinner
+      // (e.g. a permission-denied on a stale/mismatched session).
+      clearTimeout(watchdog);
       setProfileLoading(false);
+      handleFirestoreError(err, OperationType.LIST, path);
     });
 
-    return () => unsubscribe();
+    return () => {
+      clearTimeout(watchdog);
+      unsubscribe();
+    };
   }, [user]);
 
   const handleOnboardingComplete = async (data: Partial<UserProfile>) => {
