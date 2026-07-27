@@ -42,11 +42,14 @@ export class SignSmoother {
   private gapSinceEmit = false;
 
   constructor(
-    // Stricter defaults so an ambiguous/held hand doesn't spam a wrong letter
-    // (e.g. "PPPP"): more frames must agree, at higher confidence.
-    private windowSize = 10,       // frames considered
-    private minAgreement = 7,      // frames that must agree
-    private minConfidence = 0.82,  // mean confidence threshold
+    // Balanced defaults. The REAL anti-"PPPP" guard is the repeat-gap in push()
+    // (the same letter can't re-fire until the hand leaves and returns), NOT a
+    // high confidence bar — so these can stay moderate. Setting minConfidence too
+    // high (0.82) made the smoother commit NOTHING on a real webcam, because this
+    // small MNIST-trained model rarely reaches that on live, cluttered frames.
+    private windowSize = 8,        // frames considered
+    private minAgreement = 5,      // frames that must agree (majority of window)
+    private minConfidence = 0.6,   // mean confidence threshold (webcam-realistic)
     private repeatCooldownMs = 900 // (kept for API compatibility; see push)
   ) {}
 

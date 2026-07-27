@@ -411,7 +411,10 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
       signStreamRef.current = stream;
       if (signVideoRef.current) signVideoRef.current.srcObject = stream;
 
-      const hands = new Hands({ locateFile: (f) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}` });
+      // Pin the CDN to the exact installed version — the version-less URL serves
+      // "latest", whose WASM/assets can drift out of sync with the bundled JS and
+      // silently break detection.
+      const hands = new Hands({ locateFile: (f) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/${f}` });
       hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.7, minTrackingConfidence: 0.6 });
       hands.onResults(onSignResults);
       handsRef.current = hands;

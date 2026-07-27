@@ -384,10 +384,12 @@ export default function AccessibilityOverlay({
       if (!videoRef.current) throw new Error("no-video-el");
       videoRef.current.srcObject = stream;
 
-      // Initialize MediaPipe Hands
+      // Initialize MediaPipe Hands. Pin the CDN to the installed version so the
+      // WASM/assets match the bundled JS (version-less "latest" can drift and
+      // silently stop producing hand results).
       const hands = new Hands({
         locateFile: (file) =>
-          `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`,
+          `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/${file}`,
       });
 
       hands.setOptions({
