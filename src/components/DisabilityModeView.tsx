@@ -103,7 +103,9 @@ const DisabilityModeView = React.forwardRef<ChatInterfaceRef, DisabilityModeView
             aria-label={isAccessibilityUser(profile)
               ? localize(profile.language, 'Open menu (account, settings, sign out)', 'افتح القائمة (الحساب، الإعدادات، تسجيل الخروج)')
               : getTranslation(profile.language, 'back')}
-            className="p-2 text-text-muted bg-bg-main border border-border hover:bg-surface-3 rounded-lg active:scale-95 transition-all flex items-center gap-2"
+            // lg:hidden for accessibility users: on desktop the sidebar is already
+            // docked open, so this would announce "open menu" and then do nothing.
+            className={`${isAccessibilityUser(profile) ? 'lg:hidden ' : ''}p-2 text-text-muted bg-bg-main border border-border hover:bg-surface-3 rounded-lg active:scale-95 transition-all flex items-center gap-2`}
           >
             {isAccessibilityUser(profile)
               ? <Menu className="w-5 h-5" />

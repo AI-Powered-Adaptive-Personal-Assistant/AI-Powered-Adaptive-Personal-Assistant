@@ -175,8 +175,12 @@ export default function Sidebar({ profile, setProfile, currentView, setCurrentVi
           </button>
         )}
 
-        {/* Recent threads */}
-        {(profile.chatThreads?.length || 0) > 0 && (
+        {/* Recent threads — hidden for accessibility users: switchThread() ends in
+            setCurrentView('chat'), which they can't access, so the access guard
+            bounces them straight back to #disability. That made every row a dead
+            control, and "Clear all" worse than dead (it really does delete the
+            threads powering the chat they're using). */}
+        {!a11yOnly && (profile.chatThreads?.length || 0) > 0 && (
           <>
             <div className="flex items-center justify-between px-3 pt-4 pb-1">
               <span className="text-[11px] font-bold text-faint tracking-wide uppercase">{getTranslation(profile.language, 'chatHistory')}</span>

@@ -14,13 +14,13 @@ import LiveCaptions from "./components/LiveCaptions";
 import ReadAloudSelection from "./components/ReadAloudSelection";
 import { motion, AnimatePresence } from "motion/react";
 import { Message, UserProfile } from "./types";
-import { auth, db, handleFirestoreError, OperationType, cleanDataForFirestore, clearPreLoginState } from "./lib/firebase";
+import { auth, db, handleFirestoreError, OperationType, cleanDataForFirestore, clearPreLoginState, logout } from "./lib/firebase";
 import { useAuthState } from "react-firebase-hooks/auth";
 import { doc, setDoc, onSnapshot, getDocFromServer } from "firebase/firestore";
 import { Loader2, Settings, Layers, Menu, Moon, Sun, AlertCircle, RefreshCw, Mail } from "lucide-react";
 import { ToastContainer } from "./components/Toast";
 
-import { isRTL, getTranslation } from "./lib/translations";
+import { isRTL, getTranslation, localize } from "./lib/translations";
 import { canAccessSection } from "./lib/academics";
 import { canAccessView, homeViewFor, isAccessibilityUser } from "./lib/access";
 import { isAdminUser } from "./lib/roles";
@@ -53,6 +53,12 @@ export default function App() {
   // have real data — otherwise the very first snapshot can be skipped and the
   // loading gate never releases ("SYNCING PROFILE…" forever).
   const profileAppliedRef = useRef(false);
+  const sidebarRef = useRef<HTMLDivElement>(null);
+  // True when the profile sync failed or timed out (as opposed to "this user
+  // genuinely has no profile yet"). Without this the app can't tell the two
+  // apart and falls through to Onboarding — which auto-submits for Special
+  // Needs and would overwrite a real profile. See the render guard below.
+  const [profileSyncFailed, setProfileSyncFailed] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [externalMessage, setExternalMessage] = useState("");
   const [currentAIResponse, setCurrentAIResponse] = useState("");
@@ -170,6 +176,17 @@ export default function App() {
     }
   }, [profile, currentView]);
 
+  // When the off-canvas menu opens, move focus into it and allow Escape to close.
+  // Without this a keyboard/screen-reader user gets no signal that it opened and
+  // has no way to dismiss it (the backdrop is a non-focusable div).
+  useEffect(() => {
+    if (!isMobileMenuOpen) return;
+    sidebarRef.current?.querySelector<HTMLElement>('button, a, [tabindex]:not([tabindex="-1"])')?.focus();
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setIsMobileMenuOpen(false); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isMobileMenuOpen]);
+
   // Sync profile from Firestore
   useEffect(() => {
     if (!user) {
@@ -184,16 +201,21 @@ export default function App() {
     // account fires its onComplete and overwrites the existing profile (points/level).
     setProfileLoading(true);
     profileAppliedRef.current = false;
+    setProfileSyncFailed(false);
+    let cancelled = false; // set on cleanup; guards the async auto-create continuation
 
     // Watchdog: never let the app hang on "SYNCING PROFILE…". If Firestore is
     // unreachable (captive-portal / conference Wi-Fi / offline) onSnapshot can
     // fire NEITHER the success nor the error callback, leaving the gate stuck
     // forever. Release it after 10s so the user reaches a usable screen.
     const watchdog = setTimeout(() => {
-      setProfileLoading((stillLoading) => {
-        if (stillLoading) console.warn('[Cognify] Profile sync timed out — releasing the loading gate.');
-        return false;
-      });
+      console.warn('[Cognify] Profile sync timed out — releasing the loading gate.');
+      // Mark it as a FAILURE, not "no profile". Releasing the gate with
+      // profile===null would otherwise render Onboarding, whose Special-Needs
+      // branch auto-submits and would overwrite the real profile (points/level/
+      // history) — the exact hazard on the flaky networks this watchdog exists for.
+      setProfileSyncFailed(true);
+      setProfileLoading(false);
     }, 10000);
 
     const path = `users/${user.uid}`;
@@ -272,6 +294,11 @@ export default function App() {
 
           try {
             await setDoc(doc(db, path), defaultProfile);
+            // The awaited write can settle long after this subscription was torn
+            // down (it never resolves while offline). Without this guard the
+            // continuation would apply THIS user's profile into whatever session
+            // is current now — e.g. after a sign-out and sign-in as someone else.
+            if (cancelled) return;
             setProfile(defaultProfile);
             clearPreLoginState(); // consumed — must not apply to a future account
             setCurrentView('disability');
@@ -286,6 +313,7 @@ export default function App() {
       }
       // Reached on EVERY delivered snapshot (existing profile, auto-created
       // Special-Needs profile, or no-profile-yet) — so the gate always releases.
+      if (cancelled) return;
       profileAppliedRef.current = true;
       clearTimeout(watchdog);
       setProfileLoading(false);
@@ -294,11 +322,13 @@ export default function App() {
       // would otherwise skip these lines and strand the user on the spinner
       // (e.g. a permission-denied on a stale/mismatched session).
       clearTimeout(watchdog);
+      setProfileSyncFailed(true); // sync FAILED — don't fall through to Onboarding
       setProfileLoading(false);
       handleFirestoreError(err, OperationType.LIST, path);
     });
 
     return () => {
+      cancelled = true;
       clearTimeout(watchdog);
       unsubscribe();
     };
@@ -429,6 +459,34 @@ export default function App() {
 
   if (!user) {
     return <Login />;
+  }
+
+  // Sync failed/timed out (not "no profile yet"). NEVER fall through to
+  // Onboarding here: its Special-Needs branch auto-submits on mount and would
+  // overwrite a real profile's points/level/history with defaults. Offer a
+  // retry (and a way out) instead — the data is safe on the server.
+  if (profileSyncFailed && !profile) {
+    // The profile never loaded, so we don't know the user's language — show both.
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center p-6">
+        <div className="flex flex-col items-center gap-4 text-center max-w-sm">
+          <AlertCircle className="w-10 h-10 text-amber-400" />
+          <p className="text-slate-300 text-sm leading-relaxed">
+            Couldn't reach your profile. Check your connection and try again — your data is safe.
+            <span className="block mt-2 text-slate-500" dir="rtl">تعذّر الوصول لملفك. راجع الاتصال وحاول تاني — بياناتك في أمان.</span>
+          </p>
+          <button
+            onClick={() => window.location.reload()}
+            className="flex items-center gap-2 px-5 py-3 bg-white text-slate-900 rounded-2xl text-xs font-black uppercase tracking-widest active:scale-95"
+          >
+            <RefreshCw className="w-4 h-4" /> Retry · إعادة المحاولة
+          </button>
+          <button onClick={() => logout()} className="text-[11px] text-slate-500 underline">
+            Sign out · تسجيل الخروج
+          </button>
+        </div>
+      </div>
+    );
   }
 
   // If user exists but no profile, show Onboarding
@@ -621,9 +679,20 @@ export default function App() {
           />
         )}
 
-        {/* Sidebar Wrapper */}
-        {currentView !== 'disability' && (
-          <div className={`fixed inset-y-0 start-0 z-50 transform ${isMobileMenuOpen ? 'translate-x-0' : (direction === 'rtl' ? 'translate-x-full' : '-translate-x-full')} lg:relative lg:translate-x-0 transition-transform duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] shadow-2xl lg:shadow-none`}>
+        {/* Sidebar Wrapper — mounted on EVERY view, including 'disability'. It was
+            previously skipped there, which left accessibility users with no route
+            to their account or Sign Out (the access guard bounces them back from
+            every other view, and this is the only <Sidebar> in the app).
+            `invisible` on the closed off-canvas state removes it from the tab
+            order and the accessibility tree — a pure transform leaves it
+            focusable, so keyboard/screen-reader users hit a phantom menu (and
+            could trigger Sign Out blind) before reaching the visible page. */}
+        <div
+            ref={sidebarRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label={localize(profile?.language, 'Main menu', 'القائمة الرئيسية')}
+            className={`fixed inset-y-0 start-0 z-50 transform ${isMobileMenuOpen ? 'translate-x-0' : (direction === 'rtl' ? 'translate-x-full invisible lg:visible' : '-translate-x-full invisible lg:visible')} lg:relative lg:translate-x-0 transition-transform duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] shadow-2xl lg:shadow-none`}>
             <Sidebar 
               profile={profile} 
               setProfile={async (p) => {
@@ -661,8 +730,8 @@ export default function App() {
               toggleTheme={toggleTheme}
               openLiveCaptions={() => setIsLiveCaptionsOpen(true)}
             />
-          </div>
-        )}
+        </div>
+
 
         <main className="flex-1 relative overflow-hidden flex flex-col md:flex-row">
           <Suspense

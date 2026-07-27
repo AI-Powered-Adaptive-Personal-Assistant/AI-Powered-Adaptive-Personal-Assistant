@@ -1,6 +1,6 @@
 import { localize } from '../lib/translations';
 import React, { useState } from 'react';
-import { signInWithGoogle, loginWithEmail, registerWithEmail, auth } from '../lib/firebase';
+import { signInWithGoogle, loginWithEmail, registerWithEmail, auth, clearPreLoginState } from '../lib/firebase';
 import { sendPasswordResetEmail } from 'firebase/auth';
 import { motion, AnimatePresence } from 'motion/react';
 import { Layers, Chrome, Mail, Lock, AlertCircle, Loader2, Eye, EyeOff, ArrowLeft, Brain, GraduationCap, Heart, CheckCircle, ArrowRight } from 'lucide-react';
@@ -36,6 +36,10 @@ export default function Login() {
   });
 
   const handleContinuePath = () => {
+    // Wipe any leftovers first. The writes below are path-CONDITIONAL, so without
+    // this a previous (possibly abandoned) selection's keys survive and get
+    // applied to this sign-up — e.g. someone else's disability type or faculty.
+    clearPreLoginState();
     localStorage.setItem('preLoginAccountPath', accountPath);
     if (accountPath === 'Graduation Project') {
       localStorage.setItem('preLoginUniEmail', universityEmail);

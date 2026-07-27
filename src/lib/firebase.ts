@@ -117,7 +117,23 @@ export const loginWithEmail = (email: string, pass: string) => signInWithEmailAn
 // auto-provisioned using the PREVIOUS user's path (e.g. a Normal user silently
 // created as a Special-Needs/Visual profile), and Onboarding pre-fills with
 // someone else's answers.
-export const PRE_LOGIN_KEYS = ['preLoginAccountPath', 'preLoginDisability', 'preLoginOrgCode'];
+// NOTE: must list EVERY key Login.tsx writes. The Graduation-Project trio was
+// missing, so a previous user's university email / faculty / department survived
+// a logout and got written into the next person's profile via Onboarding.
+export const PRE_LOGIN_KEYS = [
+  'preLoginAccountPath', 'preLoginDisability', 'preLoginOrgCode',
+  'preLoginUniEmail', 'preLoginFaculty', 'preLoginDepartment',
+];
+
+// Per-USER accessibility data. Cleared on logout ONLY (not by
+// clearPreLoginState, which runs on every profile load). These hold the previous
+// user's spoken phrases, personal dictionaries and speech calibration — on a
+// shared device the next person would otherwise inherit (and hear) them.
+const PER_USER_LOCAL_KEYS = [
+  'cognify_speech_history', 'cognify_speech_presets', 'cognify_euphonia_patterns',
+  'cognify_pron_dict', 'cognify_speech_profile', 'cognify_pause_threshold',
+  'cognify_speech_rate', 'cognify_speech_pitch', 'cognify_a11y_hidden',
+];
 
 export function clearPreLoginState() {
   try {
@@ -127,6 +143,9 @@ export function clearPreLoginState() {
 
 export const logout = async () => {
   clearPreLoginState();
+  try {
+    PER_USER_LOCAL_KEYS.forEach((k) => localStorage.removeItem(k));
+  } catch { /* storage unavailable */ }
   await signOut(auth);
 };
 
