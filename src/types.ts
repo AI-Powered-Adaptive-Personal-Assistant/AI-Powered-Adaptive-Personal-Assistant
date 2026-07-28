@@ -79,6 +79,11 @@ export interface UserProfile {
   // Granted via the Admin Dashboard. Permanent "owner" admins are defined by
   // email in the code; this flag is for admins promoted at runtime.
   isAdmin?: boolean;
+  // Super admin granted at runtime from the Admin Dashboard. Founder super
+  // admins are still defined by email in roles.ts and can never be revoked —
+  // that's the lockout protection. Only a super admin may write this field
+  // (enforced in firestore.rules, not just the UI).
+  isSuperAdmin?: boolean;
 }
 
 // ─── PATCH: Add these types to src/types.ts ───────────────────────────────────

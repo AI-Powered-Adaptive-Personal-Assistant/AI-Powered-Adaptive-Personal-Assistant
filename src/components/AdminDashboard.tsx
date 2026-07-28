@@ -4,9 +4,9 @@ import { db, handleFirestoreError, OperationType } from "../lib/firebase";
 import { collection, onSnapshot, deleteDoc, doc, updateDoc, query, limit } from "firebase/firestore";
 import { toast } from "./Toast";
 import {
-  SUPERADMIN_EMAILS, ADMIN_EMAILS, norm,
-  isSuperAdmin, isPermanentAdmin, isPermanent, isAdminUser,
-  canManageAdmins as canManageAdminsFor,
+  FOUNDER_SUPERADMIN_EMAILS, ADMIN_EMAILS, norm,
+  isFounderSuperAdmin, isSuperAdminUser, isPermanentAdmin, isPermanent, isAdminUser,
+  canManageAdmins as canManageAdminsFor, canManageSuperAdmin,
 } from "../lib/roles";
 import { Loader2, Users, Search, Activity, Menu, ShieldAlert, Mail, Trash2, Shield, ShieldCheck, Crown, UserPlus, UserMinus, Brain, Heart, GraduationCap, Accessibility, Eye, Ear, Mic, User as UserIcon, Copy, CheckCircle2, Download, Printer, AlertTriangle, Building2 } from "lucide-react";
 import { AccountPath, AccessibilityMode } from "../types";
@@ -147,8 +147,12 @@ export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardP
   // Deletion policy (mirrors firestore.rules — the rules are the real enforcement):
   //  - ONLY super admins can delete users. Regular admins can delete no one.
   //  - Permanent members (super admins + permanent admins) can never be deleted.
+  //  - You can never delete YOURSELF. A runtime super admin is not "permanent",
+  //    so without this guard the Delete button appears on their own row and one
+  //    click destroys their profile AND their super-admin grant unrecoverably
+  //    (the create rule forces isSuperAdmin:false, so they can't restore it).
   const canDeleteUser = (u: UserProfile) =>
-    canManageAdmins && !isPermanent(u.email);
+    canManageAdmins && !isPermanent(u.email) && norm(u.email) !== norm(profile.email);
 
   const handleDeleteUser = async (u: UserProfile) => {
     if (!canManageAdmins) {
@@ -157,6 +161,10 @@ export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardP
     }
     if (isPermanent(u.email)) {
       toast.error("Super admins and permanent admins can never be deleted.", "Protected account");
+      return;
+    }
+    if (norm(u.email) === norm(profile.email)) {
+      toast.error("You can't delete your own account from here.", "Not allowed");
       return;
     }
     if (window.confirm(`Delete "${u.name || u.email}"? This action cannot be undone.`)) {
@@ -179,6 +187,30 @@ export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardP
     try {
       await updateDoc(doc(db, "users", u.uid), { isAdmin: makeAdmin });
       toast.success(makeAdmin ? `${label} is now an admin.` : `${label} is no longer an admin.`, "Admins updated");
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, "users");
+    } finally {
+      setBusyUid(null);
+    }
+  };
+
+  // Grant / revoke SUPER admin at runtime. Guarded three ways: only a super
+  // admin can do it, never against a founder (they're the lockout protection),
+  // and never against yourself. firestore.rules enforces the same — the UI
+  // checks are only there to avoid a pointless round-trip.
+  const handleToggleSuperAdmin = async (u: UserProfile, makeSuper: boolean) => {
+    if (!canManageSuperAdmin(profile, u)) return;
+    const label = u.name || u.email;
+    if (!window.confirm(makeSuper
+      ? `Make "${label}" a SUPER ADMIN?\n\nThey will be able to delete users and promote or demote other admins — including making more super admins.`
+      : `Revoke super admin from "${label}"?\n\nThey will keep normal admin access only if they were separately made an admin.`)) return;
+    setBusyUid(u.uid);
+    try {
+      await updateDoc(doc(db, "users", u.uid), { isSuperAdmin: makeSuper });
+      toast.success(
+        makeSuper ? `${label} is now a super admin.` : `${label} is no longer a super admin.`,
+        "Super admins updated",
+      );
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, "users");
     } finally {
@@ -388,14 +420,18 @@ export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardP
     emails.filter(e => !knownAdminEmails.has(e)).map(e => ({ uid: `${prefix}-${e}`, email: e, name: '' } as UserProfile));
 
   const superAdmins = [
-    ...adminUsers.filter(u => isSuperAdmin(u.email)),
-    ...pending(SUPERADMIN_EMAILS, 'sa'),
+    ...adminUsers.filter(u => isSuperAdminUser(u)),
+    ...pending(FOUNDER_SUPERADMIN_EMAILS, 'sa'),
   ];
   const permanentAdmins = [
-    ...adminUsers.filter(u => isPermanentAdmin(u.email)),
+    // Exclude anyone already listed as a super admin above, or a permanent admin
+    // who was ALSO granted runtime super would render twice with a duplicate key.
+    ...adminUsers.filter(u => isPermanentAdmin(u.email) && !isSuperAdminUser(u)),
     ...pending(ADMIN_EMAILS, 'adm'),
   ];
-  const promotedAdmins = adminUsers.filter(u => !isPermanent(u.email));
+  // A runtime super admin is deliberately NOT "permanent", so exclude them
+  // explicitly or they'd appear in both buckets (duplicate React key + wrong count).
+  const promotedAdmins = adminUsers.filter(u => !isPermanent(u.email) && !isSuperAdminUser(u));
   const adminCount = superAdmins.length + permanentAdmins.length + promotedAdmins.length;
 
   const formatDate = (isoString?: string) => {
@@ -724,7 +760,7 @@ export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardP
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {[...superAdmins, ...permanentAdmins, ...promotedAdmins].map((a) => {
-                const tier = isSuperAdmin(a.email) ? 'super' : isPermanentAdmin(a.email) ? 'admin' : 'promoted';
+                const tier = isSuperAdminUser(a) ? 'super' : isPermanentAdmin(a.email) ? 'admin' : 'promoted';
                 const isMe = norm(a.email) === norm(profile.email);
                 const gold = tier === 'super';
                 return (
@@ -878,10 +914,26 @@ export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardP
                          <td className="p-4 text-xs text-text-muted truncate max-w-[200px]" title={u.email}>{u.email}</td>
                          <td className="p-4 text-right">
                            <div className="flex items-center justify-end gap-2">
-                             {isSuperAdmin(u.email) ? (
-                               <span className="inline-flex items-center gap-1 px-3 py-1.5 bg-amber-500/15 text-amber-500 text-[10px] font-bold uppercase tracking-widest rounded-lg">
-                                 <Crown className="w-3 h-3" /> Super Admin
-                               </span>
+                             {isSuperAdminUser(u) ? (
+                               <>
+                                 <span
+                                   className="inline-flex items-center gap-1 px-3 py-1.5 bg-amber-500/15 text-amber-500 text-[10px] font-bold uppercase tracking-widest rounded-lg"
+                                   title={isFounderSuperAdmin(u.email) ? 'Founder super admin — can never be revoked' : 'Super admin (granted here)'}
+                                 >
+                                   <Crown className="w-3 h-3" /> Super Admin
+                                 </span>
+                                 {/* Revoke is offered only for RUNTIME super admins — never a
+                                     founder (lockout protection) and never yourself. */}
+                                 {canManageSuperAdmin(profile, u) && (
+                                   <button
+                                     onClick={() => handleToggleSuperAdmin(u, false)}
+                                     disabled={busyUid === u.uid}
+                                     className="inline-flex items-center gap-2 px-3 py-1.5 bg-amber-500/15 hover:bg-amber-500/25 text-amber-600 dark:text-amber-400 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-colors disabled:opacity-50"
+                                   >
+                                     {busyUid === u.uid ? <Loader2 className="w-3 h-3 animate-spin" /> : <UserMinus className="w-3 h-3" />} Revoke Super
+                                   </button>
+                                 )}
+                               </>
                              ) : isPermanentAdmin(u.email) ? (
                                <span className="inline-flex items-center gap-1 px-3 py-1.5 bg-primary-soft text-primary text-[10px] font-bold uppercase tracking-widest rounded-lg">
                                  <Shield className="w-3 h-3" /> Admin
@@ -907,6 +959,18 @@ export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardP
                                  className="inline-flex items-center gap-2 px-3 py-1.5 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-colors disabled:opacity-50"
                                >
                                  {busyUid === u.uid ? <Loader2 className="w-3 h-3 animate-spin" /> : <UserPlus className="w-3 h-3" />} Make Admin
+                               </button>
+                             )}
+                             {/* Promote straight to super admin. Available to super admins
+                                 for anyone who isn't already super and isn't themselves. */}
+                             {!isSuperAdminUser(u) && canManageSuperAdmin(profile, u) && (
+                               <button
+                                 onClick={() => handleToggleSuperAdmin(u, true)}
+                                 disabled={busyUid === u.uid}
+                                 title="Grant full control: delete users and manage all admins"
+                                 className="inline-flex items-center gap-2 px-3 py-1.5 bg-amber-500/15 hover:bg-amber-500/25 text-amber-600 dark:text-amber-400 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-colors disabled:opacity-50"
+                               >
+                                 {busyUid === u.uid ? <Loader2 className="w-3 h-3 animate-spin" /> : <Crown className="w-3 h-3" />} Make Super
                                </button>
                              )}
                              <a

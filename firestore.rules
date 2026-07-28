@@ -25,19 +25,47 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // ── Access tiers (keep in sync with AdminDashboard.tsx) ──────────────────
-    // Super Admins sit ABOVE admins: only they can grant/revoke admin rights.
-    function isSuperAdmin() {
-      return isAuthenticated() && request.auth.token.email in [
+    // ── Access tiers (keep in sync with src/lib/roles.ts) ────────────────────
+    // Super Admins sit ABOVE admins: only they can grant/revoke admin rights
+    // AND grant/revoke super admin itself.
+    //
+    // FOUNDER super admins are hardcoded here and can NEVER be demoted — that's
+    // the lockout protection. Runtime super admins carry isSuperAdmin:true on
+    // their user document and can be granted/revoked from the Admin Dashboard.
+    function isFounderSuperAdmin() {
+      // .lower() so a differently-cased token email can't miss the allowlist
+      // (the stored side in isFounderTarget/protectedEmails already lowercases).
+      return isAuthenticated() && request.auth.token.email.lower() in [
         "modyhashim2006@gmail.com",
         "mariemsayedr33@gmail.com",
         "pro.mahmoud.h@gmail.com"
       ];
     }
 
+    function isSuperAdmin() {
+      return isFounderSuperAdmin() ||
+             (isAuthenticated() &&
+              exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isSuperAdmin', false) == true);
+    }
+
+    // The TARGET of this write is a founder — their super-admin status is immutable.
+    function isFounderTarget() {
+      return resource.data.get('email', '').lower() in [
+        "modyhashim2006@gmail.com",
+        "mariemsayedr33@gmail.com",
+        "pro.mahmoud.h@gmail.com"
+      ];
+    }
+
+    // The isSuperAdmin flag must not change on this write.
+    function superFlagUnchanged() {
+      return request.resource.data.get('isSuperAdmin', false) == resource.data.get('isSuperAdmin', false);
+    }
+
     // Permanent email-based admins (below super admins).
     function isPermanentAdmin() {
-      return isAuthenticated() && request.auth.token.email in [
+      return isAuthenticated() && request.auth.token.email.lower() in [
         "marwaneltaweel0@gmail.com",
         "its.alkhateeb@gmail.com",
         "esraahosni8@gmail.com",
@@ -122,10 +150,21 @@ service cloud.firestore {
       return email is string && email.size() >= 3 && email.size() <= 256 && email.matches("^[^@]+@[^@]+\\.[^@]+$");
     }
 
+    // The stored email MUST match the verified identity on the token. Without
+    // this, anyone could create their own doc claiming a founder's address —
+    // which makes the doc permanently undeletable (isProtectedTarget) and makes
+    // the client-side role helpers, which read the DOCUMENT email, show it as a
+    // founder super admin. Uses .get() so a provider without an email claim
+    // fails closed instead of erroring.
+    function emailMatchesToken(data) {
+      return data.email.lower() == request.auth.token.get('email', '').lower();
+    }
+
     function isValidUser(data) {
       return isAdmin() || (data.keys().hasAll(["uid", "email", "role", "level", "onboardingComplete", "points"]) &&
              data.uid == request.auth.uid &&
              isValidEmail(data.email) &&
+             emailMatchesToken(data) &&
              data.role in ["Student", "Professional"] &&
              data.level in ["Basic", "Intermediate", "Advanced"] &&
              data.points is number &&
@@ -145,14 +184,28 @@ service cloud.firestore {
       allow create: if isOwner(userId) && isValidUser(request.resource.data) &&
                     (isSuperAdmin() ||
                      (request.resource.data.get('isAdmin', false) == false &&
-                      request.resource.data.get('isOrgManager', false) == false));
+                      request.resource.data.get('isOrgManager', false) == false &&
+                      request.resource.data.get('isSuperAdmin', false) == false));
       // Either: the user updates their own doc (but can't flip their own admin
       // or org-manager privileges), OR an admin updates anyone's doc — but the
       // privilege flags can only be changed by a super admin, and NON-super
       // admins can never touch a permanent member's profile.
-      allow update: if identityPreserved() && (
-                      (isOwner(userId) && isValidUser(request.resource.data) && adminFlagUnchanged() && orgFieldsUnchanged())
-                      || (isAdmin() && ((adminFlagUnchanged() && orgFieldsUnchanged()) || isSuperAdmin())
+      allow update: if identityPreserved()
+                    // A founder's super-admin status can never be revoked by anyone,
+                    // including another super admin. This is the lockout protection.
+                    && (superFlagUnchanged() || !isFounderTarget())
+                    // The super flag may only ever be changed on SOMEONE ELSE's doc,
+                    // so nobody can demote themselves (accidentally or via the SDK).
+                    && (superFlagUnchanged() || !isOwner(userId))
+                    && (
+                      // The user updating their OWN doc can never touch any privilege flag.
+                      (isOwner(userId) && isValidUser(request.resource.data)
+                        && adminFlagUnchanged() && orgFieldsUnchanged() && superFlagUnchanged())
+                      // An admin updating anyone: privilege flags (admin/org/super) may
+                      // ONLY be changed by a super admin, and non-super admins can never
+                      // touch a permanent member's profile.
+                      || (isAdmin()
+                          && ((adminFlagUnchanged() && orgFieldsUnchanged() && superFlagUnchanged()) || isSuperAdmin())
                           && (!isProtectedTarget() || isOwner(userId) || isSuperAdmin()))
                     );
       // Deletion policy:
@@ -165,7 +218,15 @@ service cloud.firestore {
       // notes, ...): the owner has full access; admins can read everything but
       // may only WRITE to a non-protected user's data — a permanent member's
       // data can only be modified by themselves or a super admin.
-      match /{document=**} {
+      // CRITICAL: the wildcard MUST start with a collection segment ({sub}).
+      // Under rules_version 2 a bare `match /{document=**}` matches ZERO or more
+      // segments, so it also matches /users/{userId} ITSELF — and because
+      // Firestore ORs all matching rules, `allow write: if isOwner(userId)`
+      // below would grant every user unrestricted write to their own profile,
+      // bypassing identityPreserved/adminFlagUnchanged/superFlagUnchanged and
+      // letting anyone self-grant isSuperAdmin. Requiring /{sub}/ keeps this
+      // rule on real subcollections only.
+      match /{sub}/{document=**} {
         allow read: if isOwner(userId) || isAdmin();
         allow write: if isOwner(userId)
                      || (isAdmin() && (isSuperAdmin() || !isProtectedUser(userId)));
