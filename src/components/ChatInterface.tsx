@@ -1145,7 +1145,7 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
           <div className="flex items-center gap-3 md:gap-4">
             <button 
               onClick={onMenuClick}
-              className="lg:hidden p-2 -ms-2 text-text-muted hover:bg-surface-3 rounded-lg active:scale-95"
+              className="p-2 -ms-2 text-text-muted hover:bg-surface-3 rounded-lg active:scale-95"
             >
               <Menu className="w-5 h-5" />
             </button>

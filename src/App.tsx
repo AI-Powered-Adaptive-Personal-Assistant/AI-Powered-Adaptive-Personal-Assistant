@@ -673,26 +673,27 @@ export default function App() {
 
         {/* Mobile menu backdrop */}
         {isMobileMenuOpen && (
-          <div 
-            className="fixed inset-0 bg-black/60 z-40 lg:hidden backdrop-blur-sm"
+          <div
+            className="fixed inset-0 bg-black/60 z-40 backdrop-blur-sm"
             onClick={() => setIsMobileMenuOpen(false)}
           />
         )}
 
-        {/* Sidebar Wrapper — mounted on EVERY view, including 'disability'. It was
-            previously skipped there, which left accessibility users with no route
-            to their account or Sign Out (the access guard bounces them back from
-            every other view, and this is the only <Sidebar> in the app).
-            `invisible` on the closed off-canvas state removes it from the tab
-            order and the accessibility tree — a pure transform leaves it
-            focusable, so keyboard/screen-reader users hit a phantom menu (and
-            could trigger Sign Out blind) before reaching the visible page. */}
+        {/* Sidebar — an off-canvas drawer at EVERY width, opened by the hamburger.
+            It is mounted on every view (including 'disability'): it is the only
+            <Sidebar> in the app and the only route to account/settings/Sign Out,
+            and the access guard bounces accessibility users back from every other
+            view, so skipping it here would trap them.
+            `invisible` while closed removes it from the tab order and the
+            accessibility tree — a pure transform leaves it focusable, so
+            keyboard/screen-reader users would hit a phantom menu (and could
+            trigger Sign Out blind) before reaching the visible page. */}
         <div
             ref={sidebarRef}
             role="dialog"
             aria-modal="true"
             aria-label={localize(profile?.language, 'Main menu', 'القائمة الرئيسية')}
-            className={`fixed inset-y-0 start-0 z-50 transform ${isMobileMenuOpen ? 'translate-x-0' : (direction === 'rtl' ? 'translate-x-full invisible lg:visible' : '-translate-x-full invisible lg:visible')} lg:relative lg:translate-x-0 transition-transform duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] shadow-2xl lg:shadow-none`}>
+            className={`fixed inset-y-0 start-0 z-50 transform ${isMobileMenuOpen ? 'translate-x-0' : (direction === 'rtl' ? 'translate-x-full invisible' : '-translate-x-full invisible')} transition-transform duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] shadow-2xl`}>
             <Sidebar 
               profile={profile} 
               setProfile={async (p) => {

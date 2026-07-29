@@ -8,6 +8,7 @@ import { geminiService } from "../services/geminiService";
 import { Hands, Results } from "@mediapipe/hands";
 import { Camera as MediaPipeCamera } from "@mediapipe/camera_utils";
 import type { SignClassifier } from "../lib/signClassifier";
+import { speak, cancelSpeech } from "../lib/tts";
 
 interface SignVideoStudioProps {
   profile: UserProfile;
@@ -25,6 +26,7 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
   const [isAnswering, setIsAnswering] = useState(false);
   const [aiResponse, setAiResponse] = useState("");
   const [is3DActive, setIs3DActive] = useState(true); // real 3D engine is now the default
+  const [isSpeakingAloud, setIsSpeakingAloud] = useState(false); // "Say it aloud" TTS state
   const prevInputRef = useRef("");
   const recognitionRef = useRef<any>(null);
 
@@ -103,7 +105,26 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
     signHint: localize(profile.language, "Fingerspell (A–Y) in front of the camera — letters are read live and added automatically.", "اهجِ الحروف (A–Y) قدّام الكاميرا — بتتقري لحظيًا وتتضاف تلقائيًا."),
     space: localize(profile.language, "Space", "مسافة"),
     del: localize(profile.language, "Delete", "حذف"),
-    clear: localize(profile.language, "Clear", "مسح")
+    clear: localize(profile.language, "Clear", "مسح"),
+    sayAloud: localize(profile.language, "Say it aloud", "انطقها بصوت"),
+    stopAloud: localize(profile.language, "Stop", "إيقاف"),
+  };
+
+  // Speak the script aloud so the app becomes the student's VOICE — they type or
+  // fingerspell, and the person in front of them hears it.
+  const speakAloud = () => {
+    const text = inputText.trim();
+    if (!text) return;
+    speak(text, profile.language, {
+      onStart: () => setIsSpeakingAloud(true),
+      onEnd: () => setIsSpeakingAloud(false),
+      onError: () => setIsSpeakingAloud(false),
+    });
+  };
+
+  const stopSpeakAloud = () => {
+    cancelSpeech();
+    setIsSpeakingAloud(false);
   };
 
   useEffect(() => {
@@ -473,6 +494,7 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
       try { recognitionRef.current?.stop(); } catch { /* ignore */ }
       recognitionRef.current = null; // stop the live STT session too, not just the camera
       stopDirectAudioRecord();
+      cancelSpeech(); // don't let "Say it aloud" keep talking over the next screen
       signClfRef.current?.dispose();
       signClfRef.current = null; // no stale handle a late frame could touch
     };
@@ -566,7 +588,7 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
            <div className="flex items-center gap-4">
              <button
               onClick={onMenuClick}
-              className="lg:hidden p-2 text-text-muted bg-white shadow-sm border border-border hover:bg-surface-2 rounded-lg active:scale-95"
+              className="p-2 text-text-muted bg-white shadow-sm border border-border hover:bg-surface-2 rounded-lg active:scale-95"
             >
               <Menu className="w-6 h-6" />
             </button>
@@ -831,6 +853,23 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
                            </button>
                         )
                      ))}
+
+                     {/* "Say it aloud" — the app speaks FOR the student. A non-verbal
+                         or speech-impaired user types (or fingerspells) and this gives
+                         them a voice to talk to a hearing person in the room. */}
+                     <button
+                       onClick={() => (isSpeakingAloud ? stopSpeakAloud() : speakAloud())}
+                       disabled={!inputText.trim() && !isSpeakingAloud}
+                       aria-label={isSpeakingAloud ? t.stopAloud : t.sayAloud}
+                       className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 disabled:opacity-50 disabled:active:scale-100 active:scale-95 transform transition-all text-white font-bold rounded-xl shadow-lg ${
+                         isSpeakingAloud
+                           ? 'bg-rose-500 hover:bg-rose-600 shadow-rose-500/20'
+                           : 'bg-gradient-to-tr from-sky-500 to-indigo-600 hover:from-sky-600 hover:to-indigo-700 shadow-sky-500/20'
+                       }`}
+                     >
+                       {isSpeakingAloud ? <Square className="w-5 h-5 fill-current" /> : <Volume2 className="w-5 h-5" />}
+                       {isSpeakingAloud ? t.stopAloud : t.sayAloud}
+                     </button>
 
                      {/* Ask AI Button to get answer result output */}
                      <button

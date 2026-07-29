@@ -197,7 +197,7 @@ export default function ProfilePage({ profile, onMenuClick, setProfile }: Profil
         <div className="flex items-start gap-4 space-y-2">
           <button 
             onClick={onMenuClick}
-            className="lg:hidden p-2 mt-1 text-text-muted bg-bg-card shadow-sm border border-border hover:bg-bg-main rounded-lg active:scale-95"
+            className="p-2 mt-1 text-text-muted bg-bg-card shadow-sm border border-border hover:bg-bg-main rounded-lg active:scale-95"
           >
             <Menu className="w-6 h-6" />
           </button>

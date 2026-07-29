@@ -445,7 +445,7 @@ export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardP
       <header className="flex items-center gap-4 p-6 md:p-10 shrink-0 border-b border-border bg-bg-card shadow-sm z-10">
         <button 
           onClick={onMenuClick}
-          className="lg:hidden p-2 text-text-muted bg-bg-card shadow-sm border border-border hover:bg-bg-main rounded-lg active:scale-95"
+          className="p-2 text-text-muted bg-bg-card shadow-sm border border-border hover:bg-bg-main rounded-lg active:scale-95"
         >
           <Menu className="w-6 h-6" />
         </button>
