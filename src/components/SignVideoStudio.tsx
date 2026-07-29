@@ -26,7 +26,10 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
   const [isAnswering, setIsAnswering] = useState(false);
   const [aiResponse, setAiResponse] = useState("");
   const [is3DActive, setIs3DActive] = useState(true); // real 3D engine is now the default
-  const [isSpeakingAloud, setIsSpeakingAloud] = useState(false); // "Say it aloud" TTS state
+  // Which text is currently being spoken aloud — the user's script or the AI's
+  // answer. One shared value because speechSynthesis has a single output: starting
+  // one must visibly stop the other rather than leaving two "Stop" buttons lit.
+  const [speakingWhat, setSpeakingWhat] = useState<null | 'input' | 'answer'>(null);
   const prevInputRef = useRef("");
   const recognitionRef = useRef<any>(null);
 
@@ -108,24 +111,39 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
     clear: localize(profile.language, "Clear", "مسح"),
     sayAloud: localize(profile.language, "Say it aloud", "انطقها بصوت"),
     stopAloud: localize(profile.language, "Stop", "إيقاف"),
+    readAnswer: localize(profile.language, "Read aloud", "اقرأ بصوت"),
   };
 
-  // Speak the script aloud so the app becomes the student's VOICE — they type or
-  // fingerspell, and the person in front of them hears it.
-  const speakAloud = () => {
-    const text = inputText.trim();
+  /** Speak any text aloud and remember WHICH box it came from.
+   *  - 'input'  → the app becomes the student's VOICE: they type or fingerspell
+   *               and the person in front of them hears it.
+   *  - 'answer' → reads the AI's reply, so a blind or low-vision student can
+   *               hear it instead of reading it. */
+  const speakAloud = (what: 'input' | 'answer') => {
+    const text = (what === 'input' ? inputText : aiResponse).trim();
     if (!text) return;
     speak(text, profile.language, {
-      onStart: () => setIsSpeakingAloud(true),
-      onEnd: () => setIsSpeakingAloud(false),
-      onError: () => setIsSpeakingAloud(false),
+      onStart: () => setSpeakingWhat(what),
+      onEnd: () => setSpeakingWhat(null),
+      onError: () => setSpeakingWhat(null),
     });
   };
 
   const stopSpeakAloud = () => {
     cancelSpeech();
-    setIsSpeakingAloud(false);
+    setSpeakingWhat(null);
   };
+
+  // A blind / low-vision student can't see the answer appear, so read it to them
+  // automatically. Everyone else gets the button and is not spoken at unasked.
+  const autoReadAnswer = profile.accessibilityMode === 'Visual';
+  useEffect(() => {
+    if (!autoReadAnswer || !aiResponse.trim() || isAnswering) return;
+    speakAloud('answer');
+    // speakAloud is stable enough for this purpose; re-running on every render
+    // would restart the speech mid-sentence.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [aiResponse, isAnswering, autoReadAnswer]);
 
   useEffect(() => {
     const saved = localStorage.getItem('cognify_euphonia_patterns');
@@ -804,6 +822,21 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
                                   <Play className="w-3 h-3 fill-current text-white" />
                                   {t.useAnswer}
                                 </button>
+                                {/* Hear the ANSWER — for blind/low-vision students, and for
+                                    anyone who'd rather listen than read it. */}
+                                <button
+                                  onClick={() => (speakingWhat === 'answer' ? stopSpeakAloud() : speakAloud('answer'))}
+                                  aria-label={speakingWhat === 'answer' ? t.stopAloud : t.readAnswer}
+                                  className={`text-[10px] font-black text-white px-3.5 py-2 rounded-lg flex items-center gap-1.5 transition-all shadow-md active:scale-95 ${
+                                    speakingWhat === 'answer'
+                                      ? 'bg-rose-500 hover:bg-rose-600'
+                                      : 'bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-600 hover:to-indigo-700'
+                                  }`}
+                                >
+                                  {speakingWhat === 'answer'
+                                    ? <><Square className="w-3 h-3 fill-current" /> {t.stopAloud}</>
+                                    : <><Volume2 className="w-3 h-3" /> {t.readAnswer}</>}
+                                </button>
                               </div>
                             </div>
                           )}
@@ -858,17 +891,17 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
                          or speech-impaired user types (or fingerspells) and this gives
                          them a voice to talk to a hearing person in the room. */}
                      <button
-                       onClick={() => (isSpeakingAloud ? stopSpeakAloud() : speakAloud())}
-                       disabled={!inputText.trim() && !isSpeakingAloud}
-                       aria-label={isSpeakingAloud ? t.stopAloud : t.sayAloud}
+                       onClick={() => (speakingWhat === 'input' ? stopSpeakAloud() : speakAloud('input'))}
+                       disabled={!inputText.trim() && speakingWhat !== 'input'}
+                       aria-label={speakingWhat === 'input' ? t.stopAloud : t.sayAloud}
                        className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 disabled:opacity-50 disabled:active:scale-100 active:scale-95 transform transition-all text-white font-bold rounded-xl shadow-lg ${
-                         isSpeakingAloud
+                         speakingWhat === 'input'
                            ? 'bg-rose-500 hover:bg-rose-600 shadow-rose-500/20'
                            : 'bg-gradient-to-tr from-sky-500 to-indigo-600 hover:from-sky-600 hover:to-indigo-700 shadow-sky-500/20'
                        }`}
                      >
-                       {isSpeakingAloud ? <Square className="w-5 h-5 fill-current" /> : <Volume2 className="w-5 h-5" />}
-                       {isSpeakingAloud ? t.stopAloud : t.sayAloud}
+                       {speakingWhat === 'input' ? <Square className="w-5 h-5 fill-current" /> : <Volume2 className="w-5 h-5" />}
+                       {speakingWhat === 'input' ? t.stopAloud : t.sayAloud}
                      </button>
 
                      {/* Ask AI Button to get answer result output */}

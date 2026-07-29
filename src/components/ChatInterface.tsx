@@ -885,6 +885,14 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
       const updatedHistory = [...newHistory, assistantMessage];
       setMessages(updatedHistory);
       setStreamingText("");
+
+      // A blind / low-vision student can't see the reply arrive, so read it to
+      // them automatically. (The overlay handles this when it's mounted — skip
+      // then, or the answer would be spoken twice over itself.)
+      if (profile.accessibilityMode === 'Visual' && lastText && !onStreamingUpdate) {
+        handleSpeak(assistantMessage);
+      }
+
       if (onStreamingUpdate) {
         // Trigger TTS directly with the finalized AI text
         onStreamingUpdate(""); // force reset
