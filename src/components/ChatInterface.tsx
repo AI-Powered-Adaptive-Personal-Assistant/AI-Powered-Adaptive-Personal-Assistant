@@ -282,6 +282,22 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
   const [signingId, setSigningId] = useState<string | null>(null);
   const [isReadingDocument, setIsReadingDocument] = useState(false);
 
+  // Turn OFF the active accessibility mode from the header badge. Modes are
+  // sticky (saved to the profile), so a user who tried one while exploring —
+  // even on a Normal account — would otherwise stay stuck with the avatar/mic
+  // overlay and no obvious way out. Persists so it survives a reload.
+  const handleDisableAccessibility = () => {
+    if (!window.confirm(localize(profile.language,
+      'Turn off accessibility mode? You can switch it back on any time from Accessibility settings.',
+      'تقفل وضع الإتاحة؟ تقدر ترجّعه في أي وقت من إعدادات الإتاحة.'))) return;
+    window.speechSynthesis?.cancel();
+    if (setProfile) setProfile({ ...profile, accessibilityMode: 'None' });
+    if (profile.uid) {
+      setDoc(doc(db, `users/${profile.uid}`), { accessibilityMode: 'None' }, { merge: true })
+        .catch(err => handleFirestoreError(err, OperationType.UPDATE, `users/${profile.uid}`));
+    }
+  };
+
   const handleSpeak = (m: Message) => {
     if (speakingMessageId === m.id) {
       window.speechSynthesis.cancel();
@@ -1162,9 +1178,15 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
               <span className="text-sm md:text-base font-normal text-text-muted truncate max-w-[120px] md:max-w-xs">· {activeThread?.title || 'AI Session'}</span>
             </div>
             {profile.accessibilityMode !== 'None' && (
-              <div className="hidden sm:flex items-center gap-1.5 px-3 py-1 bg-primary-soft text-primary border border-primary/10 rounded-full text-[10px] font-black uppercase tracking-wider">
+              <button
+                onClick={handleDisableAccessibility}
+                title={localize(profile.language, 'Accessibility mode is on — click to turn it off', 'وضع الإتاحة شغّال — اضغط لإيقافه')}
+                aria-label={localize(profile.language, 'Turn off accessibility mode', 'إيقاف وضع الإتاحة')}
+                className="hidden sm:flex items-center gap-1.5 ps-3 pe-2 py-1 bg-primary-soft text-primary border border-primary/10 hover:bg-primary/15 rounded-full text-[10px] font-black uppercase tracking-wider transition-colors group"
+              >
                  <Accessibility className="w-3 h-3" /> {profile.accessibilityMode} {localize(profile.language, 'Mode', 'وضع')}
-              </div>
+                 <X className="w-3 h-3 opacity-50 group-hover:opacity-100" />
+              </button>
             )}
             {(profile.accessibilityMode === 'Vocal-Deaf' || profile.accessibilityMode === 'Sign-Only') && (
               <div className="flex items-center gap-2 px-3 py-1 bg-primary-soft text-primary border border-border rounded-xl text-[10px] font-black uppercase tracking-wider animate-pulse">
