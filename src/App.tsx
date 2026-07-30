@@ -285,8 +285,10 @@ export default function App() {
             accountPath: 'Special Needs',
             disabilityType: disabilityType,
             accessibilityMode: accessibilityMode,
-            // Charity/organization code entered at sign-up (e.g. RESALA) — lets
-            // that organization's staff follow up on their own users.
+            // Organization is no longer collected at sign-up (nobody should be
+            // able to self-claim a charity's roster), so this resolves to '' —
+            // an admin assigns it instead. The read is kept so re-introducing a
+            // sign-up field would work without touching this again.
             organization: localStorage.getItem('preLoginOrgCode') || '',
             questionScore: 0,
             onboardingComplete: true,
