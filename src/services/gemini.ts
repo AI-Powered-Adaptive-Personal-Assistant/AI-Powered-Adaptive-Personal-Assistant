@@ -1,13 +1,20 @@
 import { UserProfile, Message } from "../types";
 import { toast } from "../components/Toast";
 
-// Supports ONE or MANY keys: set VITE_GEMINI_API_KEY to a single key, or several
-// comma/space-separated keys to multiply the free-tier quota. On 429/503 the
-// retry rotates to the next key.
-const GEMINI_KEYS: string[] = (((import.meta as any).env?.VITE_GEMINI_API_KEY as string) || "")
-  .split(/[,\s]+/)
-  .map((k: string) => k.trim())
-  .filter(Boolean);
+// SECURITY: provider keys are NEVER read in the browser any more.
+//
+// They used to come from VITE_GEMINI_API_KEY / VITE_GROQ_API_KEY /
+// VITE_XAI_API_KEY. Vite inlines every VITE_* variable into the production
+// bundle at build time, so all of those keys were extractable from the public
+// JS — anyone could read them from the deployed site and spend the quota.
+// (.env being gitignored protects the repo, not the shipped bundle.)
+//
+// All provider calls now go through our own serverless functions under /api/,
+// which hold the keys in server-only Vercel environment variables:
+//   GEMINI_API_KEY, GROQ_API_KEY, XAI_API_KEY   (note: no VITE_ prefix)
+// The Gemini → Groq → xAI failover and multi-key rotation moved server-side too,
+// so there is no longer any in-browser fallback that could need a key.
+const GEMINI_KEYS: string[] = [];
 
 /** First key (used to build the initial request URL). "" if none configured. */
 function geminiPrimaryKey(): string {
@@ -18,14 +25,8 @@ function geminiPrimaryKey(): string {
 //  - Groq:  VITE_GROQ_API_KEY  (keys start with "gsk_")  — free, fast
 //  - xAI/Grok: VITE_XAI_API_KEY (keys start with "xai-")
 // One or several comma-separated keys each.
-const GROQ_KEYS: string[] = (((import.meta as any).env?.VITE_GROQ_API_KEY as string) || "")
-  .split(/[,\s]+/)
-  .map((k: string) => k.trim())
-  .filter(Boolean);
-const XAI_KEYS: string[] = (((import.meta as any).env?.VITE_XAI_API_KEY as string) || "")
-  .split(/[,\s]+/)
-  .map((k: string) => k.trim())
-  .filter(Boolean);
+const GROQ_KEYS: string[] = [];
+const XAI_KEYS: string[] = [];
 
 /** First available fallback key (Groq or xAI). "" if none. */
 function groqPrimaryKey(): string {
@@ -41,11 +42,11 @@ function providerFor(key: string): { url: string; model: string } {
   return { url: "https://api.groq.com/openai/v1/chat/completions", model: "llama-3.3-70b-versatile" };
 }
 
-// This is a static (no-backend) deployment: the /api/* routes don't exist and
-// return 405. Default to NOT calling the backend at all — go straight to the
-// direct Gemini/Groq path. (If you ever deploy the Express backend, set this to
-// null to auto-detect it instead.)
-let backendUp: boolean | null = false;
+// The /api/* routes now EXIST as Vercel serverless functions (see /api/gemini/*),
+// so always use them — they hold the provider keys server-side. `null` means
+// "not probed yet"; a non-OK/HTML response flips it to false, which now only
+// disables pointless retries (there is no in-browser key path to fall back to).
+let backendUp: boolean | null = null;
 
 // Known-good Gemini model IDs, tried in order — the first that responds wins.
 // (There is NO "gemini-3.5-flash"; using a non-existent model 404s silently.)

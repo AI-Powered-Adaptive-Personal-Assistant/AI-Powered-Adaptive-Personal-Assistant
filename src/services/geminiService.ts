@@ -1,63 +1,22 @@
 // Accessibility / Sign-Studio AI helpers.
 //
-// This is a STATIC (no-backend) deployment, so these talk to the Gemini REST
-// API directly from the browser using VITE_GEMINI_API_KEY. The vision/audio
-// features need a multimodal model, so there's no text-only (Groq) fallback for
-// those — they degrade gracefully instead of throwing.
+// SECURITY: these used to call the Gemini/Groq/xAI REST APIs straight from the
+// browser using VITE_GEMINI_API_KEY / VITE_GROQ_API_KEY / VITE_XAI_API_KEY.
+// Vite inlines every VITE_* variable into the production bundle, so those keys
+// were readable by anyone who opened the deployed JS. They now go through our
+// own serverless function at /api/gemini/generateContent, which holds the keys
+// in server-only env vars (GEMINI_API_KEY / GROQ_API_KEY / XAI_API_KEY) and does
+// the model + key rotation and the Groq/xAI fallback there.
+//
+// The vision/audio helpers still need a multimodal model, so a request carrying
+// inlineData is Gemini-only and degrades gracefully ("" on failure) exactly as
+// before — every caller's existing fallback path is unchanged.
 
-const GEMINI_KEYS: string[] = (((import.meta as any).env?.VITE_GEMINI_API_KEY as string) || "")
-  .split(/[,\s]+/)
-  .map((k: string) => k.trim())
-  .filter(Boolean);
-
-// OpenAI-compatible free fallbacks (Groq / xAI) — same keys the main chat uses.
-// The sign/accessibility TEXT helpers fall back to these when Gemini is missing
-// or rate-limited, so a free Groq key alone still powers the disability section.
-// (Vision/audio helpers stay Gemini-only — Groq text models aren't multimodal.)
-const GROQ_KEYS: string[] = (((import.meta as any).env?.VITE_GROQ_API_KEY as string) || "")
-  .split(/[,\s]+/).map((k: string) => k.trim()).filter(Boolean);
-const XAI_KEYS: string[] = (((import.meta as any).env?.VITE_XAI_API_KEY as string) || "")
-  .split(/[,\s]+/).map((k: string) => k.trim()).filter(Boolean);
-
-const FALLBACK_KEYS: string[] = [...GROQ_KEYS, ...XAI_KEYS];
-
-/** Text-only completion via an OpenAI-compatible provider (Groq/xAI). Rotates
- *  across every key on quota/overload so the free tier lasts longer. "" on failure. */
-async function callGroqText(prompt: string): Promise<string> {
-  if (!FALLBACK_KEYS.length) return "";
-  for (const key of FALLBACK_KEYS) {
-    const isXai = key.startsWith("xai-");
-    const url = isXai ? "https://api.x.ai/v1/chat/completions" : "https://api.groq.com/openai/v1/chat/completions";
-    const model = isXai ? "grok-2-latest" : "llama-3.3-70b-versatile";
-    try {
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-        body: JSON.stringify({ model, messages: [{ role: "user", content: prompt }], temperature: 0.7 }),
-      });
-      if (res.ok) {
-        const d = await res.json();
-        return d.choices?.[0]?.message?.content || "";
-      }
-      console.error(`Fallback text provider failed (${res.status})`);
-      if (res.status === 400) return ""; // malformed — no key will fix it
-      // 429/rate-limit or bad key → rotate to the next key.
-    } catch (e) {
-      console.error("Fallback text provider threw:", e);
-    }
-  }
-  return "";
-}
-
-/** Text helper: try Gemini, then fall back to Groq/xAI so a free key still works. */
+/** Text helper. The server does Gemini → Groq/xAI failover, so this is just a
+ *  text-only `parts` request. "" on failure, same contract as before. */
 async function callText(prompt: string): Promise<string> {
-  const viaGemini = await callGemini([{ text: prompt }]);
-  if (viaGemini) return viaGemini;
-  return callGroqText(prompt);
+  return callGemini([{ text: prompt }]);
 }
-
-// Known-good Gemini model IDs, tried in order (there is NO "gemini-3.5-flash").
-const MODELS = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-flash-latest"];
 
 /** Strip a `data:<mime>;base64,` prefix if present, returning raw base64. */
 function rawBase64(data: string): string {
@@ -66,42 +25,33 @@ function rawBase64(data: string): string {
 }
 
 /**
- * Low-level Gemini call. `parts` is the user content (text and/or inlineData).
- * Rotates across ALL configured keys: when one key is quota-exhausted/overloaded
- * (429/503) or invalid (401/403), it moves to the next key instead of giving up.
- * This spreads the free-tier quota across every key so the disability section
- * (which many users hit at once) doesn't die on a single key's limit.
+ * Low-level generation call. `parts` is the user content (text and/or
+ * inlineData), unchanged from the Gemini shape so no caller had to change.
+ *
+ * The request now goes to our own serverless function, which holds the provider
+ * keys and performs the model + key rotation and the Groq/xAI text fallback
+ * server-side. Returns "" on any failure, matching the previous contract so all
+ * the existing graceful-degradation paths still work.
  */
 async function callGemini(parts: any[]): Promise<string> {
-  if (!GEMINI_KEYS.length) {
-    console.error("Gemini accessibility call skipped: VITE_GEMINI_API_KEY is not set.");
+  try {
+    const res = await fetch("/api/gemini/generateContent", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ parts }),
+    });
+    // A static deploy without the functions returns the SPA's index.html; treat
+    // any non-JSON/!ok response as "unavailable" rather than parsing garbage.
+    if (!res.ok || !(res.headers.get("Content-Type") || "").includes("application/json")) {
+      console.error(`Accessibility AI call failed (${res.status}). Are the /api functions deployed and GEMINI_API_KEY set?`);
+      return "";
+    }
+    const d = await res.json();
+    return d?.result || "";
+  } catch (e) {
+    console.error("Accessibility AI call threw:", e);
     return "";
   }
-  const body = JSON.stringify({ contents: [{ role: "user", parts }] });
-  for (const key of GEMINI_KEYS) {
-    for (const model of MODELS) {
-      try {
-        const res = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`,
-          { method: "POST", headers: { "Content-Type": "application/json" }, body },
-        );
-        if (res.ok) {
-          const d = await res.json();
-          return d.candidates?.[0]?.content?.parts?.[0]?.text || "";
-        }
-        const errText = await res.text().catch(() => "");
-        console.error(`Gemini model "${model}" failed (${res.status}):`, errText.slice(0, 300));
-        // 400 = malformed request — no key or model will fix it.
-        if (res.status === 400) return "";
-        // Quota/overload or bad key → stop trying models on THIS key, rotate to the next key.
-        if (res.status === 429 || res.status === 503 || res.status === 401 || res.status === 403) break;
-        // Other statuses (e.g. 404 model): try the next model on the same key.
-      } catch (e) {
-        console.error(`Gemini model "${model}" threw:`, e);
-      }
-    }
-  }
-  return "";
 }
 
 /** Pull the first JSON object/array out of a model reply (handles ```json fences). */
