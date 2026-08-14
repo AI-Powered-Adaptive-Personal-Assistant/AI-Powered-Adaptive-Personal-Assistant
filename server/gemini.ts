@@ -221,20 +221,25 @@ export async function generateBenchmarkComparison(
   profile: UserProfile
 ): Promise<string> {
   const ai = getAI();
-  const prompt = `You are a comparative AI benchmarking tool.
+  // NOTE: this used to instruct the model to "act as ChatGPT (GPT-4)" and to
+  // emit a "## ChatGPT Response" section. No OpenAI model is contacted anywhere
+  // in this project, so that output was our own model impersonating a competitor
+  // and being shown to the user as a third-party assessment. It is now an
+  // honest self-review, which is what it always actually was.
+  const prompt = `You are a strict reviewer performing a SECOND-PASS review of an AI tutor's answer.
 The user asked: "${userMessage}"
-An AI Assistant (Cognify) replied: "${originalMessage}"
+The assistant (Cognify) replied: "${originalMessage}"
 
-Your task is to act as ChatGPT (GPT-4) and provide YOUR improved response to this same prompt, taking into account the user's profile:
+Write an independent, higher-quality answer to the same question for this learner:
 User Level: ${profile.level}
 User Field: ${profile.field}
 
-Provide your response in this EXACT format:
-## ChatGPT Response
-[Your simulated ChatGPT response here - be structured, clear, and very high quality]
+Respond in this EXACT format:
+## Improved Answer
+[Your own stronger answer — structured, clear, accurate.]
 
 ## Critique
-[A brief critique of what Cognify did well, and what your response did better or differently.]
+[Briefly: what the original answer did well, and what yours does better or differently.]
 `;
 
   try {

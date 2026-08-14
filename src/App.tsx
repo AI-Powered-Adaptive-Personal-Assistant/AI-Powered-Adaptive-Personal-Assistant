@@ -38,13 +38,28 @@ const GpaCalculator = lazy(() => import("./components/GpaCalculator"));
 const StudentAnalytics = lazy(() => import("./components/StudentAnalytics"));
 const AcademicPlanner = lazy(() => import("./components/AcademicPlanner"));
 
+/** Every hash route the app answers to — the single source of truth for both the
+ *  initial read on mount and the popstate handler, so they can't drift apart. */
+const VALID_VIEWS = [
+  'chat', 'profile', 'settings', 'video', 'disability',
+  'admin', 'goals', 'gpa', 'analytics', 'planner', 'support',
+] as const;
+
 export default function App() {
   const [user, loading, authError] = useAuthState(auth);
   const chatRef = useRef<any>(null);
   
+  // Seed from the URL hash so deep links and F5 land on the right screen. This
+  // was hardcoded to 'chat', so every shared link and every refresh dropped the
+  // user on the chat view with the address bar still showing the old hash — and
+  // an accessibility user was then bounced by the access guard to #disability,
+  // losing their page on every reload.
   const [currentView, setCurrentView] = useState<
   'chat' | 'profile' | 'settings' | 'video' | 'disability' | 'admin' | 'goals' | 'gpa' | 'analytics' | 'planner' | 'support'
->('chat');
+>(() => {
+    const h = typeof window !== 'undefined' ? window.location.hash.replace('#', '') : '';
+    return (VALID_VIEWS as readonly string[]).includes(h) ? (h as any) : 'chat';
+  });
   
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
@@ -140,7 +155,7 @@ export default function App() {
 
     const handlePopState = () => {
       const hash = window.location.hash.replace('#', '');
-      if (['chat', 'profile', 'settings', 'video', 'disability', 'admin','goals','gpa','analytics','planner','support'].includes(hash)) {
+      if ((VALID_VIEWS as readonly string[]).includes(hash)) {
         setCurrentView(hash as any);
       } else {
         setCurrentView('chat');

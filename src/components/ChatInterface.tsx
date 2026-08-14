@@ -1037,7 +1037,11 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
         const existing = m.comparisons || [];
         return {
           ...m,
-          comparisons: [...existing, { modelName: "ChatGPT Assessment", content: comparisonText }]
+          // Label this truthfully. No OpenAI model is contacted anywhere in the
+          // app — this review comes from the SAME provider chain that wrote the
+          // answer (Gemini → Groq → xAI), so calling it a "ChatGPT Assessment"
+          // attributed our own output to a competitor's product.
+          comparisons: [...existing, { modelName: localize(profile.language, "Second Opinion", "رأي تانٍ"), content: comparisonText }]
         };
       }
       return m;
@@ -1546,9 +1550,11 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
                         className="text-[10px] font-bold uppercase tracking-widest text-text-muted hover:text-primary hover:bg-primary-soft px-3 py-1.5 rounded-lg border border-transparent hover:border-border transition-all flex items-center gap-2 disabled:opacity-50"
                       >
                         {comparingId === m.id ? (
-                          <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Benchmarking...</>
+                          <><Loader2 className="w-3.5 h-3.5 animate-spin" /> {localize(profile.language, 'Reviewing…', 'جاري المراجعة…')}</>
                         ) : (
-                          <><Scale className="w-3.5 h-3.5" /> Benchmark vs ChatGPT</>
+                          /* Truthful label: this is a self-review by our own model
+                             chain, not a comparison against OpenAI's ChatGPT. */
+                          <><Scale className="w-3.5 h-3.5" /> {localize(profile.language, 'Second opinion', 'رأي تانٍ')}</>
                         )}
                       </button>
                     </div>
