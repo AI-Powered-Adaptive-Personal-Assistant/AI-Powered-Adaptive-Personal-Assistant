@@ -43,8 +43,17 @@ function rank(v: SpeechSynthesisVoice, lower: string): number {
   return score;
 }
 
+let cachedVoices: SpeechSynthesisVoice[] = [];
+if (typeof window !== "undefined" && "speechSynthesis" in window) {
+  cachedVoices = window.speechSynthesis.getVoices();
+  window.speechSynthesis.onvoiceschanged = () => {
+    cachedVoices = window.speechSynthesis.getVoices();
+  };
+}
+
 function pickVoice(targetLang: string): SpeechSynthesisVoice | undefined {
-  const voices = window.speechSynthesis.getVoices();
+  if (typeof window === "undefined" || !("speechSynthesis" in window)) return undefined;
+  const voices = cachedVoices.length ? cachedVoices : window.speechSynthesis.getVoices();
   const lower = targetLang.toLowerCase();
   let best: SpeechSynthesisVoice | undefined;
   let bestScore = 0;
