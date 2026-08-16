@@ -77,44 +77,74 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
     { id: 'ep_k9', phrase: "rec ni shun", translation: "Recognition" }
   ];
 
-  const isArabic = profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya';
+  const [voiceLang, setVoiceLang] = useState<string>(profile.language || 'Egyptian Ammiya');
+
+  const isArabic = voiceLang === 'Arabic' || voiceLang === 'Egyptian Ammiya';
+  const isEgyptian = voiceLang === 'Egyptian Ammiya';
+  const isFrench = voiceLang === 'French';
   
   const t = {
-    scriptInput: localize(profile.language, "Script Input", "مدخلات النص"),
-    placeholder: localize(profile.language, "Type or dictate the script you want to convert to sign language video...", "اكتب أو تمتم النص الذي تريد تحويله إلى لغة الإشارة..."),
-    recordSpeech: localize(profile.language, "Record Speech", "تسجيل الصوت"),
-    rawRecordingHint: localize(profile.language, "Direct Acoustic AI (Euphonia)", "التقاط وتدقيق الصوت المباشر"),
-    stopRecording: localize(profile.language, "Stop Recording", "إيقاف التسجيل"),
-    generating: localize(profile.language, "Rendering Video...", "جاري معالجة الفيديو..."),
-    generate: localize(profile.language, "Generate Video", "إنتاج الفيديو"),
-    decodingSpeech: localize(profile.language, "AI reconstructing speech pattern...", "جاري فك تشفيرة النطق بـ AI..."),
-    optimizingText: localize(profile.language, "AI optimizing sign concepts...", "جاري تحسين لغة الإشارة وإزالة الزوائد..."),
-    speechProfileTitle: localize(profile.language, "Adaptive Vocal Speech Profile", "معايرة النطق والأصوات للمتحدث"),
-    standard: localize(profile.language, "Standard", "عادي"),
-    dysarthria: localize(profile.language, "Dysarthria", "صعوبة نطق"),
-    stutter: localize(profile.language, "Stutter", "تأتأة"),
-    aphasia: localize(profile.language, "Aphasia", "حبسة كلامية"),
-    kanevsky: localize(profile.language, "Dr. Dimitri Kanevsky (Severe Deaf-Dysarthria)", "د. ديمتري كانيفسكي (صوت أصم)"),
-    askAI: localize(profile.language, "Ask AI (Get Answer)", "اسأل الذكاء الاصطناعي"),
-    aiResult: localize(profile.language, "AI Answer / Result", "نتيجة الإجابة (AI Answer)"),
-    useAnswer: localize(profile.language, "Sign Answer", "عرض بلغة الإشارة"),
-    asking: localize(profile.language, "AI thinking...", "جاري التفكير والتوليد..."),
-    modeSign: localize(profile.language, "Sign", "إشارة"),
-    modeText: localize(profile.language, "Type", "كتابة"),
-    modeVoice: localize(profile.language, "Speak", "صوت"),
-    howToInput: localize(profile.language, "How do you want to talk to Cognify?", "عايز تكلّم كوجنيفاي إزاي؟"),
-    startCamera: localize(profile.language, "Start Camera", "تشغيل الكاميرا"),
-    stopCamera: localize(profile.language, "Stop Camera", "إيقاف الكاميرا"),
-    signHint: localize(profile.language, "Fingerspell (A–Y) in front of the camera — letters are read live and added automatically.", "اهجِ الحروف (A–Y) قدّام الكاميرا — بتتقري لحظيًا وتتضاف تلقائيًا."),
-    space: localize(profile.language, "Space", "مسافة"),
-    del: localize(profile.language, "Delete", "حذف"),
-    clear: localize(profile.language, "Clear", "مسح"),
-    sayAloud: localize(profile.language, "Say it aloud", "انطقها بصوت"),
-    stopAloud: localize(profile.language, "Stop", "إيقاف"),
-    readAnswer: localize(profile.language, "Read aloud", "اقرأ بصوت"),
+    scriptInput: localize(voiceLang, "Script Input", "مدخلات النص"),
+    placeholder: isEgyptian 
+      ? "اكتب رسالتك أو سؤالك هنا واضغط Enter..."
+      : isArabic 
+      ? "اكتب رسالتك أو سؤالك هنا واضغط Enter..."
+      : isFrench
+      ? "Écrivez votre message ou question et appuyez sur Entrée..."
+      : "Type your message or question and press Enter...",
+    recordSpeech: localize(voiceLang, "Record Speech", "تسجيل الصوت"),
+    rawRecordingHint: localize(voiceLang, "Direct Acoustic AI (Euphonia)", "التقاط وتدقيق الصوت المباشر"),
+    stopRecording: localize(voiceLang, "Stop Recording", "إيقاف التسجيل"),
+    generating: localize(voiceLang, "Rendering Video...", "جاري معالجة الفيديو..."),
+    generate: localize(voiceLang, "Generate Video", "إنتاج الفيديو"),
+    decodingSpeech: localize(voiceLang, "AI reconstructing speech pattern...", "جاري فك تشفيرة النطق بـ AI..."),
+    optimizingText: localize(voiceLang, "AI optimizing sign concepts...", "جاري تحسين لغة الإشارة وإزالة الزوائد..."),
+    speechProfileTitle: localize(voiceLang, "Adaptive Vocal Speech Profile", "معايرة النطق والأصوات للمتحدث"),
+    standard: localize(voiceLang, "Standard", "عادي"),
+    dysarthria: localize(voiceLang, "Dysarthria", "صعوبة نطق"),
+    stutter: localize(voiceLang, "Stutter", "تأتأة"),
+    aphasia: localize(voiceLang, "Aphasia", "حبسة كلامية"),
+    kanevsky: localize(voiceLang, "Dr. Dimitri Kanevsky (Severe Deaf-Dysarthria)", "د. ديمتري كانيفسكي (صوت أصم)"),
+    askAI: localize(voiceLang, "Ask AI (Get Answer)", "اسأل الذكاء الاصطناعي"),
+    aiResult: localize(voiceLang, "AI Answer / Result", "نتيجة الإجابة (AI Answer)"),
+    useAnswer: localize(voiceLang, "Sign Answer", "عرض بلغة الإشارة"),
+    asking: localize(voiceLang, "AI thinking...", "جاري التفكير والتوليد..."),
+    modeSign: localize(voiceLang, "Sign", "إشارة"),
+    modeText: localize(voiceLang, "Type", "كتابة"),
+    modeVoice: localize(voiceLang, "Speak", "صوت"),
+    howToInput: localize(voiceLang, "How do you want to talk to Cognify?", "عايز تكلّم كوجنيفاي إزاي؟"),
+    startCamera: localize(voiceLang, "Start Camera", "تشغيل الكاميرا"),
+    stopCamera: localize(voiceLang, "Stop Camera", "إيقاف الكاميرا"),
+    signHint: localize(voiceLang, "Fingerspell (A–Y) in front of the camera — letters are read live and added automatically.", "اهجِ الحروف (A–Y) قدّام الكاميرا — بتتقري لحظيًا وتتضاف تلقائيًا."),
+    space: localize(voiceLang, "Space", "مسافة"),
+    del: localize(voiceLang, "Delete", "حذف"),
+    clear: localize(voiceLang, "Clear", "مسح"),
+    sayAloud: localize(voiceLang, "Say it aloud", "انطقها بصوت"),
+    stopAloud: localize(voiceLang, "Stop", "إيقاف"),
+    readAnswer: localize(voiceLang, "Read aloud", "اقرأ بصوت"),
   };
 
-  const [voiceLang, setVoiceLang] = useState<string>(profile.language || 'Egyptian Ammiya');
+  const DYNAMIC_AAC_PHRASES = isEgyptian ? [
+    { text: "عندي سؤال يا باشا", icon: "🙋‍♂️" },
+    { text: "ممكن تعيد الشرح تاني؟", icon: "🔄" },
+    { text: "محتاج توضيح أبسط شوية", icon: "💡" },
+    { text: "تمام جداً فهمت، تسلم!", icon: "✅" },
+  ] : isArabic ? [
+    { text: "عندي سؤال لو سمحت", icon: "🙋‍♂️" },
+    { text: "ممكن إعادة الشرح من فضلك؟", icon: "🔄" },
+    { text: "محتاج توضيح بطريقة أبسط", icon: "💡" },
+    { text: "تمام جداً فهمت، شكراً!", icon: "✅" },
+  ] : isFrench ? [
+    { text: "J'ai une question s'il vous plaît", icon: "🙋‍♂️" },
+    { text: "Pouvez-vous répéter le point ?", icon: "🔄" },
+    { text: "Pouvez-vous expliquer plus simplement ?", icon: "💡" },
+    { text: "Très bien compris, merci !", icon: "✅" },
+  ] : [
+    { text: "I have a question please", icon: "🙋‍♂️" },
+    { text: "Could you repeat that please?", icon: "🔄" },
+    { text: "Can you explain simpler?", icon: "💡" },
+    { text: "Understood clearly, thank you!", icon: "✅" },
+  ];
 
   /** Speak any text aloud and remember WHICH box it came from.
    *  - 'input'  → the app becomes the student's VOICE: they type or fingerspell
@@ -734,12 +764,7 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
                       </span>
                     </div>
                     <div className="flex flex-wrap gap-1.5">
-                      {[
-                        { text: isArabic ? "عندي سؤال لو سمحت" : "I have a question please", icon: "🙋‍♂️" },
-                        { text: isArabic ? "ممكن تعيد الشرح تاني؟" : "Could you repeat that please?", icon: "🔄" },
-                        { text: isArabic ? "محتاج توضيح بطريقة أبسط" : "Can you explain simpler?", icon: "💡" },
-                        { text: isArabic ? "تمام جداً فهمت، شكراً!" : "Understood clearly, thank you!", icon: "✅" },
-                      ].map((card, idx) => (
+                      {DYNAMIC_AAC_PHRASES.map((card, idx) => (
                         <button
                           key={idx}
                           type="button"

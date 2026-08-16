@@ -10,9 +10,41 @@ interface HumanCommunicationBridgeProps {
 }
 
 export default function HumanCommunicationBridge({ profile }: HumanCommunicationBridgeProps) {
-  const isArabic = profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya';
-  const [inputText, setInputText] = useState('');
   const [voiceDialect, setVoiceDialect] = useState<string>(profile.language || 'Egyptian Ammiya');
+
+  const isArabic = voiceDialect === 'Arabic' || voiceDialect === 'Egyptian Ammiya';
+  const isEgyptian = voiceDialect === 'Egyptian Ammiya';
+  const isFrench = voiceDialect === 'French';
+
+  const AAC_PHRASES = isEgyptian ? [
+    { text: "عندي سؤال يا باشا", icon: "🙋‍♂️" },
+    { text: "ممكن تعيد الشرح تاني؟", icon: "🔄" },
+    { text: "محتاج توضيح أبسط شوية", icon: "💡" },
+    { text: "تمام جداً فهمت، تسلم!", icon: "✅" },
+    { text: "لو سمحت اكتب لي على الشاشة", icon: "📝" },
+    { text: "أنا بستخدم لغة الإشارة للتواصل", icon: "🤟" },
+  ] : isArabic ? [
+    { text: "عندي سؤال لو سمحت", icon: "🙋‍♂️" },
+    { text: "ممكن إعادة الشرح من فضلك؟", icon: "🔄" },
+    { text: "محتاج توضيح بطريقة أبسط", icon: "💡" },
+    { text: "تمام جداً فهمت، شكراً!", icon: "✅" },
+    { text: "لو سمحت اكتب لي على الشاشة", icon: "📝" },
+    { text: "أنا أستخدم لغة الإشارة للتواصل", icon: "🤟" },
+  ] : isFrench ? [
+    { text: "J'ai une question s'il vous plaît", icon: "🙋‍♂️" },
+    { text: "Pouvez-vous répéter le point ?", icon: "🔄" },
+    { text: "Pouvez-vous expliquer plus simplement ?", icon: "💡" },
+    { text: "Très bien compris, merci !", icon: "✅" },
+    { text: "Veuillez écrire sur l'écran s'il vous plaît", icon: "📝" },
+    { text: "J'utilise la langue des signes", icon: "🤟" },
+  ] : [
+    { text: "I have a question please", icon: "🙋‍♂️" },
+    { text: "Could you repeat that please?", icon: "🔄" },
+    { text: "Can you explain simpler?", icon: "💡" },
+    { text: "Understood clearly, thank you!", icon: "✅" },
+  ];
+
+  const [inputText, setInputText] = useState('');
   const [isSpeakingOut, setIsSpeakingOut] = useState(false);
   const [isSigning, setIsSigning] = useState(false);
   const [sequence, setSequence] = useState<string[]>([]);
@@ -21,15 +53,6 @@ export default function HumanCommunicationBridge({ profile }: HumanCommunication
   const [partnerSignSequence, setPartnerSignSequence] = useState<string[]>([]);
   const [isPartnerSigning, setIsPartnerSigning] = useState(false);
   const recognitionRef = useRef<any>(null);
-
-  const AAC_PHRASES = [
-    { text: isArabic ? "عندي سؤال لو سمحت" : "I have a question please", icon: "🙋‍♂️" },
-    { text: isArabic ? "ممكن تعيد الشرح تاني؟" : "Could you repeat that please?", icon: "🔄" },
-    { text: isArabic ? "محتاج توضيح بطريقة أبسط" : "Can you explain simpler?", icon: "💡" },
-    { text: isArabic ? "تمام جداً فهمت، شكراً!" : "Understood clearly, thank you!", icon: "✅" },
-    { text: isArabic ? "لو سمحت اكتب لي على الشاشة" : "Please type it on screen", icon: "📝" },
-    { text: isArabic ? "أنا أستخدم لغة الإشارة للتواصل" : "I communicate using Sign Language", icon: "🤟" },
-  ];
 
   // 1. Speak aloud the user's text to the hearing partner in the room
   const handleSpeakToRoom = (overrideText?: string) => {
