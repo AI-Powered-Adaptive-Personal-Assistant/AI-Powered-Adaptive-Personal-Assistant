@@ -9,33 +9,64 @@
  * Required Vercel environment variables (Project → Settings → Environment
  * Variables). Each accepts ONE key or several comma/space-separated keys, which
  * multiplies the free-tier quota because we rotate on 429/503:
- *   GEMINI_API_KEY   (required)
- *   GROQ_API_KEY     (optional fallback, keys start with "gsk_")
- *   XAI_API_KEY      (optional fallback, keys start with "xai-")
+ *   GEMINI_API_KEY   (Google Gemini)
+ *   NVIDIA_API_KEY   (NVIDIA NIM: z-ai/glm-5.2, DeepSeek-R1; keys start with "nvapi-")
+ *   GROQ_API_KEY     (Groq Cloud, keys start with "gsk_")
+ *   XAI_API_KEY      (xAI / Grok, keys start with "xai-")
  */
 
 const splitKeys = (raw?: string): string[] =>
   (raw || '').split(/[,\s]+/).map((k) => k.trim()).filter(Boolean);
 
-export const GEMINI_KEYS = () => splitKeys(process.env.GEMINI_API_KEY);
-export const GROQ_KEYS = () => splitKeys(process.env.GROQ_API_KEY);
-export const XAI_KEYS = () => splitKeys(process.env.XAI_API_KEY);
+export const GEMINI_KEYS = () => splitKeys(process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY);
+export const NVIDIA_KEYS = () => splitKeys(process.env.NVIDIA_API_KEY || process.env.VITE_NVIDIA_API_KEY);
+export const GROQ_KEYS = () => splitKeys(process.env.GROQ_API_KEY || process.env.VITE_GROQ_API_KEY);
+export const XAI_KEYS = () => splitKeys(process.env.XAI_API_KEY || process.env.VITE_XAI_API_KEY);
 
-/** All OpenAI-compatible fallback keys, Groq first then xAI. */
-export const FALLBACK_KEYS = () => [...GROQ_KEYS(), ...XAI_KEYS()];
+/** All OpenAI-compatible fallback / alternate keys (NVIDIA first, then Groq, then xAI). */
+export const FALLBACK_KEYS = () => [...NVIDIA_KEYS(), ...GROQ_KEYS(), ...XAI_KEYS()];
 
 export const GEMINI_MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-flash-latest'];
 export const GEMINI_MODEL = GEMINI_MODELS[0];
 
 /** Endpoint + model for an OpenAI-compatible key, resolved by its prefix. */
-export function providerFor(key: string): { url: string; model: string; models: string[] } {
-  if (key.startsWith('xai-')) {
-    return { url: 'https://api.x.ai/v1/chat/completions', model: 'grok-2-latest', models: ['grok-2-latest'] };
+export function providerFor(key: string): {
+  url: string;
+  model: string;
+  models: string[];
+  params?: { temperature?: number; top_p?: number; max_tokens?: number; seed?: number };
+} {
+  const cleanKey = (key || '').trim();
+
+  // NVIDIA NIM (GLM-5.2, DeepSeek-R1, Llama 3.3)
+  if (cleanKey.startsWith('nvapi-')) {
+    return {
+      url: 'https://integrate.api.nvidia.com/v1/chat/completions',
+      model: 'z-ai/glm-5.2',
+      models: ['z-ai/glm-5.2', 'deepseek-ai/deepseek-r1', 'meta/llama-3.3-70b-instruct'],
+      params: {
+        temperature: 1,
+        top_p: 1,
+        max_tokens: 16384,
+        seed: 42,
+      },
+    };
   }
+
+  if (cleanKey.startsWith('xai-')) {
+    return {
+      url: 'https://api.x.ai/v1/chat/completions',
+      model: 'grok-2-latest',
+      models: ['grok-2-latest'],
+      params: { temperature: 0.7, top_p: 0.95 },
+    };
+  }
+
   return {
     url: 'https://api.groq.com/openai/v1/chat/completions',
     model: 'llama-3.3-70b-versatile',
     models: ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant'],
+    params: { temperature: 0.7, top_p: 0.95 },
   };
 }
 

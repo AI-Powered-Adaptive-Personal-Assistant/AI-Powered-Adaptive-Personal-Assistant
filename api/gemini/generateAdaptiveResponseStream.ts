@@ -69,14 +69,22 @@ export default async function handler(req: any, res: any) {
     if (!full) {
       const messages = buildOpenAIMessages(message, system, history);
       outer: for (const key of FALLBACK_KEYS()) {
-        const { url, models } = providerFor(key);
+        const { url, models, params } = providerFor(key);
         for (const model of models) {
           let r: Response;
           try {
             r = await fetch(url, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
-              body: JSON.stringify({ model, messages, temperature: 0.7, stream: true }),
+              body: JSON.stringify({
+                model,
+                messages,
+                temperature: params?.temperature ?? 0.7,
+                ...(params?.top_p ? { top_p: params.top_p } : {}),
+                ...(params?.max_tokens ? { max_tokens: params.max_tokens } : {}),
+                ...(params?.seed ? { seed: params.seed } : {}),
+                stream: true,
+              }),
             });
           } catch { continue; }
           if (!r.ok || !r.body) continue;

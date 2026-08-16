@@ -22,24 +22,60 @@ function geminiPrimaryKey(): string {
 }
 
 // OpenAI-compatible fallback providers (used when Gemini is rate-limited/overloaded):
+//  - NVIDIA NIM: VITE_NVIDIA_API_KEY (keys start with "nvapi-") — GLM-5.2, DeepSeek-R1
 //  - Groq:  VITE_GROQ_API_KEY  (keys start with "gsk_")  — free, fast
 //  - xAI/Grok: VITE_XAI_API_KEY (keys start with "xai-")
 // One or several comma-separated keys each.
+const NVIDIA_KEYS: string[] = [];
 const GROQ_KEYS: string[] = [];
 const XAI_KEYS: string[] = [];
 
-/** First available fallback key (Groq or xAI). "" if none. */
-function groqPrimaryKey(): string {
-  return [...GROQ_KEYS, ...XAI_KEYS][0] || "";
+/** First available fallback key (NVIDIA, Groq, or xAI). "" if none. */
+function fallbackPrimaryKey(): string {
+  return [...NVIDIA_KEYS, ...GROQ_KEYS, ...XAI_KEYS][0] || "";
 }
+const groqPrimaryKey = fallbackPrimaryKey;
 
 /** Resolve the OpenAI-compatible endpoint + model for a key, by its prefix. */
-function providerFor(key: string): { url: string; model: string } {
-  if (key.startsWith("xai-")) {
-    return { url: "https://api.x.ai/v1/chat/completions", model: "grok-2-latest" };
+function providerFor(key: string): {
+  url: string;
+  model: string;
+  models: string[];
+  params?: { temperature?: number; top_p?: number; max_tokens?: number; seed?: number };
+} {
+  const cleanKey = (key || "").trim();
+
+  // NVIDIA NIM (GLM-5.2, DeepSeek-R1)
+  if (cleanKey.startsWith("nvapi-")) {
+    return {
+      url: "https://integrate.api.nvidia.com/v1/chat/completions",
+      model: "z-ai/glm-5.2",
+      models: ["z-ai/glm-5.2", "deepseek-ai/deepseek-r1", "meta/llama-3.3-70b-instruct"],
+      params: {
+        temperature: 1,
+        top_p: 1,
+        max_tokens: 16384,
+        seed: 42,
+      },
+    };
   }
+
+  if (cleanKey.startsWith("xai-")) {
+    return {
+      url: "https://api.x.ai/v1/chat/completions",
+      model: "grok-2-latest",
+      models: ["grok-2-latest"],
+      params: { temperature: 0.7, top_p: 0.95 },
+    };
+  }
+
   // default: Groq
-  return { url: "https://api.groq.com/openai/v1/chat/completions", model: "llama-3.3-70b-versatile" };
+  return {
+    url: "https://api.groq.com/openai/v1/chat/completions",
+    model: "llama-3.3-70b-versatile",
+    models: ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"],
+    params: { temperature: 0.7, top_p: 0.95 },
+  };
 }
 
 // The /api/* routes now EXIST as Vercel serverless functions (see /api/gemini/*),
@@ -91,16 +127,21 @@ async function* generateGroqStream(
     { role: "user", content: message },
   ];
 
-  const { url, model } = providerFor(apiKey);
-  // Try the primary model, then a known-good backup (Groq occasionally retires
-  // models -> 400/404). Log the real reason so failures are debuggable.
-  const models = url.includes("groq.com") ? [model, "llama-3.1-8b-instant", "llama-3.1-70b-versatile"] : [model];
+  const { url, model, models, params } = providerFor(apiKey);
   let res: Response | null = null;
-  for (const m of models) {
+  for (const m of models || [model]) {
     const r = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({ model: m, messages, temperature: 0.7, stream: true }),
+      body: JSON.stringify({
+        model: m,
+        messages,
+        temperature: params?.temperature ?? 0.7,
+        ...(params?.top_p ? { top_p: params.top_p } : {}),
+        ...(params?.max_tokens ? { max_tokens: params.max_tokens } : {}),
+        ...(params?.seed ? { seed: params.seed } : {}),
+        stream: true,
+      }),
       signal,
     });
     if (r.ok && r.body) { res = r; break; }

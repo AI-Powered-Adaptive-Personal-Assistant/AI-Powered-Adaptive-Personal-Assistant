@@ -89,7 +89,7 @@ Their custom reasoning: "${pov}"
 Is their reasoning somewhat logical, creative, or functionally identifying the trick/anomaly? 
 Reply with EXACTLY ONE WORD: either "YES" or "NO".`;
     const response = await genContent({
-       model: "gemini-3.5-flash",
+       model: "gemini-2.5-flash",
        contents: [{ role: 'user', parts: [{ text: prompt }] }],
     });
     return response.text?.trim().toUpperCase().includes("YES") ?? true;
@@ -145,7 +145,7 @@ Input: ${JSON.stringify(
       questions.map((q) => ({ id: q.id, text: q.text, options: q.options })),
     )}`;
     const response = await genContent({
-      model: "gemini-3.5-flash",
+      model: "gemini-2.5-flash",
       contents: [{ role: "user", parts: [{ text: prompt }] }],
     });
     const parsed = extractJsonArray(response.text?.trim() || "");
@@ -194,7 +194,7 @@ Return ONLY a JSON array; each item:
 {"id": number, "type": "mcq" | "open", "text": string, "options": string[] (4 for mcq, [] for open), "correctAnswer": string (the exact correct option for mcq, or a concise model answer for open)}`;
 
     const response = await genContent({
-      model: "gemini-3.5-flash",
+      model: "gemini-2.5-flash",
       contents: [{ text: prompt }],
       config: { responseMimeType: "application/json" },
     });
@@ -244,7 +244,7 @@ Respond in this EXACT format:
 
   try {
     const response = await genContent({
-      model: "gemini-3.5-flash",
+      model: "gemini-2.5-flash",
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
     });
     return response.text || "Failed to generate comparison. Please try again.";
@@ -268,7 +268,7 @@ Proactively generate 3 highly relevant study materials, actionable insights, or 
 
   try {
     const response = await genContent({
-      model: "gemini-3.5-flash",
+      model: "gemini-2.5-flash",
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
     });
     return response.text || "No insights available at the moment.";
@@ -286,7 +286,7 @@ export async function generateLogicResponse(
 ) {
   try {
     const ai = getAI();
-    const model = "gemini-3.5-flash";
+    const model = "gemini-2.5-flash";
     
     const systemInstruction = `
 You are the Cognify Advanced Logic Tutor, a production-grade AI designed to train logic and analytical skills focusing on "${moduleName}".
@@ -369,7 +369,7 @@ export async function* generateAdaptiveResponseStream(
 ) {
   try {
     const ai = getAI();
-    const model = "gemini-3.5-flash";
+    const model = "gemini-2.5-flash";
 
     const otherThreadsSummary = profile.chatThreads
       ?.filter(t => t.id !== profile.activeThreadId)
@@ -485,7 +485,7 @@ export async function generateAdaptiveResponse(
 ) {
   try {
     const ai = getAI();
-    const model = "gemini-3.5-flash";
+    const model = "gemini-2.5-flash";
 
     const otherThreadsSummary = profile.chatThreads
       ?.filter(t => t.id !== profile.activeThreadId)
