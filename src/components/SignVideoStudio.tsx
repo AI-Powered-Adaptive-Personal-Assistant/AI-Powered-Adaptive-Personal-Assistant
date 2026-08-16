@@ -762,6 +762,14 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
                        aria-label={t.scriptInput}
                        value={inputText}
                        onChange={(e) => setInputText(e.target.value)}
+                       onKeyDown={(e) => {
+                         if (e.key === 'Enter' && !e.shiftKey) {
+                           e.preventDefault();
+                           if (inputText.trim() && !isAnswering && !isGenerating && !isEnhancing) {
+                             handleAskAI();
+                           }
+                         }
+                       }}
                        placeholder={t.placeholder}
                        className="flex-1 w-full p-4 bg-surface-2 border border-border rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-primary/50 text-text-main font-medium"
                        disabled={isEnhancing}
@@ -911,7 +919,8 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
                        className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-tr from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 disabled:opacity-50 disabled:active:scale-100 active:scale-95 transform transition-all text-white font-bold rounded-xl shadow-lg shadow-emerald-500/20"
                      >
                         {isAnswering ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Brain className="w-5 h-5 text-white" />}
-                        {isAnswering ? t.asking : t.askAI}
+                        <span>{isAnswering ? t.asking : t.askAI}</span>
+                        <kbd className="hidden sm:inline-block px-1.5 py-0.5 text-[9px] bg-black/20 rounded font-mono">↵</kbd>
                      </button>
 
                      <button
