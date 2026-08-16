@@ -114,6 +114,8 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
     readAnswer: localize(profile.language, "Read aloud", "اقرأ بصوت"),
   };
 
+  const [voiceLang, setVoiceLang] = useState<string>(profile.language || 'Egyptian Ammiya');
+
   /** Speak any text aloud and remember WHICH box it came from.
    *  - 'input'  → the app becomes the student's VOICE: they type or fingerspell
    *               and the person in front of them hears it.
@@ -122,7 +124,7 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
   const speakAloud = (what: 'input' | 'answer') => {
     const text = (what === 'input' ? inputText : aiResponse).trim();
     if (!text) return;
-    speak(text, profile.language, {
+    speak(text, voiceLang, {
       onStart: () => setSpeakingWhat(what),
       onEnd: () => setSpeakingWhat(null),
       onError: () => setSpeakingWhat(null),
@@ -665,9 +667,36 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
                      )}
                   </div>
 
+                  {/* Voice Language & Dialect Selector */}
+                  <div className="mb-3 flex items-center justify-between flex-wrap gap-2 pb-3 border-b border-border">
+                    <span className="text-[11px] font-bold text-text-muted flex items-center gap-1.5">
+                      <Volume2 className="w-3.5 h-3.5 text-primary" />
+                      {isArabic ? "لهجة الصوت:" : "Voice Dialect:"}
+                    </span>
+                    <div className="flex items-center gap-1 bg-surface-2 p-1 rounded-xl border border-border">
+                      {[
+                        { id: 'Egyptian Ammiya', label: '🇪🇬 مصري' },
+                        { id: 'Arabic', label: '🇸🇦 فصحى' },
+                        { id: 'English', label: '🇺🇸 English' },
+                        { id: 'French', label: '🇫🇷 Français' },
+                      ].map(({ id, label }) => (
+                        <button
+                          key={id}
+                          type="button"
+                          onClick={() => setVoiceLang(id)}
+                          className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all ${
+                            voiceLang === id ? 'bg-primary text-white shadow-sm' : 'text-text-muted hover:text-text-main'
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
                   {/* Unified input-mode selector: SIGN / TYPE / SPEAK */}
-                  <div className="mb-4">
-                    <p className="text-[11px] font-bold text-text-muted mb-2">{t.howToInput}</p>
+                  <div className="mb-3">
+                    <p className="text-[11px] font-bold text-text-muted mb-1.5">{t.howToInput}</p>
                     <div className="grid grid-cols-3 gap-2 p-1 bg-surface-2 rounded-2xl border border-border" role="tablist" aria-label={t.howToInput}>
                       {([
                         { id: 'sign', label: t.modeSign, Icon: Hand },
@@ -679,13 +708,43 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
                           role="tab"
                           aria-selected={inputMode === id}
                           onClick={() => setInputMode(id)}
-                          className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                          className={`flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-bold transition-all ${
                             inputMode === id
                               ? 'bg-primary text-white shadow-sm'
                               : 'text-text-muted hover:bg-surface-3'
                           }`}
                         >
                           <Icon className="w-4 h-4" /> {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Quick Communication Bridge AAC Cards */}
+                  <div className="mb-3">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-[11px] font-bold text-text-muted flex items-center gap-1">
+                        ⚡ {isArabic ? "عبارات سريعة بنقرة واحدة (Bridge Phrases):" : "Quick 1-Tap Bridge Phrases:"}
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {[
+                        { text: isArabic ? "عندي سؤال لو سمحت" : "I have a question please", icon: "🙋‍♂️" },
+                        { text: isArabic ? "ممكن تعيد الشرح تاني؟" : "Could you repeat that please?", icon: "🔄" },
+                        { text: isArabic ? "محتاج توضيح بطريقة أبسط" : "Can you explain simpler?", icon: "💡" },
+                        { text: isArabic ? "تمام جداً فهمت، شكراً!" : "Understood clearly, thank you!", icon: "✅" },
+                      ].map((card, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => {
+                            setInputText(card.text);
+                            handleAskAI(card.text);
+                          }}
+                          className="px-2.5 py-1 bg-surface-2 hover:bg-primary-soft hover:text-primary hover:border-primary/40 text-text-main text-[11px] font-semibold rounded-lg border border-border transition-all active:scale-95 flex items-center gap-1.5 shadow-sm"
+                        >
+                          <span>{card.icon}</span>
+                          <span>{card.text}</span>
                         </button>
                       ))}
                     </div>
