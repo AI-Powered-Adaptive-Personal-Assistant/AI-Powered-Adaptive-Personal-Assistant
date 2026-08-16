@@ -567,6 +567,12 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
           setPlaybackProgress(0);
           setIsPlaying(true);
         }
+        // Automatically speak the AI answer in natural voice
+        speak(answer, voiceLang, {
+          onStart: () => setSpeakingWhat('answer'),
+          onEnd: () => setSpeakingWhat(null),
+          onError: () => setSpeakingWhat(null),
+        });
       }
     } catch (e) {
       console.error("Failed to ask general question:", e);

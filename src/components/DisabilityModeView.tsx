@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { doc, setDoc } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import SignVideoStudio from './SignVideoStudio';
+import HumanCommunicationBridge from './HumanCommunicationBridge';
 import ChatInterface, { ChatInterfaceRef } from './ChatInterface';
 import OrgDashboard from './OrgDashboard';
 import { isAccessibilityUser } from '../lib/access';
@@ -20,7 +21,7 @@ interface DisabilityModeViewProps {
   externalMessage?: string;
   onStreamingUpdate?: (text: string) => void;
   onSTTStateChange?: (active: boolean) => void;
-  onTabChange?: (tab: 'chat' | 'settings' | 'video' | 'org') => void;
+  onTabChange?: (tab: 'chat' | 'settings' | 'video' | 'bridge' | 'org') => void;
   setProfile?: (profile: UserProfile) => void;
 }
 
@@ -36,7 +37,7 @@ const DisabilityModeView = React.forwardRef<ChatInterfaceRef, DisabilityModeView
   onTabChange,
   setProfile
 }, ref) {
-  const [activeTab, setActiveTab] = React.useState<'chat' | 'settings' | 'video' | 'org'>('chat');
+  const [activeTab, setActiveTab] = React.useState<'chat' | 'settings' | 'video' | 'bridge' | 'org'>('video');
   // Organization staff (e.g. Al-Resala) get an extra tab scoped to THEIR users.
   const isOrgStaff = !!profile.isOrgManager && !!(profile.organization || '').trim();
 
@@ -126,11 +127,13 @@ const DisabilityModeView = React.forwardRef<ChatInterfaceRef, DisabilityModeView
 
         {/* Tabs: full-width equal columns on mobile (never wider than the screen,
             scrolls if a long label still overflows); compact pills again ≥md. */}
+        {/* Tabs: full-width equal columns on mobile */}
         <div role="tablist" className="flex items-center bg-surface-3 p-1 rounded-xl w-full md:w-auto overflow-x-auto shrink-0">
           {([
-            { id: 'chat' as const, label: getTranslation(profile.language, 'aiAssistant') },
+            { id: 'video' as const, label: localize(profile.language, '🤖 AI Sign Studio', '🤖 الذكاء الاصطناعي والإشارة') },
+            { id: 'bridge' as const, label: localize(profile.language, '🤝 Two-Way Bridge', '🤝 تواصل بشري مباشر') },
+            { id: 'chat' as const, label: localize(profile.language, '💬 Text Chat', '💬 محادثة نصية') },
             { id: 'settings' as const, label: getTranslation(profile.language, 'preferences') },
-            { id: 'video' as const, label: getTranslation(profile.language, 'signStudio') },
             ...(isOrgStaff ? [{ id: 'org' as const, label: localize(profile.language, 'My Organization', 'لوحة الجهة') }] : []),
           ]).map(({ id, label }) => (
             <button
@@ -138,8 +141,8 @@ const DisabilityModeView = React.forwardRef<ChatInterfaceRef, DisabilityModeView
               role="tab"
               aria-selected={activeTab === id}
               onClick={() => setActiveTab(id)}
-              className={`flex-1 md:flex-none min-h-[44px] px-2.5 sm:px-4 md:px-6 py-2 md:py-2.5 rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap transition-all ${
-                activeTab === id ? 'bg-bg-card text-text-main shadow-sm' : 'text-text-muted hover:text-text-main'
+              className={`flex-1 md:flex-none min-h-[44px] px-2.5 sm:px-4 md:px-6 py-2 md:py-2.5 rounded-lg text-xs sm:text-sm font-bold whitespace-nowrap transition-all ${
+                activeTab === id ? 'bg-bg-card text-primary shadow-sm' : 'text-text-muted hover:text-text-main'
               }`}
             >
               {label}
@@ -149,11 +152,30 @@ const DisabilityModeView = React.forwardRef<ChatInterfaceRef, DisabilityModeView
       </header>
       
       {/* min-h-0 lets this flex child actually shrink so its children's
-          overflow-y-auto engages instead of pushing the layout off-screen
-          (the classic mobile "bottom controls clipped, no scroll" bug). */}
+          overflow-y-auto engages instead of pushing the layout off-screen */}
       <main className="flex-1 min-h-0 flex flex-col overflow-hidden relative">
         <AnimatePresence mode="wait">
-          {activeTab === 'chat' ? (
+          {activeTab === 'bridge' ? (
+            <motion.div
+              key="bridge"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="w-full h-full min-h-0"
+            >
+              <HumanCommunicationBridge profile={profile} />
+            </motion.div>
+          ) : activeTab === 'video' ? (
+            <motion.div
+              key="video"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="w-full h-full min-h-0"
+            >
+              <SignVideoStudio profile={profile} onMenuClick={onMenuClick} isEmbedded={true} />
+            </motion.div>
+          ) : activeTab === 'chat' ? (
             <motion.div
               key="chat"
               initial={{ opacity: 0, y: 10 }}
@@ -261,17 +283,7 @@ const DisabilityModeView = React.forwardRef<ChatInterfaceRef, DisabilityModeView
             >
               <OrgDashboard profile={profile} />
             </motion.div>
-          ) : (
-            <motion.div
-              key="video"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="w-full h-full min-h-0"
-            >
-              <SignVideoStudio profile={profile} onMenuClick={onMenuClick} isEmbedded={true} />
-            </motion.div>
-          )}
+          ) : null}
         </AnimatePresence>
       </main>
     </div>

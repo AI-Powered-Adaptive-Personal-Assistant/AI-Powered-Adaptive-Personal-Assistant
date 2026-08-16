@@ -78,16 +78,21 @@ export function buildUtterance(
       language === "Egyptian Ammiya" ||
       clean.includes("يا باشا") ||
       clean.includes("تمام") ||
-      clean.includes("ازيك");
+      clean.includes("ازيك") ||
+      clean.includes("عامل ايه") ||
+      clean.includes("بخير") ||
+      clean.includes("شكرا");
     const defaultLang = isEgyptian ? "ar-EG" : "ar-SA";
     utterance.lang = defaultLang;
-    const voice = pickVoice(defaultLang) || pickVoice("ar");
+    const voice = pickVoice(defaultLang) || pickVoice("ar-SA") || pickVoice("ar-EG") || pickVoice("ar");
     if (voice) {
       utterance.voice = voice;
       utterance.lang = voice.lang;
     } else {
-      utterance.lang = "ar";
+      utterance.lang = "ar-EG";
     }
+    utterance.rate = 0.92;
+    utterance.pitch = 1.0;
   } else {
     const defaultLang = LANG_MAP[language || "English"] || "en-US";
     utterance.lang = defaultLang;

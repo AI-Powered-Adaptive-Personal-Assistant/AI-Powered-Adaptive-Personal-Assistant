@@ -78,7 +78,7 @@ export default function App() {
   const [externalMessage, setExternalMessage] = useState("");
   const [currentAIResponse, setCurrentAIResponse] = useState("");
   const [isSTTActive, setIsSTTActive] = useState(false);
-  const [disabilityTab, setDisabilityTab] = useState<'chat' | 'settings' | 'video' | 'org'>('chat');
+  const [disabilityTab, setDisabilityTab] = useState<'chat' | 'settings' | 'video' | 'bridge' | 'org'>('video');
   const [isLiveCaptionsOpen, setIsLiveCaptionsOpen] = useState(false);
 
   const direction = isRTL(profile?.language) ? 'rtl' : 'ltr';
