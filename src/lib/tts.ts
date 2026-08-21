@@ -109,29 +109,81 @@ export function buildUtterance(
 export interface SpeakCallbacks {
   onStart?: () => void;
   onEnd?: () => void;
-  onError?: () => void;
+  /** err carries a short machine-readable reason when known: 'unsupported' |
+   *  'empty' | 'synth-error' | 'silent-fail' (speak() never actually started). */
+  onError?: (err?: string) => void;
 }
 
-/** Speak text aloud, cancelling any current speech first. */
+/** True if the platform's speechSynthesis has at least one Arabic voice installed. */
+export function hasArabicVoice(): boolean {
+  if (typeof window === "undefined" || !("speechSynthesis" in window)) return false;
+  const voices = cachedVoices.length ? cachedVoices : window.speechSynthesis.getVoices();
+  return voices.some((v) => v.lang.toLowerCase().startsWith("ar"));
+}
+
+/**
+ * Speak text aloud, cancelling any current speech first.
+ *
+ * Previously this failed silently whenever speechSynthesis was unsupported,
+ * had no matching voice, or was blocked by the browser (most browsers require
+ * speechSynthesis.speak() to first happen inside a real user gesture — a
+ * dwell/blink-triggered call from the eye-gaze board does not count as one,
+ * so the very first call in a session can be silently dropped). Callers that
+ * care whether the phrase was actually spoken should pass onError.
+ */
 export function speak(
   text: string,
   language?: string,
   cb?: SpeakCallbacks,
 ): void {
-  if (!("speechSynthesis" in window)) return;
+  if (!("speechSynthesis" in window)) {
+    cb?.onError?.("unsupported");
+    return;
+  }
   const utterance = buildUtterance(text, language);
-  if (!utterance.text) return;
+  if (!utterance.text) {
+    cb?.onError?.("empty");
+    return;
+  }
   utterance.onstart = () => cb?.onStart?.();
   utterance.onend = () => cb?.onEnd?.();
-  utterance.onerror = () => cb?.onError?.();
+  utterance.onerror = () => cb?.onError?.("synth-error");
   window.speechSynthesis.cancel();
   // Small delay works around a Chrome bug where speak() right after cancel() is dropped.
-  setTimeout(() => window.speechSynthesis.speak(utterance), 60);
+  setTimeout(() => {
+    window.speechSynthesis.speak(utterance);
+    // Some browsers/webviews drop speak() entirely (no event fires at all) when
+    // it's blocked — most commonly the very first call outside a user gesture,
+    // or no voice is installed for the requested language. Detect that silent
+    // failure instead of pretending the phrase was spoken.
+    setTimeout(() => {
+      if (!window.speechSynthesis.speaking && !window.speechSynthesis.pending) {
+        cb?.onError?.("silent-fail");
+      }
+    }, 500);
+  }, 60);
 }
 
 /** Stop any ongoing speech. */
 export function cancelSpeech(): void {
   if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+}
+
+/**
+ * "Unlocks" speechSynthesis inside a real user gesture (e.g. the button that
+ * starts the eye tracker). Call this once per session from an onClick handler
+ * before relying on dwell/blink-triggered speak() calls, since some browsers
+ * silently refuse the very first speak() that happens outside a user gesture.
+ */
+export function unlockSpeechSynthesis(): void {
+  if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
+  try {
+    const unlock = new SpeechSynthesisUtterance("");
+    unlock.volume = 0;
+    window.speechSynthesis.speak(unlock);
+  } catch {
+    /* ignore */
+  }
 }
 
 export function isSpeaking(): boolean {

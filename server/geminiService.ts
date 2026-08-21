@@ -1,10 +1,13 @@
 import { GoogleGenAI } from "@google/genai";
 
-// Initialize the Gemini client
-// Note: In this environment, process.env.GEMINI_API_KEY is automatically available to the frontend.
-const ai = new GoogleGenAI({ 
-  apiKey: process.env.GEMINI_API_KEY 
-});
+let aiInstance: GoogleGenAI | null = null;
+function getAi() {
+  if (!aiInstance) {
+    const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || "AIzaSy_placeholder_key_replace_in_env";
+    aiInstance = new GoogleGenAI({ apiKey });
+  }
+  return aiInstance;
+}
 
 export const geminiService = {
   /**
@@ -29,8 +32,8 @@ export const geminiService = {
     
     Return ONLY the letter, translated word, or [NO_SIGN]. Do NOT include any markdown formatting, conversational text, or punctuation.`;
 
-    const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
+    const response = await getAi().models.generateContent({
+      model: "gemini-2.5-flash",
       contents: {
         parts: [
           { text: prompt },
@@ -64,8 +67,8 @@ export const geminiService = {
     5. Return ONLY the enhanced text. No explanations.`;
 
     try {
-      const response = await ai.models.generateContent({
-        model: "gemini-3.5-flash",
+      const response = await getAi().models.generateContent({
+        model: "gemini-2.5-flash",
         contents: [{ text: prompt }]
       });
       return response.text?.trim() || text;
@@ -92,8 +95,8 @@ export const geminiService = {
     SIGNS: [Emojis]`;
 
     try {
-      const response = await ai.models.generateContent({
-        model: "gemini-3.5-flash",
+      const response = await getAi().models.generateContent({
+        model: "gemini-2.5-flash",
         contents: {
           parts: [
             { text: prompt },
@@ -150,8 +153,8 @@ export const geminiService = {
     Return the result as a clean JSON array of objects.`;
 
     try {
-      const response = await ai.models.generateContent({
-        model: "gemini-3.5-flash",
+      const response = await getAi().models.generateContent({
+        model: "gemini-2.5-flash",
         contents: [{ text: prompt }]
       });
       return JSON.parse(response.text?.trim() || "[]");
@@ -192,8 +195,8 @@ export const geminiService = {
     Return ONLY a single line of space-separated optimized words. No quotes, no explanations, no punctuation.`;
 
     try {
-      const response = await ai.models.generateContent({
-        model: "gemini-3.5-flash",
+      const response = await getAi().models.generateContent({
+        model: "gemini-2.5-flash",
         contents: [{ text: prompt }]
       });
       return response.text?.trim() || text;
@@ -216,8 +219,8 @@ export const geminiService = {
     Keep it to 1-3 short sentences. Avoid complex formatting, bullet points, or markdown blocks, so that the answer is highly readable and extremely easy to translate into sign language tokens afterwards.`;
 
     try {
-      const response = await ai.models.generateContent({
-        model: "gemini-3.5-flash",
+      const response = await getAi().models.generateContent({
+        model: "gemini-2.5-flash",
         contents: [{ text: prompt }]
       });
       return response.text?.trim() || "";
@@ -246,8 +249,8 @@ export const geminiService = {
     Return the result as a raw JSON array of strings, for example: ["Yes, please", "Can you explain?", "Let me think about it"]. No markdown block syntax, no comments.`;
 
     try {
-      const response = await ai.models.generateContent({
-        model: "gemini-3.5-flash",
+      const response = await getAi().models.generateContent({
+        model: "gemini-2.5-flash",
         contents: [{ text: prompt }],
         config: {
           responseMimeType: "application/json"
@@ -294,8 +297,8 @@ Prioritize matching the input "${text}" against these patterns with high phoneti
     Return ONLY the final reconstructed, cleaned statement. Do NOT include explanations, comments, quotes, or formatting backticks. Just the raw decoded text.`;
 
     try {
-      const response = await ai.models.generateContent({
-        model: "gemini-3.5-flash",
+      const response = await getAi().models.generateContent({
+        model: "gemini-2.5-flash",
         contents: [{ text: prompt }]
       });
       return response.text?.trim() || text;
@@ -333,8 +336,8 @@ Prioritize looking for matching acoustic patterns corresponding to these mapped 
     5. Return ONLY the final translated sentence. Do NOT write notes, markdown backticks, prefix headers, or explanations.`;
 
     try {
-      const response = await ai.models.generateContent({
-        model: "gemini-3.5-flash",
+      const response = await getAi().models.generateContent({
+        model: "gemini-2.5-flash",
         contents: {
           parts: [
             { text: prompt },
@@ -396,8 +399,8 @@ Return ONLY JSON of the form:
 {"corrected": string, "confidence": number (0-100, how sure you are), "alternatives": string[] (0-3 alternative full-sentence interpretations for uncertain cases; empty if confident)}`;
 
     try {
-      const response = await ai.models.generateContent({
-        model: "gemini-3.5-flash",
+      const response = await getAi().models.generateContent({
+        model: "gemini-2.5-flash",
         contents: [{ text: prompt }],
         config: { responseMimeType: "application/json" },
       });

@@ -2,7 +2,7 @@ export type CognitiveLevel = 'Basic' | 'Intermediate' | 'Advanced';
 export type UserRole = 'Student' | 'Professional';
 export type EducationLevel = 'Primary' | 'Secondary' | 'University' | 'Professional';
 export type Field = 'Medicine' | 'Engineering' | 'Business' | 'General' | 'Other';
-export type AccessibilityMode = 'None' | 'Speech' | 'Visual' | 'Vocal-Deaf' | 'Sign-Only';
+export type AccessibilityMode = 'None' | 'Speech' | 'Visual' | 'Vocal-Deaf' | 'Sign-Only' | 'Motor-Euphonia';
 export type LanguagePreference = 'English' | 'Arabic' | 'Egyptian Ammiya' | 'French' | 'Spanish' | 'German' | 'Italian' | 'Portuguese' | 'Russian' | 'Chinese' | 'Japanese';
 export type AccountPath = 'Graduation Project' | 'Special Needs' | 'Normal';
 
@@ -153,5 +153,50 @@ export interface PlannerTask {
   dueDate: string;         // ISO date string (YYYY-MM-DD)
   completed: boolean;
   createdAt: string;
+}
+
+// ─── Motor & Euphonia (Quadriplegia Assistive System) ─────────────────────────
+export type VocalTriggerAction =
+  | 'select'
+  | 'next'
+  | 'previous'
+  | 'back'
+  | 'ask-ai'
+  | 'speak-aloud'
+  | 'emergency'
+  | 'clear';
+
+export interface VocalSoundTriggerConfig {
+  id: string;
+  name: string;
+  nameAr: string;
+  targetFrequencyHz: number; // Center frequency (e.g. 250Hz for low hum, 1200Hz for high tone)
+  minEnergyThreshold: number; // Volume threshold 0-1
+  action: VocalTriggerAction;
+  enabled: boolean;
+}
+
+export interface HeadTrackingConfig {
+  sensitivity: number; // 0.5 to 3.0
+  dwellTimeMs: number; // 800ms to 3000ms
+  smoothing: number; // 0.1 to 0.9
+  trackingMode?: 'iris' | 'nose' | 'hybrid'; // Eye Iris Gaze vs Head Nose vs Hybrid
+  facialTriggersEnabled: boolean; // Smile / mouth open triggers click
+  smileThreshold: number; // 0.3 to 0.9
+  mouthOpenThreshold: number; // 0.3 to 0.9
+  autoScanEnabled: boolean; // Single-switch auto scanning
+  autoScanIntervalMs: number; // 1000ms to 4000ms
+}
+
+export interface AACCardItem {
+  id: string;
+  category: 'quick' | 'study' | 'needs' | 'ai' | 'navigation' | 'contacts';
+  labelEn: string;
+  labelAr: string;
+  icon: string;
+  phraseEn: string;
+  phraseAr: string;
+  actionPayload?: string;
+  isAiAction?: boolean;
 }
 

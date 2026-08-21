@@ -41,6 +41,7 @@ const MODE_META: Record<AccessibilityMode, { label: string; cls: string }> = {
   'Speech': { label: 'Speech', cls: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' },
   'Vocal-Deaf': { label: 'Vocal-Deaf', cls: 'bg-rose-500/15 text-rose-500' },
   'Sign-Only': { label: 'Sign-Only', cls: 'bg-purple-500/15 text-purple-500' },
+  'Motor-Euphonia': { label: 'Motor & Euphonia', cls: 'bg-amber-500/15 text-amber-500' },
   'None': { label: 'Standard', cls: 'bg-surface-3 text-text-muted' },
 };
 

@@ -80,7 +80,9 @@ export default function Login() {
       if (err.code === 'auth/cancelled-popup-request') {
         /* another sign-in popup is already open — ignore */
       } else if (err.code === 'auth/popup-closed-by-user') {
-        setError("Authorization window was closed. Please try again.");
+        setError(L("Authorization window was closed. Please try again.", "تم إغلاق نافذة التسجيل. يرجى المحاولة مرة أخرى."));
+      } else if (err.code === 'auth/unauthorized-domain') {
+        setError(L("Google Login requires an authorized domain. Please click 'CREATE' above to sign in with email & password instantly.", "تسجيل جوجل يتطلب نطاقاً مصرحاً. يرجى الضغط على زر 'CREATE' بالأعلى للتسجيل بأي إيميل وكلمة مرور فوراً."));
       } else {
         setError(err.message.replace("Firebase: ", ""));
       }
@@ -147,12 +149,12 @@ export default function Login() {
   };
 
   return (
-    <div className="fixed inset-0 bg-bg-main flex items-center justify-center p-6 bg-[radial-gradient(circle_at_top_right,rgba(37,99,235,0.05),transparent)]">
+    <div className="fixed inset-0 bg-bg-main overflow-y-auto flex items-start sm:items-center justify-center p-4 sm:p-6 py-8 sm:py-12 bg-[radial-gradient(circle_at_top_right,rgba(37,99,235,0.05),transparent)]">
       <motion.div 
         layout
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="w-full max-w-md bg-white p-10 rounded-[40px] shadow-2xl border border-border flex flex-col items-center text-center gap-8"
+        className="w-full max-w-md bg-white p-6 sm:p-8 md:p-10 rounded-[32px] sm:rounded-[40px] shadow-2xl border border-border flex flex-col items-center text-center gap-6 sm:gap-8 my-auto"
       >
         <div className="space-y-3">
           <div className="w-16 h-16 bg-primary-soft rounded-2xl flex items-center justify-center mx-auto mb-4">

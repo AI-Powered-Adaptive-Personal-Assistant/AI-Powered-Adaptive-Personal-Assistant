@@ -64,7 +64,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
     if (formData.accountPath === 'Special Needs') {
       const disabilityType = formData.disabilityType || localStorage.getItem('preLoginDisability') || 'Other';
 
-      let accessibilityMode: 'None' | 'Speech' | 'Visual' | 'Vocal-Deaf' | 'Sign-Only' = 'None';
+      let accessibilityMode: UserProfile['accessibilityMode'] = 'None';
       if (disabilityType === 'Visual Impairment') {
         accessibilityMode = 'Visual';
       } else if (disabilityType === 'Hearing Impairment') {
@@ -72,7 +72,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
       } else if (disabilityType === 'Speech Impairment') {
         accessibilityMode = 'Speech';
       } else if (disabilityType === 'Motor Impairment') {
-        accessibilityMode = 'Visual';
+        accessibilityMode = 'Motor-Euphonia';
       }
 
       onComplete({

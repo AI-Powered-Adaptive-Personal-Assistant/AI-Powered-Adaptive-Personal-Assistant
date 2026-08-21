@@ -1,12 +1,13 @@
 import { localize } from '../lib/translations';
 import React from 'react';
 import { UserProfile, AccessibilityMode, Message } from '../types';
-import { Settings, Eye, Accessibility, Menu, Sparkles, User, Ear, Mic, Brain, ArrowLeft, MessageSquare } from 'lucide-react';
+import { Settings, Eye, Accessibility, Menu, Sparkles, User, Ear, Mic, Brain, ArrowLeft, MessageSquare, Activity } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { doc, setDoc } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import SignVideoStudio from './SignVideoStudio';
 import HumanCommunicationBridge from './HumanCommunicationBridge';
+import MotorEuphoniaView from './MotorEuphoniaView';
 import ChatInterface, { ChatInterfaceRef } from './ChatInterface';
 import OrgDashboard from './OrgDashboard';
 import { isAccessibilityUser } from '../lib/access';
@@ -21,7 +22,7 @@ interface DisabilityModeViewProps {
   externalMessage?: string;
   onStreamingUpdate?: (text: string) => void;
   onSTTStateChange?: (active: boolean) => void;
-  onTabChange?: (tab: 'chat' | 'settings' | 'video' | 'bridge' | 'org') => void;
+  onTabChange?: (tab: 'chat' | 'settings' | 'video' | 'bridge' | 'org' | 'motor') => void;
   setProfile?: (profile: UserProfile) => void;
 }
 
@@ -37,13 +38,15 @@ const DisabilityModeView = React.forwardRef<ChatInterfaceRef, DisabilityModeView
   onTabChange,
   setProfile
 }, ref) {
-  const [activeTab, setActiveTab] = React.useState<'chat' | 'settings' | 'video' | 'bridge' | 'org'>('video');
+  const [activeTab, setActiveTab] = React.useState<'chat' | 'settings' | 'video' | 'bridge' | 'org' | 'motor'>(() => {
+    return profile.accessibilityMode === 'Motor-Euphonia' ? 'motor' : 'video';
+  });
   // Organization staff (e.g. Al-Resala) get an extra tab scoped to THEIR users.
   const isOrgStaff = !!profile.isOrgManager && !!(profile.organization || '').trim();
 
   // Tell the parent which tab is active so it can hide the floating overlay
-  // (with its own camera) while the Sign Studio tab is using the camera —
-  // otherwise two MediaPipe camera pipelines fight over the device.
+  // (with its own camera) while the Sign Studio or Motor tab is using the camera —
+  // otherwise two camera pipelines fight over the device.
   React.useEffect(() => { onTabChange?.(activeTab); }, [activeTab]);
   React.useEffect(() => () => { onTabChange?.('chat'); }, []);
 
@@ -67,18 +70,19 @@ const DisabilityModeView = React.forwardRef<ChatInterfaceRef, DisabilityModeView
       case 'Visual': return <Eye className="w-5 h-5" />;
       case 'Vocal-Deaf': return <Ear className="w-5 h-5" />;
       case 'Sign-Only': return <Accessibility className="w-5 h-5" />;
+      case 'Motor-Euphonia': return <Activity className="w-5 h-5 text-amber-500" />;
       default: return <Settings className="w-5 h-5" />;
     }
   };
 
   const getModeDescription = (mode: AccessibilityMode) => {
-    const isArabic = profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya';
     switch (mode) {
       case 'None': return localize(profile.language, 'Standard cognitive interface without accessibility overlays.', 'واجهة إدراكية قياسية بدون طبقات إمكانية وصول.');
       case 'Speech': return localize(profile.language, 'Activates voice transcription, synthetic speech synthesis, and text-to-speech feedback.', 'يفعل النسخ الصوتي، والتخليق الصوتي، وملاحظات تحويل النص إلى كلام.');
       case 'Visual': return localize(profile.language, 'Enables vision analysis, high contrast, text zooming, and spatial layout modifications.', 'يفعل تحليل الرؤية، والتباين العالي، وتكبير النص، وتعديلات التخطيط المكاني.');
       case 'Vocal-Deaf': return localize(profile.language, 'Enables sign language avatar alongside speech recognition for users who are deaf but can speak.', 'يفعل الصورة الرمزية للغة الإشارة جنباً إلى جنب مع التعرف على الكلام للمستخدمين الصم الذين يمكنهم التحدث.');
       case 'Sign-Only': return localize(profile.language, 'Full sign language interface powered by the avatar and vision-based gesture recognition.', 'واجهة كاملة للغة الإشارة مدعومة بالصورة الرمزية والتعرف على الإيماءات المعتمد على الرؤية.');
+      case 'Motor-Euphonia': return localize(profile.language, 'Hands-free control for quadriplegia/motor disability using head pointer, facial expressions, and vocal sound triggers.', 'تحكم كامل بدون لمس لمصابي الشلل الرباعي والتصلب الجانبي عبر حركة الرأس، تعابير الوجه، وهمهمات إيفونيا الصوتية.');
       default: return '';
     }
   };
@@ -130,6 +134,7 @@ const DisabilityModeView = React.forwardRef<ChatInterfaceRef, DisabilityModeView
         {/* Tabs: full-width equal columns on mobile */}
         <div role="tablist" className="flex items-center bg-surface-3 p-1 rounded-xl w-full md:w-auto overflow-x-auto shrink-0">
           {([
+            { id: 'motor' as const, label: localize(profile.language, '⚡ Motor & Euphonia', '⚡ تحكم حركي وإيفونيا') },
             { id: 'video' as const, label: localize(profile.language, '🤖 AI Sign Studio', '🤖 الذكاء الاصطناعي والإشارة') },
             { id: 'bridge' as const, label: localize(profile.language, '🤝 Two-Way Bridge', '🤝 تواصل بشري مباشر') },
             { id: 'chat' as const, label: localize(profile.language, '💬 Text Chat', '💬 محادثة نصية') },
@@ -155,7 +160,17 @@ const DisabilityModeView = React.forwardRef<ChatInterfaceRef, DisabilityModeView
           overflow-y-auto engages instead of pushing the layout off-screen */}
       <main className="flex-1 min-h-0 flex flex-col overflow-hidden relative">
         <AnimatePresence mode="wait">
-          {activeTab === 'bridge' ? (
+          {activeTab === 'motor' ? (
+            <motion.div
+              key="motor"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="w-full h-full min-h-0"
+            >
+              <MotorEuphoniaView profile={profile} />
+            </motion.div>
+          ) : activeTab === 'bridge' ? (
             <motion.div
               key="bridge"
               initial={{ opacity: 0, y: 10 }}
@@ -214,7 +229,7 @@ const DisabilityModeView = React.forwardRef<ChatInterfaceRef, DisabilityModeView
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {(['None', 'Sign-Only', 'Speech', 'Visual', 'Vocal-Deaf'] as AccessibilityMode[]).map((mode) => (
+                  {(['None', 'Motor-Euphonia', 'Sign-Only', 'Speech', 'Visual', 'Vocal-Deaf'] as AccessibilityMode[]).map((mode) => (
                     <button
                       key={mode}
                       onClick={() => updateAccessibilityMode(mode)}
@@ -237,6 +252,7 @@ const DisabilityModeView = React.forwardRef<ChatInterfaceRef, DisabilityModeView
                             profile.accessibilityMode === mode ? 'text-primary' : 'text-text-main'
                           }`}>
                             {mode === 'None' ? getTranslation(profile.language, 'standardProtocol')
+                              : mode === 'Motor-Euphonia' ? localize(profile.language, 'Motor & Euphonia', 'تحكم حركي وإيفونيا')
                               : mode === 'Speech' ? localize(profile.language, 'Speech', 'النطق')
                               : mode === 'Visual' ? localize(profile.language, 'Visual', 'بصري')
                               : mode === 'Vocal-Deaf' ? localize(profile.language, 'Vocal-Deaf', 'أصمّ ناطق')

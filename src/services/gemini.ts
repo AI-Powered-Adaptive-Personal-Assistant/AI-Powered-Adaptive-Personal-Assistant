@@ -14,25 +14,38 @@ import { toast } from "../components/Toast";
 //   GEMINI_API_KEY, GROQ_API_KEY, XAI_API_KEY   (note: no VITE_ prefix)
 // The Gemini → Groq → xAI failover and multi-key rotation moved server-side too,
 // so there is no longer any in-browser fallback that could need a key.
-const GEMINI_KEYS: string[] = [];
+const splitKeys = (raw?: string): string[] =>
+  (raw || '').split(/[,\s]+/).map((k) => k.trim()).filter(Boolean);
+
+export function getGeminiKeys(): string[] {
+  const envKey = (import.meta as any).env?.VITE_GEMINI_API_KEY || (import.meta as any).env?.GEMINI_API_KEY || '';
+  const localKey = typeof localStorage !== 'undefined' ? localStorage.getItem('cognify_gemini_api_key') || localStorage.getItem('gemini_api_key') || '' : '';
+  return splitKeys(`${envKey} ${localKey}`);
+}
+
+export function getGroqKeys(): string[] {
+  const envKey = (import.meta as any).env?.VITE_GROQ_API_KEY || (import.meta as any).env?.GROQ_API_KEY || '';
+  return splitKeys(envKey);
+}
+
+export function getNvidiaKeys(): string[] {
+  const envKey = (import.meta as any).env?.VITE_NVIDIA_API_KEY || (import.meta as any).env?.NVIDIA_API_KEY || '';
+  return splitKeys(envKey);
+}
+
+export function getXaiKeys(): string[] {
+  const envKey = (import.meta as any).env?.VITE_XAI_API_KEY || (import.meta as any).env?.XAI_API_KEY || '';
+  return splitKeys(envKey);
+}
 
 /** First key (used to build the initial request URL). "" if none configured. */
 function geminiPrimaryKey(): string {
-  return GEMINI_KEYS[0] || "";
+  return getGeminiKeys()[0] || "";
 }
-
-// OpenAI-compatible fallback providers (used when Gemini is rate-limited/overloaded):
-//  - NVIDIA NIM: VITE_NVIDIA_API_KEY (keys start with "nvapi-") — GLM-5.2, DeepSeek-R1
-//  - Groq:  VITE_GROQ_API_KEY  (keys start with "gsk_")  — free, fast
-//  - xAI/Grok: VITE_XAI_API_KEY (keys start with "xai-")
-// One or several comma-separated keys each.
-const NVIDIA_KEYS: string[] = [];
-const GROQ_KEYS: string[] = [];
-const XAI_KEYS: string[] = [];
 
 /** First available fallback key (NVIDIA, Groq, or xAI). "" if none. */
 function fallbackPrimaryKey(): string {
-  return [...NVIDIA_KEYS, ...GROQ_KEYS, ...XAI_KEYS][0] || "";
+  return [...getNvidiaKeys(), ...getGroqKeys(), ...getXaiKeys()][0] || "";
 }
 const groqPrimaryKey = fallbackPrimaryKey;
 
@@ -93,8 +106,8 @@ const GEMINI_MODEL = GEMINI_MODELS[0];
 // One-time visibility into AI config (never logs the key values themselves), so
 // a "the chat silently does nothing" problem is diagnosable from DevTools.
 console.info(
-  `[Cognify AI] Gemini key: ${GEMINI_KEYS.length ? "set" : "MISSING"} · ` +
-  `Groq/xAI fallback: ${GROQ_KEYS.length || XAI_KEYS.length ? "set" : "none"} · model: ${GEMINI_MODEL}`,
+  `[Cognify AI] Gemini key: ${getGeminiKeys().length ? "set" : "MISSING"} · ` +
+  `Groq/xAI fallback: ${getGroqKeys().length || getXaiKeys().length ? "set" : "none"} · model: ${GEMINI_MODEL}`,
 );
 
 /** Compact adaptive system prompt (shared by the Groq fallback). */
@@ -208,10 +221,10 @@ async function fetchGeminiWithRetry(
     // Short wait — we rotate to a fresh key each retry, so no long backoff is needed.
     await new Promise((r) => setTimeout(r, 250));
     attempt++;
-    // Rotate to the next key on rate-limit/overload (helps if several are set).
-    if (GEMINI_KEYS.length > 1) {
-      keyIdx = (keyIdx + 1) % GEMINI_KEYS.length;
-      url = url.replace(/([?&]key=)[^&]+/, `$1${GEMINI_KEYS[keyIdx]}`);
+    const keys = getGeminiKeys();
+    if (keys.length > 1) {
+      keyIdx = (keyIdx + 1) % keys.length;
+      url = url.replace(/([?&]key=)[^&]+/, `$1${keys[keyIdx]}`);
     }
     res = await fetch(url, init);
   }

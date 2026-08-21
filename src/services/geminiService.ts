@@ -34,24 +34,63 @@ function rawBase64(data: string): string {
  * the existing graceful-degradation paths still work.
  */
 async function callGemini(parts: any[]): Promise<string> {
+  // 1. Try serverless backend
   try {
     const res = await fetch("/api/gemini/generateContent", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ parts }),
     });
-    // A static deploy without the functions returns the SPA's index.html; treat
-    // any non-JSON/!ok response as "unavailable" rather than parsing garbage.
-    if (!res.ok || !(res.headers.get("Content-Type") || "").includes("application/json")) {
-      console.error(`Accessibility AI call failed (${res.status}). Are the /api functions deployed and GEMINI_API_KEY set?`);
-      return "";
+    if (res.ok && (res.headers.get("Content-Type") || "").includes("application/json")) {
+      const d = await res.json();
+      if (d?.result) return d.result;
     }
-    const d = await res.json();
-    return d?.result || "";
-  } catch (e) {
-    console.error("Accessibility AI call threw:", e);
-    return "";
+  } catch {
+    /* fall through to direct */
   }
+
+  // 2. Direct Gemini fallback
+  const geminiKey = (import.meta as any).env?.VITE_GEMINI_API_KEY || (import.meta as any).env?.GEMINI_API_KEY || (typeof localStorage !== 'undefined' ? localStorage.getItem('cognify_gemini_api_key') || localStorage.getItem('gemini_api_key') : '') || '';
+  if (geminiKey) {
+    try {
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contents: [{ role: "user", parts }] }),
+      });
+      if (res.ok) {
+        const d = await res.json();
+        return d?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+      }
+    } catch {
+      /* fall through to groq */
+    }
+  }
+
+  // 3. Direct Groq fallback (text-only)
+  const groqKey = (import.meta as any).env?.VITE_GROQ_API_KEY || (import.meta as any).env?.GROQ_API_KEY || '';
+  const isTextOnly = !parts.some((p: any) => p?.inlineData);
+  if (groqKey && isTextOnly) {
+    try {
+      const prompt = parts.map((p: any) => p?.text || '').join('\n').trim();
+      const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${groqKey}` },
+        body: JSON.stringify({
+          model: 'llama-3.3-70b-versatile',
+          messages: [{ role: 'user', content: prompt }],
+        }),
+      });
+      if (res.ok) {
+        const d = await res.json();
+        return d?.choices?.[0]?.message?.content || "";
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  return "";
 }
 
 /** Pull the first JSON object/array out of a model reply (handles ```json fences). */
