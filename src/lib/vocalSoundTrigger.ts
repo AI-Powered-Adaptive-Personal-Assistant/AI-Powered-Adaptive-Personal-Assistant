@@ -16,7 +16,7 @@ export const DEFAULT_VOCAL_TRIGGERS: VocalSoundTriggerConfig[] = [
     name: 'Low Hum / Bass Tone',
     nameAr: 'صوت همهمة منخفضة',
     targetFrequencyHz: 220, // Low pitch vocalization
-    minEnergyThreshold: 0.18,
+    minEnergyThreshold: 0.04,
     action: 'select',
     enabled: true,
   },
@@ -24,8 +24,8 @@ export const DEFAULT_VOCAL_TRIGGERS: VocalSoundTriggerConfig[] = [
     id: 'high-tone',
     name: 'High Tone / "Ahhh"',
     nameAr: 'نبرة صوتية عالية',
-    targetFrequencyHz: 850, // Mid/High pitch vowel sound
-    minEnergyThreshold: 0.20,
+    targetFrequencyHz: 750, // Mid/High pitch vowel sound
+    minEnergyThreshold: 0.045,
     action: 'next',
     enabled: true,
   },
@@ -33,8 +33,8 @@ export const DEFAULT_VOCAL_TRIGGERS: VocalSoundTriggerConfig[] = [
     id: 'sharp-sound',
     name: 'Sharp Sound / Click',
     nameAr: 'صوت حاد أو نقرة',
-    targetFrequencyHz: 1800, // High frequency burst
-    minEnergyThreshold: 0.28,
+    targetFrequencyHz: 1600, // High frequency burst
+    minEnergyThreshold: 0.06,
     action: 'ask-ai',
     enabled: true,
   },
@@ -105,9 +105,9 @@ export class VocalSoundEngine {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
-          echoCancellation: false,
+          echoCancellation: true,
           noiseSuppression: false,
-          autoGainControl: false,
+          autoGainControl: true,
         },
       });
       this.mediaStream = stream;
@@ -183,8 +183,8 @@ export class VocalSoundEngine {
     const now = Date.now();
     let triggeredConfig: VocalSoundTriggerConfig | undefined;
 
-    // Check against configured triggers
-    if (rms > 0.08 && now - this.lastTriggerTime > this.cooldownMs) {
+    // Check against configured triggers with sensitive quiet voice detection
+    if (rms > 0.03 && now - this.lastTriggerTime > this.cooldownMs) {
       for (const config of this.triggers) {
         if (!config.enabled) continue;
         if (rms < config.minEnergyThreshold) continue;

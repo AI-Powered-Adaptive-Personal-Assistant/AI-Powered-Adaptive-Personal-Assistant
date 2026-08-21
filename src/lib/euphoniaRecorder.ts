@@ -158,7 +158,13 @@ export class EuphoniaRecorder {
 
   public async start(phraseId: string, phraseText: string, cb: RecorderCallbacks) {
     try {
-      this.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      this.stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          autoGainControl: true,
+          echoCancellation: true,
+          noiseSuppression: false,
+        },
+      });
       const mimeType = this.pickMimeType();
       this.mediaRecorder = mimeType
         ? new MediaRecorder(this.stream, { mimeType })

@@ -49,15 +49,15 @@ export interface CalibrationStatus {
 }
 
 export const DEFAULT_HEAD_TRACKING_CONFIG: HeadTrackingConfig = {
-  sensitivity: 2.5,
-  dwellTimeMs: 850,
+  sensitivity: 1.25,
+  dwellTimeMs: 1200,
   facialTriggersEnabled: true,
   smileThreshold: 0.65,
   mouthOpenThreshold: 0.65,
   autoScanEnabled: false,
   autoScanIntervalMs: 1400,
-  smoothing: 0.85,
-  trackingMode: 'hybrid', // Hybrid: 70% Iris + 30% Head gives best stability & reach
+  smoothing: 0.88,
+  trackingMode: 'hybrid', // Hybrid: 60% Iris + 40% Head gives best stability & reach
 };
 
 // MediaPipe Landmark Loops
@@ -500,19 +500,25 @@ export class FacialHeadTracker {
       this.refreshSnapTargetsCache();
     }
 
-    // Dwell progress
+    // Dwell progress with pre-dwell hover debounce (prevents accidental triggers during eye sweep)
+    const HOVER_DEBOUNCE_MS = 180;
     if (this.hoverTargetId && this.hoverStartTime > 0) {
-      const elapsed = Date.now() - this.hoverStartTime;
-      const prog = Math.min(1, elapsed / this.config.dwellTimeMs);
-      this.dwellProgress = prog;
-
-      if (prog >= 1) {
-        const completedTarget = this.hoverTargetId;
-        this.hoverTargetId = null;
-        this.hoverStartTime = 0;
+      const totalElapsed = Date.now() - this.hoverStartTime;
+      if (totalElapsed < HOVER_DEBOUNCE_MS) {
         this.dwellProgress = 0;
-        if (this.onDwellCompleteCb) {
-          this.onDwellCompleteCb(completedTarget);
+      } else {
+        const activeElapsed = totalElapsed - HOVER_DEBOUNCE_MS;
+        const prog = Math.min(1, activeElapsed / this.config.dwellTimeMs);
+        this.dwellProgress = prog;
+
+        if (prog >= 1) {
+          const completedTarget = this.hoverTargetId;
+          this.hoverTargetId = null;
+          this.hoverStartTime = 0;
+          this.dwellProgress = 0;
+          if (this.onDwellCompleteCb) {
+            this.onDwellCompleteCb(completedTarget);
+          }
         }
       }
     } else {
@@ -641,12 +647,12 @@ export class FacialHeadTracker {
         targetX = noseNormX;
         targetY = noseNormY;
       } else if (mode === 'iris') {
-        targetX = 0.5 + avgGazeX * 4.5 + (noseNormX - 0.5) * 0.4;
-        targetY = 0.5 + avgGazeY * 5.2 + (noseNormY - 0.5) * 0.4;
+        targetX = 0.5 + avgGazeX * 2.2 + (noseNormX - 0.5) * 0.4;
+        targetY = 0.5 + avgGazeY * 2.4 + (noseNormY - 0.5) * 0.4;
       } else {
-        // Hybrid: 65% Iris + 35% Head anchor (balanced, stable, covers full screen comfortably)
-        targetX = 0.5 + avgGazeX * 3.8 + (noseNormX - 0.5) * 1.5;
-        targetY = 0.5 + avgGazeY * 4.4 + (noseNormY - 0.5) * 1.5;
+        // Hybrid: 60% Iris + 40% Head anchor (balanced, rock-solid, covers full screen comfortably)
+        targetX = 0.5 + avgGazeX * 1.8 + (noseNormX - 0.5) * 0.8;
+        targetY = 0.5 + avgGazeY * 2.0 + (noseNormY - 0.5) * 0.8;
       }
 
       this.feedCalibrationSample(targetX, targetY);
@@ -689,19 +695,19 @@ export class FacialHeadTracker {
       const baseY = this.baselineGaze ? this.baselineGaze.y : 0.5;
       const deltaX = rawNormX - baseX;
       const deltaY = rawNormY - baseY;
-      const gain = 1.35 * this.config.sensitivity;
+      const gain = 1.05 * this.config.sensitivity;
       mappedX = Math.max(0.01, Math.min(0.99, 0.5 + deltaX * gain));
-      mappedY = Math.max(0.01, Math.min(0.99, 0.5 + deltaY * gain * 1.15));
+      mappedY = Math.max(0.01, Math.min(0.99, 0.5 + deltaY * gain * 1.05));
     }
 
     const smoothed = this.gazeSmoother.filter(mappedX, mappedY, timestamp);
 
-    let screenX = smoothed.x * window.innerWidth;
-    let screenY = smoothed.y * window.innerHeight;
+    let screenX = Math.max(16, Math.min(window.innerWidth - 16, smoothed.x * window.innerWidth));
+    let screenY = Math.max(16, Math.min(window.innerHeight - 16, smoothed.y * window.innerHeight));
 
     // Sticky Magnetic Snapping with Smooth Spring Pull & Hysteresis
-    const SNAP_ACQUIRE_RADIUS = 75; // Latch onto target within 75px
-    const SNAP_RELEASE_RADIUS = 135; // Hold firmly until gaze moves > 135px away
+    const SNAP_ACQUIRE_RADIUS = 40; // Latch onto target within 40px (calibrated for keyboard keys)
+    const SNAP_RELEASE_RADIUS = 75; // Hold firmly until gaze moves > 75px away
 
     let isSnapped = false;
     let activeTargetId: string | null = null;
@@ -709,8 +715,8 @@ export class FacialHeadTracker {
     if (this.lockedSnapTarget) {
       const distFromLocked = Math.hypot(screenX - this.lockedSnapTarget.cx, screenY - this.lockedSnapTarget.cy);
       if (distFromLocked <= SNAP_RELEASE_RADIUS) {
-        // Smooth magnetic pull: 88% to target center, 12% smooth lead
-        const pull = 0.88;
+        // Smooth magnetic pull: 85% to target center, 15% smooth lead
+        const pull = 0.85;
         screenX = this.lockedSnapTarget.cx * pull + screenX * (1 - pull);
         screenY = this.lockedSnapTarget.cy * pull + screenY * (1 - pull);
         isSnapped = true;
@@ -734,13 +740,17 @@ export class FacialHeadTracker {
 
       if (candidate) {
         this.lockedSnapTarget = candidate;
-        const pull = 0.88;
+        const pull = 0.85;
         screenX = candidate.cx * pull + screenX * (1 - pull);
         screenY = candidate.cy * pull + screenY * (1 - pull);
         isSnapped = true;
         activeTargetId = candidate.id;
       }
     }
+
+    // Viewport Boundary Clamping (strict - never exits the application screen frame)
+    screenX = Math.max(16, Math.min(window.innerWidth - 16, screenX));
+    screenY = Math.max(16, Math.min(window.innerHeight - 16, screenY));
 
     if (activeTargetId) {
       this.setHoverTarget(activeTargetId);
