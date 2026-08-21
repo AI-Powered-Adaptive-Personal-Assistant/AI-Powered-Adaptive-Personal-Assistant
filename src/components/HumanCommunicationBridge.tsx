@@ -200,8 +200,13 @@ export default function HumanCommunicationBridge({ profile }: HumanCommunication
 
           {/* Custom Message Input */}
           <div className="flex-1 flex flex-col mb-4">
-            <label className="text-[11px] font-bold text-text-muted mb-1.5">{isArabic ? "اكتب ما تريد قوله للطرف الآخر:" : "Type what you want to say:"}</label>
+            <label htmlFor="human-bridge-textarea" className="text-[11px] font-bold text-text-muted mb-1.5">
+              {isArabic ? "اكتب ما تريد قوله للطرف الآخر:" : "Type what you want to say:"}
+            </label>
             <textarea
+              id="human-bridge-textarea"
+              name="human-bridge-message"
+              aria-label={isArabic ? "نص الرسالة المنطوقة" : "Message to speak aloud"}
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
               onKeyDown={(e) => {
