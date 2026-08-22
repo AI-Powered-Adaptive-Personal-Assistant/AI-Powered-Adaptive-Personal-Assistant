@@ -86,23 +86,33 @@ export class ContinuousGazeSmoother {
       return { x: this.x, y: this.y };
     }
 
+    // Frame-rate independence. alpha was applied once per FRAME, so the same
+    // tuning behaved differently at 60fps and at the ~25fps these students' older
+    // laptops manage: the cursor felt sluggish on slow devices and jumpy on fast
+    // ones, and no single tuning could suit both.
+    const dt = Math.max(1, timestamp - this.lastT) / 1000; // seconds
     this.lastT = timestamp;
 
     const dx = targetX - this.x;
     const dy = targetY - this.y;
     const dist = Math.hypot(dx, dy);
 
-    // Deadband threshold: if movement is tiny micro-tremor (< 0.005 in norm units ≈ 8px on screen), freeze completely!
-    if (dist < 0.005) {
+    // Deadband, expressed per second so it is also frame-rate independent
+    // (micro-tremor ~0.005 norm units at 60fps => 0.3 units/s).
+    if (dist / dt < 0.3) {
       return { x: this.x, y: this.y };
     }
 
-    // Velocity-adaptive alpha:
-    // Fixed / small drift: alpha ~ 0.09 (rock-solid stability on keys)
-    // Smooth pursuit: alpha ~ 0.28 (silky glide)
-    // Saccadic shift: alpha ~ 0.82 (instant target acquisition)
-    const saccadeFactor = Math.min(1.0, Math.pow(dist / 0.10, 1.5));
-    const alpha = 0.09 + (0.82 - 0.09) * saccadeFactor;
+    // Velocity in normalized units per second, not per frame.
+    const velocity = dist / dt;
+    // Fixation ~ slow (rock-solid on keys) ... saccade ~ fast (instant acquire).
+    const saccadeFactor = Math.min(1.0, Math.pow(velocity / 6.0, 1.5));
+    // Convert the per-frame alpha to a time constant, so the SAME smoothing is
+    // produced at any frame rate: alpha = 1 - exp(-dt / tau).
+    const tauSlow = 0.16;  // was alpha 0.09 @60fps
+    const tauFast = 0.012; // was alpha 0.82 @60fps
+    const tau = tauSlow + (tauFast - tauSlow) * saccadeFactor;
+    const alpha = 1 - Math.exp(-dt / Math.max(tau, 1e-4));
 
     this.x += dx * alpha;
     this.y += dy * alpha;

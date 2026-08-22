@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { toast } from './Toast';
 import { UserProfile } from '../types';
 import { localize } from '../lib/translations';
 import { speak, cancelSpeech } from '../lib/tts';
@@ -62,7 +63,22 @@ export default function HumanCommunicationBridge({ profile }: HumanCommunication
     speak(textToSpeak, voiceDialect, {
       onStart: () => setIsSpeakingOut(true),
       onEnd: () => setIsSpeakingOut(false),
-      onError: () => setIsSpeakingOut(false),
+      // The button used to just flash and go silent on a device with no Arabic
+      // voice installed, with no explanation — while the Motor view on the SAME
+      // device correctly warned about it. Tell the user what went wrong.
+      onError: (reason) => {
+        setIsSpeakingOut(false);
+        const isAr = voiceDialect === 'Arabic' || voiceDialect === 'Egyptian Ammiya';
+        const msg =
+          reason === 'unsupported'
+            ? (isAr ? '⚠️ المتصفح لا يدعم النطق الصوتي' : '⚠️ This browser does not support speech output')
+            : reason === 'silent-fail'
+            ? (isAr
+                ? '⚠️ تعذر نطق الجملة. تأكد من وجود صوت عربي مثبت على الجهاز وأن الصوت غير مكتوم'
+                : '⚠️ Could not speak. Check that a matching voice is installed and the device is not muted')
+            : (isAr ? '⚠️ حدث خطأ أثناء النطق الصوتي' : '⚠️ Speech output error');
+        toast.error(msg);
+      },
     });
   };
 
