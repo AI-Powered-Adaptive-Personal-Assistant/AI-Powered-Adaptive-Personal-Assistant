@@ -26,6 +26,9 @@ import {
   EuphoniaStorageAdapter,
   EuphoniaAudioSample,
 } from '../lib/euphoniaRecorder';
+
+/** Shared default adapter — constructed once, not on every render. */
+const DEFAULT_LOCAL_ADAPTER = new LocalIndexedDbStorageAdapter();
 import {
   transcribe,
   getEuphoniaApiUrl,
@@ -279,18 +282,27 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
   const [euphoniaMatchedPhrase, setEuphoniaMatchedPhrase] = useState<string | null>(null);
   const [euphoniaMatchSource, setEuphoniaMatchSource] = useState<'custom-model' | 'browser-fallback' | null>(null);
   const [euphoniaApiUrlInput, setEuphoniaApiUrlInput] = useState(() => getEuphoniaApiUrl());
+  // The SAVED url, separate from the draft text above. The storage-adapter
+  // effect used to key on the draft while reading the persisted value, so
+  // pressing "Save & Test" never re-ran it: the toast said "Connected to your
+  // custom model" while every sample kept going to local IndexedDB, silently,
+  // until someone went looking for the training data.
+  const [euphoniaApiUrl, setEuphoniaApiUrlState] = useState(() => getEuphoniaApiUrl());
   const [euphoniaApiHealthy, setEuphoniaApiHealthy] = useState<boolean | null>(null);
 
   // Storage adapter: REST if an API URL is configured, otherwise local
   // IndexedDB so recording still works fully offline / pre-backend.
-  const storageAdapterRef = useRef<EuphoniaStorageAdapter>(new LocalIndexedDbStorageAdapter());
+  // Module-level default so the ref stays non-null (this project has
+  // strictNullChecks off, so a nullable ref would not be type-checked at its
+  // call sites) while avoiding the per-render construction the previous
+  // `useRef(new LocalIndexedDbStorageAdapter())` did on every single render.
+  const storageAdapterRef = useRef<EuphoniaStorageAdapter>(DEFAULT_LOCAL_ADAPTER);
 
   useEffect(() => {
-    const apiUrl = getEuphoniaApiUrl();
-    storageAdapterRef.current = apiUrl
-      ? new RestUploadStorageAdapter(apiUrl)
+    storageAdapterRef.current = euphoniaApiUrl
+      ? new RestUploadStorageAdapter(euphoniaApiUrl)
       : new LocalIndexedDbStorageAdapter();
-  }, [euphoniaApiUrlInput]);
+  }, [euphoniaApiUrl]);
 
   // Load the 100-phrase bank once on mount.
   useEffect(() => {
@@ -843,6 +855,7 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
   // Settings: save + health-check the API URL
   const handleSaveEuphoniaApiUrl = async () => {
     setEuphoniaApiUrl(euphoniaApiUrlInput);
+    setEuphoniaApiUrlState(euphoniaApiUrlInput.trim()); // drives the adapter effect
     toast.info(isArabic ? 'جاري التحقق من الاتصال...' : 'Checking connection...');
     const healthy = await checkEuphoniaApiHealth(euphoniaApiUrlInput);
     setEuphoniaApiHealthy(healthy);
@@ -879,20 +892,14 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
 
   // Check which card, key, or modal item the cursor is hovering over
   const checkHoverTarget = (pos: PointerPosition) => {
-    const interactiveElements = document.querySelectorAll('[data-aac-id]');
-    let foundId: string | null = null;
-
-    interactiveElements.forEach((el) => {
-      const rect = el.getBoundingClientRect();
-      if (
-        pos.x >= rect.left &&
-        pos.x <= rect.right &&
-        pos.y >= rect.top &&
-        pos.y <= rect.bottom
-      ) {
-        foundId = el.getAttribute('data-aac-id');
-      }
-    });
+    // Was: querySelectorAll + getBoundingClientRect on EVERY element, every
+    // frame. That forces a full layout recompute per element ~60x/second, which
+    // is the heaviest single cost on the low-end tablets these students use —
+    // and it is why the cursor lagged worst exactly when tracking was active.
+    // One hit test does the same job.
+    const hit = document.elementFromPoint(pos.x, pos.y) as HTMLElement | null;
+    const foundId: string | null =
+      (hit?.closest('[data-aac-id]') as HTMLElement | null)?.getAttribute('data-aac-id') ?? null;
 
     if (foundId !== hoveredCardIdRef.current) {
       hoveredCardIdRef.current = foundId;
