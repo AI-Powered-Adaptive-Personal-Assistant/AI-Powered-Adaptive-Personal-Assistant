@@ -50,7 +50,10 @@ async function callGemini(parts: any[]): Promise<string> {
   }
 
   // 2. Direct Gemini fallback
-  const geminiKey = (import.meta as any).env?.VITE_GEMINI_API_KEY || (import.meta as any).env?.GEMINI_API_KEY || (typeof localStorage !== 'undefined' ? localStorage.getItem('cognify_gemini_api_key') || localStorage.getItem('gemini_api_key') : '') || '';
+  // NO env key: a VITE_* read would be inlined into the public bundle and leak
+  // the project's key. Only a key the USER pasted themselves is used here — the
+  // shared project keys stay server-side behind /api/gemini/*.
+  const geminiKey = (typeof localStorage !== 'undefined' ? localStorage.getItem('cognify_gemini_api_key') || localStorage.getItem('gemini_api_key') : '') || '';
   if (geminiKey) {
     try {
       const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
@@ -68,7 +71,9 @@ async function callGemini(parts: any[]): Promise<string> {
   }
 
   // 3. Direct Groq fallback (text-only)
-  const groqKey = (import.meta as any).env?.VITE_GROQ_API_KEY || (import.meta as any).env?.GROQ_API_KEY || '';
+  // Server-only — the Groq/NVIDIA/xAI failover lives in /api/gemini/*, so no
+  // fallback key is read in the browser.
+  const groqKey = '';
   const isTextOnly = !parts.some((p: any) => p?.inlineData);
   if (groqKey && isTextOnly) {
     try {

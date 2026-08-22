@@ -18,24 +18,28 @@ const splitKeys = (raw?: string): string[] =>
   (raw || '').split(/[,\s]+/).map((k) => k.trim()).filter(Boolean);
 
 export function getGeminiKeys(): string[] {
-  const envKey = (import.meta as any).env?.VITE_GEMINI_API_KEY || (import.meta as any).env?.GEMINI_API_KEY || '';
+  // NO env key here on purpose. Vite inlines every VITE_* variable into the
+  // public bundle, so reading one would put the project's key back into the
+  // JS anyone can download. Provider keys live server-side in /api/gemini/*.
+  // Only a key the USER pasted themselves (their own, on their own device) is
+  // honoured, which leaks nothing.
   const localKey = typeof localStorage !== 'undefined' ? localStorage.getItem('cognify_gemini_api_key') || localStorage.getItem('gemini_api_key') || '' : '';
-  return splitKeys(`${envKey} ${localKey}`);
+  return splitKeys(localKey);
 }
 
 export function getGroqKeys(): string[] {
-  const envKey = (import.meta as any).env?.VITE_GROQ_API_KEY || (import.meta as any).env?.GROQ_API_KEY || '';
-  return splitKeys(envKey);
+  // Server-only: handled by /api/gemini/* so the key never reaches the browser.
+  return [];
 }
 
 export function getNvidiaKeys(): string[] {
-  const envKey = (import.meta as any).env?.VITE_NVIDIA_API_KEY || (import.meta as any).env?.NVIDIA_API_KEY || '';
-  return splitKeys(envKey);
+  // Server-only: handled by /api/gemini/* so the key never reaches the browser.
+  return [];
 }
 
 export function getXaiKeys(): string[] {
-  const envKey = (import.meta as any).env?.VITE_XAI_API_KEY || (import.meta as any).env?.XAI_API_KEY || '';
-  return splitKeys(envKey);
+  // Server-only: handled by /api/gemini/* so the key never reaches the browser.
+  return [];
 }
 
 /** First key (used to build the initial request URL). "" if none configured. */
