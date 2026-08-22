@@ -558,7 +558,7 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
     }
   };
 
-  // Auto-start camera when view mounts
+  // Auto-start camera when view mounts.
   useEffect(() => {
     const timer = setTimeout(() => {
       if (!isCameraActive && videoRef.current) {
@@ -566,6 +566,27 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
       }
     }, 500);
     return () => clearTimeout(timer);
+  }, []);
+
+  // Unlock speech synthesis on the first REAL user gesture.
+  //
+  // toggleCamera() calls unlockSpeechSynthesis(), but the auto-start above fires
+  // it from a timer rather than a gesture, so the browser's autoplay policy
+  // refuses the unlock and the FIRST phrase the student speaks is silently
+  // dropped — the card highlights and the toast claims it was spoken, but
+  // nothing comes out. Any genuine interaction repairs it.
+  useEffect(() => {
+    let done = false;
+    const unlock = () => {
+      if (done) return;
+      done = true;
+      try { unlockSpeechSynthesis(); } catch { /* ignore */ }
+      remove();
+    };
+    const events: (keyof DocumentEventMap)[] = ['pointerdown', 'keydown', 'touchstart'];
+    const remove = () => events.forEach((e) => document.removeEventListener(e, unlock));
+    events.forEach((e) => document.addEventListener(e, unlock, { once: true, passive: true }));
+    return remove;
   }, []);
 
   // Mouse movement fallback listener

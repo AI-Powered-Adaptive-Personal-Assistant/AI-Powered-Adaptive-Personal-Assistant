@@ -214,13 +214,11 @@ export class FacialHeadTracker {
   private hoverStartTime: number = 0;
   private dwellProgress: number = 0;
 
-  // Hover-confirmation debounce — a candidate target must stay stable for
-  // HOVER_CONFIRM_MS before it actually becomes the active dwell target.
-  // This filters out the brief overshoot onto a neighboring key that made
-  // the pointer feel "random" when it landed on the wrong letter.
-  private pendingHoverTarget: string | null = null;
-  private pendingHoverSince: number = 0;
-  private readonly HOVER_CONFIRM_MS = 160;
+  // NOTE: the hover-confirmation debounce is implemented in the render loop as
+  // HOVER_DEBOUNCE_MS (dwell progress stays 0 until the target has been held
+  // that long). Three fields were declared here describing the same feature and
+  // never referenced anywhere, so the file claimed a safeguard twice and wired
+  // it once. Removed to keep one source of truth.
   // Edge-trigger latch. Dwell completion used to clear hoverTargetId, but the
   // very next frame re-set it to the SAME id (the gaze is still there), so the
   // timer restarted and the target fired again and again — one look produced
