@@ -170,6 +170,12 @@ export class FacialHeadTracker {
 
   // Continuous Adaptive Gaze Smoother
   private gazeSmoother = new ContinuousGazeSmoother();
+  // Guards the async start(): stop() can be called while getUserMedia is still
+  // awaiting permission. Without this the promise resolves afterwards and turns
+  // the camera on anyway, against a detached <video>, with an rAF loop nothing
+  // can cancel — the webcam LED then stays lit for the life of the tab.
+  private startToken = 0;
+  private wantsRunning = false;
 
   // 9-Point Affine Calibration
   private calibCoeffsX: number[] | null = null;
@@ -354,8 +360,11 @@ export class FacialHeadTracker {
     this.onGestureCb = callbacks.onGesture;
     this.onCalibrationStatusCb = callbacks.onCalibrationStatus;
 
+    this.wantsRunning = true;
+    const token = ++this.startToken;
+
     try {
-      this.stream = await navigator.mediaDevices.getUserMedia({
+      const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           width: { ideal: 640 },
           height: { ideal: 480 },
@@ -364,6 +373,14 @@ export class FacialHeadTracker {
         },
       });
 
+      // stop() ran, or another start() superseded us, while we were awaiting
+      // permission. Release this stream instead of leaking a live camera.
+      if (token !== this.startToken || !this.wantsRunning) {
+        stream.getTracks().forEach((t) => t.stop());
+        return false;
+      }
+
+      this.stream = stream;
       this.videoEl.srcObject = this.stream;
       await this.videoEl.play();
 
@@ -435,6 +452,8 @@ export class FacialHeadTracker {
   }
 
   public stop() {
+    this.wantsRunning = false;
+    this.startToken++; // invalidate any start() still awaiting getUserMedia
     this.isRunning = false;
     if (this.animFrameId) {
       cancelAnimationFrame(this.animFrameId);

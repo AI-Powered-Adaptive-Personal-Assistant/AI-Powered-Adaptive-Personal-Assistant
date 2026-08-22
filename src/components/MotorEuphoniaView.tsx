@@ -229,6 +229,19 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
   });
   const [dwellProgress, setDwellProgress] = useState(0);
   const [hoveredCardId, setHoveredCardId] = useState<string | null>(null);
+  // LIVE REFS for the tracker callbacks.
+  //
+  // FacialHeadTracker.start() receives its callbacks ONCE and keeps them for the
+  // whole session, so anything they close over is frozen at that render. That is
+  // why dwelling on Speak / Ask AI / WhatsApp did nothing and blink-to-click
+  // never fired: handleCardTrigger was a stale copy and hoveredCardId was stuck
+  // at its initial null. Mouse clicks went through a different path, which is
+  // why desktop testing never caught it. These refs are re-pointed on every
+  // render, and the callbacks read `.current` instead of the captured value.
+  const cameraBusyRef = useRef(false); // in-flight guard for startCamera()
+  const hoveredCardIdRef = useRef<string | null>(null);
+  const handleCardTriggerRef = useRef<(id: string) => void>(() => {});
+  const checkHoverTargetRef = useRef<(pos: PointerPosition) => void>(() => {});
   const [gestureState, setGestureState] = useState<FacialGestureState>({
     isSmiling: false,
     isMouthOpen: false,
@@ -589,6 +602,15 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
     }
 
     if (!videoRef.current) return;
+    // Re-entrancy guard: the on-screen button and the auto-start effect could
+    // both fire (isCameraActive is only set AFTER getUserMedia resolves), which
+    // built two trackers. The second overwrote trackerRef, so "Stop Camera"
+    // could only ever stop one — the other kept the webcam LED on and a second
+    // FaceMesh running at 60fps, fighting over the cursor.
+    if (cameraBusyRef.current) return;
+    cameraBusyRef.current = true;
+    try { trackerRef.current?.stop(); } catch { /* nothing running */ }
+
     const tracker = new FacialHeadTracker(headConfig);
     trackerRef.current = tracker;
 
@@ -598,24 +620,25 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
         onPointerMove: (pos, prog) => {
           setCursorPos(pos);
           setDwellProgress(prog);
-          checkHoverTarget(pos);
+          checkHoverTargetRef.current(pos);
         },
         onDwellComplete: (targetId) => {
-          handleCardTrigger(targetId);
+          handleCardTriggerRef.current(targetId);
         },
         onGesture: (gesture) => {
           setGestureState(gesture);
           if (gesture.metrics) {
             setEyeLiveMetrics(gesture.metrics);
           }
+          const hovered = hoveredCardIdRef.current;
           if (gesture.isBlinking) {
-            if (hoveredCardId) {
+            if (hovered) {
               playBlinkClickSound();
-              handleCardTrigger(hoveredCardId);
+              handleCardTriggerRef.current(hovered);
             }
           } else if (gesture.isSmiling) {
-            if (hoveredCardId) {
-              handleCardTrigger(hoveredCardId);
+            if (hovered) {
+              handleCardTriggerRef.current(hovered);
             }
           }
         },
@@ -626,10 +649,16 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
       overlayCanvasRef.current
     );
 
+    cameraBusyRef.current = false;
+
     if (ok) {
       setIsCameraActive(true);
       toast.success(isArabic ? 'تم تفعيل تتبع العين - انظر للحرف وأغمض عينك لكتابته' : 'Eye-Gaze active - look and blink to type');
     } else {
+      // start() released the stream itself; make sure no half-built tracker
+      // is left behind holding a camera.
+      try { trackerRef.current?.stop(); } catch { /* ignore */ }
+      trackerRef.current = null;
       toast.error(isArabic ? 'تعذر الوصول إلى الكاميرا' : 'Could not access webcam');
     }
   };
@@ -798,7 +827,8 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
       }
     });
 
-    if (foundId !== hoveredCardId) {
+    if (foundId !== hoveredCardIdRef.current) {
+      hoveredCardIdRef.current = foundId;
       setHoveredCardId(foundId);
       if (isCameraActive) {
         trackerRef.current?.setHoverTarget(foundId);
@@ -1345,6 +1375,12 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
       }
     }
   };
+
+  // Re-point the tracker's live refs on EVERY render so its long-lived callbacks
+  // always invoke the current closures (see the ref declarations above).
+  handleCardTriggerRef.current = handleCardTrigger;
+  checkHoverTargetRef.current = checkHoverTarget;
+
 
   // Atypical / Dysarthric Speech Recording
   const startAtypicalSpeechRecognition = () => {

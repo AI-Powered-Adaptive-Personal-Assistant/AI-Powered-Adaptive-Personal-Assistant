@@ -157,6 +157,14 @@ export class EuphoniaRecorder {
   }
 
   public async start(phraseId: string, phraseText: string, cb: RecorderCallbacks) {
+    // Re-entrancy guard. This recorder is shared, and the live-listen button
+    // stayed enabled during a phrase recording: a second start() overwrote
+    // every field, orphaning the first MediaStream with its tracks still live
+    // (mic indicator on for good) and leaving the old max-clip timer to fire
+    // against the new recording.
+    if (this.stream || this.mediaRecorder) {
+      try { this.stop(); } catch { /* fall through to a clean start */ }
+    }
     try {
       this.stream = await navigator.mediaDevices.getUserMedia({
         audio: {

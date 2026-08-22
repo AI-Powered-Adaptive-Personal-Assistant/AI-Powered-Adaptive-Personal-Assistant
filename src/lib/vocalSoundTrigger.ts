@@ -70,6 +70,20 @@ export interface LiveAudioMetrics {
 
 export class VocalSoundEngine {
   private audioCtx: AudioContext | null = null;
+  // See FacialHeadTracker: stop() can land while getUserMedia is still awaiting
+  // permission. This engine is a module-level singleton, so a leaked stream
+  // survives every remount — the mic indicator would stay on for the whole tab.
+  private startToken = 0;
+  private wantsRunning = false;
+  // Adaptive noise floor + sustain/re-arm state. A fixed rms>0.03 threshold with
+  // a +/-35% frequency window fired on ordinary classroom noise (a chair, a
+  // nearby voice) and could repeat ~twice a second. The intended user often
+  // cannot speak to correct it or move to undo it, so a false trigger is the
+  // most damaging failure in this module.
+  private noiseFloor = 0.02;
+  private candidateId: string | null = null;
+  private candidateFrames = 0;
+  private armed = true; // must fall quiet again before the next trigger
   private analyser: AnalyserNode | null = null;
   private mediaStream: MediaStream | null = null;
   private animationFrameId: number | null = null;
@@ -102,14 +116,25 @@ export class VocalSoundEngine {
     this.onTriggerCallback = onTrigger;
     this.onMetricsCallback = onMetrics;
 
+    this.wantsRunning = true;
+    const token = ++this.startToken;
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: true,
-          noiseSuppression: false,
-          autoGainControl: true,
+          // Was false: raw input made the trigger threshold meaningless in a
+          // noisy classroom. AGC off so a fixed threshold means a fixed loudness.
+          noiseSuppression: true,
+          autoGainControl: false,
         },
       });
+
+      // Superseded or stopped while awaiting permission — release the mic.
+      if (token !== this.startToken || !this.wantsRunning) {
+        stream.getTracks().forEach((t) => t.stop());
+        return false;
+      }
       this.mediaStream = stream;
 
       const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
@@ -135,6 +160,8 @@ export class VocalSoundEngine {
   }
 
   public stop(): void {
+    this.wantsRunning = false;
+    this.startToken++; // invalidate any start() still awaiting the mic
     this.isRunning = false;
     if (this.animationFrameId) {
       cancelAnimationFrame(this.animationFrameId);
@@ -183,20 +210,52 @@ export class VocalSoundEngine {
     const now = Date.now();
     let triggeredConfig: VocalSoundTriggerConfig | undefined;
 
-    // Check against configured triggers with sensitive quiet voice detection
-    if (rms > 0.03 && now - this.lastTriggerTime > this.cooldownMs) {
+    // ── Adaptive noise floor ────────────────────────────────────────────────
+    // Track ambient level while nothing is being said, so the threshold means
+    // "louder than THIS room" instead of a fixed number tuned in a quiet office.
+    const mean = sumSquares > 0 ? Math.sqrt(sumSquares / bufferLength) / 255 : 0;
+    const isQuiet = rms < this.noiseFloor * 1.8 + 0.01;
+    if (isQuiet) this.noiseFloor = this.noiseFloor * 0.95 + rms * 0.05;
+    this.noiseFloor = Math.min(Math.max(this.noiseFloor, 0.005), 0.25);
+
+    // Re-arm only after the sound has actually stopped, so ONE sustained hum
+    // cannot fire the same action three or four times.
+    if (!this.armed && rms < this.noiseFloor * 1.5 + 0.01) this.armed = true;
+
+    // ── Tonality: a deliberate hum has a dominant peak; noise does not ───────
+    const peakDominance = mean > 0 ? (maxVal / 255) / Math.max(mean, 1e-6) : 0;
+    const loudEnough = rms > this.noiseFloor + 0.05;
+
+    if (this.armed && loudEnough && peakDominance >= 3 && now - this.lastTriggerTime > this.cooldownMs) {
+      let match: VocalSoundTriggerConfig | undefined;
       for (const config of this.triggers) {
         if (!config.enabled) continue;
         if (rms < config.minEnergyThreshold) continue;
-
-        // Check if frequency is within +/- 35% of target frequency or peak match
+        // Tightened from 35% to 18% — 35% overlapped several distinct triggers
+        // and matched the broadband peak of ordinary room noise.
         const freqRatio = Math.abs(peakFreq - config.targetFrequencyHz) / Math.max(config.targetFrequencyHz, 100);
-        if (freqRatio <= 0.35) {
-          triggeredConfig = config;
-          this.lastTriggerTime = now;
-          break;
-        }
+        if (freqRatio <= 0.18) { match = config; break; }
       }
+
+      // Require the SAME trigger across several consecutive frames. A transient
+      // (a door, a cough) never survives this; a held vowel does.
+      if (match && match.id === this.candidateId) {
+        this.candidateFrames++;
+      } else {
+        this.candidateId = match ? match.id : null;
+        this.candidateFrames = match ? 1 : 0;
+      }
+
+      if (match && this.candidateFrames >= 4) {
+        triggeredConfig = match;
+        this.lastTriggerTime = now;
+        this.candidateId = null;
+        this.candidateFrames = 0;
+        this.armed = false; // wait for silence before the next one
+      }
+    } else if (!loudEnough) {
+      this.candidateId = null;
+      this.candidateFrames = 0;
     }
 
     const metrics: LiveAudioMetrics = {
