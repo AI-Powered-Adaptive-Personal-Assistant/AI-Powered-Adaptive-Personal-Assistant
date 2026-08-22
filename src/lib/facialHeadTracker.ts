@@ -324,9 +324,9 @@ export class FacialHeadTracker {
       return { isCalibrated: false, pointsCollected: this.calibSamplesA.length, accuracyEstimate: 0 };
     }
 
-    this.calibCoeffsX = coeffsX;
-    this.calibCoeffsY = coeffsY;
-
+    // Score the fit BEFORE committing it. A bad solve used to be installed
+    // anyway, which pinned the cursor against one edge of the screen with no
+    // way for the student to know the calibration had failed.
     let totalErr = 0;
     for (let i = 0; i < this.calibSamplesA.length; i++) {
       const [gx, gy] = this.calibSamplesA[i];
@@ -334,7 +334,18 @@ export class FacialHeadTracker {
       const py = coeffsY[0] * gx + coeffsY[1] * gy + coeffsY[2];
       totalErr += Math.hypot(px - this.calibTargetsX[i], py - this.calibTargetsY[i]);
     }
-    this.calibFitResidual = totalErr / this.calibSamplesA.length;
+    const residual = totalErr / this.calibSamplesA.length;
+
+    // ~15% of screen span. Worse than this is not usable — keep the previous
+    // mapping (or the uncalibrated baseline path) rather than making it worse.
+    if (residual > 0.15) {
+      this.notifyCalibrationStatus();
+      return { isCalibrated: false, pointsCollected: this.calibSamplesA.length, accuracyEstimate: 0 };
+    }
+
+    this.calibCoeffsX = coeffsX;
+    this.calibCoeffsY = coeffsY;
+    this.calibFitResidual = residual;
 
     const status = this.getCalibrationStatus();
     this.notifyCalibrationStatus();

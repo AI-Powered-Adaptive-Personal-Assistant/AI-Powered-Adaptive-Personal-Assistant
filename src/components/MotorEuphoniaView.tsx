@@ -241,6 +241,8 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
   const cameraBusyRef = useRef(false); // in-flight guard for startCamera()
   const mountedRef = useRef(true);     // guards async callbacks after unmount
   const pendingTimersRef = useRef<any[]>([]); // every timer, cleared on unmount
+  const calibAbortRef = useRef(0);            // generation id for the calibration chain
+  const sharedAudioCtxRef = useRef<AudioContext | null>(null); // one context for all cues
   /** setTimeout that is cancelled automatically when the view unmounts. */
   const trackedTimeout = (fn: () => void, ms: number) => {
     const id = setTimeout(() => {
@@ -442,10 +444,36 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
     });
   };
 
+  /**
+   * ONE shared AudioContext for every cue.
+   *
+   * Each helper used to do `new AudioContext()` per sound and never close it.
+   * Browsers cap the number of live contexts, so after a session of clicks,
+   * alarms and calibrations creation started failing silently: no click
+   * confirmation on selection, and the nurse-call alarm played nothing — the
+   * student got no confirmation their emergency call had registered.
+   */
+  const getAudioCtx = (): AudioContext | null => {
+    try {
+      if (!sharedAudioCtxRef.current) {
+        const C = window.AudioContext || (window as any).webkitAudioContext;
+        if (!C) return null;
+        sharedAudioCtxRef.current = new C();
+      }
+      const ctx = sharedAudioCtxRef.current;
+      // Autoplay policy can leave it suspended until a gesture.
+      if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+      return ctx;
+    } catch {
+      return null;
+    }
+  };
+
   // Audio click sound for eye-blink confirmation
   const playBlinkClickSound = () => {
     try {
-      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const ctx = getAudioCtx();
+      if (!ctx) return;
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.type = 'sine';
@@ -465,7 +493,8 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
   // Pop Bubble Sound Effect
   const playPopSound = () => {
     try {
-      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const ctx = getAudioCtx();
+      if (!ctx) return;
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.type = 'triangle';
@@ -485,7 +514,8 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
   // High-priority Nurse Alarm Sound
   const playNurseAlarmSound = () => {
     try {
-      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const ctx = getAudioCtx();
+      if (!ctx) return;
       const now = ctx.currentTime;
       for (let i = 0; i < 3; i++) {
         const osc = ctx.createOscillator();
@@ -842,6 +872,8 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
       // timer could still open a tel: link from wherever the student now was.
       pendingTimersRef.current.forEach((id) => clearTimeout(id));
       pendingTimersRef.current = [];
+      try { sharedAudioCtxRef.current?.close(); } catch { /* ignore */ }
+      sharedAudioCtxRef.current = null;
     };
   }, []);
 
@@ -1074,10 +1106,18 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
     setShowCalibrationModal(true);
     setIsCalibrating(true);
     setCalibrationPointIndex(0);
+    // A second press of the calibration button supersedes the first, so two
+    // chains can never interleave against one tracker.
+    const myRun = ++calibAbortRef.current;
 
     const DWELL_MS = 1200;
 
     const runPoint = (index: number) => {
+      // Cancel (or unmount) aborts the chain. Previously the dots disappeared
+      // but the sequence kept running invisibly and then overwrote the mapping
+      // with samples taken while the student was no longer looking at any
+      // target — leaving the pointer worse than before they started.
+      if (calibAbortRef.current !== myRun || !mountedRef.current) return;
       if (index >= CALIBRATION_TARGETS_NORM.length) {
         const status = trackerRef.current?.finalizeCalibration();
         setIsCalibrating(false);
@@ -1096,14 +1136,15 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
               : 'Calibration failed — try again and keep your head steadier'
           );
         }
-        setTimeout(() => setShowCalibrationModal(false), 1400);
+        trackedTimeout(() => setShowCalibrationModal(false), 1400);
         return;
       }
 
       setCalibrationPointIndex(index);
       trackerRef.current?.beginCalibrationPoint();
 
-      setTimeout(() => {
+      trackedTimeout(() => {
+        if (calibAbortRef.current !== myRun) return;
         const target = CALIBRATION_TARGETS_NORM[index];
         const committed = trackerRef.current?.commitCalibrationPoint(target.x, target.y);
         if (committed) playBlinkClickSound();
@@ -1111,7 +1152,7 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
       }, DWELL_MS);
     };
 
-    setTimeout(() => runPoint(0), 400);
+    trackedTimeout(() => runPoint(0), 400);
   };
 
   // Add new phrase to custom bank
@@ -2943,7 +2984,14 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
             )}
 
             <button
-              onClick={() => setShowCalibrationModal(false)}
+              onClick={() => {
+                // Abort the running chain, drop the half-collected samples, and
+                // keep whatever mapping was in place before this attempt.
+                calibAbortRef.current++;
+                setIsCalibrating(false);
+                try { trackerRef.current?.resetCalibration(); } catch { /* ignore */ }
+                setShowCalibrationModal(false);
+              }}
               className="absolute bottom-8 px-6 py-2.5 rounded-2xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 font-bold text-xs"
             >
               {isArabic ? 'إلغاء المعايرة' : 'Cancel'}
