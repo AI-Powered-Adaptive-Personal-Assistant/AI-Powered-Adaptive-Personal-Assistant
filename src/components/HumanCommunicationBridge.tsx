@@ -97,11 +97,17 @@ export default function HumanCommunicationBridge({ profile }: HumanCommunication
 
       rec.onresult = (event: any) => {
         let transcript = '';
+        let finalText = '';
         for (let i = event.resultIndex; i < event.results.length; ++i) {
-          transcript += event.results[i][0].transcript;
+          const chunk = event.results[i][0].transcript;
+          transcript += chunk;
+          if (event.results[i].isFinal) finalText += chunk;
         }
+        // Interim results update the CAPTION only. Feeding them to the avatar
+        // restarted the signing animation from word one several times a second,
+        // so the deaf student saw a stutter and never a complete sentence.
         setPartnerTranscript(transcript);
-        const words = transcript.trim().split(/\s+/).filter(Boolean);
+        const words = finalText.trim().split(/\s+/).filter(Boolean);
         if (words.length > 0) {
           setPartnerSignSequence(words);
           setIsPartnerSigning(true);

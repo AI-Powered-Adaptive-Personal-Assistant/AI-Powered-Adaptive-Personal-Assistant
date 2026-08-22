@@ -208,6 +208,15 @@ export class EuphoniaRecorder {
 
       this.maxTimer = setTimeout(() => this.stop(), MAX_CLIP_MS);
     } catch (err) {
+      // getUserMedia already succeeded by this point — only the MediaRecorder
+      // construction failed (no MediaRecorder, or the mimeType was rejected on
+      // older Safari). Without this the mic stayed live with no UI to stop it,
+      // and every retry orphaned another stream on top.
+      try { this.stream?.getTracks().forEach((t) => t.stop()); } catch { /* ignore */ }
+      this.stream = null;
+      this.mediaRecorder = null;
+      if (this.maxTimer) { clearTimeout(this.maxTimer); this.maxTimer = null; }
+      try { this.teardownLevelMeter(); } catch { /* ignore */ }
       if (cb.onError) cb.onError(err as Error);
     }
   }

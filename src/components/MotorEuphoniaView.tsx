@@ -239,6 +239,17 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
   // why desktop testing never caught it. These refs are re-pointed on every
   // render, and the callbacks read `.current` instead of the captured value.
   const cameraBusyRef = useRef(false); // in-flight guard for startCamera()
+  const mountedRef = useRef(true);     // guards async callbacks after unmount
+  const pendingTimersRef = useRef<any[]>([]); // every timer, cleared on unmount
+  /** setTimeout that is cancelled automatically when the view unmounts. */
+  const trackedTimeout = (fn: () => void, ms: number) => {
+    const id = setTimeout(() => {
+      pendingTimersRef.current = pendingTimersRef.current.filter((t) => t !== id);
+      if (mountedRef.current) fn();
+    }, ms);
+    pendingTimersRef.current.push(id);
+    return id;
+  };
   const hoveredCardIdRef = useRef<string | null>(null);
   const handleCardTriggerRef = useRef<(id: string) => void>(() => {});
   const checkHoverTargetRef = useRef<(pos: PointerPosition) => void>(() => {});
@@ -315,6 +326,7 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
   const [gamePoppedIds, setGamePoppedIds] = useState<string[]>([]);
   const [reactionBenchmarkMs, setReactionBenchmarkMs] = useState<number | null>(null);
   const reactionStartTimeRef = useRef<number>(Date.now());
+  const reactionSamplesRef = useRef<number[]>([]); // per-bubble times, averaged
 
   // Audio metrics
   const [audioMetrics, setAudioMetrics] = useState<LiveAudioMetrics>({
@@ -399,7 +411,6 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
   const trackerRef = useRef<FacialHeadTracker | null>(null);
   const voiceContactRecRef = useRef<any>(null);
   const teacherRecRef = useRef<any>(null);
-  const euphoniaRecRef = useRef<any>(null);
 
   // Keep the magnetic-snap cache in sync with the visible tab
   useEffect(() => {
@@ -800,13 +811,22 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
   // Cleanup on unmount
   useEffect(() => {
     return () => {
+      mountedRef.current = false;
       trackerRef.current?.stop();
       trackerRef.current = null;
       vocalSoundEngine.stop();
       cancelSpeech();
       try { voiceContactRecRef.current?.stop(); } catch { /* ignore */ }
       try { teacherRecRef.current?.stop(); } catch { /* ignore */ }
-      try { euphoniaRecRef.current?.stop(); } catch { /* ignore */ }
+      // euphoniaRecRef was declared and never assigned, so this stopped nothing
+      // and the mic stayed live after leaving the screen. The real recorder is
+      // the module-level singleton.
+      try { euphoniaRecorder.stop(); } catch { /* ignore */ }
+      // Every setTimeout in this view was untracked: a calibration-failure toast
+      // could pop up on a later screen ~11s after leaving, and an emergency-call
+      // timer could still open a tel: link from wherever the student now was.
+      pendingTimersRef.current.forEach((id) => clearTimeout(id));
+      pendingTimersRef.current = [];
     };
   }, []);
 
@@ -1199,7 +1219,14 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
       if (!gamePoppedIds.includes(bId)) {
         playPopSound();
         const reactionTime = Date.now() - reactionStartTimeRef.current;
-        setReactionBenchmarkMs(reactionTime);
+        // Restart the clock for the NEXT bubble. Without this the timer ran from
+        // the start of the round, so each pop reported a bigger number than the
+        // last (800ms, 2400ms, 5000ms...) and a therapist reading it as a
+        // benchmark would think the student was deteriorating.
+        reactionStartTimeRef.current = Date.now();
+        reactionSamplesRef.current.push(reactionTime);
+        const samples = reactionSamplesRef.current;
+        setReactionBenchmarkMs(Math.round(samples.reduce((a, b) => a + b, 0) / samples.length));
         setGamePoppedIds((prev) => [...prev, bId]);
         setGameScore((prev) => prev + 10);
         toast.success(`🎯 +10 نقاط! سرعة النظر: ${reactionTime}ms`);
@@ -2718,6 +2745,7 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
                     onClick={() => {
                       setGamePoppedIds([]);
                       reactionStartTimeRef.current = Date.now();
+                      reactionSamplesRef.current = [];
                     }}
                     className="px-3 py-2 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold"
                   >
@@ -2764,12 +2792,15 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
                       {isArabic ? 'أحسنت! فرقعت كل البالونات بنجاح!' : 'Level Complete!'}
                     </h3>
                     <p className="text-xs text-slate-400 mt-1">
-                      {isArabic ? `معدل سرعة استجابة بؤبؤ العين: ${reactionBenchmarkMs || 280}ms` : `Average eye reaction: ${reactionBenchmarkMs || 280}ms`}
+                      {isArabic
+                        ? `معدل سرعة استجابة بؤبؤ العين: ${reactionBenchmarkMs ? reactionBenchmarkMs + 'ms' : '—'}`
+                        : `Average eye reaction: ${reactionBenchmarkMs ? reactionBenchmarkMs + 'ms' : '—'}`}
                     </p>
                     <button
                       onClick={() => {
                         setGamePoppedIds([]);
                         reactionStartTimeRef.current = Date.now();
+                      reactionSamplesRef.current = [];
                       }}
                       className="mt-4 px-6 py-3 rounded-2xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs shadow-lg"
                     >
@@ -2851,7 +2882,11 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
                 {isArabic ? 'ثبّت رأسك وانظر بعينيك فقط إلى الدائرة الصفراء أينما ظهرت' : 'Keep head still, look only with your eyes at the glowing yellow circle'}
               </p>
               <p className="text-xs font-bold text-emerald-400 mt-2">
-                {isCalibrating ? `${isArabic ? 'نقطة المعايرة:' : 'Point:'} ${calibrationPointIndex + 1} / 9` : (isArabic ? 'تمت المعايرة بنجاح!' : 'Calibrated!')}
+                {isCalibrating
+                  ? `${isArabic ? 'نقطة المعايرة:' : 'Point:'} ${calibrationPointIndex + 1} / 9`
+                  : calibAccuracy != null
+                    ? `${isArabic ? 'دقة المعايرة:' : 'Calibration accuracy:'} ${Math.round(calibAccuracy * 100)}%`
+                    : (isArabic ? 'لم تكتمل المعايرة — أعد المحاولة' : 'Calibration incomplete — please retry')}
               </p>
             </div>
 

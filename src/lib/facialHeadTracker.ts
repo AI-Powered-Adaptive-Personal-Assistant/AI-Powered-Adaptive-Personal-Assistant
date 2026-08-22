@@ -211,6 +211,16 @@ export class FacialHeadTracker {
   private pendingHoverTarget: string | null = null;
   private pendingHoverSince: number = 0;
   private readonly HOVER_CONFIRM_MS = 160;
+  // Edge-trigger latch. Dwell completion used to clear hoverTargetId, but the
+  // very next frame re-set it to the SAME id (the gaze is still there), so the
+  // timer restarted and the target fired again and again — one look produced
+  // "aaaaa", or repeated WhatsApp sends. The user had to leave the target within
+  // ~1.4s, which is exactly the movement a limited-range user cannot make.
+  // A target must now be LEFT before it can fire again.
+  private latchedTargetId: string | null = null;
+
+  private runningMaxEAR = 0;   // widest eye opening seen this session
+  private eyesClosedSince = 0; // watchdog against a stuck "closed" state
 
   // Adaptive blink threshold
   private restingEARSamples: number[] = [];
@@ -254,6 +264,13 @@ export class FacialHeadTracker {
     this.neutralCalibrationSamples = [];
     this.gazeSmoother.reset();
     this.lockedSnapTarget = null;
+    // Also re-estimate the blink baseline. Without this, a student who was
+    // squinting or mid-blink during the first seconds was stuck with a broken
+    // threshold for the whole session and "Recenter" did nothing for them.
+    this.adaptiveNeutralEAR = null;
+    this.restingEARSamples = [];
+    this.runningMaxEAR = 0;
+    this.eyesClosedSince = 0;
   }
 
   public resetCalibration() {
@@ -489,9 +506,20 @@ export class FacialHeadTracker {
       const id = el.getAttribute('data-aac-id');
       if (!id) return;
       const rect = el.getBoundingClientRect();
+      // A collapsed/transitioning element reports 0x0 and would land a target at
+      // (0,0) — within acquire range of the pointer's clamped minimum, so the
+      // cursor glued itself to the corner and typed a key nobody looked at.
+      if (rect.width === 0 || rect.height === 0) return;
       targets.push({ id, cx: rect.left + rect.width / 2, cy: rect.top + rect.height / 2 });
     });
     this.snapTargetsCache = targets;
+    // Re-resolve the active lock against the REBUILT list: the old lock held a
+    // stale rect, so a toast or a re-rendered suggestion row left the cursor
+    // stuck over empty space where a button used to be.
+    if (this.lockedSnapTarget) {
+      const again = targets.find((t) => t.id === this.lockedSnapTarget!.id);
+      this.lockedSnapTarget = again || null;
+    }
     this.lastSnapCacheRefresh = Date.now();
   }
 
@@ -530,8 +558,9 @@ export class FacialHeadTracker {
         const prog = Math.min(1, activeElapsed / this.config.dwellTimeMs);
         this.dwellProgress = prog;
 
-        if (prog >= 1) {
+        if (prog >= 1 && this.hoverTargetId !== this.latchedTargetId) {
           const completedTarget = this.hoverTargetId;
+          this.latchedTargetId = completedTarget; // must leave before it re-fires
           this.hoverTargetId = null;
           this.hoverStartTime = 0;
           this.dwellProgress = 0;
@@ -584,17 +613,43 @@ export class FacialHeadTracker {
     const avgEAR = (leftEAR + rightEAR) / 2;
 
     // Adaptive EAR baseline
+    // Track the widest EAR seen this session. A student with ptosis / droopy
+    // lids / narrow eye opening can sit permanently below the old absolute 0.15
+    // gate, so NO resting samples were ever collected, adaptiveNeutralEAR stayed
+    // null, and the fixed 0.18 fallback read their open eyes as "closed" — the
+    // cursor froze and a blink "click" fired twice a second, unrecoverably.
+    // Deriving the gate from the running max makes it relative to THIS face.
+    if (avgEAR > this.runningMaxEAR) this.runningMaxEAR = avgEAR;
+    const collectGate = this.runningMaxEAR > 0 ? this.runningMaxEAR * 0.7 : 0.15;
+
     if (this.adaptiveNeutralEAR === null) {
       if (this.restingEARSamples.length < this.EAR_CALIBRATION_SAMPLE_TARGET) {
-        if (avgEAR > 0.15) this.restingEARSamples.push(avgEAR);
+        if (avgEAR > collectGate) this.restingEARSamples.push(avgEAR);
       }
       if (this.restingEARSamples.length >= this.EAR_CALIBRATION_SAMPLE_TARGET) {
         const sorted = [...this.restingEARSamples].sort((a, b) => a - b);
         this.adaptiveNeutralEAR = sorted[Math.floor(sorted.length / 2)];
       }
     }
-    const blinkThreshold = this.adaptiveNeutralEAR ? this.adaptiveNeutralEAR * 0.62 : 0.18;
-    const isEyesClosed = avgEAR < blinkThreshold;
+    // Fall back to the running max (relative) rather than an absolute constant.
+    const neutral = this.adaptiveNeutralEAR ?? (this.runningMaxEAR > 0 ? this.runningMaxEAR : null);
+    const blinkThreshold = neutral ? neutral * 0.62 : 0.18;
+    let isEyesClosed = avgEAR < blinkThreshold;
+
+    // Watchdog: no real blink lasts this long. If "closed" sticks, the baseline
+    // is wrong — re-estimate instead of freezing the pointer for the session.
+    if (isEyesClosed) {
+      if (this.eyesClosedSince === 0) this.eyesClosedSince = now;
+      else if (now - this.eyesClosedSince > 1500) {
+        this.adaptiveNeutralEAR = null;
+        this.restingEARSamples = [];
+        this.runningMaxEAR = Math.max(this.runningMaxEAR, avgEAR / 0.62);
+        this.eyesClosedSince = 0;
+        isEyesClosed = false;
+      }
+    } else {
+      this.eyesClosedSince = 0;
+    }
 
     // Working distance
     const eyeSpanNorm = Math.hypot(leftOuter.x - rightOuter.x, leftOuter.y - rightOuter.y);
@@ -603,8 +658,13 @@ export class FacialHeadTracker {
 
     this.drawSkeletonOverlay(lm, isWithinWorkingRange, distanceCm);
 
-    // Blink detection & click trigger
-    if (isEyesClosed) {
+    // Blink detection & click trigger.
+    // The settings toggle "Blink & Smile Clicks" wrote config.facialTriggersEnabled
+    // but NOTHING read it — a caregiver turning it off for a student whose
+    // involuntary blinking causes misfires had no effect at all.
+    if (this.config.facialTriggersEnabled === false) {
+      this.wasBlinking = false;
+    } else if (isEyesClosed) {
       if (!this.wasBlinking) {
         this.wasBlinking = true;
         this.blinkStartTime = now;
