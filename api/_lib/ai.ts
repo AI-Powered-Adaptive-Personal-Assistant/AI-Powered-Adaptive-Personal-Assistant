@@ -45,8 +45,12 @@ export function providerFor(key: string): {
       model: 'z-ai/glm-5.2',
       models: ['z-ai/glm-5.2', 'deepseek-ai/deepseek-r1', 'meta/llama-3.3-70b-instruct'],
       params: {
-        temperature: 1,
-        top_p: 1,
+        // Was temperature 1 / top_p 1 (maximum randomness). This is a tutoring
+        // app whose own system prompt says "never invent facts" — high sampling
+        // makes answers inconsistent between identical questions and raises the
+        // confabulation rate. Aligned with the other providers.
+        temperature: 0.7,
+        top_p: 0.95,
         max_tokens: 16384,
         seed: 42,
       },
@@ -68,6 +72,24 @@ export function providerFor(key: string): {
     models: ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant'],
     params: { temperature: 0.7, top_p: 0.95 },
   };
+}
+
+/**
+ * Strip chain-of-thought from reasoning models.
+ *
+ * The NVIDIA model list includes deepseek-r1 and nemotron-*-reasoning, which
+ * emit their internal monologue wrapped in <think>...</think> before the real
+ * answer. Nothing removed it, so a student could see the model thinking out
+ * loud ("let me consider whether this level is right...") above their answer.
+ * Handles the still-open tag too, which is what a truncated stream leaves.
+ */
+export function stripReasoning(text: string): string {
+  if (!text) return text;
+  let out = text.replace(/<think>[\s\S]*?<\/think>/gi, '');
+  // An unterminated <think> means everything after it is still reasoning.
+  const open = out.search(/<think>/i);
+  if (open >= 0) out = out.slice(0, open);
+  return out.replace(/^\s+/, '');
 }
 
 export interface Profile {
@@ -178,7 +200,7 @@ export async function fallbackChat(messages: any[]): Promise<string> {
         });
         if (!r.ok) continue;
         const j: any = await r.json();
-        const txt = j?.choices?.[0]?.message?.content || '';
+        const txt = stripReasoning(j?.choices?.[0]?.message?.content || '');
         if (txt) return txt;
       } catch { /* try the next model/key */ }
     }

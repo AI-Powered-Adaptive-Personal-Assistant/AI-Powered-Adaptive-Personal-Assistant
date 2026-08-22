@@ -9,7 +9,7 @@
  */
 import {
   guard, readBody, buildPersona, threadsSummary, buildContents,
-  buildOpenAIMessages, geminiFetch, providerFor, FALLBACK_KEYS,
+  buildOpenAIMessages, geminiFetch, providerFor, FALLBACK_KEYS, stripReasoning,
 } from '../_lib/ai.js';
 
 export default async function handler(req: any, res: any) {
@@ -109,7 +109,10 @@ export default async function handler(req: any, res: any) {
                 try {
                   const j = JSON.parse(payload);
                   const c = j?.choices?.[0]?.delta?.content || '';
-                  if (c) { full += c; send({ text: full, done: false }); }
+                  // Reasoning models (deepseek-r1, nemotron-*-reasoning) stream
+                  // their chain-of-thought first. Accumulate raw, but only ever
+                  // SEND the answer with <think>...</think> removed.
+                  if (c) { full += c; send({ text: stripReasoning(full), done: false }); }
                 } catch { /* partial frame */ }
               }
             }
@@ -124,6 +127,7 @@ export default async function handler(req: any, res: any) {
     console.error('[api] stream error:', err);
   }
 
+  full = stripReasoning(full);
   const isAr = profile?.language === 'Arabic' || profile?.language === 'Egyptian Ammiya';
   if (!full) {
     full = isAr
