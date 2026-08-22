@@ -244,6 +244,7 @@ export class FacialHeadTracker {
   private onDwellCompleteCb?: (targetId: string) => void;
   private onGestureCb?: (gesture: FacialGestureState) => void;
   private onCalibrationStatusCb?: (status: CalibrationStatus) => void;
+  private onErrorCb?: (message: string) => void;
 
   constructor(customConfig?: Partial<HeadTrackingConfig>) {
     if (customConfig) {
@@ -361,6 +362,11 @@ export class FacialHeadTracker {
       onDwellComplete?: (targetId: string) => void;
       onGesture?: (gesture: FacialGestureState) => void;
       onCalibrationStatus?: (status: CalibrationStatus) => void;
+      /** Face-mesh failed to load/initialise. Without this the camera turns on,
+       *  the overlay draws, and the pointer just never moves — with no way for
+       *  anyone to tell that a script failed rather than the student's tracking
+       *  being broken. */
+      onError?: (message: string) => void;
     },
     overlayCanvas?: HTMLCanvasElement | null
   ): Promise<boolean> {
@@ -376,6 +382,7 @@ export class FacialHeadTracker {
     this.onDwellCompleteCb = callbacks.onDwellComplete;
     this.onGestureCb = callbacks.onGesture;
     this.onCalibrationStatusCb = callbacks.onCalibrationStatus;
+    this.onErrorCb = callbacks.onError;
 
     this.wantsRunning = true;
     const token = ++this.startToken;
@@ -432,20 +439,34 @@ export class FacialHeadTracker {
   private async initMediaPipeAsync() {
     try {
       if (!(window as any).FaceMesh) {
-        await new Promise((resolve) => {
+        // Served from OUR origin (public/models/face_mesh), not a CDN.
+        // Assistive tech must not have a hard third-party network dependency:
+        // on a filtered or slow school network the old cdn.jsdelivr.net fetch
+        // failed, onerror silently resolved false, and the student was left with
+        // a live camera and a pointer frozen at screen centre — no message, no
+        // way to tell a blocked script from broken tracking.
+        const loaded = await new Promise<boolean>((resolve) => {
           const script = document.createElement('script');
-          script.src = 'https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js';
-          script.crossOrigin = 'anonymous';
-          script.onload = () => resolve(true);
-          script.onerror = () => resolve(false);
+          script.src = '/models/face_mesh/face_mesh.js';
+          let settled = false;
+          const finish = (ok: boolean) => { if (!settled) { settled = true; resolve(ok); } };
+          // Never hang forever on a stalled connection.
+          const timer = setTimeout(() => finish(false), 15000);
+          script.onload = () => { clearTimeout(timer); finish(true); };
+          script.onerror = () => { clearTimeout(timer); finish(false); };
           document.head.appendChild(script);
         });
+        if (!loaded && !(window as any).FaceMesh) {
+          this.onErrorCb?.('face-mesh-load-failed');
+          return;
+        }
       }
 
       if ((window as any).FaceMesh) {
         const FaceMeshConstructor = (window as any).FaceMesh;
         this.faceMeshInstance = new FaceMeshConstructor({
-          locateFile: (file: string) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`,
+          // Same origin as the script above — no CDN round-trip for the wasm.
+          locateFile: (file: string) => `/models/face_mesh/${file}`,
         });
 
         this.faceMeshInstance.setOptions({
@@ -462,9 +483,12 @@ export class FacialHeadTracker {
 
         this.isDeepLearningReady = true;
         this.frozenPointerDuringWarmup = null;
+      } else {
+        this.onErrorCb?.('face-mesh-load-failed');
       }
     } catch (e) {
       console.warn('MediaPipe async init error:', e);
+      this.onErrorCb?.('face-mesh-init-failed');
     }
   }
 

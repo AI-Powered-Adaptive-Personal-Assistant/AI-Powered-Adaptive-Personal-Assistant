@@ -656,6 +656,21 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
         onCalibrationStatus: (status) => {
           setCalibAccuracy(status.accuracyEstimate);
         },
+        onError: (code) => {
+          // Face tracking could not load. Say so and shut the camera off rather
+          // than leaving a live camera with a pointer that never moves.
+          if (!mountedRef.current) return;
+          toast.error(
+            isArabic
+              ? 'تعذّر تحميل محرك تتبّع الوجه. راجع الاتصال بالإنترنت وحاول تاني.'
+              : 'Face-tracking engine failed to load. Check the connection and try again.',
+            isArabic ? 'تتبّع العين غير متاح' : 'Eye tracking unavailable',
+          );
+          console.error('[MotorEuphonia] face mesh:', code);
+          try { trackerRef.current?.stop(); } catch { /* ignore */ }
+          trackerRef.current = null;
+          setIsCameraActive(false);
+        },
       },
       overlayCanvasRef.current
     );
