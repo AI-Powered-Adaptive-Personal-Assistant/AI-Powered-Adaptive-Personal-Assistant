@@ -869,7 +869,7 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
       },
     });
 
-    setTimeout(() => {
+    trackedTimeout(() => {
       if (euphoniaRecorder.isRecording()) euphoniaRecorder.stop();
     }, 3000);
   };
@@ -959,7 +959,7 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
         isArabic ? `جاري الاتصال برقم ${primary.nameAr}` : `Calling emergency ${primary.nameEn}`
       );
       toast.success(isArabic ? `اتصال طوارئ: ${primary.nameAr}` : `SOS Call: ${primary.nameEn}`);
-      setTimeout(() => {
+      trackedTimeout(() => {
         makePhoneCall(primary.phone);
         isDialingRef.current = false;
       }, 1200);
@@ -1038,7 +1038,7 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
       isDialingRef.current = true;
       speakSafe(isArabic ? `جاري الاتصال بـ ${match.nameAr}` : `Calling ${match.nameEn}`);
       toast.success(isArabic ? `تم التعرف: اتصال بـ ${match.nameAr}` : `Calling ${match.nameEn}`);
-      setTimeout(() => {
+      trackedTimeout(() => {
         makePhoneCall(match.phone);
         setShowContactPickerModal(false);
         isDialingRef.current = false;
@@ -1452,7 +1452,7 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
       const target = contacts.find((c) => c.id === contactId);
       if (target) {
         speakSafe(isArabic ? `جاري الاتصال بـ ${target.nameAr}` : `Calling ${target.nameEn}`);
-        setTimeout(() => {
+        trackedTimeout(() => {
           makePhoneCall(target.phone);
           setShowContactPickerModal(false);
           isDialingRef.current = false;
