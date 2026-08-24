@@ -243,6 +243,15 @@ export class FacialHeadTracker {
   private adaptiveNeutralEAR: number | null = null;
   private readonly EAR_CALIBRATION_SAMPLE_TARGET = 75;
   private wasBlinking: boolean = false;
+  // Smile-click state. Baselined per user the same way the blink EAR is: a
+  // smile is "mouth noticeably wider than YOUR OWN resting mouth", not an
+  // absolute number, so it works across face shapes and camera distances.
+  private restingMouthRatio: number | null = null;
+  private mouthRatioSamples: number[] = [];
+  private wasSmiling: boolean = false;
+  private smileStartTime: number = 0;
+  private lastSmileTriggerTime: number = 0;
+  private smilingSince: number = 0;
   private blinkStartTime: number = 0;
   private lastBlinkTriggerTime: number = 0;
 
@@ -288,6 +297,9 @@ export class FacialHeadTracker {
     this.restingEARSamples = [];
     this.runningMaxEAR = 0;
     this.eyesClosedSince = 0;
+    this.restingMouthRatio = null;
+    this.mouthRatioSamples = [];
+    this.smilingSince = 0;
   }
 
   public resetCalibration() {
@@ -441,6 +453,10 @@ export class FacialHeadTracker {
       this.neutralCalibrationSamples = [];
       this.restingEARSamples = [];
       this.adaptiveNeutralEAR = null;
+      this.restingMouthRatio = null;
+      this.mouthRatioSamples = [];
+      this.wasSmiling = false;
+      this.smilingSince = 0;
       this.lockedSnapTarget = null;
 
       this.currentPos = {
@@ -747,6 +763,85 @@ export class FacialHeadTracker {
     } else {
       this.wasBlinking = false;
       this.blinkStartTime = 0;
+    }
+
+    // Smile detection & click trigger.
+    // The settings toggle is labelled "Blink & Smile Clicks" and the view already
+    // had an `else if (gesture.isSmiling)` branch, but NOTHING ever set isSmiling
+    // — so half of what that toggle promised was unreachable. A student whose
+    // blink is unreliable (ptosis, or involuntary blinking that had to be toggled
+    // off) was left with no second way to click at all.
+    let isSmiling = false;
+    if (this.config.facialTriggersEnabled !== false && !isEyesClosed) {
+      const mouthL = lm[61];
+      const mouthR = lm[291];
+      if (mouthL && mouthR && eyeSpanNorm > 0.01) {
+        // Mouth width over interocular span: scale-free, so leaning towards or
+        // away from the camera does not read as a smile.
+        const ratio = Math.hypot(mouthL.x - mouthR.x, mouthL.y - mouthR.y) / eyeSpanNorm;
+        if (this.restingMouthRatio === null) {
+          this.mouthRatioSamples.push(ratio);
+          if (this.mouthRatioSamples.length >= this.EAR_CALIBRATION_SAMPLE_TARGET) {
+            const sorted = [...this.mouthRatioSamples].sort((a, b) => a - b);
+            this.restingMouthRatio = sorted[Math.floor(sorted.length / 2)];
+          }
+        } else {
+          // threshold 0.3..0.9 => needs 7%..23% widening over the user's own rest
+          const needed = this.restingMouthRatio * (1 + (this.config.smileThreshold ?? 0.65) * 0.25);
+          isSmiling = ratio > needed;
+        }
+
+        // Watchdog, mirroring the blink one: if "smiling" sticks for seconds the
+        // baseline was captured mid-smile and every hover would misfire. Rebuild
+        // it rather than leave the student clicking things they never chose.
+        if (isSmiling) {
+          if (this.smilingSince === 0) this.smilingSince = now;
+          else if (now - this.smilingSince > 4000) {
+            this.restingMouthRatio = null;
+            this.mouthRatioSamples = [];
+            this.smilingSince = 0;
+            isSmiling = false;
+          }
+        } else {
+          this.smilingSince = 0;
+        }
+      }
+    }
+
+    if (!isSmiling) {
+      this.wasSmiling = false;
+      this.smileStartTime = 0;
+    } else if (!this.wasSmiling) {
+      this.wasSmiling = true;
+      this.smileStartTime = now;
+    } else if (
+      this.smileStartTime > 0 &&
+      now - this.smileStartTime >= 400 &&        // must be HELD, so a fleeting grin is not a click
+      now - this.lastSmileTriggerTime > 1200
+    ) {
+      this.lastSmileTriggerTime = now;
+      // Latch: zeroing the start time means the face must relax before another
+      // smile counts, so holding a smile fires once — never a repeating click.
+      this.smileStartTime = 0;
+      if (this.onGestureCb) {
+        this.onGestureCb({
+          isSmiling: true,
+          isMouthOpen: false,
+          isEyebrowRaised: false,
+          isBlinking: false,
+          confidence: 0.9,
+          metrics: {
+            distanceCm,
+            isWithinWorkingRange,
+            leftPupil: { x: leftIris.x, y: leftIris.y },
+            rightPupil: { x: rightIris.x, y: rightIris.y },
+            avgEAR,
+            isBlinking: false,
+            gazeVector: { x: this.currentPos.normalizedX, y: this.currentPos.normalizedY },
+            screenPoint: { x: this.currentPos.x, y: this.currentPos.y },
+          },
+        });
+      }
     }
 
     if (!isEyesClosed) {
