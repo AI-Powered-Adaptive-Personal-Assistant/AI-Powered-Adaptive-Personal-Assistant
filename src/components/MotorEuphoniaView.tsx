@@ -1182,6 +1182,10 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
     scanRowIdxRef.current = -1;
     scanItemIdxRef.current = -1;
     scanPassesRef.current = 0;
+    // The switch label is derived from scanPhaseRef, so a phase change that
+    // does not force a render leaves the button advertising the wrong action
+    // — "Select this" while the scan is actually back to choosing a row.
+    setScanTickCount((t) => t + 1);
   };
 
   const stopScan = (exhausted = false) => {
@@ -1193,6 +1197,7 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
     clearScanPaint();
     setScanHover(null);
     setScanActive(false);
+    setScanTickCount((t) => t + 1);
     if (exhausted && mountedRef.current) {
       toast.info(
         isArabic
@@ -1202,7 +1207,7 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
     }
   };
 
-  const scanAdvance = () => {
+  const scanAdvance = (depth = 0) => {
     if (!scanActiveRef.current || !mountedRef.current) return;
     // Calibration owns the whole screen and the tracker; scanning underneath it
     // would fight for the pointer. Hold position and pick up afterwards.
@@ -1235,14 +1240,24 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
     } else {
       if (rows.length === 1) scanPhaseRef.current = 'item';
       const row = rows[Math.max(0, scanRowIdxRef.current)] || [];
-      if (!row.length) { enterRowPhase(); return; }
+      if (!row.length) {
+        enterRowPhase();
+        // Move on in the SAME tick rather than leaving the screen unhighlighted
+        // for a full interval. Depth-capped so a pathological layout cannot spin.
+        if (depth < 2) scanAdvance(depth + 1);
+        return;
+      }
       scanItemIdxRef.current += 1;
       if (scanItemIdxRef.current >= row.length) {
         scanItemIdxRef.current = 0;
         scanPassesRef.current += 1;
         if (scanPassesRef.current >= SCAN_MAX_PASSES) {
           // Give up on this row and let them choose a different one.
-          if (rows.length > 1) { enterRowPhase(); return; }
+          if (rows.length > 1) {
+            enterRowPhase();
+            if (depth < 2) scanAdvance(depth + 1);
+            return;
+          }
           stopScan(true);
           return;
         }
