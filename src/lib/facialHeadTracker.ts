@@ -61,7 +61,10 @@ export const DEFAULT_HEAD_TRACKING_CONFIG: HeadTrackingConfig = {
   autoScanEnabled: false,
   autoScanIntervalMs: 1400,
   autoScanMode: 'row-column',
-  smoothing: 0.88,
+  // 0..1 pointer steadiness. Feeds the smoother's slow time constant AND the
+  // micro-tremor deadband. 0.55 settles in roughly a third of a second, which
+  // is well inside a 1.2s dwell while removing most of the tremor.
+  smoothing: 0.55,
   trackingMode: 'hybrid', // Hybrid: 60% Iris + 40% Head gives best stability & reach
 };
 
@@ -83,7 +86,16 @@ export class ContinuousGazeSmoother {
   private y: number = 0.5;
   private lastT: number = 0;
 
-  public filter(targetX: number, targetY: number, timestamp: number): { x: number; y: number } {
+  /**
+   * @param stability 0..1 from HeadTrackingConfig.smoothing. Higher = steadier
+   *        pointer, at the cost of a slightly slower settle.
+   */
+  public filter(
+    targetX: number,
+    targetY: number,
+    timestamp: number,
+    stability = 0.55,
+  ): { x: number; y: number } {
     if (this.lastT === 0 || !Number.isFinite(this.x)) {
       this.x = targetX;
       this.y = targetY;
@@ -108,7 +120,12 @@ export class ContinuousGazeSmoother {
     // near screen centre, worst exactly on the low-end devices this is for.)
     // A small fixed position threshold (~5px on a 1280px screen) is frame-rate
     // independent and only eats true micro-tremor, not intended motion.
-    if (dist < 0.004) {
+    // The deadband scales with the stability setting, because sensitivity
+    // amplifies eye tremor BEFORE this point: at sensitivity 1.8 with an iris
+    // gain of 2.4, a tremor of half a degree already moves the cursor further
+    // than a fixed 5px deadband can absorb.
+    const st = Math.max(0, Math.min(1, stability));
+    if (dist < 0.003 + st * 0.006) {
       return { x: this.x, y: this.y };
     }
 
@@ -118,7 +135,12 @@ export class ContinuousGazeSmoother {
     const saccadeFactor = Math.min(1.0, Math.pow(velocity / 6.0, 1.5));
     // Convert the per-frame alpha to a time constant, so the SAME smoothing is
     // produced at any frame rate: alpha = 1 - exp(-dt / tau).
-    const tauSlow = 0.16;  // was alpha 0.09 @60fps
+    // HeadTrackingConfig.smoothing was declared, defaulted, and read NOWHERE —
+    // the slow time constant was hardcoded, so the one control that could calm a
+    // jittery pointer did nothing at all. A student whose gaze would not settle
+    // long enough to complete a dwell had no remedy but to drop sensitivity,
+    // which costs them reach instead.
+    const tauSlow = 0.06 + st * 0.40;
     const tauFast = 0.012; // was alpha 0.82 @60fps
     const tau = tauSlow + (tauFast - tauSlow) * saccadeFactor;
     const alpha = 1 - Math.exp(-dt / Math.max(tau, 1e-4));
@@ -235,6 +257,8 @@ export class FacialHeadTracker {
   // ~1.4s, which is exactly the movement a limited-range user cannot make.
   // A target must now be LEFT before it can fire again.
   private latchedTargetId: string | null = null;
+  /** When the pointer last wobbled off the target while a dwell was running. */
+  private hoverLostSince = 0;
 
   private runningMaxEAR = 0;   // widest eye opening seen this session
   private eyesClosedSince = 0; // watchdog against a stuck "closed" state
@@ -547,6 +571,7 @@ export class FacialHeadTracker {
     this.hoverTargetId = null;
     this.hoverStartTime = 0;
     this.dwellProgress = 0;
+    this.hoverLostSince = 0;
     this.startToken++; // invalidate any start() still awaiting getUserMedia
     this.isRunning = false;
     if (this.animFrameId) {
@@ -570,7 +595,20 @@ export class FacialHeadTracker {
   }
 
   public setHoverTarget(targetId: string | null) {
-    if (targetId === this.hoverTargetId) return;
+    if (targetId === this.hoverTargetId) {
+      this.hoverLostSince = 0;
+      return;
+    }
+    // Losing the target for a few frames part-way through a dwell is gaze
+    // tremor, not a decision to look away — and restarting the dwell clock on
+    // every wobble is why a student could stare at a key and never fire it.
+    // Hold the dwell alive briefly instead. Moving to a DIFFERENT target still
+    // switches immediately, so this costs no responsiveness.
+    if (targetId === null && this.hoverTargetId !== null && this.dwellProgress > 0) {
+      if (this.hoverLostSince === 0) this.hoverLostSince = Date.now();
+      if (Date.now() - this.hoverLostSince < 260) return;
+    }
+    this.hoverLostSince = 0;
     // Re-arm the anti-repeat latch as soon as the gaze lands somewhere ELSE.
     // Without this the latch was set on every dwell fire and cleared nowhere,
     // so the last-activated target stayed permanently dead: no double letters
@@ -738,6 +776,15 @@ export class FacialHeadTracker {
     const neutral = this.adaptiveNeutralEAR ?? (this.runningMaxEAR > 0 ? this.runningMaxEAR : null);
     const blinkThreshold = neutral ? neutral * 0.62 : 0.18;
     let isEyesClosed = avgEAR < blinkThreshold;
+    // Looking DOWN narrows the eye: the upper lid follows the eye down, so the
+    // aperture shrinks even though the eye is wide open and the iris is fully
+    // visible. That routinely crosses the blink threshold — and the whole gaze
+    // block used to be gated on !isEyesClosed, so glancing down FROZE the
+    // pointer. Hence "it can barely pick up the eye when it moves down".
+    // A genuine closure goes much lower than a downward glance, so the freeze
+    // now needs a second, stricter threshold while blink-to-click keeps the
+    // original one.
+    const gazeUsable = neutral ? avgEAR >= neutral * 0.42 : avgEAR >= 0.12;
 
     // Watchdog: no real blink lasts this long. If "closed" sticks, the baseline
     // is wrong — re-estimate instead of freezing the pointer for the session.
@@ -889,20 +936,43 @@ export class FacialHeadTracker {
       }
     }
 
-    if (!isEyesClosed) {
+    if (gazeUsable) {
       const mode = this.config.trackingMode || 'hybrid';
 
       // Normalized Eye Displacements (using constant eye corner width)
-      const leftCenter = { x: (leftOuter.x + leftInner.x) / 2, y: (leftTop.y + leftBottom.y) / 2 };
+      // The vertical reference is the line between the eye CORNERS, not the
+      // midpoint of the eyelids.
+      //
+      // Landmarks 159/145 are the upper and lower lids. When the eye looks down
+      // the upper lid travels down with it, so a lid-based centre follows the
+      // iris and the downward component very largely cancels itself out — the
+      // pointer barely moved below the middle of the screen no matter how far
+      // down the student looked. The corners (33/133 and 362/263) are anchored
+      // to the skull and do not move with lid position, so the offset they give
+      // is the real vertical gaze.
+      const leftCenter = {
+        x: (leftOuter.x + leftInner.x) / 2,
+        y: (leftOuter.y + leftInner.y) / 2,
+      };
       const leftDx = (leftIris.x - leftCenter.x) / (leftEyeW || 0.02);
       const leftDy = (leftIris.y - leftCenter.y) / (leftEyeW || 0.02);
 
-      const rightCenter = { x: (rightOuter.x + rightInner.x) / 2, y: (rightTop.y + rightBottom.y) / 2 };
+      const rightCenter = {
+        x: (rightOuter.x + rightInner.x) / 2,
+        y: (rightOuter.y + rightInner.y) / 2,
+      };
       const rightDx = (rightIris.x - rightCenter.x) / (rightEyeW || 0.02);
       const rightDy = (rightIris.y - rightCenter.y) / (rightEyeW || 0.02);
 
       // Average gaze offset (mirrored horizontally for webcam natural feel)
       const avgGazeX = -((leftDx + rightDx) / 2);
+      // No extra downward gain on top of this. Modelling the geometry (globe
+      // radius 12mm, palpebral width 30mm, upper lid following at ~70%) says the
+      // corner reference alone recovers about 1.6x more downward signal than the
+      // lid-based one it replaces; stacking a further boost on that pushed the
+      // bottom of the screen to saturate at only 20 degrees of gaze, which would
+      // have traded "cannot reach down" for "overshoots downward" — and made the
+      // vertical jitter they already reported worse.
       const avgGazeY = (leftDy + rightDy) / 2;
 
       // Stable head pose anchor from nose bridge
@@ -981,7 +1051,10 @@ export class FacialHeadTracker {
       mappedY = Math.max(0.01, Math.min(0.99, 0.5 + deltaY * gain * 1.05));
     }
 
-    const smoothed = this.gazeSmoother.filter(mappedX, mappedY, timestamp);
+    const smoothed = this.gazeSmoother.filter(
+      mappedX, mappedY, timestamp,
+      this.config.smoothing ?? DEFAULT_HEAD_TRACKING_CONFIG.smoothing,
+    );
 
     let screenX = Math.max(16, Math.min(window.innerWidth - 16, smoothed.x * window.innerWidth));
     let screenY = Math.max(16, Math.min(window.innerHeight - 16, smoothed.y * window.innerHeight));

@@ -4169,6 +4169,36 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
                   />
                 </div>
 
+                {/* Pointer steadiness */}
+                <div className="py-2 border-t border-slate-800">
+                  <div className="flex items-center justify-between text-[12px] font-bold mb-1">
+                    <span className="text-white">
+                      {isArabic ? 'ثبات المؤشر' : 'Pointer steadiness'}
+                    </span>
+                    <span className="text-amber-400">
+                      {Math.round((headConfig.smoothing ?? 0.55) * 100)}%
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 mb-2">
+                    {isArabic
+                      ? 'لو المؤشر بيرجف وصعب يثبت على الحرف — زوّد الرقم ده. الحساسية بتتحكم في المدى، ودي بتتحكم في الهدوء.'
+                      : 'If the pointer shakes and will not settle on a key, raise this. Sensitivity controls reach; this controls calm.'}
+                  </p>
+                  <input
+                    type="range"
+                    min={0}
+                    max={1}
+                    step={0.05}
+                    value={headConfig.smoothing ?? 0.55}
+                    onChange={(e) => updateHeadConfig({ smoothing: Number(e.target.value) })}
+                    className="w-full accent-amber-400"
+                  />
+                  <div className="flex justify-between text-[10px] text-slate-500 mt-0.5">
+                    <span>{isArabic ? 'أسرع استجابة' : 'Fastest'}</span>
+                    <span>{isArabic ? 'أثبت مؤشر' : 'Steadiest'}</span>
+                  </div>
+                </div>
+
                 {/* Facial Expression Triggers Toggle */}
                 <div className="flex items-center justify-between py-2 border-t border-slate-800">
                   <div>
