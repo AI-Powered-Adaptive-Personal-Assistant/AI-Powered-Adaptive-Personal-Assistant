@@ -303,6 +303,9 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
   const scanApiRef = useRef<{ start: () => void; stop: (e?: boolean) => void; resync: () => void }>({
     start: () => {}, stop: () => {}, resync: () => {},
   });
+  /** What the scan is currently highlighting, so it can be re-applied after any
+   *  React render that would otherwise wipe the class off. */
+  const scanPaintedRef = useRef<{ ids: string[]; cls: string }>({ ids: [], cls: SCAN_HL });
   const [gestureState, setGestureState] = useState<FacialGestureState>({
     isSmiling: false,
     isMouthOpen: false,
@@ -1151,16 +1154,23 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
     return rows.map((r) => r.items.sort((a, b) => a.left - b.left).map((i) => i.id));
   };
 
-  const clearScanPaint = () => {
+  /**
+   * Re-apply whatever the scan is currently highlighting.
+   *
+   * The class is added imperatively (threading scan state through all 26 render
+   * sites would buy nothing), but React owns className on these buttons — so the
+   * moment it re-renders one, it rewrites className and the class is gone.
+   * Setting the scan hover is itself a state change, which re-renders exactly
+   * the element being highlighted: the item highlight was applied and then
+   * stripped milliseconds later, every single tick. Row highlighting survived
+   * only because those elements' className never changed, which is what made it
+   * look like the feature worked.
+   */
+  const applyScanPaint = (): HTMLElement | null => {
     document.querySelectorAll('.' + SCAN_HL).forEach((e) => e.classList.remove(SCAN_HL));
     document.querySelectorAll('.' + SCAN_HL_ROW).forEach((e) => e.classList.remove(SCAN_HL_ROW));
-  };
-
-  /** Paint the highlight straight onto the DOM nodes. The alternative is
-   *  threading scan state through all 26 render sites for no benefit. */
-  const paintScan = (ids: string[], cls: string) => {
-    clearScanPaint();
-    if (!ids.length) return;
+    const { ids, cls } = scanPaintedRef.current;
+    if (!ids.length) return null;
     const wanted = new Set(ids);
     let first: HTMLElement | null = null;
     document.querySelectorAll<HTMLElement>('[data-aac-id]').forEach((el) => {
@@ -1169,7 +1179,18 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
       el.classList.add(cls);
       if (!first) first = el;
     });
-    if (first) (first as HTMLElement).scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    return first;
+  };
+
+  const clearScanPaint = () => {
+    scanPaintedRef.current = { ids: [], cls: SCAN_HL };
+    applyScanPaint();
+  };
+
+  const paintScan = (ids: string[], cls: string) => {
+    scanPaintedRef.current = { ids, cls };
+    const first = applyScanPaint();
+    if (first) first.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   };
 
   const setScanHover = (id: string | null) => {
@@ -1952,6 +1973,13 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
   // the scan holds position rather than fighting it.
   scanBlockedRef.current = showCalibrationModal || isCalibrating;
 
+
+  // Deliberately no dependency array: this must run after every render, because
+  // any state change in this component re-renders the highlighted button and
+  // rewrites its className.
+  useEffect(() => {
+    if (scanActiveRef.current) applyScanPaint();
+  });
 
   // Run the scan for as long as the setting is on. The short delay lets the
   // tab that is being switched into finish laying out before we snapshot it.
