@@ -97,9 +97,13 @@ export class ContinuousGazeSmoother {
     const dy = targetY - this.y;
     const dist = Math.hypot(dx, dy);
 
-    // Deadband, expressed per second so it is also frame-rate independent
-    // (micro-tremor ~0.005 norm units at 60fps => 0.3 units/s).
-    if (dist / dt < 0.3) {
+    // Deadband on DISTANCE, not velocity. (Regression: a velocity deadband
+    // dist/dt < 0.3 grows with dt, so on a slow device the same small movement
+    // has a lower velocity and gets frozen — the cursor stuck in a large zone
+    // near screen centre, worst exactly on the low-end devices this is for.)
+    // A small fixed position threshold (~5px on a 1280px screen) is frame-rate
+    // independent and only eats true micro-tremor, not intended motion.
+    if (dist < 0.004) {
       return { x: this.x, y: this.y };
     }
 

@@ -246,6 +246,7 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
   const pendingTimersRef = useRef<any[]>([]); // every timer, cleared on unmount
   const calibAbortRef = useRef(0);            // generation id for the calibration chain
   const sharedAudioCtxRef = useRef<AudioContext | null>(null); // one context for all cues
+  const [showCenterDot, setShowCenterDot] = useState(false); // "look at centre" recenter
   /** setTimeout that is cancelled automatically when the view unmounts. */
   const trackedTimeout = (fn: () => void, ms: number) => {
     const id = setTimeout(() => {
@@ -1746,11 +1747,22 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
           </div>
         </div>
 
-        {/* Center Recalibrate Quick Button */}
+        {/* Center Recalibrate Quick Button.
+            Shows a dot at the ACTUAL centre and captures the neutral baseline
+            while the user looks at it — otherwise the baseline was captured
+            while they looked at this button (top of screen), which is what left
+            the cursor permanently offset to one side. */}
         <button
           onClick={() => {
+            setShowCenterDot(true);
+            // calibrateNeutral() clears the baseline; it is re-captured over the
+            // next ~20 frames. Wait ~1.3s while the user fixes on the dot, then
+            // confirm.
             trackerRef.current?.calibrateNeutral();
-            toast.success(isArabic ? '🎯 تم ضبط مركز العين وتثبيت المؤشر' : 'Eye center recalibrated');
+            trackedTimeout(() => {
+              setShowCenterDot(false);
+              toast.success(isArabic ? '🎯 تم ضبط مركز النظر' : 'Eye center set');
+            }, 1400);
           }}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs shadow-md transition-all"
         >
@@ -1758,6 +1770,19 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
           <span>{isArabic ? '🎯 ضبط مركز النظر الآن' : 'Center Eye'}</span>
         </button>
       </div>
+
+      {/* Center-gaze recenter target — a dot at the true centre to look at. */}
+      {showCenterDot && (
+        <div className="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-slate-950/80 backdrop-blur-sm pointer-events-none">
+          <p className="text-amber-300 font-black text-lg mb-6">
+            {isArabic ? 'انظر إلى النقطة في المنتصف' : 'Look at the centre dot'}
+          </p>
+          <div className="relative">
+            <div className="w-6 h-6 rounded-full bg-amber-400 animate-ping absolute inset-0" />
+            <div className="w-6 h-6 rounded-full bg-amber-400 ring-4 ring-amber-400/30 relative" />
+          </div>
+        </div>
+      )}
 
       {/* Top Bar: Title & Navigation Modes */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pb-3 border-b border-slate-800 mb-4">
