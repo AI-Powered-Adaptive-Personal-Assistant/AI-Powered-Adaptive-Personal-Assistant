@@ -49,7 +49,11 @@ export interface CalibrationStatus {
 }
 
 export const DEFAULT_HEAD_TRACKING_CONFIG: HeadTrackingConfig = {
-  sensitivity: 1.25,
+  // Raised from 1.25. At 1.25 a comfortable ±0.10 iris travel only reached the
+  // middle ~48% of the screen (0.26..0.74), so keys near the edges were
+  // physically unreachable however long the user stared — "can't land on the
+  // letter". 1.8 maps the same comfortable travel to roughly the full width.
+  sensitivity: 1.8,
   dwellTimeMs: 1200,
   facialTriggersEnabled: true,
   smileThreshold: 0.65,
@@ -777,8 +781,11 @@ export class FacialHeadTracker {
         targetY = 0.5 + avgGazeY * 2.4 + (noseNormY - 0.5) * 0.4;
       } else {
         // Hybrid: 60% Iris + 40% Head anchor (balanced, rock-solid, covers full screen comfortably)
-        targetX = 0.5 + avgGazeX * 1.8 + (noseNormX - 0.5) * 0.8;
-        targetY = 0.5 + avgGazeY * 2.0 + (noseNormY - 0.5) * 0.8;
+        // Iris weight raised (1.8 -> 2.4 / 2.0 -> 2.6) so the eyes, not the head,
+        // carry most of the reach — a user who cannot turn their head still gets
+        // the full screen.
+        targetX = 0.5 + avgGazeX * 2.4 + (noseNormX - 0.5) * 0.8;
+        targetY = 0.5 + avgGazeY * 2.6 + (noseNormY - 0.5) * 0.8;
       }
 
       this.feedCalibrationSample(targetX, targetY);
@@ -832,8 +839,12 @@ export class FacialHeadTracker {
     let screenY = Math.max(16, Math.min(window.innerHeight - 16, smoothed.y * window.innerHeight));
 
     // Sticky Magnetic Snapping with Smooth Spring Pull & Hysteresis
-    const SNAP_ACQUIRE_RADIUS = 40; // Latch onto target within 40px (calibrated for keyboard keys)
-    const SNAP_RELEASE_RADIUS = 75; // Hold firmly until gaze moves > 75px away
+    // Widened (40/75 -> 70/115). Gaze is inherently jittery, so a 40px capture
+    // radius meant the cursor hovered *beside* a key without ever latching, and
+    // the dwell timer never started. A bigger magnet is what makes eye-typing
+    // feel like it "wants" to help you.
+    const SNAP_ACQUIRE_RADIUS = 70;
+    const SNAP_RELEASE_RADIUS = 115;
 
     let isSnapped = false;
     let activeTargetId: string | null = null;
