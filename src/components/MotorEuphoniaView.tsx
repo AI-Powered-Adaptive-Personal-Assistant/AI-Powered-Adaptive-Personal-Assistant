@@ -1,7 +1,11 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { UserProfile, VocalSoundTriggerConfig, AACCardItem, HeadTrackingConfig } from '../types';
+import {
+  UserProfile, VocalSoundTriggerConfig, AACCardItem, HeadTrackingConfig, VocalTriggerAction,
+} from '../types';
 import { createZip, downloadBlob } from '../lib/zipWriter';
-import { vocalSoundEngine, LiveAudioMetrics, loadVocalTriggers } from '../lib/vocalSoundTrigger';
+import {
+  vocalSoundEngine, LiveAudioMetrics, loadVocalTriggers, DEFAULT_VOCAL_TRIGGERS,
+} from '../lib/vocalSoundTrigger';
 import { FacialHeadTracker, PointerPosition, FacialGestureState, DEFAULT_HEAD_TRACKING_CONFIG } from '../lib/facialHeadTracker';
 import { speak, cancelSpeech, unlockSpeechSynthesis, hasArabicVoice } from '../lib/tts';
 import { geminiService } from '../services/geminiService';
@@ -47,6 +51,30 @@ const SCAN_HL_ROW = 'cognify-scan-hl-row';
 const SCAN_MAX_PASSES = 3;
 /** Two switch sources firing at once (a blink that is also a smile) is one press. */
 const SCAN_SWITCH_DEBOUNCE_MS = 350;
+
+/**
+ * Layer a saved/synced trigger set over the defaults, matched by id.
+ *
+ * Keeping the defaults as the base means a trigger added in a later build shows
+ * up for students whose profile predates it, instead of them being stuck with
+ * whatever set was current the day they first opened the app.
+ */
+function mergeTriggers(saved?: VocalSoundTriggerConfig[]): VocalSoundTriggerConfig[] | null {
+  if (!saved || !saved.length) return null;
+  return DEFAULT_VOCAL_TRIGGERS.map((d) => ({ ...d, ...(saved.find((x) => x.id === d.id) || {}) }));
+}
+
+/** What each vocal action does, for the picker. */
+const VOCAL_ACTION_LABELS: { value: VocalTriggerAction; en: string; ar: string }[] = [
+  { value: 'select',      en: 'Select what is highlighted', ar: 'اختيار العنصر المحدد' },
+  { value: 'next',        en: 'Next screen',                ar: 'الشاشة التالية' },
+  { value: 'previous',    en: 'Previous screen',            ar: 'الشاشة السابقة' },
+  { value: 'back',        en: 'Close the open window',      ar: 'إغلاق النافذة المفتوحة' },
+  { value: 'speak-aloud', en: 'Speak the typed text',       ar: 'نطق النص المكتوب' },
+  { value: 'clear',       en: 'Clear the text',             ar: 'مسح النص' },
+  { value: 'ask-ai',      en: 'Ask the AI',                 ar: 'اسأل المساعد الذكي' },
+  { value: 'emergency',   en: 'Emergency call',             ar: 'اتصال طوارئ' },
+];
 
 const TAB_ORDER = [
   'keyboard', 'euphonia-studio', 'smart-room',
@@ -404,7 +432,20 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
     peakFrequency: 0,
     isTriggering: false,
   });
-  const [triggers] = useState<VocalSoundTriggerConfig[]>(loadVocalTriggers);
+  // Was read-only: nothing ever called setTriggers, so every student got the
+  // same fixed pitches. Now editable, calibrated from the student's own voice,
+  // and synced to their profile.
+  const [triggers, setTriggers] = useState<VocalSoundTriggerConfig[]>(
+    () => mergeTriggers(profile?.vocalTriggers) || loadVocalTriggers(),
+  );
+  const [capturingTriggerId, setCapturingTriggerId] = useState<string | null>(null);
+  const audioMetricsRef = useRef<LiveAudioMetrics | null>(null);
+  const vocalSyncTimerRef = useRef<number | null>(null);
+  const vocalSyncPendingRef = useRef<VocalSoundTriggerConfig[] | null>(null);
+  const flushVocalRef = useRef<() => void>(() => {});
+  /** Current triggers, so the calibration routine — which awaits ~2.6s of audio
+   *  before writing — cannot save a list captured before that wait. */
+  const triggersRef = useRef<VocalSoundTriggerConfig[]>([]);
 
   // Settings
   const [headConfig, setHeadConfig] = useState<HeadTrackingConfig>(() => {
@@ -749,6 +790,84 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
     }, 1000);
   };
 
+  /** Change one vocal trigger: live engine, local cache, then the profile. */
+  const updateTrigger = (id: string, patch: Partial<VocalSoundTriggerConfig>) => {
+    const base = triggersRef.current.length ? triggersRef.current : triggers;
+    const updated = base.map((t) => (t.id === id ? { ...t, ...patch } : t));
+    setTriggers(updated);
+    // setTriggers on the engine also writes localStorage, and takes effect on
+    // the running mic immediately — no restart needed mid-calibration.
+    vocalSoundEngine.setTriggers(updated);
+    vocalSyncPendingRef.current = updated;
+    if (vocalSyncTimerRef.current !== null) clearTimeout(vocalSyncTimerRef.current);
+    vocalSyncTimerRef.current = window.setTimeout(() => {
+      vocalSyncTimerRef.current = null;
+      flushVocalSync();
+    }, 1000);
+  };
+
+  const flushVocalSync = () => {
+    const pending = vocalSyncPendingRef.current;
+    if (!pending || !profile?.uid) return;
+    vocalSyncPendingRef.current = null;
+    setDoc(
+      doc(db, `users/${profile.uid}`),
+      cleanDataForFirestore({ vocalTriggers: pending }),
+      { merge: true },
+    ).catch(() => { /* local cache still holds it; the next change retries */ });
+  };
+
+  /**
+   * Tune a trigger to the sound the student can actually make.
+   *
+   * Asking a caregiver to pick a frequency in Hz is not a real option, and the
+   * shipped defaults (220 / 750 / 1600 Hz) only fire for a voice that happens to
+   * land there — a quiet breathy hum at 140Hz matched nothing at all. This
+   * listens to the student instead and takes the median of what it hears.
+   */
+  const captureVocalTrigger = async (id: string) => {
+    if (!isAudioEngineActive) {
+      toast.error(
+        isArabic
+          ? 'شغّل «أصوات إيفونيا» الأول علشان الميكروفون يشتغل'
+          : 'Turn on Vocal Sounds first so the microphone is live'
+      );
+      return;
+    }
+    setCapturingTriggerId(id);
+    toast.info(isArabic ? 'اعمل صوتك دلوقتي واستمر...' : 'Make your sound now and hold it...');
+
+    const samples: { f: number; v: number }[] = [];
+    await new Promise<void>((resolve) => {
+      const t0 = Date.now();
+      const iv = window.setInterval(() => {
+        const m = audioMetricsRef.current;
+        // Ignore silence and sub-vocal rumble; we want the held tone only.
+        if (m && m.volume > 0.03 && m.peakFrequency > 60) samples.push({ f: m.peakFrequency, v: m.volume });
+        if (Date.now() - t0 > 2600 || !mountedRef.current) { clearInterval(iv); resolve(); }
+      }, 50);
+    });
+    if (!mountedRef.current) return;
+    setCapturingTriggerId(null);
+
+    if (samples.length < 6) {
+      toast.error(
+        isArabic ? 'مسمعتش صوت واضح — قرّب من الميكروفون وجرّب تاني' : 'No clear sound heard — move closer and try again'
+      );
+      return;
+    }
+    const med = (xs: number[]) => xs.sort((a, b) => a - b)[Math.floor(xs.length / 2)];
+    const f = Math.round(med(samples.map((x) => x.f)));
+    const v = med(samples.map((x) => x.v));
+    updateTrigger(id, {
+      targetFrequencyHz: f,
+      // Sit under what they actually produced, so an ordinary effort still fires
+      // rather than demanding their loudest possible sound every time.
+      minEnergyThreshold: Math.min(0.2, Math.max(0.02, Number((v * 0.6).toFixed(3)))),
+    });
+    toast.success(isArabic ? `تم الضبط على ${f} هرتز` : `Tuned to ${f} Hz`);
+  };
+
   /** Push the pending config to the student's profile. Safe to call after
    *  unmount: it touches no React state. */
   const flushHeadConfigSync = () => {
@@ -897,7 +1016,7 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
     return () => {
       if (!mountedRef.current) return;
       vocalSoundEngine
-        .start((t) => handleVocalTriggerRef.current(t), (m) => setAudioMetrics(m))
+        .start((t) => handleVocalTriggerRef.current(t), (m) => { audioMetricsRef.current = m; setAudioMetrics(m); })
         .then((ok) => { if (ok && mountedRef.current) setIsAudioEngineActive(true); })
         .catch(() => { /* the student can switch it back on by hand */ });
     };
@@ -983,6 +1102,7 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
         handleVocalTriggerRef.current(trig);
       },
       (metrics) => {
+        audioMetricsRef.current = metrics;
         setAudioMetrics(metrics);
       }
     );
@@ -2010,6 +2130,8 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
   scanSwitchRef.current = scanSwitch;
   scanApiRef.current = { start: startScan, stop: stopScan, resync: resyncScan };
   flushHeadConfigRef.current = flushHeadConfigSync;
+  flushVocalRef.current = flushVocalSync;
+  triggersRef.current = triggers;
   headConfigRef.current = headConfig;
   // Calibration takes over the whole screen and drives the tracker itself, so
   // the scan holds position rather than fighting it.
@@ -2054,13 +2176,39 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile?.uid]);
 
+  // Adopt vocal tuning changed on another device.
+  useEffect(() => {
+    const remote = mergeTriggers(profile?.vocalTriggers);
+    if (!remote) return;
+    if (vocalSyncPendingRef.current) return;   // don't undo a change in flight
+    if (JSON.stringify(remote) === JSON.stringify(triggers)) return;
+    setTriggers(remote);
+    vocalSoundEngine.setTriggers(remote);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [JSON.stringify(profile?.vocalTriggers)]);
+
+  // Accounts that predate syncing: adopt whatever this device already had.
+  useEffect(() => {
+    if (!profile?.uid || profile.vocalTriggers) return;
+    const local = loadVocalTriggers();
+    if (JSON.stringify(local) === JSON.stringify(DEFAULT_VOCAL_TRIGGERS)) return;
+    vocalSyncPendingRef.current = mergeTriggers(local) || local;
+    flushVocalRef.current();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile?.uid]);
+
   // A change made in the last second before leaving must not be dropped.
   useEffect(() => () => {
     if (headSyncTimerRef.current !== null) {
       clearTimeout(headSyncTimerRef.current);
       headSyncTimerRef.current = null;
     }
+    if (vocalSyncTimerRef.current !== null) {
+      clearTimeout(vocalSyncTimerRef.current);
+      vocalSyncTimerRef.current = null;
+    }
     flushHeadConfigRef.current();
+    flushVocalRef.current();
   }, []);
 
   // Run the scan for as long as the setting is on. The short delay lets the
@@ -4097,6 +4245,90 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
                       </div>
                     </div>
                   )}
+                </div>
+
+                {/* Vocal sound triggers — tuned to this student's own voice */}
+                <div className="py-2 border-t border-slate-800">
+                  <p className="font-bold text-white flex items-center gap-1.5">
+                    <Mic className="w-4 h-4 text-emerald-400" />
+                    {isArabic ? 'الأصوات الصوتية' : 'Vocal Sounds'}
+                  </p>
+                  <p className="text-[11px] text-slate-400 mt-0.5 mb-2">
+                    {isArabic
+                      ? 'اضغط «سجّل صوتي» واعمل الصوت — البرنامج هيضبط نفسه على طبقة صوتك بدل الأرقام الافتراضية.'
+                      : "Press Record my sound and make it — the app tunes itself to the student's own pitch instead of the defaults."}
+                  </p>
+
+                  {!isAudioEngineActive && (
+                    <p className="text-[11px] text-amber-400/90 mb-2">
+                      {isArabic
+                        ? '⚠️ شغّل «أصوات إيفونيا» الأول علشان الميكروفون يشتغل.'
+                        : '⚠️ Turn on Vocal Sounds first so the microphone is live.'}
+                    </p>
+                  )}
+
+                  <div className="space-y-2.5">
+                    {triggers.map((t) => (
+                      <div key={t.id} className="rounded-2xl bg-slate-950/60 border border-slate-800 p-2.5">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-bold text-white text-[12px] truncate">
+                            {isArabic ? t.nameAr : t.name}
+                          </span>
+                          <input
+                            type="checkbox"
+                            checked={t.enabled}
+                            onChange={(e) => updateTrigger(t.id, { enabled: e.target.checked })}
+                            className="w-4 h-4 accent-emerald-400 rounded shrink-0"
+                          />
+                        </div>
+
+                        <select
+                          value={t.action}
+                          onChange={(e) => updateTrigger(t.id, { action: e.target.value as VocalTriggerAction })}
+                          className="mt-2 w-full bg-slate-900 border border-slate-700 rounded-xl px-2 py-1.5 text-[11px] text-slate-200"
+                        >
+                          {VOCAL_ACTION_LABELS.map((a) => (
+                            <option key={a.value} value={a.value}>{isArabic ? a.ar : a.en}</option>
+                          ))}
+                        </select>
+
+                        <div className="mt-2 flex items-center gap-2">
+                          <button
+                            onClick={() => captureVocalTrigger(t.id)}
+                            disabled={!!capturingTriggerId}
+                            className={`flex-1 py-1.5 rounded-xl text-[11px] font-bold border-2 transition ${
+                              capturingTriggerId === t.id
+                                ? 'bg-rose-500 text-white border-rose-400 animate-pulse'
+                                : 'bg-emerald-500 text-slate-950 border-emerald-400 disabled:opacity-40'
+                            }`}
+                          >
+                            {capturingTriggerId === t.id
+                              ? (isArabic ? 'اعمل الصوت دلوقتي...' : 'Make your sound...')
+                              : (isArabic ? '🎙️ سجّل صوتي' : '🎙️ Record my sound')}
+                          </button>
+                          <span className="text-[11px] font-mono text-emerald-400 w-16 text-center shrink-0">
+                            {t.targetFrequencyHz} Hz
+                          </span>
+                        </div>
+
+                        <div className="mt-2">
+                          <div className="flex items-center justify-between text-[10px] font-bold text-slate-400 mb-1">
+                            <span>{isArabic ? 'الحساسية (أقل = أسهل)' : 'Sensitivity (lower = easier)'}</span>
+                            <span className="text-emerald-400">{t.minEnergyThreshold.toFixed(3)}</span>
+                          </div>
+                          <input
+                            type="range"
+                            min={0.01}
+                            max={0.2}
+                            step={0.005}
+                            value={t.minEnergyThreshold}
+                            onChange={(e) => updateTrigger(t.id, { minEnergyThreshold: Number(e.target.value) })}
+                            className="w-full accent-emerald-400"
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
 
                 {/* Calibration Accuracy Indicator */}

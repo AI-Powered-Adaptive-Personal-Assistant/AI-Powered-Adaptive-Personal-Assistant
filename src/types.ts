@@ -86,6 +86,15 @@ export interface UserProfile {
    * motor range, re-tuning from scratch is not a minor inconvenience.
    */
   headTrackingConfig?: HeadTrackingConfig;
+  /**
+   * Vocal sound triggers, tuned to this student's own voice.
+   *
+   * The pitch a student can actually produce is personal — a breathy 140Hz hum
+   * never matches a target fixed at 220Hz, and for a student who cannot blink
+   * reliably these triggers are their click. Synced for the same reason as the
+   * head config: the calibration has to follow them between devices.
+   */
+  vocalTriggers?: VocalSoundTriggerConfig[];
   // Granted via the Admin Dashboard. Permanent "owner" admins are defined by
   // email in the code; this flag is for admins promoted at runtime.
   isAdmin?: boolean;
