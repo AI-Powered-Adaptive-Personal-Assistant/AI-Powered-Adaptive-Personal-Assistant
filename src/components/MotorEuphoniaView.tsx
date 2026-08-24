@@ -7,6 +7,8 @@ import { speak, cancelSpeech, unlockSpeechSynthesis, hasArabicVoice } from '../l
 import { geminiService } from '../services/geminiService';
 import { toast } from './Toast';
 import { localize } from '../lib/translations';
+import { doc, setDoc } from 'firebase/firestore';
+import { db, cleanDataForFirestore } from '../lib/firebase';
 import {
   EmergencyContact,
   loadContacts,
@@ -406,13 +408,26 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
 
   // Settings
   const [headConfig, setHeadConfig] = useState<HeadTrackingConfig>(() => {
+    // Order matters: the synced profile wins, then the local cache, then the
+    // defaults. Everything is spread over DEFAULT_HEAD_TRACKING_CONFIG so a
+    // config saved by an older build still picks up keys added since (a stored
+    // object missing autoScanMode would otherwise leave it undefined forever).
     try {
+      if (profile?.headTrackingConfig) {
+        return { ...DEFAULT_HEAD_TRACKING_CONFIG, ...profile.headTrackingConfig };
+      }
       const saved = localStorage.getItem('cognify_head_config');
-      return saved ? JSON.parse(saved) : DEFAULT_HEAD_TRACKING_CONFIG;
+      return saved
+        ? { ...DEFAULT_HEAD_TRACKING_CONFIG, ...JSON.parse(saved) }
+        : DEFAULT_HEAD_TRACKING_CONFIG;
     } catch {
       return DEFAULT_HEAD_TRACKING_CONFIG;
     }
   });
+  /** Pending cloud write, so a slider drag is not one Firestore write per pixel. */
+  const headSyncTimerRef = useRef<number | null>(null);
+  const headSyncPendingRef = useRef<HeadTrackingConfig | null>(null);
+  const flushHeadConfigRef = useRef<() => void>(() => {});
 
   // Custom Phrase Bank
   const [customPhrases, setCustomPhrases] = useState(() => {
@@ -717,11 +732,37 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
     const updated = { ...headConfig, ...newCfg };
     setHeadConfig(updated);
     trackerRef.current?.updateConfig(updated);
+    // Local first: it is instant, and it keeps the tuning working offline and
+    // through a failed network write.
     try {
       localStorage.setItem('cognify_head_config', JSON.stringify(updated));
     } catch {
       /* ignore */
     }
+    // Then the cloud, debounced. The sensitivity and scan-speed sliders fire on
+    // every drag step, which would otherwise be a Firestore write per pixel.
+    headSyncPendingRef.current = updated;
+    if (headSyncTimerRef.current !== null) clearTimeout(headSyncTimerRef.current);
+    headSyncTimerRef.current = window.setTimeout(() => {
+      headSyncTimerRef.current = null;
+      flushHeadConfigSync();
+    }, 1000);
+  };
+
+  /** Push the pending config to the student's profile. Safe to call after
+   *  unmount: it touches no React state. */
+  const flushHeadConfigSync = () => {
+    const pending = headSyncPendingRef.current;
+    if (!pending || !profile?.uid) return;
+    headSyncPendingRef.current = null;
+    setDoc(
+      doc(db, `users/${profile.uid}`),
+      cleanDataForFirestore({ headTrackingConfig: pending }),
+      { merge: true },
+    ).catch(() => {
+      // Offline or rules rejected it — localStorage still holds the tuning, so
+      // this device keeps working and the next change retries.
+    });
   };
 
   // Start / Stop Camera Tracking
@@ -1968,6 +2009,7 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
   handleVocalTriggerRef.current = handleVocalTriggerAction;
   scanSwitchRef.current = scanSwitch;
   scanApiRef.current = { start: startScan, stop: stopScan, resync: resyncScan };
+  flushHeadConfigRef.current = flushHeadConfigSync;
   headConfigRef.current = headConfig;
   // Calibration takes over the whole screen and drives the tracker itself, so
   // the scan holds position rather than fighting it.
@@ -1980,6 +2022,46 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
   useEffect(() => {
     if (scanActiveRef.current) applyScanPaint();
   });
+
+  // Adopt tuning changed on ANOTHER device. The profile arrives through App's
+  // onSnapshot listener, so this is what makes the settings actually follow the
+  // student rather than merely being backed up.
+  useEffect(() => {
+    const remote = profile?.headTrackingConfig;
+    if (!remote) return;
+    // Never fight a change this device is still debouncing — that would undo
+    // the slider the caregiver is dragging right now.
+    if (headSyncPendingRef.current) return;
+    const merged = { ...DEFAULT_HEAD_TRACKING_CONFIG, ...remote };
+    if (JSON.stringify(merged) === JSON.stringify(headConfig)) return;
+    setHeadConfig(merged);
+    trackerRef.current?.updateConfig(merged);
+    try {
+      localStorage.setItem('cognify_head_config', JSON.stringify(merged));
+    } catch { /* ignore */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [JSON.stringify(profile?.headTrackingConfig)]);
+
+  // First run on an account that predates syncing: push whatever this device
+  // already had, so an existing student's tuning is adopted rather than lost.
+  useEffect(() => {
+    if (!profile?.uid || profile.headTrackingConfig) return;
+    try {
+      if (!localStorage.getItem('cognify_head_config')) return;
+    } catch { return; }
+    headSyncPendingRef.current = headConfig;
+    flushHeadConfigRef.current();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile?.uid]);
+
+  // A change made in the last second before leaving must not be dropped.
+  useEffect(() => () => {
+    if (headSyncTimerRef.current !== null) {
+      clearTimeout(headSyncTimerRef.current);
+      headSyncTimerRef.current = null;
+    }
+    flushHeadConfigRef.current();
+  }, []);
 
   // Run the scan for as long as the setting is on. The short delay lets the
   // tab that is being switched into finish laying out before we snapshot it.

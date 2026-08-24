@@ -76,6 +76,16 @@ export interface UserProfile {
   activeThreadId?: string;
   tasks?: Task[];
   lastActiveDate?: string;
+  /**
+   * Eye-tracking / auto-scan tuning, synced so it follows the student.
+   *
+   * This used to live only in localStorage, which meant a student who had their
+   * sensitivity, dwell time and scan speed tuned on one tablet got the raw
+   * defaults on any other device — and lost the tuning entirely if the browser
+   * data was cleared. For someone who needs the settings calibrated to their own
+   * motor range, re-tuning from scratch is not a minor inconvenience.
+   */
+  headTrackingConfig?: HeadTrackingConfig;
   // Granted via the Admin Dashboard. Permanent "owner" admins are defined by
   // email in the code; this flag is for admins promoted at runtime.
   isAdmin?: boolean;
