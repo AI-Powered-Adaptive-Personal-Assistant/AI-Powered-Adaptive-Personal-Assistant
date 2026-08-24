@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { UserProfile, VocalSoundTriggerConfig, AACCardItem, HeadTrackingConfig } from '../types';
 import { vocalSoundEngine, LiveAudioMetrics, loadVocalTriggers } from '../lib/vocalSoundTrigger';
 import { FacialHeadTracker, PointerPosition, FacialGestureState, DEFAULT_HEAD_TRACKING_CONFIG } from '../lib/facialHeadTracker';
@@ -29,6 +29,26 @@ import {
 
 /** Shared default adapter — constructed once, not on every render. */
 const DEFAULT_LOCAL_ADAPTER = new LocalIndexedDbStorageAdapter();
+
+// ─── Single-switch auto scanning ──────────────────────────────────────────────
+// For students who cannot drive the gaze pointer at all. The app walks the
+// selectable targets itself and the student makes ONE action to choose; any
+// existing trigger doubles as that switch (blink, smile, a vocal sound, the
+// Space/Enter a physical switch emulates, or the big on-screen button).
+//
+// Row-column is the default: linear scanning over a 40-key Arabic keyboard is
+// ~a minute per pass, while row-then-column gets to any key in two choices.
+const SCAN_HL = 'cognify-scan-hl';
+const SCAN_HL_ROW = 'cognify-scan-hl-row';
+/** Stop after this many cycles with no selection, rather than moving forever. */
+const SCAN_MAX_PASSES = 3;
+/** Two switch sources firing at once (a blink that is also a smile) is one press. */
+const SCAN_SWITCH_DEBOUNCE_MS = 350;
+
+const TAB_ORDER = [
+  'keyboard', 'euphonia-studio', 'smart-room',
+  'pain-sensory', 'class-ai', 'custom-bank', 'eye-games',
+] as const;
 import {
   transcribe,
   getEuphoniaApiUrl,
@@ -59,6 +79,8 @@ import {
   Plus,
   Trash2,
   CheckCircle2,
+  XCircle,
+  ScanLine,
   AlertCircle,
   Clock,
   Play,
@@ -259,6 +281,26 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
   const hoveredCardIdRef = useRef<string | null>(null);
   const handleCardTriggerRef = useRef<(id: string) => void>(() => {});
   const checkHoverTargetRef = useRef<(pos: PointerPosition) => void>(() => {});
+  const handleVocalTriggerRef = useRef<(t: VocalSoundTriggerConfig) => void>(() => {});
+
+  // Auto-scan runtime state. `scanActive` is whether the scan is currently
+  // moving; headConfig.autoScanEnabled is the persisted setting.
+  const [scanActive, setScanActive] = useState(false);
+  const [scanTickCount, setScanTickCount] = useState(0);         // re-render so the UI follows
+  const scanActiveRef = useRef(false);
+  const scanRowsRef = useRef<string[][]>([]);
+  const scanPhaseRef = useRef<'row' | 'item'>('row');
+  const scanRowIdxRef = useRef(0);
+  const scanItemIdxRef = useRef(0);
+  const scanPassesRef = useRef(0);
+  const scanTimerRef = useRef<number | null>(null);
+  const scanSwitchRef = useRef<() => void>(() => {});
+  const scanLastSwitchRef = useRef(0);
+  const headConfigRef = useRef<HeadTrackingConfig>(DEFAULT_HEAD_TRACKING_CONFIG);
+  const scanBlockedRef = useRef(false);
+  const scanApiRef = useRef<{ start: () => void; stop: (e?: boolean) => void; resync: () => void }>({
+    start: () => {}, stop: () => {}, resync: () => {},
+  });
   const [gestureState, setGestureState] = useState<FacialGestureState>({
     isSmiling: false,
     isMouthOpen: false,
@@ -272,6 +314,11 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
   const [calibrationPointIndex, setCalibrationPointIndex] = useState(0);
   const [isCalibrating, setIsCalibrating] = useState(false);
   const [calibAccuracy, setCalibAccuracy] = useState<number | null>(null);
+  // Whether the LAST calibration attempt actually produced a usable mapping.
+  // The end-of-calibration panel used to show a green tick and "99.4%" no matter
+  // what — including directly above a red "calibration failed" toast and a
+  // "Calibration accuracy: 0%" readout.
+  const [calibSucceeded, setCalibSucceeded] = useState<boolean | null>(null);
 
   // Google Project Euphonia 100-Phrase Bank & Model Training State
   const [euphoniaPhraseBank, setEuphoniaPhraseBank] = useState<EuphoniaPhraseDef[]>([]);
@@ -468,6 +515,12 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
    */
   const getAudioCtx = (): AudioContext | null => {
     try {
+      // After unmount the shared context has already been closed. Creating a
+      // fresh one here (a recording still finishing, a queued cue) leaked a
+      // context that nothing would ever close, and enough of those hit the
+      // browser's live-context cap — after which no audio cue plays at all,
+      // including the nurse-call alarm.
+      if (!mountedRef.current) return null;
       if (!sharedAudioCtxRef.current) {
         const C = window.AudioContext || (window as any).webkitAudioContext;
         if (!C) return null;
@@ -698,6 +751,10 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
           checkHoverTargetRef.current(pos);
         },
         onDwellComplete: (targetId) => {
+          // The tracker sets its own hover target from magnetic snapping, so
+          // guarding checkHoverTarget alone is not enough to keep dwell from
+          // firing underneath an active scan.
+          if (scanActiveRef.current) return;
           handleCardTriggerRef.current(targetId);
         },
         onGesture: (gesture) => {
@@ -706,13 +763,23 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
             setEyeLiveMetrics(gesture.metrics);
           }
           const hovered = hoveredCardIdRef.current;
+          // While scanning, every gesture is just "press the switch".
+          if (scanActiveRef.current) {
+            if (gesture.isBlinking || gesture.isSmiling) scanSwitchRef.current();
+            return;
+          }
           if (gesture.isBlinking) {
             if (hovered) {
               playBlinkClickSound();
+              // Tell the tracker this target has just fired. Without it the
+              // dwell timer kept running underneath and fired the SAME key
+              // again ~1.4s later if the student paused on it: "سس" for "س".
+              trackerRef.current?.notifyExternalTrigger(hovered);
               handleCardTriggerRef.current(hovered);
             }
           } else if (gesture.isSmiling) {
             if (hovered) {
+              trackerRef.current?.notifyExternalTrigger(hovered);
               handleCardTriggerRef.current(hovered);
             }
           }
@@ -741,6 +808,15 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
 
     cameraBusyRef.current = false;
 
+    // Left the Motor screen while the webcam was still opening. Don't toast onto
+    // whatever screen they are on now — and, more importantly, don't leave a
+    // camera running for a view that no longer exists.
+    if (!mountedRef.current) {
+      try { trackerRef.current?.stop(); } catch { /* ignore */ }
+      trackerRef.current = null;
+      return;
+    }
+
     if (ok) {
       setIsCameraActive(true);
       toast.success(isArabic ? 'تم تفعيل تتبع العين - انظر للحرف وأغمض عينك لكتابته' : 'Eye-Gaze active - look and blink to type');
@@ -763,7 +839,7 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
 
     const ok = await vocalSoundEngine.start(
       (trig) => {
-        handleVocalTriggerAction(trig);
+        handleVocalTriggerRef.current(trig);
       },
       (metrics) => {
         setAudioMetrics(metrics);
@@ -914,6 +990,9 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
 
   // Check which card, key, or modal item the cursor is hovering over
   const checkHoverTarget = (pos: PointerPosition) => {
+    // While auto-scan is driving, the scan owns the hover. Otherwise the gaze
+    // pointer yanks the highlight off whatever the scan just landed on.
+    if (scanActiveRef.current) return;
     // Was: querySelectorAll + getBoundingClientRect on EVERY element, every
     // frame. That forces a full layout recompute per element ~60x/second, which
     // is the heaviest single cost on the low-end tablets these students use —
@@ -935,16 +1014,274 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
     }
   };
 
+  // ─── Auto-scan engine ─────────────────────────────────────────────────────
+
+  /** Every selectable target on screen, grouped into geometric rows. */
+  const collectScanRows = (): string[][] => {
+    // A modal can opt in with data-scan-root so the scan stays inside it
+    // instead of walking targets buried behind the overlay.
+    const root: ParentNode = document.querySelector('[data-scan-root]') || document;
+    const items: { id: string; top: number; left: number }[] = [];
+    root.querySelectorAll<HTMLElement>('[data-aac-id]').forEach((el) => {
+      const id = el.getAttribute('data-aac-id');
+      if (!id) return;
+      const r = el.getBoundingClientRect();
+      // display:none collapses to 0x0. Deliberately NOT filtered on the
+      // viewport: an item scrolled out of view is still reachable, because
+      // highlighting it scrolls it back in.
+      if (r.width < 8 || r.height < 8) return;
+      if (getComputedStyle(el).visibility === 'hidden') return;
+      items.push({ id, top: r.top, left: r.left });
+    });
+    if (!items.length) return [];
+
+    if ((headConfigRef.current.autoScanMode || 'row-column') === 'linear') {
+      return [items.sort((a, b) => a.top - b.top || a.left - b.left).map((i) => i.id)];
+    }
+
+    // Row tolerance scales with the grid actually on screen, so the same code
+    // groups a dense keyboard and a page of large phrase cards correctly.
+    const tops = items.map((i) => i.top).sort((a, b) => a - b);
+    const span = (tops[tops.length - 1] - tops[0]) || 1;
+    const tol = Math.max(14, Math.min(60, span / Math.max(4, items.length / 4)));
+
+    const rows: { top: number; items: typeof items }[] = [];
+    for (const it of [...items].sort((a, b) => a.top - b.top || a.left - b.left)) {
+      const row = rows.find((r) => Math.abs(r.top - it.top) <= tol);
+      if (row) row.items.push(it);
+      else rows.push({ top: it.top, items: [it] });
+    }
+    return rows.map((r) => r.items.sort((a, b) => a.left - b.left).map((i) => i.id));
+  };
+
+  const clearScanPaint = () => {
+    document.querySelectorAll('.' + SCAN_HL).forEach((e) => e.classList.remove(SCAN_HL));
+    document.querySelectorAll('.' + SCAN_HL_ROW).forEach((e) => e.classList.remove(SCAN_HL_ROW));
+  };
+
+  /** Paint the highlight straight onto the DOM nodes. The alternative is
+   *  threading scan state through all 26 render sites for no benefit. */
+  const paintScan = (ids: string[], cls: string) => {
+    clearScanPaint();
+    if (!ids.length) return;
+    const wanted = new Set(ids);
+    let first: HTMLElement | null = null;
+    document.querySelectorAll<HTMLElement>('[data-aac-id]').forEach((el) => {
+      const id = el.getAttribute('data-aac-id');
+      if (!id || !wanted.has(id)) return;
+      el.classList.add(cls);
+      if (!first) first = el;
+    });
+    if (first) (first as HTMLElement).scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  };
+
+  const setScanHover = (id: string | null) => {
+    hoveredCardIdRef.current = id;
+    setHoveredCardId(id);
+  };
+
+  const enterRowPhase = () => {
+    scanPhaseRef.current = 'row';
+    scanRowIdxRef.current = -1;
+    scanItemIdxRef.current = -1;
+    scanPassesRef.current = 0;
+  };
+
+  const stopScan = (exhausted = false) => {
+    if (scanTimerRef.current !== null) {
+      clearTimeout(scanTimerRef.current);
+      scanTimerRef.current = null;
+    }
+    scanActiveRef.current = false;
+    clearScanPaint();
+    setScanHover(null);
+    setScanActive(false);
+    if (exhausted && mountedRef.current) {
+      toast.info(
+        isArabic
+          ? 'تم إيقاف المسح مؤقتًا — اضغط المفتاح لاستئنافه'
+          : 'Scanning paused — press the switch to resume'
+      );
+    }
+  };
+
+  const scanAdvance = () => {
+    if (!scanActiveRef.current || !mountedRef.current) return;
+    // Calibration owns the whole screen and the tracker; scanning underneath it
+    // would fight for the pointer. Hold position and pick up afterwards.
+    if (scanBlockedRef.current) return;
+
+    let rows = scanRowsRef.current;
+    if (!rows.length) {
+      rows = collectScanRows();
+      scanRowsRef.current = rows;
+      enterRowPhase();
+      if (!rows.length) return;
+    }
+
+    if (scanPhaseRef.current === 'row' && rows.length > 1) {
+      scanRowIdxRef.current += 1;
+      if (scanRowIdxRef.current >= rows.length) {
+        scanPassesRef.current += 1;
+        if (scanPassesRef.current >= SCAN_MAX_PASSES) { stopScan(true); return; }
+        // Re-snapshot between passes: a tab switch or a scroll may have changed
+        // what is on screen since the pass began.
+        rows = collectScanRows();
+        scanRowsRef.current = rows;
+        if (!rows.length) { stopScan(); return; }
+        scanRowIdxRef.current = 0;
+      }
+      // No single card is hovered while choosing a ROW, or a blink here would
+      // fire a card instead of picking the row.
+      setScanHover(null);
+      paintScan(rows[scanRowIdxRef.current] || [], SCAN_HL_ROW);
+    } else {
+      if (rows.length === 1) scanPhaseRef.current = 'item';
+      const row = rows[Math.max(0, scanRowIdxRef.current)] || [];
+      if (!row.length) { enterRowPhase(); return; }
+      scanItemIdxRef.current += 1;
+      if (scanItemIdxRef.current >= row.length) {
+        scanItemIdxRef.current = 0;
+        scanPassesRef.current += 1;
+        if (scanPassesRef.current >= SCAN_MAX_PASSES) {
+          // Give up on this row and let them choose a different one.
+          if (rows.length > 1) { enterRowPhase(); return; }
+          stopScan(true);
+          return;
+        }
+      }
+      const id = row[scanItemIdxRef.current];
+      setScanHover(id ?? null);
+      paintScan(id ? [id] : [], SCAN_HL);
+    }
+    setScanTickCount((t) => t + 1);
+  };
+
+  /** Self-rescheduling, so a change to the interval slider takes effect at once. */
+  const scheduleScan = () => {
+    if (scanTimerRef.current !== null) clearTimeout(scanTimerRef.current);
+    const ms = Math.max(600, Math.min(5000, headConfigRef.current.autoScanIntervalMs || 1400));
+    scanTimerRef.current = window.setTimeout(() => {
+      scanAdvance();
+      if (scanActiveRef.current) scheduleScan();
+    }, ms);
+  };
+
+  const startScan = () => {
+    const rows = collectScanRows();
+    if (!rows.length) return;
+    scanRowsRef.current = rows;
+    enterRowPhase();
+    if (rows.length === 1) scanPhaseRef.current = 'item';
+    scanActiveRef.current = true;
+    setScanActive(true);
+    scanAdvance();      // land on the first target at once, no dead wait
+    scheduleScan();
+  };
+
+  /** The single action the student makes. Blink, smile, a vocal sound,
+   *  Space/Enter, and the on-screen button all arrive here. */
+  const scanSwitch = () => {
+    const now = Date.now();
+    if (now - scanLastSwitchRef.current < SCAN_SWITCH_DEBOUNCE_MS) return;
+    scanLastSwitchRef.current = now;
+
+    if (!scanActiveRef.current) { startScan(); return; }   // resume after a pause
+
+    const rows = scanRowsRef.current;
+    if (!rows.length) { stopScan(); return; }
+    scanPassesRef.current = 0;
+
+    if (scanPhaseRef.current === 'row' && rows.length > 1) {
+      scanPhaseRef.current = 'item';
+      scanItemIdxRef.current = -1;
+      scanAdvance();
+      scheduleScan();
+      return;
+    }
+
+    const id = (rows[Math.max(0, scanRowIdxRef.current)] || [])[scanItemIdxRef.current];
+    if (!id) return;
+    playBlinkClickSound();
+    handleCardTriggerRef.current(id);
+    // Activating may switch tabs or open a modal, so rebuild from scratch and
+    // go back to choosing a row.
+    if (scanTimerRef.current !== null) { clearTimeout(scanTimerRef.current); scanTimerRef.current = null; }
+    clearScanPaint();
+    setScanHover(null);
+    trackedTimeout(() => {
+      if (!scanActiveRef.current || !mountedRef.current) return;
+      scanRowsRef.current = collectScanRows();
+      enterRowPhase();
+      if (scanRowsRef.current.length === 1) scanPhaseRef.current = 'item';
+      scanAdvance();
+      scheduleScan();
+    }, 350);
+  };
+
+  const cycleTab = (dir: 1 | -1) => {
+    const i = TAB_ORDER.indexOf(activeTab as any);
+    const n = (i + dir + TAB_ORDER.length) % TAB_ORDER.length;
+    setActiveTab(TAB_ORDER[n] as any);
+  };
+
+  /** Close the topmost open modal. False when there was nothing to close. */
+  const closeTopModal = (): boolean => {
+    if (showContactPickerModal) { setShowContactPickerModal(false); return true; }
+    if (showWhatsAppModal) { setShowWhatsAppModal(false); return true; }
+    if (showConfigModal) { setShowConfigModal(false); return true; }
+    if (showScientificArchitectureModal) { setShowScientificArchitectureModal(false); return true; }
+    return false;
+  };
+
+  /** Rebuild the target list and restart from the row phase. Used whenever the
+   *  layout underneath the scan changes (tab switch, modal, orientation). */
+  const resyncScan = () => {
+    if (!scanActiveRef.current || !mountedRef.current) return;
+    scanRowsRef.current = collectScanRows();
+    enterRowPhase();
+    if (scanRowsRef.current.length === 1) scanPhaseRef.current = 'item';
+    scanAdvance();
+    scheduleScan();
+  };
+
   // Handle Vocal Trigger actions
   const handleVocalTriggerAction = (trig: VocalSoundTriggerConfig) => {
-    toast.info(`${isArabic ? 'تم التقاط إشارة صوتية: ' : 'Vocal Trigger: '}${isArabic ? trig.nameAr : trig.name}`);
+    const label = isArabic ? trig.nameAr : trig.name;
+    // Read the LIVE hover. This whole handler used to be captured once, when the
+    // mic was switched on, so 'select' either did nothing or re-fired whichever
+    // card happened to be under the cursor at that instant — for the rest of the
+    // session, nurse-call alarm and phone contacts included.
+    const hovered = hoveredCardIdRef.current;
+    let handled = true;
 
-    if (trig.action === 'select' && hoveredCardId) {
-      handleCardTrigger(hoveredCardId);
-    } else if (trig.action === 'ask-ai') {
-      startAtypicalSpeechRecognition();
-    } else if (trig.action === 'emergency') {
-      triggerPrimaryEmergencyCall();
+    switch (trig.action) {
+      case 'select':
+        if (scanActiveRef.current) scanSwitchRef.current();
+        else if (hovered) {
+          trackerRef.current?.notifyExternalTrigger(hovered);
+          handleCardTriggerRef.current(hovered);
+        } else handled = false;
+        break;
+      case 'ask-ai': startAtypicalSpeechRecognition(); break;
+      case 'emergency': triggerPrimaryEmergencyCall(); break;
+      case 'speak-aloud': handleSpeakTypedText(); break;
+      case 'clear': handleClearText(); break;
+      case 'next': cycleTab(1); break;
+      case 'previous': cycleTab(-1); break;
+      case 'back': handled = closeTopModal(); break;
+      default: handled = false;
+    }
+
+    // Toast AFTER dispatch. It used to fire first and always claim success, so
+    // the shipped "High Tone" default (mapped to `next`, which nothing
+    // implemented) still told the student it had been heard and acted on.
+    if (handled) {
+      toast.info(`${isArabic ? 'إشارة صوتية: ' : 'Vocal Trigger: '}${label}`);
+    } else {
+      toast.warning(
+        isArabic ? `«${label}» لم يُنفَّذ — لا يوجد هدف محدد` : `"${label}" did nothing — no target selected`
+      );
     }
   };
 
@@ -1151,6 +1488,7 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
         const status = trackerRef.current?.finalizeCalibration();
         setIsCalibrating(false);
         setCalibAccuracy(status?.accuracyEstimate ?? null);
+        setCalibSucceeded(!!status?.isCalibrated);
 
         if (status?.isCalibrated) {
           toast.success(
@@ -1492,7 +1830,67 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
   // always invoke the current closures (see the ref declarations above).
   handleCardTriggerRef.current = handleCardTrigger;
   checkHoverTargetRef.current = checkHoverTarget;
+  handleVocalTriggerRef.current = handleVocalTriggerAction;
+  scanSwitchRef.current = scanSwitch;
+  scanApiRef.current = { start: startScan, stop: stopScan, resync: resyncScan };
+  headConfigRef.current = headConfig;
+  // Calibration takes over the whole screen and drives the tracker itself, so
+  // the scan holds position rather than fighting it.
+  scanBlockedRef.current = showCalibrationModal || isCalibrating;
 
+
+  // Run the scan for as long as the setting is on. The short delay lets the
+  // tab that is being switched into finish laying out before we snapshot it.
+  useEffect(() => {
+    if (!headConfig.autoScanEnabled) {
+      scanApiRef.current.stop();
+      return undefined;
+    }
+    const t = window.setTimeout(() => scanApiRef.current.start(), 250);
+    return () => {
+      clearTimeout(t);
+      scanApiRef.current.stop();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [headConfig.autoScanEnabled, headConfig.autoScanMode]);
+
+  // A physical switch almost always presents itself as a keyboard: Space or
+  // Enter. Text fields keep their own spacebar.
+  useEffect(() => {
+    if (!headConfig.autoScanEnabled) return undefined;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== ' ' && e.key !== 'Enter') return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+      e.preventDefault();
+      scanSwitchRef.current();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [headConfig.autoScanEnabled]);
+
+  // The visible targets change completely between tabs, and on rotate/resize.
+  useEffect(() => {
+    if (!headConfig.autoScanEnabled) return undefined;
+    const t = window.setTimeout(() => scanApiRef.current.resync(), 220);
+    const onResize = () => scanApiRef.current.resync();
+    window.addEventListener('resize', onResize);
+    return () => {
+      clearTimeout(t);
+      window.removeEventListener('resize', onResize);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, showContactPickerModal, headConfig.autoScanEnabled]);
+
+  /** What the switch will do if pressed right now. */
+  const scanStatusLabel = useMemo(() => {
+    if (!scanActive) return isArabic ? 'ابدأ المسح' : 'Start scanning';
+    if (scanPhaseRef.current === 'row' && scanRowsRef.current.length > 1) {
+      return isArabic ? 'اختر هذا الصف' : 'Choose this row';
+    }
+    return isArabic ? 'اختر هذا الزر' : 'Select this';
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scanActive, scanTickCount, isArabic]);
 
   // Atypical / Dysarthric Speech Recording
   const startAtypicalSpeechRecognition = () => {
@@ -2963,7 +3361,7 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
                   {isArabic ? 'إجابة مرشدك الدراسي الذكي (Cognify AI)' : 'Cognify AI Mentor Answer'}
                 </span>
                 <button
-                  onClick={() => speak(aiResponseText, profile.language || 'Egyptian Ammiya')}
+                  onClick={() => speakSafe(aiResponseText)}
                   className="px-3 py-1 rounded-xl bg-slate-800 hover:bg-slate-700 text-emerald-400 text-xs font-bold flex items-center gap-1"
                 >
                   <Volume2 className="w-3.5 h-3.5" />
@@ -3026,13 +3424,31 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
                 animate={{ scale: 1, opacity: 1 }}
                 className="flex flex-col items-center gap-3 text-center"
               >
-                <CheckCircle2 className="w-16 h-16 text-emerald-400 drop-shadow-[0_0_20px_rgba(52,211,153,0.8)]" />
-                <h3 className="text-xl font-black text-white">
-                  {isArabic ? 'تمت المعايرة بنجاح!' : 'Calibration Complete!'}
-                </h3>
-                <p className="text-xs text-slate-400">
-                  {isArabic ? 'دقة تتبع بؤبؤ العين الآن 99.4%' : 'Eye tracking accuracy is now 99.4%'}
-                </p>
+                {calibSucceeded === false ? (
+                  <>
+                    <XCircle className="w-16 h-16 text-rose-400 drop-shadow-[0_0_20px_rgba(251,113,133,0.8)]" />
+                    <h3 className="text-xl font-black text-white">
+                      {isArabic ? 'تعذّرت المعايرة' : 'Calibration Failed'}
+                    </h3>
+                    <p className="text-xs text-slate-400">
+                      {isArabic
+                        ? 'ثبّت رأسك أكثر وجرّب مرة أخرى — تم الاحتفاظ بالمعايرة السابقة'
+                        : 'Keep your head steadier and try again — your previous calibration was kept'}
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="w-16 h-16 text-emerald-400 drop-shadow-[0_0_20px_rgba(52,211,153,0.8)]" />
+                    <h3 className="text-xl font-black text-white">
+                      {isArabic ? 'تمت المعايرة بنجاح!' : 'Calibration Complete!'}
+                    </h3>
+                    <p className="text-xs text-slate-400">
+                      {isArabic
+                        ? `دقة تقديرية ${Math.round((calibAccuracy ?? 0) * 100)}%`
+                        : `Estimated accuracy ${Math.round((calibAccuracy ?? 0) * 100)}%`}
+                    </p>
+                  </>
+                )}
               </motion.div>
             )}
 
@@ -3055,8 +3471,26 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
 
       {/* MODAL 1: Hands-Free Phone Call Dialer */}
       <AnimatePresence>
+        {/* The switch itself. Deliberately carries no data-aac-id: it must never
+            become one of the targets the scan walks over. */}
+        {headConfig.autoScanEnabled && (
+          <div className="fixed inset-x-0 bottom-0 z-[60] p-3 flex justify-center pointer-events-none">
+            <button
+              onClick={() => scanSwitchRef.current()}
+              aria-label={scanStatusLabel}
+              className="pointer-events-auto w-full max-w-2xl py-5 rounded-3xl bg-amber-400 hover:bg-amber-300 active:bg-amber-500 text-slate-950 font-black text-xl border-4 border-amber-200 shadow-[0_-6px_44px_rgba(251,191,36,0.55)] flex items-center justify-center gap-3"
+            >
+              <ScanLine className="w-7 h-7" />
+              <span>{scanStatusLabel}</span>
+            </button>
+          </div>
+        )}
+
         {showContactPickerModal && (
-          <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div
+            data-scan-root
+            className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4"
+          >
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -3365,6 +3799,69 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
                     onChange={(e) => updateHeadConfig({ facialTriggersEnabled: e.target.checked })}
                     className="w-5 h-5 accent-amber-400 rounded"
                   />
+                </div>
+
+                {/* Single-switch auto scanning */}
+                <div className="py-2 border-t border-slate-800">
+                  <div className="flex items-center justify-between">
+                    <div className="pe-3">
+                      <p className="font-bold text-white flex items-center gap-1.5">
+                        <ScanLine className="w-4 h-4 text-amber-400" />
+                        {isArabic ? 'المسح التلقائي (مفتاح واحد)' : 'Auto-Scan (single switch)'}
+                      </p>
+                      <p className="text-[11px] text-slate-400 mt-0.5">
+                        {isArabic
+                          ? 'البرنامج يتنقل بين الأزرار بنفسه، وأنت تختار بأي إشارة: غمضة، ابتسامة، صوت، مسطرة المسافة، أو الزر الكبير.'
+                          : 'The app moves between buttons itself; choose with any signal — blink, smile, a sound, the Space key, or the big button.'}
+                      </p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={!!headConfig.autoScanEnabled}
+                      onChange={(e) => updateHeadConfig({ autoScanEnabled: e.target.checked })}
+                      className="w-5 h-5 accent-amber-400 rounded shrink-0"
+                    />
+                  </div>
+
+                  {headConfig.autoScanEnabled && (
+                    <div className="mt-3 space-y-3 ps-1">
+                      <div className="flex gap-2">
+                        {(['row-column', 'linear'] as const).map((m) => (
+                          <button
+                            key={m}
+                            onClick={() => updateHeadConfig({ autoScanMode: m })}
+                            className={`flex-1 py-2 rounded-xl text-[11px] font-bold border-2 transition ${
+                              (headConfig.autoScanMode || 'row-column') === m
+                                ? 'bg-amber-400 text-slate-950 border-amber-300'
+                                : 'bg-slate-900 text-slate-300 border-slate-700'
+                            }`}
+                          >
+                            {m === 'row-column'
+                              ? (isArabic ? 'صف ثم زر (أسرع)' : 'Row then item (faster)')
+                              : (isArabic ? 'زر بزر' : 'One by one')}
+                          </button>
+                        ))}
+                      </div>
+                      <div>
+                        <div className="flex items-center justify-between text-[11px] font-bold text-slate-300 mb-1">
+                          <span>{isArabic ? 'سرعة المسح' : 'Scan speed'}</span>
+                          <span className="text-amber-400">
+                            {((headConfig.autoScanIntervalMs || 1400) / 1000).toFixed(1)}
+                            {isArabic ? ' ث' : 's'}
+                          </span>
+                        </div>
+                        <input
+                          type="range"
+                          min={600}
+                          max={5000}
+                          step={100}
+                          value={headConfig.autoScanIntervalMs || 1400}
+                          onChange={(e) => updateHeadConfig({ autoScanIntervalMs: Number(e.target.value) })}
+                          className="w-full accent-amber-400"
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Calibration Accuracy Indicator */}

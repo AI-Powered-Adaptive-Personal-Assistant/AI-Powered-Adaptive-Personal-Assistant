@@ -60,6 +60,7 @@ export const DEFAULT_HEAD_TRACKING_CONFIG: HeadTrackingConfig = {
   mouthOpenThreshold: 0.65,
   autoScanEnabled: false,
   autoScanIntervalMs: 1400,
+  autoScanMode: 'row-column',
   smoothing: 0.88,
   trackingMode: 'hybrid', // Hybrid: 60% Iris + 40% Head gives best stability & reach
 };
@@ -290,6 +291,7 @@ export class FacialHeadTracker {
     this.neutralCalibrationSamples = [];
     this.gazeSmoother.reset();
     this.lockedSnapTarget = null;
+    this.latchedTargetId = null;   // "Recenter" must un-stick a latched target too
     // Also re-estimate the blink baseline. Without this, a student who was
     // squinting or mid-blink during the first seconds was stuck with a broken
     // threshold for the whole session and "Recenter" did nothing for them.
@@ -453,6 +455,9 @@ export class FacialHeadTracker {
       this.neutralCalibrationSamples = [];
       this.restingEARSamples = [];
       this.adaptiveNeutralEAR = null;
+      this.latchedTargetId = null;
+      this.hoverTargetId = null;
+      this.hoverStartTime = 0;
       this.restingMouthRatio = null;
       this.mouthRatioSamples = [];
       this.wasSmiling = false;
@@ -537,6 +542,11 @@ export class FacialHeadTracker {
 
   public stop() {
     this.wantsRunning = false;
+    // A reused instance must not start with a target still latched dead.
+    this.latchedTargetId = null;
+    this.hoverTargetId = null;
+    this.hoverStartTime = 0;
+    this.dwellProgress = 0;
     this.startToken++; // invalidate any start() still awaiting getUserMedia
     this.isRunning = false;
     if (this.animFrameId) {
@@ -561,8 +571,34 @@ export class FacialHeadTracker {
 
   public setHoverTarget(targetId: string | null) {
     if (targetId === this.hoverTargetId) return;
+    // Re-arm the anti-repeat latch as soon as the gaze lands somewhere ELSE.
+    // Without this the latch was set on every dwell fire and cleared nowhere,
+    // so the last-activated target stayed permanently dead: no double letters
+    // ("مم", "ll"), no two Backspaces in a row, and a repeated nurse-call alarm
+    // silently did nothing. Keeping it while the gaze stays put is the part we
+    // DO want — that is what stops one long stare from auto-firing forever.
+    if (this.latchedTargetId !== null && targetId !== this.latchedTargetId) {
+      this.latchedTargetId = null;
+    }
     this.hoverTargetId = targetId;
     this.hoverStartTime = targetId ? Date.now() : 0;
+    this.dwellProgress = 0;
+  }
+
+  /**
+   * Record that something OTHER than dwell (a blink, a smile, a vocal trigger,
+   * an auto-scan switch press) just activated this target.
+   *
+   * Without this the dwell timer kept running underneath: the student blinked
+   * to type a letter, hesitated on the same key, and ~1.4s later dwell fired it
+   * a second time — "سس" instead of "س", a second nurse-call announcement, a
+   * second WhatsApp modal. Latching it here means the gaze must move away and
+   * come back before that target can fire again, exactly like a dwell fire.
+   */
+  public notifyExternalTrigger(targetId: string) {
+    this.latchedTargetId = targetId;
+    this.hoverTargetId = null;
+    this.hoverStartTime = 0;
     this.dwellProgress = 0;
   }
 
@@ -710,9 +746,18 @@ export class FacialHeadTracker {
       else if (now - this.eyesClosedSince > 1500) {
         this.adaptiveNeutralEAR = null;
         this.restingEARSamples = [];
-        this.runningMaxEAR = Math.max(this.runningMaxEAR, avgEAR / 0.62);
+        // Math.max was the bug: a baseline that is too HIGH is precisely what
+        // gets us stuck here, so keeping the larger of the two guaranteed the
+        // threshold never moved — the pointer stayed frozen and the blink FSM
+        // re-fired a phantom click every ~1.5s for the rest of the session.
+        // Rebuild from what we can actually see and put the threshold 20%
+        // BELOW it, so the very next frame reads as open with margin.
+        this.runningMaxEAR = (avgEAR * 0.8) / 0.62;
         this.eyesClosedSince = 0;
         isEyesClosed = false;
+        // Drop the half-finished blink too, or recovery itself looks like one.
+        this.wasBlinking = false;
+        this.blinkStartTime = 0;
       }
     } else {
       this.eyesClosedSince = 0;
@@ -908,8 +953,16 @@ export class FacialHeadTracker {
     if (this.calibCoeffsX && this.calibCoeffsY) {
       const px = this.calibCoeffsX[0] * rawNormX + this.calibCoeffsX[1] * rawNormY + this.calibCoeffsX[2];
       const py = this.calibCoeffsY[0] * rawNormX + this.calibCoeffsY[1] * rawNormY + this.calibCoeffsY[2];
-      mappedX = Math.max(0.01, Math.min(0.99, px));
-      mappedY = Math.max(0.01, Math.min(0.99, py));
+      // Sensitivity was read ONLY in the uncalibrated branch, so completing the
+      // 9-point calibration the app recommends silently killed both sensitivity
+      // controls: the slider and the +/- buttons still moved and still showed
+      // "2.4x" while changing nothing. Applied here as a gain about the screen
+      // centre, so the default (ratio 1) leaves the calibrated fit untouched and
+      // a caregiver can still widen or narrow a student's reach afterwards.
+      const sGain = (this.config.sensitivity || DEFAULT_HEAD_TRACKING_CONFIG.sensitivity)
+        / DEFAULT_HEAD_TRACKING_CONFIG.sensitivity;
+      mappedX = Math.max(0.01, Math.min(0.99, 0.5 + (px - 0.5) * sGain));
+      mappedY = Math.max(0.01, Math.min(0.99, 0.5 + (py - 0.5) * sGain));
     } else {
       if (!this.baselineGaze) {
         this.neutralCalibrationSamples.push({ x: rawNormX, y: rawNormY });
@@ -1106,7 +1159,8 @@ export class FacialHeadTracker {
       ctx.moveTo(x - 9, y);
       ctx.lineTo(x + 9, y);
       ctx.moveTo(x, y - 9);
-      ctx.lineTo(x + 9, y);
+      ctx.lineTo(x, y + 9);   // was lineTo(x + 9, y) — a diagonal slash, so the
+                              // marker sat visibly off the pupil it marks
       ctx.strokeStyle = '#ffffff';
       ctx.lineWidth = 1.5;
       ctx.stroke();

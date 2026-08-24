@@ -184,11 +184,14 @@ export interface HeadTrackingConfig {
   facialTriggersEnabled: boolean; // Smile / mouth open triggers click
   smileThreshold: number; // 0.3 to 0.9
   mouthOpenThreshold: number; // 0.3 to 0.9
-  // NOT IMPLEMENTED YET. There is no scan loop and no UI to turn this on, so
-  // both fields are inert defaults. Left in place because single-switch scanning
-  // is the standard fallback for users who cannot drive the gaze pointer at all.
-  autoScanEnabled: boolean; // Single-switch auto scanning
-  autoScanIntervalMs: number; // 1000ms to 4000ms
+  // Single-switch auto scanning: the app walks the selectable targets itself
+  // and the student makes ONE action to choose. The fallback for users who
+  // cannot drive the gaze pointer at all.
+  autoScanEnabled: boolean;
+  autoScanIntervalMs: number; // 600ms to 5000ms
+  /** row-column asks for a row first, then an item in it: two choices instead
+   *  of walking all ~40 keys. linear walks every target in order. */
+  autoScanMode?: 'linear' | 'row-column';
 }
 
 export interface AACCardItem {

@@ -143,3 +143,31 @@
 .splash-pop { animation: splashPop .5s cubic-bezier(.2,.7,.2,1) both; }
 @keyframes splashDot { 0%,100%{ opacity:.25; } 50%{ opacity:1; } }
 .splash-dot { animation: splashDot 1.2s ease-in-out infinite; }
+
+/* ── Single-switch auto-scan highlight ──────────────────────────────────────
+   Deliberately loud: the student may be reading this from across the room, or
+   with low vision on top of the motor impairment. The row highlight is calmer
+   than the item one so the two scan stages are never confused. */
+@keyframes cognifyScanPulse {
+  0%, 100% { box-shadow: 0 0 0 4px #fbbf24, 0 0 22px 6px rgba(251,191,36,.75); }
+  50%      { box-shadow: 0 0 0 6px #fde68a, 0 0 34px 10px rgba(251,191,36,.95); }
+}
+.cognify-scan-hl {
+  outline: 4px solid #fbbf24 !important;
+  outline-offset: 2px;
+  border-radius: 14px;
+  animation: cognifyScanPulse 1s ease-in-out infinite;
+  position: relative;
+  z-index: 40;
+}
+.cognify-scan-hl-row {
+  outline: 3px dashed #38bdf8 !important;
+  outline-offset: 2px;
+  border-radius: 14px;
+  background-color: rgba(56, 189, 248, .14) !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .cognify-scan-hl { animation: none; box-shadow: 0 0 0 5px #fbbf24; }
+}
+/* Keep the scanned item clear of the fixed switch bar at the bottom. */
+.cognify-scan-hl, .cognify-scan-hl-row { scroll-margin-bottom: 130px; scroll-margin-top: 90px; }
