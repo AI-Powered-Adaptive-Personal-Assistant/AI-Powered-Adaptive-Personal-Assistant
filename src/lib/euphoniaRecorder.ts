@@ -148,6 +148,15 @@ export class EuphoniaRecorder {
   private analyser: AnalyserNode | null = null;
   private audioCtx: AudioContext | null = null;
   private levelRaf: number | null = null;
+  // Generation guard for the window between "start()" and the microphone
+  // actually opening. The re-entrancy check below only sees state that is set
+  // AFTER the await, so a second Record press (or Live-Listen, which stays
+  // enabled) during the permission prompt sailed straight past it and both
+  // streams opened — the first orphaned with its tracks live, mic indicator on
+  // for the rest of the tab's life. stop() during that window did nothing at
+  // all: the UI said stopped while the mic came up anyway.
+  private startToken = 0;
+  private wantsRunning = false;
 
   private pickMimeType(): string {
     for (const candidate of MIME_CANDIDATES) {
@@ -165,14 +174,23 @@ export class EuphoniaRecorder {
     if (this.stream || this.mediaRecorder) {
       try { this.stop(); } catch { /* fall through to a clean start */ }
     }
+    this.wantsRunning = true;
+    const token = ++this.startToken;
     try {
-      this.stream = await navigator.mediaDevices.getUserMedia({
+      const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           autoGainControl: true,
           echoCancellation: true,
           noiseSuppression: false,
         },
       });
+      // Superseded by a later start(), or stopped while the device was still
+      // opening. Release the stream WE opened instead of orphaning it.
+      if (token !== this.startToken || !this.wantsRunning) {
+        stream.getTracks().forEach((t) => t.stop());
+        return;
+      }
+      this.stream = stream;
       const mimeType = this.pickMimeType();
       this.mediaRecorder = mimeType
         ? new MediaRecorder(this.stream, { mimeType })
@@ -222,6 +240,8 @@ export class EuphoniaRecorder {
   }
 
   public stop() {
+    this.wantsRunning = false;
+    this.startToken++;   // invalidate any start() still awaiting getUserMedia
     if (this.maxTimer) {
       clearTimeout(this.maxTimer);
       this.maxTimer = null;

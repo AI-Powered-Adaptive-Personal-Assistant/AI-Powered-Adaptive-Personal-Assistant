@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { UserProfile, VocalSoundTriggerConfig, AACCardItem, HeadTrackingConfig } from '../types';
+import { createZip, downloadBlob } from '../lib/zipWriter';
 import { vocalSoundEngine, LiveAudioMetrics, loadVocalTriggers } from '../lib/vocalSoundTrigger';
 import { FacialHeadTracker, PointerPosition, FacialGestureState, DEFAULT_HEAD_TRACKING_CONFIG } from '../lib/facialHeadTracker';
 import { speak, cancelSpeech, unlockSpeechSynthesis, hasArabicVoice } from '../lib/tts';
@@ -80,6 +81,7 @@ import {
   Trash2,
   CheckCircle2,
   XCircle,
+  Download,
   ScanLine,
   AlertCircle,
   Clock,
@@ -337,6 +339,7 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
   // until someone went looking for the training data.
   const [euphoniaApiUrl, setEuphoniaApiUrlState] = useState(() => getEuphoniaApiUrl());
   const [euphoniaApiHealthy, setEuphoniaApiHealthy] = useState<boolean | null>(null);
+  const [isExportingSamples, setIsExportingSamples] = useState(false);
 
   // Storage adapter: REST if an API URL is configured, otherwise local
   // IndexedDB so recording still works fully offline / pre-backend.
@@ -826,6 +829,100 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
       try { trackerRef.current?.stop(); } catch { /* ignore */ }
       trackerRef.current = null;
       toast.error(isArabic ? 'تعذر الوصول إلى الكاميرا' : 'Could not access webcam');
+    }
+  };
+
+  /**
+   * Free the microphone for a SpeechRecognition session, and give back a
+   * function that restores it.
+   *
+   * The vocal-sound engine holds its own exclusive getUserMedia stream, and on
+   * several browsers a second concurrent mic consumer then fails to start —
+   * "No microphone available, or it is in use by another feature", or nothing
+   * at all. Only the atypical-speech path released it; "Listen to Teacher" and
+   * "Speak Name" did not.
+   *
+   * Restoring matters as much as releasing: for a student who cannot blink
+   * reliably the vocal engine IS their click, so a recognition session that
+   * silently left it off took away their only way to select anything.
+   */
+  const releaseMicForRecognition = (): (() => void) => {
+    if (!isAudioEngineActive) return () => {};
+    vocalSoundEngine.stop();
+    setIsAudioEngineActive(false);
+    return () => {
+      if (!mountedRef.current) return;
+      vocalSoundEngine
+        .start((t) => handleVocalTriggerRef.current(t), (m) => setAudioMetrics(m))
+        .then((ok) => { if (ok && mountedRef.current) setIsAudioEngineActive(true); })
+        .catch(() => { /* the student can switch it back on by hand */ });
+    };
+  };
+
+  /**
+   * Get the recorded training set out of the browser.
+   *
+   * With no custom-model URL configured (the default), every clip goes to local
+   * IndexedDB. The Studio counts them up to "3/3 complete" and tells the student
+   * to train a personalized model on their data — while that data had no way
+   * out of the browser profile that recorded it.
+   */
+  const exportEuphoniaTrainingData = async () => {
+    const adapter = storageAdapterRef.current as any;
+    if (typeof adapter?.exportAllAsZipEntries !== 'function') {
+      toast.info(
+        isArabic
+          ? 'التسجيلات محفوظة على الخادم المخصص، حمّلها من هناك'
+          : 'Samples are stored on your custom model server — download them there'
+      );
+      return;
+    }
+    setIsExportingSamples(true);
+    try {
+      const raw: { key: string; blob: Blob }[] = await adapter.exportAllAsZipEntries();
+      if (!raw.length) {
+        toast.error(isArabic ? 'لا توجد تسجيلات محفوظة بعد' : 'No recorded samples yet');
+        return;
+      }
+      // Keys are `${phraseId}__${timestamp}` — split on the LAST separator, so
+      // a phrase id that itself contains "__" is not truncated.
+      const phraseIdOf = (key: string) => {
+        const cut = String(key).lastIndexOf('__');
+        return (cut > 0 ? String(key).slice(0, cut) : String(key)) || 'unknown';
+      };
+      // Ids reach the archive as folder names, so strip anything a path cannot
+      // carry rather than emitting an entry no unzip tool will extract.
+      const safe = (v: string) => v.replace(/[^\w؀-ۿ.-]+/g, '_').slice(0, 60) || 'unknown';
+
+      // Group by phrase so the folder layout is what a training pipeline wants.
+      const seen: Record<string, number> = {};
+      const entries = raw.map(({ key, blob }) => {
+        const phraseId = phraseIdOf(key);
+        seen[phraseId] = (seen[phraseId] || 0) + 1;
+        const ext = blob.type.includes('ogg') ? 'ogg' : blob.type.includes('mp4') ? 'mp4' : 'webm';
+        return { name: `${safe(phraseId)}/take-${seen[phraseId]}.${ext}`, blob };
+      });
+      // A manifest, so whoever trains the model knows what each clip says.
+      const manifest = raw.map(({ key }, i) => ({
+        file: entries[i].name,
+        key,
+        phraseId: phraseIdOf(key),
+        phraseText: euphoniaPhraseBank.find((ph) => ph.id === phraseIdOf(key))?.text || '',
+      }));
+      entries.push({
+        name: 'manifest.json',
+        blob: new Blob([JSON.stringify(manifest, null, 2)], { type: 'application/json' }),
+      });
+
+      const zip = await createZip(entries);
+      downloadBlob(zip, `cognify-euphonia-training-${raw.length}-samples.zip`);
+      toast.success(
+        isArabic ? `تم تصدير ${raw.length} تسجيل` : `Exported ${raw.length} samples`
+      );
+    } catch (err) {
+      toast.error(isArabic ? 'تعذّر تصدير التسجيلات' : 'Could not export the samples');
+    } finally {
+      if (mountedRef.current) setIsExportingSamples(false);
     }
   };
 
@@ -1320,6 +1417,7 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
 
     try {
       cancelSpeech();
+      const restoreMic = releaseMicForRecognition();
       const rec = new SpeechRec();
       voiceContactRecRef.current = rec;
       rec.continuous = false;
@@ -1350,7 +1448,7 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
             : `Speech recognition failed (${reason})`
         );
       };
-      rec.onend = () => setIsListeningForContactName(false);
+      rec.onend = () => { setIsListeningForContactName(false); restoreMic(); };
       rec.start();
     } catch {
       setIsListeningForContactName(false);
@@ -1395,6 +1493,7 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
 
     try {
       cancelSpeech();
+      const restoreMic = releaseMicForRecognition();
       const rec = new SpeechRec();
       teacherRecRef.current = rec;
       rec.continuous = false;
@@ -1448,7 +1547,7 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
             : `Speech recognition failed (${reason})`
         );
       };
-      rec.onend = () => setIsListeningToTeacher(false);
+      rec.onend = () => { setIsListeningToTeacher(false); restoreMic(); };
       rec.start();
     } catch {
       setIsListeningToTeacher(false);
@@ -1904,10 +2003,7 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
     // stream. On some browsers/devices a second concurrent mic consumer
     // (native SpeechRecognition) then silently fails to start — this looked
     // like "the mic is broken" with zero feedback. Free the mic first.
-    if (isAudioEngineActive) {
-      vocalSoundEngine.stop();
-      setIsAudioEngineActive(false);
-    }
+    const restoreMic = releaseMicForRecognition();
 
     try {
       const rec = new SpeechRec();
@@ -1962,7 +2058,7 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
             : `Speech recognition failed (${reason})`;
         toast.error(isArabic ? arMsg : enMsg);
       };
-      rec.onend = () => setIsRecordingSpeech(false);
+      rec.onend = () => { setIsRecordingSpeech(false); restoreMic(); };
       rec.start();
     } catch {
       setIsRecordingSpeech(false);
@@ -2812,6 +2908,19 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
                   </p>
                 </div>
 
+                <div className="flex items-center gap-2">
+                <button
+                  onClick={exportEuphoniaTrainingData}
+                  disabled={isExportingSamples}
+                  className="px-4 py-3 rounded-2xl font-black text-xs flex items-center gap-2 shadow-lg bg-slate-800 hover:bg-slate-700 text-sky-300 border border-sky-500/30 disabled:opacity-50"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>
+                    {isExportingSamples
+                      ? (isArabic ? 'جاري التصدير...' : 'Exporting...')
+                      : (isArabic ? 'تصدير التسجيلات' : 'Export data')}
+                  </span>
+                </button>
                 <button
                   onClick={toggleEuphoniaLiveListener}
                   className={`px-5 py-3 rounded-2xl font-black text-xs flex items-center gap-2 shadow-lg transition-all ${
@@ -2821,6 +2930,7 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
                   <Mic className="w-4 h-4" />
                   <span>{isEuphoniaLiveListening ? (isArabic ? 'جاري الاستماع...' : 'Listening...') : (isArabic ? '🎙️ تحدث الآن' : 'Speak Now')}</span>
                 </button>
+                </div>
               </div>
 
               {/* Mic level VU meter while recording or live-matching */}
