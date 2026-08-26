@@ -86,9 +86,13 @@ import {
   Gauge,
   Radio,
   Award,
-  Layers
+  Layers,
+  EyeOff,
+  Columns2,
+  LayoutGrid
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import GazeBlinkKeyboard from './GazeBlinkKeyboard';
 
 interface MotorEuphoniaViewProps {
   profile: UserProfile;
@@ -211,8 +215,12 @@ const GAME_BUBBLES = [
 export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEuphoniaViewProps) {
   const isArabic = profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya';
 
-  // Active Category Tab (Includes Google Project Euphonia Training Studio)
-  const [activeTab, setActiveTab] = useState<'keyboard' | 'euphonia-studio' | 'smart-room' | 'pain-sensory' | 'class-ai' | 'custom-bank' | 'eye-games'>('keyboard');
+  // Active Category Tab (Includes Eye Keyboard & Google Project Euphonia Training Studio)
+  const [activeTab, setActiveTab] = useState<'keyboard' | 'euphonia-studio'>('keyboard');
+
+  // Flexible UI Layout Mode: 'docked' (Sidebar on Left) | 'floating' (Full Width Keyboard with Floating Mini PIP) | 'hidden' (100% Full Width Focused)
+  const [sidebarMode, setSidebarMode] = useState<'docked' | 'floating' | 'hidden'>('floating');
+  const [showQuickNeedsRow, setShowQuickNeedsRow] = useState(true);
 
   // Theme state
   const [theme, setTheme] = useState<ColorTheme>('amber');
@@ -1141,41 +1149,6 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
       setActiveTab('euphonia-studio');
       return;
     }
-    if (cardId === 'tab-smart-room') {
-      setActiveTab('smart-room');
-      return;
-    }
-    if (cardId === 'tab-pain-sensory') {
-      setActiveTab('pain-sensory');
-      return;
-    }
-    if (cardId === 'tab-class-ai') {
-      setActiveTab('class-ai');
-      return;
-    }
-    if (cardId === 'tab-custom-bank') {
-      setActiveTab('custom-bank');
-      return;
-    }
-    if (cardId === 'tab-eye-games') {
-      setActiveTab('eye-games');
-      reactionStartTimeRef.current = Date.now();
-      return;
-    }
-
-    // Pop Eye Game Bubble
-    if (cardId.startsWith('game-bubble-')) {
-      const bId = cardId.replace('game-bubble-', '');
-      if (!gamePoppedIds.includes(bId)) {
-        playPopSound();
-        const reactionTime = Date.now() - reactionStartTimeRef.current;
-        setReactionBenchmarkMs(reactionTime);
-        setGamePoppedIds((prev) => [...prev, bId]);
-        setGameScore((prev) => prev + 10);
-        toast.success(`🎯 +10 نقاط! سرعة النظر: ${reactionTime}ms`);
-      }
-      return;
-    }
 
     // Euphonia Phrase Trigger
     if (cardId.startsWith('eup-phrase-')) {
@@ -1229,55 +1202,6 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
     }
     if (cardId === 'kb-switchlang') {
       setKbLang((prev) => (prev === 'ar' ? 'en' : 'ar'));
-      return;
-    }
-
-    // 2. Smart Room Items (Steve Saling Environment Controls)
-    const roomItem = SMART_ROOM_ITEMS.find((r) => r.id === cardId);
-    if (roomItem) {
-      if (roomItem.isAlarm) {
-        playNurseAlarmSound();
-        speakSafe(isArabic ? roomItem.phraseAr : roomItem.phraseEn);
-        toast.error(isArabic ? '🚨 تم إرسال إشعار فوري لهاتف المرافق واستدعاء الممرض!' : 'Caregiver notified & Nurse Alarm triggered!');
-      } else {
-        if (roomItem.id === 'room-light') setRoomLightOn((p) => !p);
-        if (roomItem.id === 'room-tv') setRoomTvOn((p) => !p);
-        if (roomItem.id === 'room-ac') setRoomAcOn((p) => !p);
-
-        speakSafe(isArabic ? roomItem.phraseAr : roomItem.phraseEn);
-        toast.success(isArabic ? `تم تنفيذ: ${roomItem.labelAr}` : `Triggered: ${roomItem.labelEn}`);
-      }
-      return;
-    }
-
-    // 3. Pain & Sensory Feedback Items
-    const painItem = SENSORY_PAIN_ITEMS.find((p) => p.id === cardId);
-    if (painItem) {
-      speakSafe(painItem.phraseAr);
-      toast.info(`🩺 تم إبلاغ المرافق: ${painItem.labelAr}`);
-      return;
-    }
-
-    // 4. Custom Phrase Bank Items
-    if (cardId.startsWith('custom-phrase-')) {
-      const phraseId = cardId.replace('custom-phrase-', '');
-      const item = customPhrases.find((p: any) => p.id === phraseId);
-      if (item) {
-        speakSafe(item.textAr);
-        toast.success(`💬 "${item.textAr}"`);
-      }
-      return;
-    }
-
-    // 5. AI Class Answer Options
-    if (cardId.startsWith('class-option-')) {
-      const optIdx = parseInt(cardId.replace('class-option-', ''), 10);
-      const text = aiGeneratedClassOptions[optIdx];
-      if (text) {
-        speakSafe(text);
-        toast.success(`🎓 تم الرد: "${text}"`);
-        if (onSendMessage) onSendMessage(text);
-      }
       return;
     }
 
@@ -1455,7 +1379,7 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
       activeTab: 'bg-cyan-400 text-slate-950 border-cyan-300',
       keyHover: 'border-cyan-400 bg-cyan-400 text-slate-950 ring-4 ring-cyan-400/40',
       cursorRing: 'text-cyan-400',
-      cursorDot: 'bg-cyan-400 shadow-[0_0_18px_#22d3ee]',
+      cursorDot: 'bg-cyan-400',
     },
     emerald: {
       accentText: 'text-emerald-400',
@@ -1463,7 +1387,7 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
       activeTab: 'bg-emerald-400 text-slate-950 border-emerald-300',
       keyHover: 'border-emerald-400 bg-emerald-400 text-slate-950 ring-4 ring-emerald-400/40',
       cursorRing: 'text-emerald-400',
-      cursorDot: 'bg-emerald-400 shadow-[0_0_18px_#34d399]',
+      cursorDot: 'bg-emerald-400',
     },
     monochrome: {
       accentText: 'text-white',
@@ -1471,7 +1395,7 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
       activeTab: 'bg-white text-slate-950 border-white',
       keyHover: 'border-white bg-white text-slate-950 ring-4 ring-white/50',
       cursorRing: 'text-white',
-      cursorDot: 'bg-white shadow-[0_0_18px_#ffffff]',
+      cursorDot: 'bg-white',
     },
   }[theme];
 
@@ -1485,19 +1409,19 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
         }}
       >
         <div className="relative flex items-center justify-center">
-          {/* Outer Green Laser Crosshair Lines */}
-          <div className="absolute w-12 h-[2px] bg-emerald-400/80 shadow-[0_0_8px_#34d399] pointer-events-none" />
-          <div className="absolute h-12 w-[2px] bg-emerald-400/80 shadow-[0_0_8px_#34d399] pointer-events-none" />
+          {/* Subtle OS-Style Precision Reticle */}
+          <div className="absolute w-5 h-[1.5px] bg-slate-400/50 pointer-events-none" />
+          <div className="absolute h-5 w-[1.5px] bg-slate-400/50 pointer-events-none" />
 
           {/* Radial Dwell Countdown Ring */}
-          <svg className={`w-16 h-16 -rotate-90 transition-all duration-150 ${cursorPos.isSnapped ? 'scale-125 drop-shadow-[0_0_25px_rgba(236,72,153,0.95)]' : 'drop-shadow-[0_0_15px_rgba(52,211,153,0.9)]'}`}>
+          <svg className={`w-16 h-16 -rotate-90 transition-all duration-150 ${cursorPos.isSnapped ? 'scale-110 drop-shadow-[0_2px_8px_rgba(99,102,241,0.4)]' : 'drop-shadow-[0_2px_8px_rgba(16,185,129,0.3)]'}`}>
             <circle
               cx="32"
               cy="32"
               r="24"
               stroke="currentColor"
-              strokeWidth="4"
-              className={cursorPos.isSnapped ? 'text-pink-500/30' : 'text-emerald-500/20'}
+              strokeWidth="3.5"
+              className={cursorPos.isSnapped ? 'text-indigo-500/25' : 'text-emerald-500/20'}
               fill="none"
             />
             <circle
@@ -1505,17 +1429,21 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
               cy="32"
               r="24"
               stroke="currentColor"
-              strokeWidth="4"
-              className={`${cursorPos.isSnapped ? 'text-pink-400' : 'text-emerald-400'} transition-all duration-75`}
+              strokeWidth="3.5"
+              className={`${cursorPos.isSnapped ? 'text-indigo-400' : 'text-emerald-400'} transition-all duration-75`}
               fill="none"
               strokeDasharray="150"
               strokeDashoffset={150 - 150 * dwellProgress}
             />
           </svg>
 
-          {/* MediaPipe Glowing Magenta Joint Circle with Red Center Dot */}
-          <div className="absolute w-8 h-8 rounded-full bg-pink-500 shadow-[0_0_20px_#ec4899] border-2 border-white flex items-center justify-center animate-pulse">
-            <div className="w-3 h-3 rounded-full bg-rose-600 shadow-[0_0_8px_#ef4444] border border-white" />
+          {/* Ergonomic OS-Style System Pointer Dot (Visually Static, Zero Glow/Pulse) */}
+          <div className={`absolute w-4 h-4 rounded-full border-2 border-white flex items-center justify-center shadow-md transition-colors duration-150 ${
+            cursorPos.isSnapped ? 'bg-indigo-600 ring-2 ring-indigo-300/60' : 'bg-slate-900'
+          }`}>
+            <div className={`w-1.5 h-1.5 rounded-full transition-colors duration-150 ${
+              cursorPos.isSnapped ? 'bg-white' : 'bg-slate-200'
+            }`} />
           </div>
         </div>
       </div>
@@ -1705,6 +1633,35 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
             <span>{isAudioEngineActive ? (isArabic ? 'إيقاف إيفونيا' : 'Stop Euphonia') : (isArabic ? 'أصوات إيفونيا' : 'Vocal Sounds')}</span>
           </button>
 
+          {/* Layout Flexibility Switcher: Full Width vs Docked */}
+          <div className="flex items-center bg-slate-900 border border-slate-700 rounded-2xl p-0.5 shadow-sm">
+            <button
+              onClick={() => setSidebarMode('floating')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all ${
+                sidebarMode === 'floating'
+                  ? 'bg-amber-400 text-slate-950 shadow-md'
+                  : 'text-slate-300 hover:text-white'
+              }`}
+              title={isArabic ? 'عرض كامل للكيبورد 100% مع كاميرا عائمة' : 'Full Width Keyboard (100%)'}
+            >
+              <Maximize2 className="w-3.5 h-3.5" />
+              <span>{isArabic ? 'عرض كامل 100%' : 'Full 100%'}</span>
+            </button>
+
+            <button
+              onClick={() => setSidebarMode('docked')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all ${
+                sidebarMode === 'docked'
+                  ? 'bg-amber-400 text-slate-950 shadow-md'
+                  : 'text-slate-300 hover:text-white'
+              }`}
+              title={isArabic ? 'لوحة جانبية مقسومة' : 'Docked Sidebar'}
+            >
+              <Columns2 className="w-3.5 h-3.5" />
+              <span>{isArabic ? 'شاشة مقسومة' : 'Docked'}</span>
+            </button>
+          </div>
+
           {/* Settings */}
           <button
             onClick={() => setShowConfigModal(!showConfigModal)}
@@ -1717,21 +1674,21 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
       </div>
 
       {/* Main Mode Navigation Bar (Eye-Gaze Selectable Tabs) */}
-      <div className="grid grid-cols-2 sm:grid-cols-7 gap-2 mb-4">
+      <div className="grid grid-cols-2 gap-3 mb-4">
         {/* Tab 1: Arabic Keyboard & Gaze Communication */}
         <button
           data-aac-id="tab-keyboard"
           onClick={() => setActiveTab('keyboard')}
-          className={`relative p-3 rounded-2xl border-2 font-black text-xs flex items-center justify-center gap-1.5 transition-all ${
+          className={`relative p-3.5 rounded-2xl border-2 font-black text-sm flex items-center justify-center gap-2 transition-all ${
             activeTab === 'keyboard'
               ? themeClasses.activeTab + ' shadow-xl'
               : 'bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-800'
           }`}
         >
-          <KeyboardIcon className="w-4 h-4" />
-          <span className="truncate">{isArabic ? '⌨️ كيبورد العين' : 'Eye Keyboard'}</span>
+          <KeyboardIcon className="w-5 h-5" />
+          <span className="truncate">{isArabic ? '⌨️ كيبورد العين (Eye Keyboard)' : 'Eye Keyboard'}</span>
           {hoveredCardId === 'tab-keyboard' && dwellProgress > 0 && (
-            <div className="absolute bottom-0 left-0 right-0 h-1 bg-slate-950 rounded-b-2xl overflow-hidden">
+            <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-slate-950 rounded-b-2xl overflow-hidden">
               <div className="h-full bg-slate-950 transition-all duration-75" style={{ width: `${dwellProgress * 100}%` }} />
             </div>
           )}
@@ -1741,121 +1698,47 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
         <button
           data-aac-id="tab-euphonia-studio"
           onClick={() => setActiveTab('euphonia-studio')}
-          className={`relative p-3 rounded-2xl border-2 font-black text-xs flex items-center justify-center gap-1.5 transition-all ${
+          className={`relative p-3.5 rounded-2xl border-2 font-black text-sm flex items-center justify-center gap-2 transition-all ${
             activeTab === 'euphonia-studio'
               ? themeClasses.activeTab + ' shadow-xl'
               : 'bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-800'
           }`}
         >
-          <Radio className="w-4 h-4" />
-          <span className="truncate">{isArabic ? '🎙️ تدريب إيفونيا' : 'Euphonia Studio'}</span>
+          <Radio className="w-5 h-5" />
+          <span className="truncate">{isArabic ? '🎙️ استوديو تدريب إيفونيا (Euphonia Studio)' : 'Euphonia Voice Studio'}</span>
           {hoveredCardId === 'tab-euphonia-studio' && dwellProgress > 0 && (
-            <div className="absolute bottom-0 left-0 right-0 h-1 bg-slate-950 rounded-b-2xl overflow-hidden">
-              <div className="h-full bg-slate-950 transition-all duration-75" style={{ width: `${dwellProgress * 100}%` }} />
-            </div>
-          )}
-        </button>
-
-        {/* Tab 3: Smart Room & Environment Controls */}
-        <button
-          data-aac-id="tab-smart-room"
-          onClick={() => setActiveTab('smart-room')}
-          className={`relative p-3 rounded-2xl border-2 font-black text-xs flex items-center justify-center gap-1.5 transition-all ${
-            activeTab === 'smart-room'
-              ? themeClasses.activeTab + ' shadow-xl'
-              : 'bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-800'
-          }`}
-        >
-          <Zap className="w-4 h-4" />
-          <span className="truncate">{isArabic ? '🏠 تحكم الغرفة' : 'Smart Room'}</span>
-          {hoveredCardId === 'tab-smart-room' && dwellProgress > 0 && (
-            <div className="absolute bottom-0 left-0 right-0 h-1 bg-slate-950 rounded-b-2xl overflow-hidden">
-              <div className="h-full bg-slate-950 transition-all duration-75" style={{ width: `${dwellProgress * 100}%` }} />
-            </div>
-          )}
-        </button>
-
-        {/* Tab 4: Pain & Health Assessment Board */}
-        <button
-          data-aac-id="tab-pain-sensory"
-          onClick={() => setActiveTab('pain-sensory')}
-          className={`relative p-3 rounded-2xl border-2 font-black text-xs flex items-center justify-center gap-1.5 transition-all ${
-            activeTab === 'pain-sensory'
-              ? themeClasses.activeTab + ' shadow-xl'
-              : 'bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-800'
-          }`}
-        >
-          <Heart className="w-4 h-4" />
-          <span className="truncate">{isArabic ? '🩺 لوحة الألم' : 'Pain Board'}</span>
-          {hoveredCardId === 'tab-pain-sensory' && dwellProgress > 0 && (
-            <div className="absolute bottom-0 left-0 right-0 h-1 bg-slate-950 rounded-b-2xl overflow-hidden">
-              <div className="h-full bg-slate-950 transition-all duration-75" style={{ width: `${dwellProgress * 100}%` }} />
-            </div>
-          )}
-        </button>
-
-        {/* Tab 5: AI Classroom & Teacher Live Responses */}
-        <button
-          data-aac-id="tab-class-ai"
-          onClick={() => setActiveTab('class-ai')}
-          className={`relative p-3 rounded-2xl border-2 font-black text-xs flex items-center justify-center gap-1.5 transition-all ${
-            activeTab === 'class-ai'
-              ? themeClasses.activeTab + ' shadow-xl'
-              : 'bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-800'
-          }`}
-        >
-          <GraduationCap className="w-4 h-4" />
-          <span className="truncate">{isArabic ? '🎓 ردود الحصة' : 'AI Class'}</span>
-          {hoveredCardId === 'tab-class-ai' && dwellProgress > 0 && (
-            <div className="absolute bottom-0 left-0 right-0 h-1 bg-slate-950 rounded-b-2xl overflow-hidden">
-              <div className="h-full bg-slate-950 transition-all duration-75" style={{ width: `${dwellProgress * 100}%` }} />
-            </div>
-          )}
-        </button>
-
-        {/* Tab 6: Custom Phrase Bank */}
-        <button
-          data-aac-id="tab-custom-bank"
-          onClick={() => setActiveTab('custom-bank')}
-          className={`relative p-3 rounded-2xl border-2 font-black text-xs flex items-center justify-center gap-1.5 transition-all ${
-            activeTab === 'custom-bank'
-              ? themeClasses.activeTab + ' shadow-xl'
-              : 'bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-800'
-          }`}
-        >
-          <BookmarkPlus className="w-4 h-4" />
-          <span className="truncate">{isArabic ? '⭐ عباراتي' : 'My Phrases'}</span>
-          {hoveredCardId === 'tab-custom-bank' && dwellProgress > 0 && (
-            <div className="absolute bottom-0 left-0 right-0 h-1 bg-slate-950 rounded-b-2xl overflow-hidden">
-              <div className="h-full bg-slate-950 transition-all duration-75" style={{ width: `${dwellProgress * 100}%` }} />
-            </div>
-          )}
-        </button>
-
-        {/* Tab 7: Eye Gaze Games & Accuracy Benchmark */}
-        <button
-          data-aac-id="tab-eye-games"
-          onClick={() => setActiveTab('eye-games')}
-          className={`relative p-3 rounded-2xl border-2 font-black text-xs flex items-center justify-center gap-1.5 transition-all ${
-            activeTab === 'eye-games'
-              ? themeClasses.activeTab + ' shadow-xl'
-              : 'bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-800'
-          }`}
-        >
-          <Gamepad2 className="w-4 h-4" />
-          <span className="truncate">{isArabic ? '🎯 تدريب وألعاب' : 'Eye Games'}</span>
-          {hoveredCardId === 'tab-eye-games' && dwellProgress > 0 && (
-            <div className="absolute bottom-0 left-0 right-0 h-1 bg-slate-950 rounded-b-2xl overflow-hidden">
+            <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-slate-950 rounded-b-2xl overflow-hidden">
               <div className="h-full bg-slate-950 transition-all duration-75" style={{ width: `${dwellProgress * 100}%` }} />
             </div>
           )}
         </button>
       </div>
 
-      {/* Main Communicator Grid: Left HUD + Main Center Eye-Gaze Board */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 flex-1">
+      {/* Main Communicator Grid: Left HUD / Floating PIP + Main Center Eye-Gaze Board */}
+      <div className={`grid grid-cols-1 ${sidebarMode === 'docked' ? 'lg:grid-cols-12' : 'grid-cols-1'} gap-4 flex-1`}>
         {/* Left Side: Live Webcam HUD + Vocal Visualizer + Dysarthria Decoder */}
-        <div className="lg:col-span-3 flex flex-col gap-3">
+        <div className={
+          sidebarMode === 'docked'
+            ? 'lg:col-span-3 flex flex-col gap-3'
+            : sidebarMode === 'floating'
+            ? 'fixed bottom-5 left-5 z-[9990] w-80 max-w-[92vw] flex flex-col gap-2 bg-slate-950/95 backdrop-blur-xl border-2 border-amber-400 p-3 rounded-3xl shadow-2xl transition-all max-h-[80vh] overflow-y-auto'
+            : 'fixed -left-[9999px] w-0 h-0 overflow-hidden opacity-0 pointer-events-none'
+        }>
+          {sidebarMode === 'floating' && (
+            <div className="flex items-center justify-between pb-1.5 border-b border-slate-800">
+              <span className="text-[11px] font-black text-amber-400 flex items-center gap-1.5">
+                <Eye className="w-3.5 h-3.5" />
+                {isArabic ? 'كاميرا التتبع (نافذة عائمة PIP)' : 'Eye-Tracker PIP'}
+              </span>
+              <button 
+                onClick={() => setSidebarMode('docked')} 
+                className="text-[10px] text-slate-300 hover:text-white px-2 py-0.5 rounded-lg bg-slate-800 font-bold border border-slate-700"
+              >
+                {isArabic ? 'إرساء ⇲' : 'Dock ⇲'}
+              </button>
+            </div>
+          )}
+
           {/* Live Webcam Box */}
           <div className="bg-slate-900/90 rounded-3xl border border-slate-800 p-3 shadow-xl relative overflow-hidden">
             <div className="flex items-center justify-between mb-2">
@@ -2000,230 +1883,37 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
           </div>
         </div>
 
-        {/* Right Side: Eye-Gaze Board Content */}
-        <div className="lg:col-span-9 flex flex-col gap-3">
-          {/* TAB 1: Arabic Eye-Gaze Virtual Keyboard */}
+        {/* Right Side: Eye-Gaze Board Content (Expanded to 100% full width when floating) */}
+        <div className={`${sidebarMode === 'docked' ? 'lg:col-span-9' : 'col-span-12 w-full'} flex flex-col gap-3`}>
+          {/* TAB 1: Arabic Eye-Gaze Virtual Keyboard (PySource Split Blink Keyboard) */}
           {activeTab === 'keyboard' && (
-            <>
-              {/* 1. Sentence Display & Live Action Output Bar */}
-              <div className="bg-slate-900 rounded-3xl border-2 border-slate-800 p-4 shadow-2xl flex flex-col gap-3">
-                {/* Live Text Output Display */}
-                <div className="min-h-[64px] bg-slate-950 rounded-2xl border border-slate-800 p-3.5 flex items-center justify-between">
-                  <p className="text-xl sm:text-2xl font-black text-amber-300 break-words leading-relaxed">
-                    {typedText || (
-                      <span className="text-slate-600 font-bold text-base sm:text-lg">
-                        {isArabic
-                          ? 'انظر للحرف وأغمض عينك لحظة لكتابته فوراً...'
-                          : 'Look at letter and blink to type instantly...'}
-                      </span>
-                    )}
-                  </p>
-                  <span className="text-xs font-mono text-slate-500 shrink-0 ps-3">
-                    {typedText.length} {isArabic ? 'حرف' : 'chars'}
-                  </span>
-                </div>
-
-                {/* Main Eye-Gaze Action Control Buttons Bar */}
-                <div className="grid grid-cols-2 sm:grid-cols-6 gap-2">
-                  {/* 🔊 Speak Aloud */}
-                  <button
-                    data-aac-id="kb-speak"
-                    onClick={handleSpeakTypedText}
-                    className={`relative p-3 rounded-2xl border-2 font-black text-xs sm:text-sm flex items-center justify-center gap-2 transition-all ${
-                      hoveredCardId === 'kb-speak'
-                        ? 'bg-emerald-500 text-slate-950 border-emerald-400 shadow-xl scale-105 ring-2 ring-emerald-300'
-                        : 'bg-emerald-500/20 border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/30'
-                    }`}
-                  >
-                    <Volume2 className="w-5 h-5" />
-                    <span>{isArabic ? 'نطق بصوت' : 'Speak'}</span>
-                    {hoveredCardId === 'kb-speak' && dwellProgress > 0 && (
-                      <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-white/50 rounded-b-2xl overflow-hidden">
-                        <div className="h-full bg-white transition-all duration-75" style={{ width: `${dwellProgress * 100}%` }} />
-                      </div>
-                    )}
-                  </button>
-
-                  {/* ⌫ Backspace */}
-                  <button
-                    data-aac-id="kb-backspace"
-                    onClick={handleBackspace}
-                    className={`relative p-3 rounded-2xl border-2 font-black text-xs sm:text-sm flex items-center justify-center gap-2 transition-all ${
-                      hoveredCardId === 'kb-backspace'
-                        ? 'bg-rose-500 text-white border-rose-400 shadow-xl scale-105 ring-2 ring-rose-300'
-                        : 'bg-rose-500/20 border-rose-500/40 text-rose-400 hover:bg-rose-500/30'
-                    }`}
-                  >
-                    <Delete className="w-5 h-5" />
-                    <span>{isArabic ? 'مسح حرف' : 'Delete'}</span>
-                    {hoveredCardId === 'kb-backspace' && dwellProgress > 0 && (
-                      <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-white/50 rounded-b-2xl overflow-hidden">
-                        <div className="h-full bg-white transition-all duration-75" style={{ width: `${dwellProgress * 100}%` }} />
-                      </div>
-                    )}
-                  </button>
-
-                  {/* 🗑️ Clear All */}
-                  <button
-                    data-aac-id="kb-clear"
-                    onClick={handleClearText}
-                    className={`relative p-3 rounded-2xl border-2 font-black text-xs sm:text-sm flex items-center justify-center gap-2 transition-all ${
-                      hoveredCardId === 'kb-clear'
-                        ? 'bg-rose-600 text-white border-rose-500 shadow-xl scale-105'
-                        : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'
-                    }`}
-                  >
-                    <Trash2 className="w-5 h-5" />
-                    <span>{isArabic ? 'مسح الكل' : 'Clear'}</span>
-                    {hoveredCardId === 'kb-clear' && dwellProgress > 0 && (
-                      <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-white/50 rounded-b-2xl overflow-hidden">
-                        <div className="h-full bg-white transition-all duration-75" style={{ width: `${dwellProgress * 100}%` }} />
-                      </div>
-                    )}
-                  </button>
-
-                  {/* 🤖 Ask AI Mentor */}
-                  <button
-                    data-aac-id="kb-askai"
-                    onClick={handleSendTypedToAI}
-                    className={`relative p-3 rounded-2xl border-2 font-black text-xs sm:text-sm flex items-center justify-center gap-2 transition-all ${
-                      hoveredCardId === 'kb-askai'
-                        ? 'bg-indigo-600 text-white border-indigo-400 shadow-xl scale-105 ring-2 ring-indigo-300'
-                        : 'bg-indigo-500/20 border-indigo-500/40 text-indigo-400 hover:bg-indigo-500/30'
-                    }`}
-                  >
-                    <Sparkles className="w-5 h-5" />
-                    <span>{isArabic ? 'اسأل كوجنيفاي' : 'Ask AI'}</span>
-                    {hoveredCardId === 'kb-askai' && dwellProgress > 0 && (
-                      <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-white/50 rounded-b-2xl overflow-hidden">
-                        <div className="h-full bg-white transition-all duration-75" style={{ width: `${dwellProgress * 100}%` }} />
-                      </div>
-                    )}
-                  </button>
-
-                  {/* 💬 Send WhatsApp */}
-                  <button
-                    data-aac-id="kb-whatsapp"
-                    onClick={handleSendTypedToWhatsApp}
-                    className={`relative p-3 rounded-2xl border-2 font-black text-xs sm:text-sm flex items-center justify-center gap-2 transition-all ${
-                      hoveredCardId === 'kb-whatsapp'
-                        ? 'bg-emerald-600 text-white border-emerald-400 shadow-xl scale-105 ring-2 ring-emerald-300'
-                        : 'bg-emerald-500/20 border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/30'
-                    }`}
-                  >
-                    <MessageCircle className="w-5 h-5" />
-                    <span>{isArabic ? 'واتساب' : 'WhatsApp'}</span>
-                    {hoveredCardId === 'kb-whatsapp' && dwellProgress > 0 && (
-                      <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-white/50 rounded-b-2xl overflow-hidden">
-                        <div className="h-full bg-white transition-all duration-75" style={{ width: `${dwellProgress * 100}%` }} />
-                      </div>
-                    )}
-                  </button>
-
-                  {/* 📞 Make Call */}
-                  <button
-                    data-aac-id="kb-call"
-                    onClick={openContactPicker}
-                    className={`relative p-3 rounded-2xl border-2 font-black text-xs sm:text-sm flex items-center justify-center gap-2 transition-all ${
-                      hoveredCardId === 'kb-call'
-                        ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-xl scale-105 ring-2 ring-amber-300'
-                        : 'bg-amber-500/20 border-amber-500/40 text-amber-400 hover:bg-amber-500/30'
-                    }`}
-                  >
-                    <PhoneCall className="w-5 h-5" />
-                    <span>{isArabic ? 'اتصال هاتف' : 'Call'}</span>
-                    {hoveredCardId === 'kb-call' && dwellProgress > 0 && (
-                      <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-white/50 rounded-b-2xl overflow-hidden">
-                        <div className="h-full bg-white transition-all duration-75" style={{ width: `${dwellProgress * 100}%` }} />
-                      </div>
-                    )}
-                  </button>
-                </div>
-              </div>
-
-              {/* 3. Full Arabic Virtual Keyboard Grid (Large High-Contrast Keys) */}
-              <div className="bg-slate-900 rounded-3xl border-2 border-slate-800 p-4 shadow-2xl flex flex-col gap-2.5">
-                {activeKeyboardRows.map((row, rIdx) => (
-                  <div key={rIdx} className="flex justify-center gap-2">
-                    {row.map((char) => {
-                      const cardKey = `kb-key-${char}`;
-                      const isHovered = hoveredCardId === cardKey;
-
-                      return (
-                        <button
-                          key={char}
-                          data-aac-id={cardKey}
-                          onClick={() => handleKeyClick(char)}
-                          className={`relative flex-1 min-w-[36px] max-w-[62px] h-14 sm:h-16 rounded-2xl font-black text-base sm:text-xl border-2 transition-all flex items-center justify-center ${
-                            isHovered
-                              ? 'border-pink-400 bg-pink-500/20 text-pink-300 shadow-[0_0_25px_rgba(236,72,153,0.6)] scale-110 z-10 ring-4 ring-emerald-400/60'
-                              : 'border-slate-800 bg-slate-950/80 text-white hover:border-pink-500/50 hover:bg-slate-800'
-                          }`}
-                        >
-                          <span className="relative z-10">{char}</span>
-
-                          {/* MediaPipe Landmark Highlight Dot on Targeted Letter */}
-                          {isHovered && (
-                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                              <div className="w-10 h-10 rounded-full border-2 border-emerald-400/60 animate-ping absolute" />
-                              <div className="w-2.5 h-2.5 rounded-full bg-pink-500 ring-2 ring-rose-500 shadow-[0_0_10px_#ec4899] absolute top-1 right-1" />
-                            </div>
-                          )}
-
-                          {/* Dwell Progress Ring on Key */}
-                          {isHovered && dwellProgress > 0 && (
-                            <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-emerald-400 rounded-b-2xl overflow-hidden shadow-[0_0_8px_#34d399]">
-                              <div className="h-full bg-pink-500 transition-all duration-75" style={{ width: `${dwellProgress * 100}%` }} />
-                            </div>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                ))}
-
-                {/* Bottom Keyboard Utility Controls (Space & Language Switch) */}
-                <div className="flex items-center justify-center gap-3 pt-2">
-                  {/* Space */}
-                  <button
-                    data-aac-id="kb-space"
-                    onClick={handleSpace}
-                    className={`relative flex-1 max-w-md h-14 rounded-2xl border-2 font-black text-sm sm:text-base flex items-center justify-center gap-2 transition-all ${
-                      hoveredCardId === 'kb-space'
-                        ? `${themeClasses.accentBg} border-amber-300 shadow-xl scale-105 ring-2 ring-amber-300`
-                        : 'bg-slate-950/80 border-slate-800 text-white hover:bg-slate-800'
-                    }`}
-                  >
-                    <Space className="w-5 h-5" />
-                    <span>{isArabic ? 'مسافة (Space)' : 'Space'}</span>
-                    {hoveredCardId === 'kb-space' && dwellProgress > 0 && (
-                      <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-slate-950/40 rounded-b-2xl overflow-hidden">
-                        <div className="h-full bg-slate-950 transition-all duration-75" style={{ width: `${dwellProgress * 100}%` }} />
-                      </div>
-                    )}
-                  </button>
-
-                  {/* Language Switch */}
-                  <button
-                    data-aac-id="kb-switchlang"
-                    onClick={() => setKbLang((p) => (p === 'ar' ? 'en' : 'ar'))}
-                    className={`relative px-6 h-14 rounded-2xl border-2 font-black text-sm flex items-center justify-center gap-2 transition-all ${
-                      hoveredCardId === 'kb-switchlang'
-                        ? `${themeClasses.accentBg} border-amber-300 shadow-xl scale-105`
-                        : 'bg-slate-950/80 border-slate-800 text-amber-400 hover:bg-slate-800'
-                    }`}
-                  >
-                    <Languages className="w-5 h-5" />
-                    <span>{kbLang === 'ar' ? 'English' : 'عربي'}</span>
-                    {hoveredCardId === 'kb-switchlang' && dwellProgress > 0 && (
-                      <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-slate-950/40 rounded-b-2xl overflow-hidden">
-                        <div className="h-full bg-slate-950 transition-all duration-75" style={{ width: `${dwellProgress * 100}%` }} />
-                      </div>
-                    )}
-                  </button>
-                </div>
-              </div>
-            </>
+            <GazeBlinkKeyboard
+              isArabic={isArabic}
+              cursorPos={cursorPos}
+              gestureState={gestureState}
+              onSpeakText={(text) => speakSafe(text)}
+              onSendToAI={async (text) => {
+                if (!text.trim()) return;
+                setIsProcessingAi(true);
+                try {
+                  const answer = await geminiService.askGeneralQuestion(text, profile.language || 'Arabic');
+                  setAiResponseText(answer);
+                  speakSafe(answer);
+                  if (onSendMessage) onSendMessage(text);
+                } catch (err) {
+                  console.error(err);
+                } finally {
+                  setIsProcessingAi(false);
+                }
+              }}
+              onSendToWhatsApp={(text) => {
+                if (!text.trim()) return;
+                setCustomWaMessage(text);
+                setShowWhatsAppModal(true);
+              }}
+              onOpenCallPicker={() => setShowContactPickerModal(true)}
+              themeAccent={theme === 'amber' ? 'amber' : theme === 'emerald' ? 'emerald' : 'cyan'}
+            />
           )}
 
           {/* TAB 2: Google Project Euphonia Voice Training Studio & Custom ASR */}
@@ -2388,362 +2078,6 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
             </div>
           )}
 
-          {/* TAB 3: Steve Saling Smart Room Automation Board */}
-          {activeTab === 'smart-room' && (
-            <div className="bg-slate-900 rounded-3xl border-2 border-slate-800 p-6 shadow-2xl flex flex-col gap-4">
-              <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-                <div>
-                  <h3 className="text-xl font-black text-white flex items-center gap-2">
-                    <Zap className="w-6 h-6 text-amber-400" />
-                    {isArabic ? 'التحكم في أجهزة الغرفة والسرير (Steve Saling Smart Room)' : 'Smart Room & Bed Automation'}
-                  </h3>
-                  <p className="text-xs text-slate-400 font-medium mt-1">
-                    {isArabic ? 'انظر للزر وأغمض عينك لتشغيل الإضاءة، التكييف، التلفاز، أو استدعاء الممرض' : 'Look and blink to control lights, TV, bed, or nurse alarm'}
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                {SMART_ROOM_ITEMS.map((item) => {
-                  const isHovered = hoveredCardId === item.id;
-                  const isItemActive =
-                    (item.id === 'room-light' && roomLightOn) ||
-                    (item.id === 'room-tv' && roomTvOn) ||
-                    (item.id === 'room-ac' && roomAcOn);
-
-                  return (
-                    <button
-                      key={item.id}
-                      data-aac-id={item.id}
-                      onClick={() => handleCardTrigger(item.id)}
-                      className={`relative p-6 rounded-3xl border-2 font-black text-sm flex flex-col items-center justify-center gap-3 transition-all min-h-[140px] ${
-                        item.isAlarm
-                          ? isHovered
-                            ? 'bg-rose-500 text-white border-rose-400 scale-105 shadow-2xl ring-4 ring-rose-500/50'
-                            : 'bg-rose-950/40 border-rose-600/50 text-rose-300 hover:bg-rose-900/50'
-                          : isItemActive
-                          ? `${themeClasses.accentBg} shadow-xl`
-                          : isHovered
-                          ? `${themeClasses.accentBg} shadow-xl scale-105 ring-2 ring-amber-300`
-                          : 'border-slate-800 bg-slate-950 text-white hover:border-slate-700'
-                      }`}
-                    >
-                      <span className="text-4xl">{item.icon}</span>
-                      <span className="text-base text-center">{isArabic ? item.labelAr : item.labelEn}</span>
-                      {isItemActive && (
-                        <span className="text-[11px] font-bold bg-slate-950 text-amber-400 px-3 py-0.5 rounded-full">
-                          {isArabic ? 'مفعل الآن' : 'ACTIVE'}
-                        </span>
-                      )}
-
-                      {isHovered && dwellProgress > 0 && (
-                        <div className="absolute bottom-0 left-0 right-0 h-2 bg-slate-950/60 rounded-b-3xl overflow-hidden">
-                          <div className="h-full bg-slate-950 transition-all duration-75" style={{ width: `${dwellProgress * 100}%` }} />
-                        </div>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* TAB 4: Pain & Sensory Health Needs Board */}
-          {activeTab === 'pain-sensory' && (
-            <div className="bg-slate-900 rounded-3xl border-2 border-slate-800 p-6 shadow-2xl flex flex-col gap-4">
-              <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-                <div>
-                  <h3 className="text-xl font-black text-white flex items-center gap-2">
-                    <Heart className="w-6 h-6 text-rose-400" />
-                    {isArabic ? 'تحديد الألم والاحتياجات الصحية السريعة' : 'Pain & Sensory Needs Assessment'}
-                  </h3>
-                  <p className="text-xs text-slate-400 font-medium mt-1">
-                    {isArabic ? 'انظر للبطاقة وأغمض عينك لإبلاغ المرافق بمكان الألم وشعورك فوراً' : 'Look and blink to express pain and physical needs'}
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                {SENSORY_PAIN_ITEMS.map((item) => {
-                  const isHovered = hoveredCardId === item.id;
-
-                  return (
-                    <button
-                      key={item.id}
-                      data-aac-id={item.id}
-                      onClick={() => handleCardTrigger(item.id)}
-                      className={`relative p-6 rounded-3xl border-2 font-black text-sm flex flex-col items-center justify-center gap-3 transition-all min-h-[140px] ${
-                        isHovered
-                          ? 'border-rose-400 bg-rose-500 text-white shadow-2xl scale-105 ring-4 ring-rose-400/40'
-                          : 'border-slate-800 bg-slate-950 text-white hover:border-rose-500/40'
-                      }`}
-                    >
-                      <span className="text-4xl">{item.icon}</span>
-                      <span className="text-base text-center">{item.labelAr}</span>
-
-                      {isHovered && dwellProgress > 0 && (
-                        <div className="absolute bottom-0 left-0 right-0 h-2 bg-slate-950/60 rounded-b-3xl overflow-hidden">
-                          <div className="h-full bg-slate-950 transition-all duration-75" style={{ width: `${dwellProgress * 100}%` }} />
-                        </div>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* TAB 5: AI Classroom & Teacher Live Responses */}
-          {activeTab === 'class-ai' && (
-            <div className="bg-slate-900 rounded-3xl border-2 border-slate-800 p-6 shadow-2xl flex flex-col gap-4">
-              <div className="flex flex-col sm:flex-row items-center justify-between pb-3 border-b border-slate-800 gap-3">
-                <div>
-                  <h3 className="text-xl font-black text-white flex items-center gap-2">
-                    <GraduationCap className="w-6 h-6 text-indigo-400" />
-                    {isArabic ? 'المعلم الذكي والردود التفاعلية بالحصة (AI Classroom Autopilot)' : 'AI Classroom & Teacher Assistant'}
-                  </h3>
-                  <p className="text-xs text-slate-400 font-medium mt-1">
-                    {isArabic ? 'استمع لسؤال المعلم في الفصل، وسيقوم الذكاء الاصطناعي بتوليد 4 ردود ذكية لاختيارها بالعين فوراً' : 'Listen to teacher in room, and AI generates 4 gaze-selectable answers'}
-                  </p>
-                </div>
-
-                <button
-                  onClick={startTeacherClassListener}
-                  disabled={isListeningToTeacher}
-                  className={`px-5 py-3 rounded-2xl font-black text-xs flex items-center gap-2 shadow-lg transition-all ${
-                    isListeningToTeacher
-                      ? 'bg-rose-500 text-white animate-pulse'
-                      : 'bg-indigo-600 hover:bg-indigo-500 text-white'
-                  }`}
-                >
-                  <Mic className="w-4 h-4" />
-                  <span>{isListeningToTeacher ? (isArabic ? 'جاري الاستماع للمعلم...' : 'Listening...') : (isArabic ? '🎙️ استمع لسؤال المعلم' : 'Listen to Teacher')}</span>
-                </button>
-              </div>
-
-              {teacherHeardSpeech && (
-                <div className="p-3.5 rounded-2xl bg-indigo-950/40 border border-indigo-500/40 text-xs text-indigo-200">
-                  <span className="font-bold">{isArabic ? 'ما قاله المعلم: ' : 'Teacher said: '}</span>
-                  "{teacherHeardSpeech}"
-                </div>
-              )}
-
-              <h4 className="font-black text-xs text-amber-400 uppercase tracking-wider">
-                {isArabic ? 'اختر ردك بنظرة وغمضة عين:' : 'Select your answer with eye-gaze:'}
-              </h4>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                {aiGeneratedClassOptions.map((optText, idx) => {
-                  const cardKey = `class-option-${idx}`;
-                  const isHovered = hoveredCardId === cardKey;
-
-                  return (
-                    <button
-                      key={idx}
-                      data-aac-id={cardKey}
-                      onClick={() => handleCardTrigger(cardKey)}
-                      className={`relative p-5 rounded-2xl border-2 font-black text-sm text-start flex items-center gap-3 transition-all min-h-[90px] ${
-                        isHovered
-                          ? 'border-indigo-400 bg-indigo-600 text-white shadow-2xl scale-105 ring-4 ring-indigo-400/40'
-                          : 'border-slate-800 bg-slate-950 text-slate-200 hover:border-indigo-500/40'
-                      }`}
-                    >
-                      <span className="p-2 rounded-xl bg-slate-900 border border-slate-700 text-indigo-400 text-base font-black shrink-0">
-                        {idx + 1}
-                      </span>
-                      <p className="flex-1 text-xs sm:text-sm leading-relaxed">{optText}</p>
-                      <Volume2 className="w-5 h-5 text-indigo-400 shrink-0" />
-
-                      {isHovered && dwellProgress > 0 && (
-                        <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-slate-950/60 rounded-b-2xl overflow-hidden">
-                          <div className="h-full bg-slate-950 transition-all duration-75" style={{ width: `${dwellProgress * 100}%` }} />
-                        </div>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* TAB 6: Personal Custom Phrase Bank */}
-          {activeTab === 'custom-bank' && (
-            <div className="bg-slate-900 rounded-3xl border-2 border-slate-800 p-6 shadow-2xl flex flex-col gap-4">
-              <div className="flex flex-col sm:flex-row items-center justify-between pb-3 border-b border-slate-800 gap-3">
-                <div>
-                  <h3 className="text-xl font-black text-white flex items-center gap-2">
-                    <BookmarkPlus className="w-6 h-6 text-amber-400" />
-                    {isArabic ? 'بنك العبارات والاحتياجات المخصصة' : 'My Personal Phrase Bank'}
-                  </h3>
-                  <p className="text-xs text-slate-400 font-medium mt-1">
-                    {isArabic ? 'عباراتك الخاصة المخزنة للتحدث بنظرة وغمضة عين واحدة' : 'Your saved personalized phrases for instant eye-gaze speech'}
-                  </p>
-                </div>
-              </div>
-
-              {/* Add Phrase Input */}
-              <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  value={newPhraseInput}
-                  onChange={(e) => setNewPhraseInput(e.target.value)}
-                  placeholder={isArabic ? 'اكتب عبارة جديدة لإضافتها لبنكك الشخصي...' : 'Type a new phrase to save...'}
-                  className="flex-1 bg-slate-950 border border-slate-800 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none focus:border-amber-400"
-                />
-                <button
-                  onClick={handleAddCustomPhrase}
-                  className="px-5 py-3 rounded-2xl bg-amber-400 hover:bg-amber-300 font-black text-slate-950 text-xs flex items-center gap-1.5 shadow-md"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>{isArabic ? 'إضافة' : 'Add'}</span>
-                </button>
-              </div>
-
-              {/* Phrases Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5">
-                {customPhrases.map((phrase: any) => {
-                  const cardKey = `custom-phrase-${phrase.id}`;
-                  const isHovered = hoveredCardId === cardKey;
-
-                  return (
-                    <div
-                      key={phrase.id}
-                      data-aac-id={cardKey}
-                      onClick={() => handleCardTrigger(cardKey)}
-                      className={`relative p-5 rounded-2xl border-2 transition-all cursor-pointer flex flex-col justify-between min-h-[100px] ${
-                        isHovered
-                          ? 'border-amber-400 bg-amber-400 text-slate-950 shadow-2xl scale-105'
-                          : 'border-slate-800 bg-slate-950 text-white hover:border-amber-400/40'
-                      }`}
-                    >
-                      <div className="flex items-start gap-2.5">
-                        <span className="text-2xl">{phrase.icon || '💬'}</span>
-                        <p className="text-xs sm:text-sm font-black leading-relaxed flex-1">
-                          "{phrase.textAr}"
-                        </p>
-                      </div>
-
-                      <div className="flex items-center justify-between mt-3 pt-2 border-t border-slate-800/40 text-[10px]">
-                        <span className="flex items-center gap-1 font-bold">
-                          <Volume2 className="w-3.5 h-3.5" /> {isArabic ? 'نطق فوري' : 'Speak'}
-                        </span>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteCustomPhrase(phrase.id);
-                          }}
-                          className="text-rose-400 hover:text-rose-300 p-1"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-
-                      {isHovered && dwellProgress > 0 && (
-                        <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-slate-950/60 rounded-b-2xl overflow-hidden">
-                          <div className="h-full bg-slate-950 transition-all duration-75" style={{ width: `${dwellProgress * 100}%` }} />
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* TAB 7: Eye Gaze Games & Accuracy Training */}
-          {activeTab === 'eye-games' && (
-            <div className="bg-slate-900 rounded-3xl border-2 border-slate-800 p-6 shadow-2xl flex flex-col gap-4">
-              <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-                <div>
-                  <h3 className="text-xl font-black text-white flex items-center gap-2">
-                    <Gamepad2 className="w-6 h-6 text-amber-400" />
-                    {isArabic ? 'تدريب حركة العين وألعاب الدقة والسرعة' : 'Eye-Gaze Accuracy & Speed Training'}
-                  </h3>
-                  <p className="text-xs text-slate-400 font-medium mt-1">
-                    {isArabic ? 'انظر للبالون وأغمض عينك لتفريقعها وتسجيل النقاط وقياس سرعة استجابة العين' : 'Look at balloon and blink to pop, earn score, and measure reaction speed'}
-                  </p>
-                </div>
-
-                {/* Score & Benchmark Display */}
-                <div className="flex items-center gap-3">
-                  <div className="px-4 py-2 rounded-2xl bg-amber-400/20 border border-amber-400/40 text-amber-300 text-xs font-black flex items-center gap-1.5">
-                    <Trophy className="w-4 h-4 text-amber-400" />
-                    <span>{isArabic ? 'النقاط:' : 'Score:'} {gameScore}</span>
-                  </div>
-
-                  {reactionBenchmarkMs && (
-                    <div className="px-4 py-2 rounded-2xl bg-emerald-400/20 border border-emerald-400/40 text-emerald-300 text-xs font-black flex items-center gap-1.5">
-                      <Gauge className="w-4 h-4 text-emerald-400" />
-                      <span>{reactionBenchmarkMs}ms</span>
-                    </div>
-                  )}
-
-                  <button
-                    onClick={() => {
-                      setGamePoppedIds([]);
-                      reactionStartTimeRef.current = Date.now();
-                    }}
-                    className="px-3 py-2 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold"
-                  >
-                    <RefreshCw className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Game Area */}
-              <div className="relative aspect-video rounded-3xl bg-slate-950 border-2 border-slate-800 overflow-hidden p-6 flex items-center justify-center">
-                {GAME_BUBBLES.map((bubble) => {
-                  const cardKey = `game-bubble-${bubble.id}`;
-                  const isPopped = gamePoppedIds.includes(bubble.id);
-                  const isHovered = hoveredCardId === cardKey;
-
-                  if (isPopped) return null;
-
-                  return (
-                    <button
-                      key={bubble.id}
-                      data-aac-id={cardKey}
-                      onClick={() => handleCardTrigger(cardKey)}
-                      className={`absolute w-20 h-20 rounded-full font-black text-2xl flex items-center justify-center shadow-2xl transition-all duration-200 cursor-pointer ${bubble.color} ${
-                        isHovered ? 'scale-125 ring-4 ring-white animate-bounce' : 'animate-pulse'
-                      }`}
-                      style={{
-                        left: `${bubble.x}%`,
-                        top: `${bubble.y}%`,
-                        transform: 'translate(-50%, -50%)',
-                      }}
-                    >
-                      <span>{bubble.char}</span>
-                      {isHovered && dwellProgress > 0 && (
-                        <div className="absolute inset-0 rounded-full border-4 border-white animate-spin" />
-                      )}
-                    </button>
-                  );
-                })}
-
-                {gamePoppedIds.length === GAME_BUBBLES.length && (
-                  <div className="text-center animate-fade-in">
-                    <Trophy className="w-16 h-16 text-amber-400 mx-auto mb-2 drop-shadow-[0_0_20px_#fbbf24]" />
-                    <h3 className="text-2xl font-black text-white">
-                      {isArabic ? 'أحسنت! فرقعت كل البالونات بنجاح!' : 'Level Complete!'}
-                    </h3>
-                    <p className="text-xs text-slate-400 mt-1">
-                      {isArabic ? `معدل سرعة استجابة بؤبؤ العين: ${reactionBenchmarkMs || 280}ms` : `Average eye reaction: ${reactionBenchmarkMs || 280}ms`}
-                    </p>
-                    <button
-                      onClick={() => {
-                        setGamePoppedIds([]);
-                        reactionStartTimeRef.current = Date.now();
-                      }}
-                      className="mt-4 px-6 py-3 rounded-2xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs shadow-lg"
-                    >
-                      {isArabic ? 'العب جولة جديدة' : 'Play Again'}
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
 
           {/* Quick Needs Row (Always Visible at Bottom for Instant Access) */}
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2.5">

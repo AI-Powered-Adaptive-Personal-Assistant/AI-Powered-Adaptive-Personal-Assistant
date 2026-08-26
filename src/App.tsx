@@ -37,11 +37,12 @@ const GoalTracker = lazy(() => import("./components/Goaltracker"));
 const GpaCalculator = lazy(() => import("./components/GpaCalculator"));
 const StudentAnalytics = lazy(() => import("./components/StudentAnalytics"));
 const AcademicPlanner = lazy(() => import("./components/AcademicPlanner"));
+const LearningHub = lazy(() => import("./components/learning/LearningHub"));
 
 /** Every hash route the app answers to — the single source of truth for both the
  *  initial read on mount and the popstate handler, so they can't drift apart. */
 const VALID_VIEWS = [
-  'chat', 'profile', 'settings', 'video', 'disability',
+  'chat', 'learning', 'profile', 'settings', 'video', 'disability',
   'admin', 'goals', 'gpa', 'analytics', 'planner', 'support',
 ] as const;
 
@@ -55,7 +56,7 @@ export default function App() {
   // an accessibility user was then bounced by the access guard to #disability,
   // losing their page on every reload.
   const [currentView, setCurrentView] = useState<
-  'chat' | 'profile' | 'settings' | 'video' | 'disability' | 'admin' | 'goals' | 'gpa' | 'analytics' | 'planner' | 'support'
+  'chat' | 'learning' | 'profile' | 'settings' | 'video' | 'disability' | 'admin' | 'goals' | 'gpa' | 'analytics' | 'planner' | 'support'
 >(() => {
     const h = typeof window !== 'undefined' ? window.location.hash.replace('#', '') : '';
     return (VALID_VIEWS as readonly string[]).includes(h) ? (h as any) : 'chat';
@@ -550,6 +551,8 @@ export default function App() {
             />
           </>
         );
+      case 'learning':
+        return <LearningHub profile={profile} onMenuClick={() => setIsMobileMenuOpen(true)} />;
       case 'video':
         return <SignVideoStudio profile={profile} onMenuClick={() => setIsMobileMenuOpen(true)} />;
       case 'disability':

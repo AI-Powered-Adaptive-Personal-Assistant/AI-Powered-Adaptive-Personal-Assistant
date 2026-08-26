@@ -1,7 +1,7 @@
 import { localize } from '../lib/translations';
 import { useState } from "react";
 import { UserProfile, CognitiveLevel, UserRole, ChatThread } from "../types";
-import { User, Settings, GraduationCap, Accessibility, LifeBuoy, MessageSquare, BarChart3, AlertCircle, LogOut, Plus, ChevronRight, X, Moon, Sun, Mic, Target, Calculator, CalendarCheck, LayoutDashboard, CalendarDays } from "lucide-react";
+import { User, Settings, GraduationCap, Accessibility, LifeBuoy, MessageSquare, BarChart3, AlertCircle, LogOut, Plus, ChevronRight, X, Moon, Sun, Mic, Target, Calculator, CalendarCheck, LayoutDashboard, CalendarDays, Sparkles } from "lucide-react";
 import { logout, db } from "../lib/firebase";
 import { deleteDoc, doc } from "firebase/firestore";
 import { getTranslation } from "../lib/translations";
@@ -12,8 +12,8 @@ import { isAccessibilityUser } from "../lib/access";
 interface SidebarProps {
   profile: UserProfile;
   setProfile: (profile: UserProfile) => void;
-  currentView: 'chat' | 'profile' | 'settings' | 'video' | 'disability' | 'admin' | 'goals' | 'gpa' | 'analytics' | 'planner' | 'support';
-  setCurrentView: (view: 'chat' | 'profile' | 'settings' | 'video' | 'disability' | 'admin' | 'goals' | 'gpa' | 'analytics' | 'planner' | 'support') => void;
+  currentView: 'chat' | 'learning' | 'profile' | 'settings' | 'video' | 'disability' | 'admin' | 'goals' | 'gpa' | 'analytics' | 'planner' | 'support';
+  setCurrentView: (view: 'chat' | 'learning' | 'profile' | 'settings' | 'video' | 'disability' | 'admin' | 'goals' | 'gpa' | 'analytics' | 'planner' | 'support') => void;
   isDarkMode: boolean;
   toggleTheme: () => void;
   openLiveCaptions: () => void;
@@ -52,6 +52,7 @@ export default function Sidebar({ profile, setProfile, currentView, setCurrentVi
 
   const primaryItems = [
     { id: 'chat', label: getTranslation(profile.language, 'chatSession'), icon: MessageSquare },
+    { id: 'learning', label: localize(profile.language, 'Learning Hub', 'مركز التعلّم الذكي'), icon: Sparkles },
   ] as const;
 
   // Academic sections shown depend on the user's education level (University

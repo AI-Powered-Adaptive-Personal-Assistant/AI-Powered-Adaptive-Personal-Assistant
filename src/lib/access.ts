@@ -4,7 +4,7 @@ import { UserProfile, AccountPath } from '../types';
 // selector). Access is scoped by this so nobody wanders into another section's
 // experience without belonging to it.
 export type AppView =
-  | 'chat' | 'profile' | 'settings' | 'video' | 'disability'
+  | 'chat' | 'learning' | 'profile' | 'settings' | 'video' | 'disability'
   | 'admin' | 'goals' | 'gpa' | 'analytics' | 'planner' | 'support';
 
 /** A user counts as an accessibility user if they picked the Special Needs path
@@ -21,8 +21,8 @@ export function sectionOf(profile: Pick<UserProfile, 'accountPath'>): AccountPat
 }
 
 /** Views an accessibility (Special Needs) user is allowed to open — their world
- *  is the disability center plus personal/account screens. */
-const ACCESSIBILITY_ALLOWED: AppView[] = ['disability', 'profile', 'settings', 'support'];
+ *  is the disability center plus personal/account screens and adaptive learning hub. */
+const ACCESSIBILITY_ALLOWED: AppView[] = ['disability', 'learning', 'profile', 'settings', 'support'];
 
 /**
  * Can this profile open the given view?
