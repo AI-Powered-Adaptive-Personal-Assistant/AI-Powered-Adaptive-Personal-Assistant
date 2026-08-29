@@ -13,7 +13,7 @@ import AccessibilityOverlay from "./components/AccessibilityOverlay";
 import LiveCaptions from "./components/LiveCaptions";
 import ReadAloudSelection from "./components/ReadAloudSelection";
 import { motion, AnimatePresence } from "motion/react";
-import { Message, UserProfile } from "./types";
+import { Message, UserProfile, AccessibilityMode } from "./types";
 import { auth, db, handleFirestoreError, OperationType, cleanDataForFirestore, clearPreLoginState, logout } from "./lib/firebase";
 import { useAuthState } from "react-firebase-hooks/auth";
 import { doc, setDoc, onSnapshot, getDocFromServer } from "firebase/firestore";
@@ -276,7 +276,7 @@ export default function App() {
         if (preLoginPath === 'Special Needs') {
           const disabilityType = localStorage.getItem('preLoginDisability') || 'Other';
           
-          let accessibilityMode: 'None' | 'Speech' | 'Visual' | 'Vocal-Deaf' | 'Sign-Only' = 'None';
+          let accessibilityMode: AccessibilityMode = 'None';
           if (disabilityType === 'Visual Impairment') {
             accessibilityMode = 'Visual';
           } else if (disabilityType === 'Hearing Impairment') {
@@ -284,7 +284,7 @@ export default function App() {
           } else if (disabilityType === 'Speech Impairment') {
             accessibilityMode = 'Speech';
           } else if (disabilityType === 'Motor Impairment') {
-            accessibilityMode = 'Visual';
+            accessibilityMode = 'Motor-Euphonia';
           }
 
           const defaultProfile: UserProfile = {
@@ -378,8 +378,18 @@ export default function App() {
       await setDoc(doc(db, path), cleanedProfile, { merge: true });
       // Cleanly and immediately update local state to navigate the user away from Onboarding to the dashboard.
       setProfile(cleanedProfile);
+      if (cleanedProfile.accountPath === 'Special Needs') {
+        setCurrentView('disability');
+        window.history.replaceState(null, '', '#disability');
+      }
     } catch (err) {
-      handleFirestoreError(err, OperationType.CREATE, path);
+      console.error("Failed to save onboarding profile:", err);
+      // Fallback: update local profile so user is not stuck on onboarding screen
+      setProfile(newProfile);
+      if (newProfile.accountPath === 'Special Needs') {
+        setCurrentView('disability');
+        window.history.replaceState(null, '', '#disability');
+      }
     }
   };
 
