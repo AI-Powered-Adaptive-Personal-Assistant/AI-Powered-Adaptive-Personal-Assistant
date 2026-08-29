@@ -356,6 +356,7 @@ export default function GazeBlinkKeyboard({
     return (
       <button
         key={`key-${char}-${rowIndex}-${colIndex}`}
+        data-aac-id={`kb-key-${char}`}
         ref={(el) => {
           if (el) keyRefs.current.set(char, el);
           else keyRefs.current.delete(char);
@@ -762,6 +763,7 @@ export default function GazeBlinkKeyboard({
         {/* Action Controls */}
         <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-800/60">
           <button 
+            data-aac-id="kb-speak"
             ref={(el) => { if (el) keyRefs.current.set('SPEAK', el); else keyRefs.current.delete('SPEAK'); }}
             onClick={() => handleSpeak()}
             className={`flex-1 min-w-[70px] py-2.5 rounded-2xl flex justify-center items-center gap-1.5 text-xs font-bold transition-all ${
@@ -775,6 +777,7 @@ export default function GazeBlinkKeyboard({
           </button>
 
           <button 
+            data-aac-id="kb-backspace"
             ref={(el) => { if (el) keyRefs.current.set('BACKSPACE', el); else keyRefs.current.delete('BACKSPACE'); }}
             onClick={() => handleKeyPress('BACKSPACE')}
             className={`flex-1 min-w-[70px] py-2.5 rounded-2xl flex justify-center items-center gap-1.5 text-xs font-bold transition-all ${
@@ -788,6 +791,7 @@ export default function GazeBlinkKeyboard({
           </button>
 
           <button 
+            data-aac-id="kb-clear"
             ref={(el) => { if (el) keyRefs.current.set('CLEAR', el); else keyRefs.current.delete('CLEAR'); }}
             onClick={() => handleKeyPress('CLEAR')}
             className={`flex-1 min-w-[70px] py-2.5 rounded-2xl flex justify-center items-center gap-1.5 text-xs font-bold transition-all text-rose-400 ${
@@ -800,6 +804,7 @@ export default function GazeBlinkKeyboard({
           
           {onSendToAI && (
             <button 
+              data-aac-id="kb-ai"
               ref={(el) => { if (el) keyRefs.current.set('AI', el); else keyRefs.current.delete('AI'); }}
               onClick={() => { if(typedText) onSendToAI(typedText); }}
               className={`flex-1 min-w-[70px] py-2.5 rounded-2xl flex justify-center items-center gap-1.5 text-xs font-bold transition-all text-purple-400 ${
@@ -813,6 +818,7 @@ export default function GazeBlinkKeyboard({
           
           {onSendToWhatsApp && (
             <button 
+              data-aac-id="kb-whatsapp"
               ref={(el) => { if (el) keyRefs.current.set('WHATSAPP', el); else keyRefs.current.delete('WHATSAPP'); }}
               onClick={() => { if(typedText) onSendToWhatsApp(typedText); }}
               className={`flex-1 min-w-[70px] py-2.5 rounded-2xl flex justify-center items-center gap-1.5 text-xs font-bold transition-all text-emerald-400 ${
@@ -826,6 +832,7 @@ export default function GazeBlinkKeyboard({
 
           {onOpenCallPicker && (
             <button 
+              data-aac-id="kb-call"
               ref={(el) => { if (el) keyRefs.current.set('CALL', el); else keyRefs.current.delete('CALL'); }}
               onClick={onOpenCallPicker}
               className={`flex-1 min-w-[70px] py-2.5 rounded-2xl flex justify-center items-center gap-1.5 text-xs font-bold transition-all text-amber-400 ${
@@ -838,6 +845,7 @@ export default function GazeBlinkKeyboard({
           )}
 
           <button 
+            data-aac-id="kb-lang"
             ref={(el) => { if (el) keyRefs.current.set('LANG', el); else keyRefs.current.delete('LANG'); }}
             onClick={() => setKbLang(prev => prev === 'ar' ? 'en' : 'ar')}
             className={`flex-1 min-w-[70px] py-2.5 rounded-2xl flex justify-center items-center gap-1.5 text-xs font-black transition-all text-cyan-400 ${
@@ -868,6 +876,7 @@ export default function GazeBlinkKeyboard({
               return (
                 <button
                   key={predKey}
+                  data-aac-id={`kb-pred-${idx}`}
                   ref={(el) => {
                     if (el) keyRefs.current.set(predKey, el);
                     else keyRefs.current.delete(predKey);
@@ -939,6 +948,7 @@ export default function GazeBlinkKeyboard({
           {/* Space Bar Row */}
           <div className="flex w-full justify-center px-1 pt-1">
             <button
+              data-aac-id="kb-space"
               ref={(el) => { if (el) keyRefs.current.set('SPACE', el); else keyRefs.current.delete('SPACE'); }}
               onClick={() => handleKeyPress('SPACE')}
               className={`relative w-2/3 max-w-lg ${currentScale.keyMinH} rounded-2xl flex items-center justify-center transition-all overflow-hidden select-none

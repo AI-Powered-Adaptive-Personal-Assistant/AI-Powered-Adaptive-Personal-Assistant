@@ -170,7 +170,7 @@ export default function App() {
 
   // Custom navigation function that updates URL and state
  const navigateTo = (
-  view: 'chat' | 'profile' | 'settings' | 'video' | 'disability' | 'admin' | 'goals' | 'gpa' | 'analytics' | 'planner' | 'support'
+  view: 'chat' | 'learning' | 'profile' | 'settings' | 'video' | 'disability' | 'admin' | 'goals' | 'gpa' | 'analytics' | 'planner' | 'support'
 ) => {
   window.history.pushState(null, '', `#${view}`);
   setCurrentView(view);
