@@ -19,7 +19,7 @@ export default function Login() {
     return 'en';
   });
 
-  const [mode, setMode] = useState<'path-selection' | 'options' | 'email-login' | 'email-register' | 'reset-password'>('path-selection');
+  const [mode, setMode] = useState<'path-selection' | 'email-login' | 'email-register' | 'reset-password'>('path-selection');
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -68,7 +68,7 @@ export default function Login() {
       };
       localStorage.setItem('preLoginDisability', fullMap[selectedDisability] || 'Visual Impairment');
     }
-    setMode('options');
+    setMode('email-login');
   };
 
   const validateUniversityEmail = (e: string) => {
@@ -81,13 +81,17 @@ export default function Login() {
     setLoading(true);
     setShowHelp(false);
 
-    const helpTimer = setTimeout(() => setShowHelp(true), 8000);
+    // Strict 10s watchdog so Google popup never hangs the UI if blocked by browser or network
+    const timeout = setTimeout(() => {
+      setLoading(false);
+      setError(t("Google Sign-In timed out or was blocked by browser. Please use Email & Password below.", "استغرق تسجيل جوجل وقتاً طويلاً أو تم حظره بواسطة المتصفح. يرجى استخدام البريد وكلمة المرور أدناه."));
+    }, 10000);
 
     try {
       await signInWithGoogle();
-      clearTimeout(helpTimer);
+      clearTimeout(timeout);
     } catch (err: any) {
-      clearTimeout(helpTimer);
+      clearTimeout(timeout);
       if (err.code === 'auth/cancelled-popup-request') {
         /* another popup open */
       } else if (err.code === 'auth/popup-closed-by-user') {
@@ -95,9 +99,10 @@ export default function Login() {
       } else if (err.code === 'auth/unauthorized-domain') {
         setError(t("Google Login requires an authorized domain. Please use Email & Password below.", "تسجيل جوجل يتطلب نطاقاً مصرحاً. يرجى استخدام الإيميل وكلمة المرور بالأسفل."));
       } else {
-        setError(err.message.replace("Firebase: ", ""));
+        setError(err?.message?.replace("Firebase: ", "") || t("Google Sign-In failed. Please use Email & Password.", "تعذر تسجيل الدخول عبر جوجل. يرجى استخدام البريد وكلمة المرور."));
       }
     } finally {
+      clearTimeout(timeout);
       setLoading(false);
     }
   };
@@ -547,285 +552,41 @@ export default function Login() {
               </div>
             </motion.div>
           ) : (
-            /* Auth Modal Screen (Options / Email Sign In / Create Account) */
+            /* Unified Direct Auth Screen */
             <motion.div
               key="auth-flow"
-              initial={{ opacity: 0, scale: 0.95 }}
+              initial={{ opacity: 0, scale: 0.96 }}
               animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="max-w-md mx-auto w-full bg-[#121524]/95 border border-slate-800 rounded-[32px] p-6 sm:p-8 md:p-10 shadow-2xl backdrop-blur-xl space-y-6"
+              exit={{ opacity: 0, scale: 0.96 }}
+              className="max-w-md mx-auto w-full bg-[#121524]/95 border border-slate-800 rounded-[28px] p-6 sm:p-8 shadow-2xl backdrop-blur-xl space-y-5"
             >
-              {mode === 'options' ? (
-                <div className="space-y-6 text-center">
-                  <div className="space-y-2">
-                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-slate-800/80 border border-slate-700 text-slate-300">
-                      <span>{t("Selected Path:", "المسار المختار:")}</span>
-                      <strong className="text-white">
-                        {accountPath === 'Normal' && t('Normal', 'عادي')}
-                        {accountPath === 'Graduation Project' && t('Graduation Project', 'مشروع تخرج')}
-                        {accountPath === 'Special Needs' && `${t('Special Needs', 'احتياجات خاصة')} (${selectedDisability})`}
-                      </strong>
-                    </div>
-                    <h2 className="text-2xl font-black text-white tracking-tight">
-                      {t("Welcome to Cognify", "مرحباً بك في كوجنيفاي")}
-                    </h2>
-                    <p className="text-xs text-slate-400 font-medium">
-                      {t("Sign in or create a new profile to continue.", "سجّل دخولك أو أنشئ حساباً جديداً للبدء.")}
-                    </p>
-                  </div>
+              {/* Header with Selected Path & Back Button */}
+              <div className="flex items-center justify-between pb-1">
+                <button
+                  onClick={() => { setMode('path-selection'); setError(null); }}
+                  className="inline-flex items-center gap-1 text-xs font-bold text-slate-400 hover:text-white transition-colors"
+                >
+                  <ArrowLeft className={`w-3.5 h-3.5 ${isRtl ? 'rotate-180' : ''}`} />
+                  <span>{t("Back", "رجوع")}</span>
+                </button>
 
-                  <div className="grid grid-cols-2 gap-2 p-1 bg-slate-900 border border-slate-800 rounded-2xl">
-                    <button
-                      onClick={() => setMode('email-login')}
-                      className="py-3 text-xs font-black uppercase tracking-wider text-slate-300 hover:text-white rounded-xl hover:bg-slate-800 transition-all"
-                    >
-                      {t("Sign In", "تسجيل الدخول")}
-                    </button>
-                    <button
-                      onClick={() => setMode('email-register')}
-                      className="py-3 text-xs font-black uppercase tracking-wider text-slate-300 hover:text-white rounded-xl hover:bg-slate-800 transition-all"
-                    >
-                      {t("Create Account", "إنشاء حساب")}
-                    </button>
-                  </div>
-
-                  <div className="flex items-center gap-4">
-                    <div className="h-px bg-slate-800 flex-1" />
-                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{t("Or Continue With", "أو تابع عبر")}</span>
-                    <div className="h-px bg-slate-800 flex-1" />
-                  </div>
-
-                  <button
-                    onClick={handleGoogleAuth}
-                    disabled={loading}
-                    className="w-full h-14 flex items-center justify-center gap-3 bg-white text-slate-950 rounded-2xl hover:bg-slate-100 transition-all font-black uppercase tracking-wider text-xs shadow-lg disabled:opacity-50 active:scale-95"
-                  >
-                    {loading ? (
-                      <Loader2 className="w-5 h-5 animate-spin text-slate-950" />
-                    ) : (
-                      <Chrome className="w-5 h-5 text-slate-950" />
-                    )}
-                    <span>{t("Continue with Google", "المتابعة عبر جوجل")}</span>
-                  </button>
-
-                  <button
-                    onClick={() => setMode('path-selection')}
-                    className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-400 hover:text-white transition-colors"
-                  >
-                    <ArrowLeft className={`w-4 h-4 ${isRtl ? 'rotate-180' : ''}`} />
-                    <span>{t("Change path", "تغيير المسار المختار")}</span>
-                  </button>
-
-                  {error && (
-                    <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-2xl text-rose-400 text-xs font-bold flex items-center gap-2 text-start">
-                      <AlertCircle className="w-4 h-4 shrink-0" />
-                      <span>{error}</span>
-                    </div>
-                  )}
-
-                  {isInIframe && (
-                    <div className="p-4 bg-indigo-500/10 border border-indigo-500/20 rounded-2xl text-indigo-300 text-xs text-start space-y-2 font-medium">
-                      <p className="font-bold">{t("Browser Notice:", "ملاحظة هامة للمتصفح:")}</p>
-                      <p className="text-[11px] text-slate-300">
-                        {t(
-                          "If Google popup is blocked in preview, please open in a new tab or sign in with Email & Password.",
-                          "إذا واجهت حظراً لنافذة جوجل داخل المعاينة، افتح التطبيق في نافذة مستقلة أو استخدم البريد وكلمة المرور بالأعلى."
-                        )}
-                      </p>
-                      <a
-                        href={window.location.href}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="block text-center py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold text-xs"
-                      >
-                        {t("Open in New Tab ↗", "افتح في نافذة جديدة ↗")}
-                      </a>
-                    </div>
-                  )}
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-slate-800/80 border border-slate-700 text-slate-300">
+                  <span>{t("Path:", "المسار:")}</span>
+                  <strong className={
+                    accountPath === 'Normal' ? 'text-amber-400' : accountPath === 'Graduation Project' ? 'text-teal-400' : 'text-rose-400'
+                  }>
+                    {accountPath === 'Normal' && t('Normal', 'عادي')}
+                    {accountPath === 'Graduation Project' && t('Graduation Project', 'مشروع تخرج')}
+                    {accountPath === 'Special Needs' && `${t('Special Needs', 'احتياجات خاصة')} (${selectedDisability})`}
+                  </strong>
                 </div>
-              ) : mode === 'email-login' ? (
-                <div className="space-y-5 text-start">
-                  <div className="flex items-center justify-between">
-                    <button
-                      onClick={() => { setMode('options'); setError(null); }}
-                      className="p-2 text-slate-400 hover:text-white rounded-full hover:bg-slate-800 transition-colors"
-                    >
-                      <ArrowLeft className={`w-5 h-5 ${isRtl ? 'rotate-180' : ''}`} />
-                    </button>
-                    <span className="text-xs font-bold text-slate-400">{t("Sign In", "تسجيل الدخول")}</span>
-                  </div>
+              </div>
 
+              {mode === 'reset-password' ? (
+                /* Reset Password View */
+                <div className="space-y-4 text-start">
                   <div className="space-y-1">
-                    <h2 className="text-2xl font-black text-white tracking-tight">{t("Welcome Back", "أهلاً بك مجدداً")}</h2>
-                    <p className="text-xs text-slate-400">{t("Enter your credentials to continue.", "أدخل بيانات حسابك للمتابعة.")}</p>
-                  </div>
-
-                  <form onSubmit={handleManualAuth} className="space-y-4">
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">{t("Email Address", "البريد الإلكتروني")}</label>
-                      <div className="relative">
-                        <Mail className={`absolute top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 ${isRtl ? 'right-3.5' : 'left-3.5'}`} />
-                        <input
-                          type="email"
-                          required
-                          placeholder="name@example.com"
-                          value={email}
-                          onChange={(e) => setEmail(e.target.value)}
-                          className={`w-full bg-[#181C2E] border border-slate-700 text-white placeholder-slate-500 text-xs rounded-xl py-3 outline-none focus:border-rose-400 ${isRtl ? 'pr-10 pl-4' : 'pl-10 pr-4'}`}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">{t("Password", "كلمة المرور")}</label>
-                      <div className="relative">
-                        <Lock className={`absolute top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 ${isRtl ? 'right-3.5' : 'left-3.5'}`} />
-                        <input
-                          type={showPassword ? "text" : "password"}
-                          required
-                          placeholder="••••••••"
-                          value={password}
-                          onChange={(e) => setPassword(e.target.value)}
-                          className={`w-full bg-[#181C2E] border border-slate-700 text-white placeholder-slate-500 text-xs rounded-xl py-3 outline-none focus:border-rose-400 ${isRtl ? 'pr-10 pl-10' : 'pl-10 pr-10'}`}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowPassword(!showPassword)}
-                          className={`absolute top-1/2 -translate-y-1/2 text-slate-400 hover:text-white ${isRtl ? 'left-3' : 'right-3'}`}
-                        >
-                          {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                        </button>
-                      </div>
-                      <div className="flex justify-end pt-1">
-                        <button
-                          type="button"
-                          onClick={() => { setMode('reset-password'); setError(null); }}
-                          className="text-[11px] font-bold text-rose-400 hover:underline"
-                        >
-                          {t("Forgot Password?", "نسيت كلمة المرور؟")}
-                        </button>
-                      </div>
-                    </div>
-
-                    {error && (
-                      <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-2xl text-rose-400 text-xs font-bold flex items-center gap-2">
-                        <AlertCircle className="w-4 h-4 shrink-0" />
-                        <span>{error}</span>
-                      </div>
-                    )}
-
-                    <button
-                      type="submit"
-                      disabled={loading}
-                      className="w-full py-3.5 bg-gradient-to-r from-rose-500 to-pink-500 text-white font-black text-xs uppercase tracking-wider rounded-xl hover:opacity-95 transition-all shadow-lg shadow-rose-500/20 disabled:opacity-50"
-                    >
-                      {loading ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : t("Sign In", "تسجيل الدخول")}
-                    </button>
-                  </form>
-
-                  <div className="text-center pt-2">
-                    <button
-                      onClick={() => { setMode('email-register'); setError(null); }}
-                      className="text-xs font-bold text-slate-400 hover:text-white transition-colors"
-                    >
-                      {t("Don't have an account? Create one", "ليس لديك حساب؟ أنشئ حساباً الآن")}
-                    </button>
-                  </div>
-                </div>
-              ) : mode === 'email-register' ? (
-                <div className="space-y-5 text-start">
-                  <div className="flex items-center justify-between">
-                    <button
-                      onClick={() => { setMode('options'); setError(null); }}
-                      className="p-2 text-slate-400 hover:text-white rounded-full hover:bg-slate-800 transition-colors"
-                    >
-                      <ArrowLeft className={`w-5 h-5 ${isRtl ? 'rotate-180' : ''}`} />
-                    </button>
-                    <span className="text-xs font-bold text-slate-400">{t("Create Account", "إنشاء حساب")}</span>
-                  </div>
-
-                  <div className="space-y-1">
-                    <h2 className="text-2xl font-black text-white tracking-tight">{t("Join Cognify", "انضم إلى كوجنيفاي")}</h2>
-                    <p className="text-xs text-slate-400">{t("Set up your email and password.", "أدخل بريدك الإلكتروني وكلمة المرور.")}</p>
-                  </div>
-
-                  <form onSubmit={handleManualAuth} className="space-y-4">
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">{t("Email Address", "البريد الإلكتروني")}</label>
-                      <input
-                        type="email"
-                        required
-                        placeholder="name@example.com"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        className="w-full bg-[#181C2E] border border-slate-700 text-white placeholder-slate-500 text-xs rounded-xl py-3 px-4 outline-none focus:border-rose-400"
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">{t("Password", "كلمة المرور")}</label>
-                      <input
-                        type="password"
-                        required
-                        placeholder="••••••••"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        className="w-full bg-[#181C2E] border border-slate-700 text-white placeholder-slate-500 text-xs rounded-xl py-3 px-4 outline-none focus:border-rose-400"
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">{t("Confirm Password", "تأكيد كلمة المرور")}</label>
-                      <input
-                        type="password"
-                        required
-                        placeholder="••••••••"
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                        className="w-full bg-[#181C2E] border border-slate-700 text-white placeholder-slate-500 text-xs rounded-xl py-3 px-4 outline-none focus:border-rose-400"
-                      />
-                    </div>
-
-                    {error && (
-                      <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-2xl text-rose-400 text-xs font-bold flex items-center gap-2">
-                        <AlertCircle className="w-4 h-4 shrink-0" />
-                        <span>{error}</span>
-                      </div>
-                    )}
-
-                    <button
-                      type="submit"
-                      disabled={loading}
-                      className="w-full py-3.5 bg-gradient-to-r from-rose-500 to-pink-500 text-white font-black text-xs uppercase tracking-wider rounded-xl hover:opacity-95 transition-all shadow-lg shadow-rose-500/20 disabled:opacity-50"
-                    >
-                      {loading ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : t("Create Profile", "إنشاء الحساب")}
-                    </button>
-                  </form>
-
-                  <div className="text-center pt-2">
-                    <button
-                      onClick={() => { setMode('email-login'); setError(null); }}
-                      className="text-xs font-bold text-slate-400 hover:text-white transition-colors"
-                    >
-                      {t("Already registered? Sign in", "مسجل بالفعل؟ سجّل دخولك")}
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                /* Reset Password */
-                <div className="space-y-5 text-start">
-                  <div className="flex items-center justify-between">
-                    <button
-                      onClick={() => { setMode('email-login'); setError(null); }}
-                      className="p-2 text-slate-400 hover:text-white rounded-full hover:bg-slate-800 transition-colors"
-                    >
-                      <ArrowLeft className={`w-5 h-5 ${isRtl ? 'rotate-180' : ''}`} />
-                    </button>
-                    <span className="text-xs font-bold text-slate-400">{t("Reset Password", "استعادة الحساب")}</span>
-                  </div>
-
-                  <div className="space-y-1">
-                    <h2 className="text-2xl font-black text-white tracking-tight">{t("Reset Password", "إعادة تعيين كلمة المرور")}</h2>
+                    <h2 className="text-xl font-black text-white tracking-tight">{t("Reset Password", "إعادة تعيين كلمة المرور")}</h2>
                     <p className="text-xs text-slate-400">{t("Enter your email to receive recovery instructions.", "أدخل بريدك الإلكتروني لإرسال رابط الاستعادة.")}</p>
                   </div>
 
@@ -833,7 +594,7 @@ export default function Login() {
                     <div className="p-4 bg-teal-500/10 border border-teal-500/30 rounded-2xl text-teal-300 text-xs font-bold space-y-2">
                       <p>{t("Reset link sent! Please check your inbox.", "تم إرسال رابط إعادة التعيين! يرجى التحقق من بريدك.")}</p>
                       <button
-                        onClick={() => setMode('email-login')}
+                        onClick={() => { setMode('email-login'); setResetSuccess(false); setError(null); }}
                         className="block text-teal-400 hover:underline pt-2 font-black"
                       >
                         {t("Return to Sign In", "العودة لتسجيل الدخول")}
@@ -869,6 +630,161 @@ export default function Login() {
                       </button>
                     </form>
                   )}
+                </div>
+              ) : (
+                /* Unified Tabs (Sign In / Create Account) */
+                <div className="space-y-4 text-start">
+                  <div className="space-y-1 text-center">
+                    <h2 className="text-xl font-black text-white tracking-tight">
+                      {mode === 'email-login' ? t("Welcome Back", "أهلاً بك مجدداً") : t("Create Your Profile", "إنشاء حسابك الجديد")}
+                    </h2>
+                    <p className="text-xs text-slate-400">
+                      {mode === 'email-login'
+                        ? t("Sign in to access your personalized mentor.", "سجّل دخولك للوصول إلى مساعدك الدراسي المخصص.")
+                        : t("Get started with your tailored learning calibration.", "ابدأ رحلتك التعليمية المخصصة لمعايرتك.")}
+                    </p>
+                  </div>
+
+                  {/* Tab Selector */}
+                  <div className="grid grid-cols-2 gap-1 p-1 bg-slate-900 border border-slate-800 rounded-xl">
+                    <button
+                      type="button"
+                      onClick={() => { setMode('email-login'); setError(null); }}
+                      className={`py-2 text-xs font-black uppercase tracking-wider rounded-lg transition-all ${
+                        mode === 'email-login'
+                          ? 'bg-slate-800 text-white shadow-sm'
+                          : 'text-slate-400 hover:text-slate-200'
+                      }`}
+                    >
+                      {t("Sign In", "تسجيل الدخول")}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setMode('email-register'); setError(null); }}
+                      className={`py-2 text-xs font-black uppercase tracking-wider rounded-lg transition-all ${
+                        mode === 'email-register'
+                          ? 'bg-slate-800 text-white shadow-sm'
+                          : 'text-slate-400 hover:text-slate-200'
+                      }`}
+                    >
+                      {t("Create Account", "إنشاء حساب")}
+                    </button>
+                  </div>
+
+                  {/* Form */}
+                  <form onSubmit={handleManualAuth} className="space-y-3.5">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">{t("Email Address", "البريد الإلكتروني")}</label>
+                      <div className="relative">
+                        <Mail className={`absolute top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 ${isRtl ? 'right-3' : 'left-3'}`} />
+                        <input
+                          type="email"
+                          required
+                          placeholder="name@example.com"
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          className={`w-full bg-[#181C2E] border border-slate-700 text-white placeholder-slate-500 text-xs rounded-xl py-2.5 outline-none focus:border-rose-400 ${isRtl ? 'pr-9 pl-3' : 'pl-9 pr-3'}`}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">{t("Password", "كلمة المرور")}</label>
+                      <div className="relative">
+                        <Lock className={`absolute top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 ${isRtl ? 'right-3' : 'left-3'}`} />
+                        <input
+                          type={showPassword ? "text" : "password"}
+                          required
+                          placeholder="••••••••"
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          className={`w-full bg-[#181C2E] border border-slate-700 text-white placeholder-slate-500 text-xs rounded-xl py-2.5 outline-none focus:border-rose-400 ${isRtl ? 'pr-9 pl-9' : 'pl-9 pr-9'}`}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className={`absolute top-1/2 -translate-y-1/2 text-slate-400 hover:text-white ${isRtl ? 'left-3' : 'right-3'}`}
+                        >
+                          {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    {mode === 'email-register' && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        className="space-y-1"
+                      >
+                        <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">{t("Confirm Password", "تأكيد كلمة المرور")}</label>
+                        <div className="relative">
+                          <Lock className={`absolute top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 ${isRtl ? 'right-3' : 'left-3'}`} />
+                          <input
+                            type="password"
+                            required
+                            placeholder="••••••••"
+                            value={confirmPassword}
+                            onChange={(e) => setConfirmPassword(e.target.value)}
+                            className={`w-full bg-[#181C2E] border border-slate-700 text-white placeholder-slate-500 text-xs rounded-xl py-2.5 outline-none focus:border-rose-400 ${isRtl ? 'pr-9 pl-3' : 'pl-9 pr-3'}`}
+                          />
+                        </div>
+                      </motion.div>
+                    )}
+
+                    {mode === 'email-login' && (
+                      <div className="flex justify-end">
+                        <button
+                          type="button"
+                          onClick={() => { setMode('reset-password'); setError(null); }}
+                          className="text-[11px] font-bold text-rose-400 hover:underline"
+                        >
+                          {t("Forgot Password?", "نسيت كلمة المرور؟")}
+                        </button>
+                      </div>
+                    )}
+
+                    {error && (
+                      <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-400 text-xs font-bold flex items-center gap-2">
+                        <AlertCircle className="w-4 h-4 shrink-0" />
+                        <span>{error}</span>
+                      </div>
+                    )}
+
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className="w-full py-3.5 bg-gradient-to-r from-rose-500 via-pink-500 to-amber-500 text-white font-black text-xs uppercase tracking-wider rounded-xl hover:opacity-95 transition-all shadow-lg shadow-rose-500/20 disabled:opacity-50"
+                    >
+                      {loading ? (
+                        <Loader2 className="w-4 h-4 animate-spin mx-auto" />
+                      ) : mode === 'email-login' ? (
+                        t("Sign In", "تسجيل الدخول")
+                      ) : (
+                        t("Create Profile", "إنشاء الحساب")
+                      )}
+                    </button>
+                  </form>
+
+                  {/* Or Continue With Google */}
+                  <div className="flex items-center gap-3 pt-1">
+                    <div className="h-px bg-slate-800 flex-1" />
+                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{t("Or", "أو")}</span>
+                    <div className="h-px bg-slate-800 flex-1" />
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleGoogleAuth}
+                    disabled={loading}
+                    className="w-full h-11 flex items-center justify-center gap-2 bg-white text-slate-950 rounded-xl hover:bg-slate-100 transition-all font-black uppercase tracking-wider text-xs shadow-md disabled:opacity-50 active:scale-[0.98]"
+                  >
+                    {loading ? (
+                      <Loader2 className="w-4 h-4 animate-spin text-slate-950" />
+                    ) : (
+                      <Chrome className="w-4 h-4 text-slate-950" />
+                    )}
+                    <span>{t("Continue with Google", "المتابعة عبر جوجل")}</span>
+                  </button>
                 </div>
               )}
             </motion.div>
