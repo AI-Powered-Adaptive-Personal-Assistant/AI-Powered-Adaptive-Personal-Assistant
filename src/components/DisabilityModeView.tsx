@@ -41,7 +41,7 @@ const DisabilityModeView = React.forwardRef<ChatInterfaceRef, DisabilityModeView
   const [activeTab, setActiveTab] = React.useState<'chat' | 'settings' | 'video' | 'bridge' | 'org' | 'motor'>(() => {
     return profile.accessibilityMode === 'Motor-Euphonia' ? 'motor' : 'video';
   });
-  // Organization staff (e.g. Al-Resala) get an extra tab scoped to THEIR users.
+  // Organization staff (e.g. Care Center / NGO) get an extra tab scoped to THEIR users.
   const isOrgStaff = !!profile.isOrgManager && !!(profile.organization || '').trim();
 
   // Tell the parent which tab is active so it can hide the floating overlay

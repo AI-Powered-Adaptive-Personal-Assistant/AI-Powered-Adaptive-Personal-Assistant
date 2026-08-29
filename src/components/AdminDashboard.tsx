@@ -283,13 +283,13 @@ export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardP
     }
   };
 
-  // Grant/revoke "organization manager": org staff (e.g. Al-Resala) who can see
+  // Grant/revoke "organization manager": org staff (e.g. NGO / Care Center) who can see
   // THEIR organization's users inside the disability hub. Super admins only.
   const handleToggleOrgManager = async (u: UserProfile, make: boolean) => {
     if (!canManageAdmins) return;
     let org = (u.organization || '').trim();
     if (make) {
-      const input = window.prompt("Organization code for this manager (e.g. RESALA):", org || "RESALA");
+      const input = window.prompt("Organization code for this manager (e.g. ORG01):", org || "ORG01");
       if (!input || !input.trim()) return;
       org = input.trim().toUpperCase();
     }
