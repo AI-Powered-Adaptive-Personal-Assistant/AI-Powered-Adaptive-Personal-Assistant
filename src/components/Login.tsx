@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { signInWithGoogle, loginWithEmail, registerWithEmail, auth, clearPreLoginState } from '../lib/firebase';
 import { sendPasswordResetEmail } from 'firebase/auth';
 import { motion, AnimatePresence } from 'motion/react';
@@ -45,6 +45,10 @@ export default function Login() {
 
   const isRtl = lang === 'ar';
   const t = (en: string, ar: string) => (lang === 'ar' ? ar : en);
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' as any });
+  }, []);
 
   const handleContinuePath = () => {
     clearPreLoginState();
