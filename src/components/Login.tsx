@@ -155,7 +155,7 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0A0C14] text-slate-100 flex flex-col justify-between p-4 sm:p-6 md:p-10 font-sans relative overflow-x-hidden selection:bg-rose-500/30 selection:text-white" dir={isRtl ? 'rtl' : 'ltr'}>
+    <div className="min-h-screen bg-[#0A0C14] text-slate-100 flex flex-col items-center justify-start p-4 sm:p-6 lg:p-8 font-sans relative overflow-x-hidden selection:bg-rose-500/30 selection:text-white" dir={isRtl ? 'rtl' : 'ltr'}>
       {/* Background ambient lighting */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
         <div className="absolute -top-40 -left-40 w-[600px] h-[600px] bg-rose-500/10 rounded-full blur-[140px]" />
@@ -164,7 +164,7 @@ export default function Login() {
       </div>
 
       {/* Top Navbar */}
-      <header className="max-w-6xl mx-auto w-full flex items-center justify-between z-10 py-2">
+      <header className="max-w-5xl mx-auto w-full flex items-center justify-between z-10 py-3 mb-4">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-rose-500 via-pink-500 to-amber-400 p-0.5 shadow-lg shadow-rose-500/20 flex items-center justify-center">
             <div className="w-full h-full bg-[#0E111D] rounded-[14px] flex items-center justify-center">
@@ -192,7 +192,7 @@ export default function Login() {
       </header>
 
       {/* Main Content Area */}
-      <main className="max-w-6xl mx-auto w-full my-auto py-8 z-10 space-y-8">
+      <main className="max-w-5xl mx-auto w-full z-10 space-y-6">
         <AnimatePresence mode="wait">
           {mode === 'path-selection' ? (
             <motion.div
@@ -200,16 +200,16 @@ export default function Login() {
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.98 }}
-              className="space-y-8"
+              className="space-y-6"
             >
               {/* Hero Title Header */}
-              <div className="space-y-3 max-w-2xl">
-                <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-bold bg-amber-500/10 border border-amber-500/30 text-amber-300 shadow-sm">
+              <div className="space-y-2.5 max-w-2xl">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold bg-amber-500/10 border border-amber-500/30 text-amber-300 shadow-sm">
                   <Tag className="w-3.5 h-3.5 text-amber-400" />
                   <span>{t("Same mentor, different calibration", "نفس المساعد، بمعايرة مخصصة لك")}</span>
                 </div>
 
-                <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black text-white tracking-tight leading-[1.15]">
+                <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tight leading-[1.15]">
                   {isRtl ? (
                     <>سؤال واحد. <span className="text-amber-400">ثلاثة</span> <span className="text-rose-400">طر</span><span className="text-teal-400">ق</span> لسماع الإجابة.</>
                   ) : (
@@ -217,7 +217,7 @@ export default function Login() {
                   )}
                 </h1>
 
-                <p className="text-sm sm:text-base text-slate-400 font-medium leading-relaxed">
+                <p className="text-xs sm:text-sm text-slate-400 font-medium leading-relaxed">
                   {t(
                     "Cognify doesn't just change its tone — it changes what it says. Pick a path on the right and watch the answer on the left update.",
                     "كوجنيفاي لا يغير نبرته فقط — بل يغير محتوى ما يقوله تماماً. اختر مساراً على اليمين وشاهد الإجابة تتحدث فوراً على اليسار."
@@ -226,7 +226,7 @@ export default function Login() {
               </div>
 
               {/* Main Interactive Comparison Card */}
-              <div className="bg-[#121524]/95 border border-slate-800/80 rounded-[32px] overflow-hidden shadow-2xl backdrop-blur-2xl">
+              <div className="bg-[#121524]/95 border border-slate-800/80 rounded-[28px] overflow-hidden shadow-2xl backdrop-blur-2xl">
                 {/* Top Tri-Color Strip */}
                 <div className="grid grid-cols-3 h-1 w-full">
                   <div className="bg-amber-400" />
@@ -234,22 +234,22 @@ export default function Login() {
                   <div className="bg-rose-500" />
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 p-6 sm:p-8 md:p-10">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 p-5 sm:p-7 md:p-8">
                   {/* Left Column: LIVE PREVIEW */}
-                  <div className="lg:col-span-7 flex flex-col justify-between space-y-6">
-                    <div className="space-y-4">
-                      <div className="text-[11px] font-black uppercase tracking-widest text-slate-400">
+                  <div className="lg:col-span-7 flex flex-col justify-between space-y-5">
+                    <div className="space-y-3">
+                      <div className="text-[10px] font-black uppercase tracking-widest text-slate-400">
                         {t("LIVE PREVIEW", "معاينة حية")}
                       </div>
 
                       {/* Preview Chat Box */}
-                      <div className="bg-[#181C2E]/90 border border-slate-700/40 rounded-2xl p-5 sm:p-6 space-y-5 shadow-inner">
+                      <div className="bg-[#181C2E]/90 border border-slate-700/40 rounded-2xl p-5 space-y-4 shadow-inner">
                         {/* User Question */}
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-indigo-600/30 border border-indigo-500/40 flex items-center justify-center shrink-0">
-                            <div className="w-3 h-3 rounded-full bg-indigo-400" />
+                          <div className="w-7 h-7 rounded-full bg-indigo-600/30 border border-indigo-500/40 flex items-center justify-center shrink-0">
+                            <div className="w-2.5 h-2.5 rounded-full bg-indigo-400" />
                           </div>
-                          <span className="text-sm sm:text-base font-semibold text-slate-200">
+                          <span className="text-sm font-semibold text-slate-200">
                             {t('"What is recursion?"', '"يعني إيه Recursion؟"')}
                           </span>
                         </div>
@@ -258,19 +258,19 @@ export default function Login() {
 
                         {/* AI Adaptive Answer */}
                         <div className="flex items-start gap-3">
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-0.5 transition-colors ${
+                          <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 mt-0.5 transition-colors ${
                             accountPath === 'Normal'
                               ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40'
                               : accountPath === 'Graduation Project'
                               ? 'bg-teal-500/20 text-teal-400 border border-teal-500/40'
                               : 'bg-rose-500/20 text-rose-400 border border-rose-500/40'
                           }`}>
-                            {accountPath === 'Normal' && <Brain className="w-4 h-4" />}
-                            {accountPath === 'Graduation Project' && <GraduationCap className="w-4 h-4" />}
-                            {accountPath === 'Special Needs' && <Heart className="w-4 h-4" />}
+                            {accountPath === 'Normal' && <Brain className="w-3.5 h-3.5" />}
+                            {accountPath === 'Graduation Project' && <GraduationCap className="w-3.5 h-3.5" />}
+                            {accountPath === 'Special Needs' && <Heart className="w-3.5 h-3.5" />}
                           </div>
 
-                          <div className="space-y-3 flex-1">
+                          <div className="space-y-2.5 flex-1">
                             <AnimatePresence mode="wait">
                               <motion.p
                                 key={accountPath}
@@ -278,7 +278,7 @@ export default function Login() {
                                 animate={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0, y: -4 }}
                                 transition={{ duration: 0.18 }}
-                                className="text-sm sm:text-base text-slate-200 font-normal leading-relaxed"
+                                className="text-xs sm:text-sm text-slate-200 font-normal leading-relaxed"
                               >
                                 {accountPath === 'Normal' && t(
                                   "Recursion is when a function calls itself to solve a smaller piece of the same problem, stopping once it hits a simple base case.",
@@ -300,38 +300,33 @@ export default function Login() {
                     </div>
 
                     {/* Bottom Calibration Indicator */}
-                    <div className="space-y-3">
+                    <div className="space-y-2.5">
                       <div className="flex items-center gap-2 text-xs font-bold">
                         <span className={`inline-flex items-center gap-1 ${
                           accountPath === 'Normal' ? 'text-amber-400' : accountPath === 'Graduation Project' ? 'text-teal-400' : 'text-rose-400'
                         }`}>
                           <Check className="w-3.5 h-3.5" /> {t("Adapts:", "يتكيف:")}
                         </span>
-                        <span className="text-slate-400 font-medium">
+                        <span className="text-slate-400 font-medium text-xs">
                           {accountPath === 'Normal' && t("tone & depth only", "النبرة والعمق المعرفي فقط")}
                           {accountPath === 'Graduation Project' && t("anchored to your faculty context", "مرتبط بمقررات وسياق كليتك")}
                           {accountPath === 'Special Needs' && t("short sentences, one idea at a time", "جمل قصيرة ومباشرة، فكرة واحدة في كل مرة")}
                         </span>
                       </div>
 
-                      {/* Accessibility Focus Chips for Special Needs */}
+                      {/* Accessibility Preview Chips */}
                       {accountPath === 'Special Needs' && (
-                        <div className="flex flex-wrap gap-2 pt-1">
+                        <div className="flex flex-wrap gap-1.5 pt-0.5">
                           {(['Visual', 'Hearing', 'Motor', 'Speech'] as DisabilityOption[]).map((mode) => (
-                            <button
+                            <span
                               key={mode}
-                              onClick={() => setSelectedDisability(mode)}
-                              className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${
-                                selectedDisability === mode
-                                  ? 'bg-rose-500/25 border border-rose-500/50 text-rose-300 shadow-sm'
-                                  : 'bg-slate-800/80 border border-slate-700/60 text-slate-400 hover:text-white'
-                              }`}
+                              className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-800/80 border border-slate-700/60 text-slate-300"
                             >
                               {mode === 'Visual' && t('Visual', 'بصري')}
                               {mode === 'Hearing' && t('Hearing', 'سمعي')}
                               {mode === 'Motor' && t('Motor', 'حركي')}
                               {mode === 'Speech' && t('Speech', 'نطق')}
-                            </button>
+                            </span>
                           ))}
                         </div>
                       )}
@@ -339,13 +334,13 @@ export default function Login() {
                   </div>
 
                   {/* Right Column: CHOOSE YOUR PATH */}
-                  <div className="lg:col-span-5 flex flex-col justify-between space-y-6 lg:border-s lg:border-slate-800/80 lg:ps-8">
-                    <div className="space-y-4">
+                  <div className="lg:col-span-5 flex flex-col justify-between space-y-5 lg:border-s lg:border-slate-800/80 lg:ps-7">
+                    <div className="space-y-3.5">
                       <div>
-                        <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+                        <h2 className="text-lg sm:text-xl font-black text-white tracking-tight">
                           {t("Choose your path", "اختر مسارك")}
                         </h2>
-                        <p className="text-xs text-slate-400 font-medium mt-1">
+                        <p className="text-[11px] text-slate-400 font-medium mt-0.5">
                           {t("You can change this later in settings.", "يمكنك تغيير هذا المسار لاحقاً من الإعدادات.")}
                         </p>
                       </div>
