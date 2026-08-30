@@ -1174,8 +1174,11 @@ export class FacialHeadTracker {
       const deltaX = rawNormX - baseX;
       const deltaY = rawNormY - baseY;
       const gain = 1.05 * this.config.sensitivity;
+      // Natural human eye elevation upward is mechanically ~30% smaller than downward depression.
+      // Boost upward gaze (deltaY < 0) to effortlessly reach top navbar and upper keyboard rows without neck strain.
+      const vGain = deltaY < 0 ? 1.55 : 1.35;
       mappedX = Math.max(0.01, Math.min(0.99, 0.5 + deltaX * gain));
-      mappedY = Math.max(0.01, Math.min(0.99, 0.5 + deltaY * gain * 1.35));
+      mappedY = Math.max(0.01, Math.min(0.99, 0.5 + deltaY * gain * vGain));
     }
 
     const smoothed = this.gazeSmoother.filter(

@@ -279,6 +279,7 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
 
   // Flexible UI Layout Mode: 'docked' (Sidebar on Left) | 'floating' (Full Width Keyboard with Floating Mini PIP) | 'hidden' (100% Full Width Focused)
   const [sidebarMode, setSidebarMode] = useState<'docked' | 'floating' | 'hidden'>('floating');
+  const [cameraCorner, setCameraCorner] = useState<'top-right' | 'top-left' | 'bottom-right' | 'bottom-left' | 'minimized'>('top-right');
   const [showQuickNeedsRow, setShowQuickNeedsRow] = useState(true);
 
   // Theme state
@@ -2697,15 +2698,70 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
           sidebarMode === 'docked'
             ? 'lg:col-span-3 flex flex-col gap-3'
             : sidebarMode === 'floating'
-            ? 'fixed bottom-5 left-5 z-[9990] w-80 max-w-[92vw] flex flex-col gap-2 bg-slate-950/95 backdrop-blur-xl border-2 border-amber-400 p-3 rounded-3xl shadow-2xl transition-all max-h-[80vh] overflow-y-auto'
+            ? `${
+                cameraCorner === 'top-right'
+                  ? 'fixed top-5 right-5'
+                  : cameraCorner === 'top-left'
+                  ? 'fixed top-5 left-5'
+                  : cameraCorner === 'bottom-right'
+                  ? 'fixed bottom-5 right-5'
+                  : cameraCorner === 'bottom-left'
+                  ? 'fixed bottom-5 left-5'
+                  : 'fixed bottom-5 right-5'
+              } z-[9990] ${cameraCorner === 'minimized' ? 'w-auto' : 'w-80 max-w-[92vw]'} flex flex-col gap-2 bg-slate-950/95 backdrop-blur-xl border-2 border-amber-400 p-3 rounded-3xl shadow-2xl transition-all max-h-[80vh] overflow-y-auto`
             : 'fixed -left-[9999px] w-0 h-0 overflow-hidden opacity-0 pointer-events-none'
         }>
           {sidebarMode === 'floating' && (
-            <div className="flex items-center justify-between pb-1.5 border-b border-slate-800">
+            <div className="flex items-center justify-between pb-1.5 border-b border-slate-800 gap-1 flex-wrap">
               <span className="text-[11px] font-black text-amber-400 flex items-center gap-1.5">
                 <Eye className="w-3.5 h-3.5" />
-                {isArabic ? 'كاميرا التتبع (نافذة عائمة PIP)' : 'Eye-Tracker PIP'}
+                {isArabic ? 'الكاميرا' : 'Camera'}
               </span>
+
+              {/* Corner Placement Controls */}
+              <div className="flex items-center gap-0.5 bg-slate-900 rounded-lg p-0.5 border border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setCameraCorner('top-left')}
+                  className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${cameraCorner === 'top-left' ? 'bg-amber-400 text-slate-950' : 'text-slate-400 hover:text-white'}`}
+                  title={isArabic ? 'أعلى اليسار' : 'Top Left'}
+                >
+                  ↖
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCameraCorner('top-right')}
+                  className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${cameraCorner === 'top-right' ? 'bg-amber-400 text-slate-950' : 'text-slate-400 hover:text-white'}`}
+                  title={isArabic ? 'أعلى اليمين' : 'Top Right'}
+                >
+                  ↗
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCameraCorner('bottom-left')}
+                  className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${cameraCorner === 'bottom-left' ? 'bg-amber-400 text-slate-950' : 'text-slate-400 hover:text-white'}`}
+                  title={isArabic ? 'أسفل اليسار' : 'Bottom Left'}
+                >
+                  ↙
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCameraCorner('bottom-right')}
+                  className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${cameraCorner === 'bottom-right' ? 'bg-amber-400 text-slate-950' : 'text-slate-400 hover:text-white'}`}
+                  title={isArabic ? 'أسفل اليمين' : 'Bottom Right'}
+                >
+                  ↘
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCameraCorner(cameraCorner === 'minimized' ? 'top-right' : 'minimized')}
+                  className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${cameraCorner === 'minimized' ? 'bg-amber-400 text-slate-950' : 'text-slate-400 hover:text-white'}`}
+                  title={isArabic ? 'تصغير' : 'Minimize'}
+                >
+                  {cameraCorner === 'minimized' ? '▣' : '—'}
+                </button>
+              </div>
+
               <button 
                 onClick={() => setSidebarMode('docked')} 
                 className="text-[10px] text-slate-300 hover:text-white px-2 py-0.5 rounded-lg bg-slate-800 font-bold border border-slate-700"
