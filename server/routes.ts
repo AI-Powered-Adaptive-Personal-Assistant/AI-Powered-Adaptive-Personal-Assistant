@@ -1,6 +1,16 @@
-import { evaluateQuizPOV, generateBenchmarkComparison, generateProactiveInsights, generateLogicResponse, generateAdaptiveResponseStream, generateAdaptiveResponse, translateQuiz, generateAssessment } from "./gemini";
+import { evaluateQuizPOV, generateBenchmarkComparison, generateProactiveInsights, generateLogicResponse, translateQuiz, generateAssessment } from "./gemini";
 import { geminiService } from "./geminiService";
 import express from "express";
+
+// Chat (adaptive response) goes through the SAME handlers used on Vercel in
+// production — this is the Phase 1 Router + Telemetry + multi-provider
+// fallback chain (api/_lib/ai.ts + router.ts + telemetry.ts). There used to
+// be a second, Gemini-only implementation living in ./gemini for local dev;
+// that meant `npm run dev` behaved differently from the deployed app (no
+// NVIDIA/Groq/xAI fallback, no router, no telemetry). Importing the actual
+// Vercel handlers removes that duplication — one implementation, everywhere.
+import generateAdaptiveResponseHandler from "../api/gemini/generateAdaptiveResponse";
+import generateAdaptiveResponseStreamHandler from "../api/gemini/generateAdaptiveResponseStream";
 
 export const geminiRouter = express.Router();
 
@@ -34,27 +44,16 @@ geminiRouter.post('/generateLogicResponse', async (req, res) => {
   res.json({ result });
 });
 
+// Both routes below delegate straight to the Vercel serverless handlers —
+// req.body is already parsed by express.json() upstream, and guard()/
+// readBody() in api/_lib/ai.ts both handle an Express (req, res) pair fine.
 geminiRouter.post('/generateAdaptiveResponse', async (req, res) => {
-  const result = await generateAdaptiveResponse(req.body.message, req.body.profile, req.body.history, req.body.attachments);
-  res.json({ result });
+  await generateAdaptiveResponseHandler(req, res);
 });
 
 // SSE Stream for Adaptive Response
 geminiRouter.post('/generateAdaptiveResponseStream', async (req, res) => {
-  res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
-  res.setHeader('Connection', 'keep-alive');
-
-  try {
-    const stream = generateAdaptiveResponseStream(req.body.message, req.body.profile, req.body.history, req.body.attachments);
-    for await (const chunk of stream) {
-       res.write(`data: ${JSON.stringify(chunk)}\n\n`);
-    }
-    res.end();
-  } catch (error: any) {
-    res.write(`data: ${JSON.stringify({ text: "Error communicating with intelligence core.", done: true, error: true })}\n\n`);
-    res.end();
-  }
+  await generateAdaptiveResponseStreamHandler(req, res);
 });
 
 // geminiService endpoints

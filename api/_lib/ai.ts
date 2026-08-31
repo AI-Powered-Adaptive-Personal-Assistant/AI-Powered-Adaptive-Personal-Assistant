@@ -15,6 +15,9 @@
  *   XAI_API_KEY      (xAI / Grok, keys start with "xai-")
  */
 
+import { PROVIDER_ORDER, type TaskCategory } from './router.js';
+import { logTelemetry } from './telemetry.js';
+
 const splitKeys = (raw?: string): string[] =>
   (raw || '').split(/[,\s]+/).map((k) => k.trim()).filter(Boolean);
 
@@ -25,6 +28,23 @@ export const XAI_KEYS = () => splitKeys(process.env.XAI_API_KEY || process.env.V
 
 /** All OpenAI-compatible fallback / alternate keys (NVIDIA first, then Groq, then xAI). */
 export const FALLBACK_KEYS = () => [...NVIDIA_KEYS(), ...GROQ_KEYS(), ...XAI_KEYS()];
+
+const KEY_GETTERS_BY_PROVIDER: Record<'nvidia' | 'groq' | 'xai', () => string[]> = {
+  nvidia: NVIDIA_KEYS,
+  groq: GROQ_KEYS,
+  xai: XAI_KEYS,
+};
+
+/**
+ * Phase 1.1 — same key pool as FALLBACK_KEYS, but reordered by the
+ * deterministic router's PROVIDER_ORDER for the given task category.
+ * A "reasoning" request tries NVIDIA (GLM-5.2 / DeepSeek-R1) keys before
+ * Groq/xAI; a "fast" request keeps the original Groq-before-NVIDIA order.
+ */
+export const orderedFallbackKeys = (category: TaskCategory = 'fast'): string[] =>
+  PROVIDER_ORDER[category]
+    .filter((p): p is 'nvidia' | 'groq' | 'xai' => p !== 'gemini')
+    .flatMap((p) => KEY_GETTERS_BY_PROVIDER[p]());
 
 export const GEMINI_MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-flash-latest'];
 export const GEMINI_MODEL = GEMINI_MODELS[0];
@@ -157,7 +177,7 @@ export function buildOpenAIMessages(message: string, system: string, history: Ms
 export async function geminiFetch(
   path: string,
   body: string,
-  opts: { stream?: boolean } = {},
+  opts: { stream?: boolean; category?: TaskCategory } = {},
 ): Promise<{ res: Response | null; status: number }> {
   const keys = GEMINI_KEYS();
   let lastStatus = 0;
@@ -167,10 +187,16 @@ export async function geminiFetch(
       const url =
         `https://generativelanguage.googleapis.com/v1beta/models/${model}:${path}` +
         (opts.stream ? '?alt=sse&key=' : '?key=') + key;
+      const t0 = Date.now();
       let r: Response;
       try {
         r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
-      } catch { lastStatus = 0; continue; }
+      } catch (err) {
+        lastStatus = 0;
+        logTelemetry({ provider: 'gemini', model, category: opts.category, latencyMs: Date.now() - t0, success: false, error: String(err) });
+        continue;
+      }
+      logTelemetry({ provider: 'gemini', model, category: opts.category, latencyMs: Date.now() - t0, success: r.ok, status: r.status });
       if (r.ok && (!opts.stream || r.body)) return { res: r, status: r.status };
       lastStatus = r.status;
       // 400/401/403 = bad request or bad key — another model won't help.
@@ -180,11 +206,19 @@ export async function geminiFetch(
   return { res: null, status: lastStatus };
 }
 
-/** Non-streaming chat via the OpenAI-compatible fallbacks. "" when all fail. */
-export async function fallbackChat(messages: any[]): Promise<string> {
-  for (const key of FALLBACK_KEYS()) {
+/**
+ * Non-streaming chat via the OpenAI-compatible fallbacks. "" when all fail.
+ * `category` (from the Phase 1.1 router) decides which provider's keys are
+ * tried first — see orderedFallbackKeys. Every attempt is logged via
+ * telemetry.ts regardless of outcome.
+ */
+export async function fallbackChat(messages: any[], category: TaskCategory = 'fast'): Promise<string> {
+  const inputChars = messages.reduce((sum, m) => sum + (m?.content?.length || 0), 0);
+
+  for (const key of orderedFallbackKeys(category)) {
     const { url, models, params } = providerFor(key);
     for (const model of models) {
+      const t0 = Date.now();
       try {
         const r = await fetch(url, {
           method: 'POST',
@@ -198,11 +232,29 @@ export async function fallbackChat(messages: any[]): Promise<string> {
             ...(params?.seed ? { seed: params.seed } : {}),
           }),
         });
-        if (!r.ok) continue;
+        if (!r.ok) {
+          logTelemetry({
+            provider: url.includes('nvidia') ? 'nvidia' : url.includes('groq') ? 'groq' : 'xai',
+            model, category, latencyMs: Date.now() - t0, inputChars,
+            success: false, status: r.status,
+          });
+          continue;
+        }
         const j: any = await r.json();
         const txt = stripReasoning(j?.choices?.[0]?.message?.content || '');
+        logTelemetry({
+          provider: url.includes('nvidia') ? 'nvidia' : url.includes('groq') ? 'groq' : 'xai',
+          model, category, latencyMs: Date.now() - t0, inputChars, outputChars: txt.length,
+          success: !!txt, status: r.status,
+        });
         if (txt) return txt;
-      } catch { /* try the next model/key */ }
+      } catch (err) {
+        logTelemetry({
+          provider: url.includes('nvidia') ? 'nvidia' : url.includes('groq') ? 'groq' : 'xai',
+          model, category, latencyMs: Date.now() - t0, inputChars,
+          success: false, error: String(err),
+        });
+      }
     }
   }
   return '';
