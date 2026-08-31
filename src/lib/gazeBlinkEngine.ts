@@ -64,7 +64,7 @@ export class GazeBlinkEngine {
   }
 
   private initAudio() {
-    if (typeof window !== 'undefined' && window.AudioContext) {
+    if (typeof window !== 'undefined' && (window.AudioContext || (window as any).webkitAudioContext)) {
       this.audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
     }
   }
@@ -73,7 +73,7 @@ export class GazeBlinkEngine {
     if (!this.config.audioEnabled || !this.audioCtx) return;
     
     if (this.audioCtx.state === 'suspended') {
-      this.audioCtx.resume();
+      this.audioCtx.resume().catch(() => {});
     }
 
     const osc = this.audioCtx.createOscillator();
@@ -97,7 +97,7 @@ export class GazeBlinkEngine {
     if (!this.config.audioEnabled || !this.audioCtx) return;
 
     if (this.audioCtx.state === 'suspended') {
-      this.audioCtx.resume();
+      this.audioCtx.resume().catch(() => {});
     }
 
     const osc = this.audioCtx.createOscillator();
@@ -161,7 +161,8 @@ export class GazeBlinkEngine {
     // --- Gaze Direction (PySource Part 3 & 4 Gaze Ratio) ---
     let newTargetDirection: GazeDirection = 'center';
     const gazeRatio = gestureState.metrics?.gazeRatio ?? 1.0;
-    const gazeX = gestureState.metrics?.gazeVector?.x || 0;
+    // Gaze vector x is normalized with center at 0.5; subtract 0.5 for relative left/right offset
+    const gazeX = (gestureState.metrics?.gazeVector?.x ?? 0.5) - 0.5;
 
     if (gestureState.metrics?.gazeRatio !== undefined) {
       if (gazeRatio < this.config.gazeLeftRatioThreshold) {

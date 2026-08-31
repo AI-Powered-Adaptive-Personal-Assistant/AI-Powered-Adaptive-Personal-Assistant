@@ -470,11 +470,16 @@ export default function AccessibilityOverlay({
     const stream = streamRef.current;
     if (!video || !stream) return;
     video.srcObject = stream;
+    video.play().catch((err) => console.warn('Camera video play error on portal toggle:', err));
     try { cameraRef.current?.stop(); } catch { /* ignore */ }
     const camera = new MediaPipeCamera(video, {
       onFrame: async () => {
-        if (handsRef.current && videoRef.current) {
-          await handsRef.current.send({ image: videoRef.current });
+        try {
+          if (handsRef.current && videoRef.current) {
+            await handsRef.current.send({ image: videoRef.current });
+          }
+        } catch (err) {
+          console.warn('MediaPipe frame send error:', err);
         }
       },
       width: 640,

@@ -590,6 +590,7 @@ export class FacialHeadTracker {
     } catch (err) {
       console.error('Failed to start camera:', err);
       this.stop();
+      this.onErrorCb?.('camera-start-failed');
       return false;
     }
   }
@@ -811,6 +812,7 @@ export class FacialHeadTracker {
    * MediaPipe 478-Landmark Results Processor
    */
   private handleFaceMeshResults(results: any) {
+    if (!this.isRunning) return;
     if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) return;
 
     const lm = results.multiFaceLandmarks[0];

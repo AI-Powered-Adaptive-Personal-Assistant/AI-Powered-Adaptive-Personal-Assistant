@@ -33,6 +33,7 @@ export default function GpaCalculator({ profile, onMenuClick }: GpaCalculatorPro
   // What-if
   const [whatIfCourse, setWhatIfCourse] = useState<string>('');
   const [whatIfGrade, setWhatIfGrade] = useState('A');
+  const [whatIfCredits, setWhatIfCredits] = useState('3');
 
   useEffect(() => {
     if (!profile.uid) return;
@@ -49,8 +50,9 @@ export default function GpaCalculator({ profile, onMenuClick }: GpaCalculatorPro
     if (whatIfCourse) {
       return projectCGPA(courses, { courseId: whatIfCourse, grade: whatIfGrade, credits: 0 });
     }
-    return projectCGPA(courses, { courseId: null, grade: whatIfGrade, credits: Number(credits) || 3 });
-  }, [courses, whatIfCourse, whatIfGrade, credits]);
+    const safeCredits = Math.max(0, Number(whatIfCredits) || 0) || 3;
+    return projectCGPA(courses, { courseId: null, grade: whatIfGrade, credits: safeCredits });
+  }, [courses, whatIfCourse, whatIfGrade, whatIfCredits]);
 
   const addCourse = async () => {
     if (!name.trim() || !profile.uid) return;

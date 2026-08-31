@@ -98,14 +98,27 @@ async function callGemini(parts: any[]): Promise<string> {
   return "";
 }
 
-/** Pull the first JSON object/array out of a model reply (handles ```json fences). */
+/** Pull the first JSON object/array out of a model reply (handles ```json fences and trailing prose). */
 function parseJson<T>(text: string, fallback: T): T {
   if (!text) return fallback;
   try {
-    const cleaned = text.replace(/```json|```/g, "").trim();
-    const start = cleaned.search(/[[{]/);
-    if (start < 0) return fallback;
-    return JSON.parse(cleaned.slice(start)) as T;
+    const codeBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+    const candidate = codeBlockMatch ? codeBlockMatch[1].trim() : text.trim();
+    
+    const startObj = candidate.indexOf('{');
+    const startArr = candidate.indexOf('[');
+    const start = (startObj !== -1 && startArr !== -1)
+      ? Math.min(startObj, startArr)
+      : (startObj !== -1 ? startObj : startArr);
+      
+    const endObj = candidate.lastIndexOf('}');
+    const endArr = candidate.lastIndexOf(']');
+    const end = Math.max(endObj, endArr);
+    
+    if (start >= 0 && end > start) {
+      return JSON.parse(candidate.slice(start, end + 1)) as T;
+    }
+    return JSON.parse(candidate) as T;
   } catch {
     return fallback;
   }

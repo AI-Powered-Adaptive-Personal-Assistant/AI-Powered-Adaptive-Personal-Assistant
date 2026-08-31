@@ -160,7 +160,7 @@ export default function GazeBlinkKeyboard({
   }, [themeAccent]);
 
   useEffect(() => {
-    engineRef.current = new GazeBlinkEngine({
+    const engine = new GazeBlinkEngine({
       blinkRatioThreshold: ratioThreshold,
       blinkMinDurationMs: blinkMinDuration,
       gazeLeftThreshold: -gazeThreshold,
@@ -169,6 +169,10 @@ export default function GazeBlinkKeyboard({
       gazeRightRatioThreshold,
       audioEnabled: audioFeedback,
     });
+    engineRef.current = engine;
+    return () => {
+      engine.destroy();
+    };
   }, [ratioThreshold, blinkMinDuration, gazeThreshold, gazeLeftRatioThreshold, gazeRightRatioThreshold, audioFeedback]);
 
   // OptiKey intelligent word predictions
@@ -191,7 +195,7 @@ export default function GazeBlinkKeyboard({
     setTimeout(() => setActiveKey(null), 200);
 
     // Audio click feedback
-    if (audioFeedback && typeof window !== 'undefined' && window.AudioContext) {
+    if (audioFeedback && typeof window !== 'undefined' && (window.AudioContext || (window as any).webkitAudioContext)) {
       try {
         const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
         const osc = ctx.createOscillator();
@@ -201,6 +205,7 @@ export default function GazeBlinkKeyboard({
         osc.frequency.setValueAtTime(key.startsWith('PRED_') ? 880 : 650, ctx.currentTime);
         gain.gain.setValueAtTime(0.18, ctx.currentTime);
         gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.08);
+        osc.onended = () => { ctx.close().catch(() => {}); };
         osc.start();
         osc.stop(ctx.currentTime + 0.08);
       } catch (e) {
@@ -293,7 +298,7 @@ export default function GazeBlinkKeyboard({
           setDwellProgress({ key: foundKey, percent: 0 });
         } else {
           const elapsed = now - dwellStartTimeRef.current;
-          const pct = Math.min(100, Math.round((elapsed / dwellTimeMs) * 100));
+          const pct = Math.max(0, Math.min(100, Math.round((elapsed / dwellTimeMs) * 100)));
           setDwellProgress({ key: foundKey, percent: pct });
 
           if (elapsed >= dwellTimeMs && now - lastDwellTriggerTimeRef.current > dwellTimeMs + 200) {
@@ -342,7 +347,8 @@ export default function GazeBlinkKeyboard({
     let opacityClass = 'opacity-100';
 
     if (layoutMode === 'split') {
-      const isLeftHalf = colIndex < Math.ceil(totalCols / 2);
+      const isFirstHalf = colIndex < Math.ceil(totalCols / 2);
+      const isLeftHalf = isArabic ? !isFirstHalf : isFirstHalf;
       if (gazeDirection === 'left' && !isLeftHalf) opacityClass = 'opacity-35';
       if (gazeDirection === 'right' && isLeftHalf) opacityClass = 'opacity-35';
       if (gazeDirection === 'center') opacityClass = 'opacity-85';

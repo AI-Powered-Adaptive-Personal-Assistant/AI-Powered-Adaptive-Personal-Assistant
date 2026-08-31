@@ -252,13 +252,22 @@ export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardP
     return matchesSearch && matchesSection;
   });
 
+  const sanitizeCsvCell = (val: unknown): string => {
+    let str = val === null || val === undefined ? '' : String(val);
+    if (/^[=+\-@\t\r]/.test(str)) {
+      str = "'" + str;
+    }
+    return `"${str.replace(/"/g, '""')}"`;
+  };
+
   // Export ALL users to JSON file
   const exportAllJson = () => {
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(users, null, 2));
+    const blob = new Blob([JSON.stringify(users, null, 2)], { type: 'application/json;charset=utf-8' });
     const a = document.createElement('a');
-    a.href = dataStr;
+    a.href = URL.createObjectURL(blob);
     a.download = `cognify-all-users-backup-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
+    URL.revokeObjectURL(a.href);
     toast.success(`Exported ${users.length} full user records as JSON.`, 'Backup Downloaded');
   };
 
@@ -283,7 +292,7 @@ export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardP
         formatDate(newestActiveIso(u)),
       ]),
     ];
-    const csv = '\uFEFF' + rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const csv = '\uFEFF' + rows.map(r => r.map(c => sanitizeCsvCell(c)).join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -441,7 +450,7 @@ export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardP
         ];
       }),
     ];
-    const csv = '﻿' + rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const csv = '\uFEFF' + rows.map(r => r.map(c => sanitizeCsvCell(c)).join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -455,7 +464,7 @@ export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardP
   const openMonthlyReport = () => {
     const win = window.open('', '_blank');
     if (!win) { toast.error('Popup blocked — allow popups to print the report.', 'Report'); return; }
-    const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+    const esc = (s: string) => String(s || '').replace(/[&<>"']/g, (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]!));
     const monthName = new Date().toLocaleDateString('ar-EG', { month: 'long', year: 'numeric' });
     const kpi = (label: string, value: number | string) =>
       `<div class="kpi"><div class="v">${value}</div><div class="l">${label}</div></div>`;

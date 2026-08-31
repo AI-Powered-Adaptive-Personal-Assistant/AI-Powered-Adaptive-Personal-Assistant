@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Goal } from '../../types';
 import { isGoalOverdue, deriveGoalMeta, updateGoal } from '../../lib/goals';
@@ -38,17 +38,13 @@ const STATUS_ICON = {
 export default function GoalCard({ goal, uid, onEdit, onDelete, language }: GoalCardProps) {
   const [expanded, setExpanded] = useState(false);
   const [localGoal, setLocalGoal] = useState<Goal>(goal);
-  const [prevGoal, setPrevGoal] = useState<Goal>(goal);
   const overdue = isGoalOverdue(localGoal);
   const isArabic = language === 'Arabic' || language === 'Egyptian Ammiya';
 
-  // Sync local state only when the PARENT actually passes a changed goal — compare
-  // prop-to-prev-prop, not prop-to-local. Comparing against localGoal would revert
-  // the component's own optimistic milestone edit before it commits.
-  if (JSON.stringify(goal) !== JSON.stringify(prevGoal)) {
-    setPrevGoal(goal);
+  // Sync local state when the PARENT passes a changed goal
+  useEffect(() => {
     setLocalGoal(goal);
-  }
+  }, [goal.id, goal.progress, goal.status, goal.deadline, goal.milestones, goal.title]);
 
   const handleMilestoneChange = async (milestones: typeof goal.milestones) => {
     const { progress, status } = deriveGoalMeta(milestones, localGoal.deadline);

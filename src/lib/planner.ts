@@ -17,15 +17,18 @@ import {
 import { db, handleFirestoreError, OperationType, cleanDataForFirestore } from './firebase';
 import { PlannerTask } from '../types';
 
+export function parseLocalDate(isoDate: string): Date {
+  if (!isoDate) return new Date();
+  const [y, m, d] = isoDate.split(/[-/T]/).map(Number);
+  if (!y || !m || !d) return new Date(isoDate);
+  return new Date(y, m - 1, d, 23, 59, 59, 999);
+}
+
 /** Whole days until the due date (negative = overdue, 0 = today). */
 export function daysUntilDue(task: PlannerTask): number {
-  const due = new Date(task.dueDate);
-  due.setHours(23, 59, 59, 999);
+  const due = parseLocalDate(task.dueDate);
   const start = new Date();
   start.setHours(0, 0, 0, 0);
-  // floor, not round: the span ends at 23:59:59.999, so a task due today is
-  // ~0.9999 days — round() would report 1 ("tomorrow") and a task due yesterday
-  // would round to 0 ("today") instead of overdue. floor gives 0 / -1 correctly.
   return Math.floor((due.getTime() - start.getTime()) / 86400000);
 }
 

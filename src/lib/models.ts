@@ -258,6 +258,24 @@ export function resolveProviderForKey(key: string): {
     };
   }
 
+  if (cleanKey.startsWith('AIza')) {
+    return {
+      url: PROVIDERS.gemini.chatEndpoint,
+      model: PROVIDERS.gemini.defaultModel,
+      models: PROVIDERS.gemini.models,
+      params: { temperature: 0.7, top_p: 0.95 },
+    };
+  }
+
+  if (cleanKey.startsWith('sk-') && !cleanKey.startsWith('sk-or-')) {
+    return {
+      url: PROVIDERS.openai.chatEndpoint,
+      model: PROVIDERS.openai.defaultModel,
+      models: PROVIDERS.openai.models,
+      params: { temperature: 0.7, top_p: 0.95 },
+    };
+  }
+
   // Default fallback: Groq
   return {
     url: PROVIDERS.groq.chatEndpoint,

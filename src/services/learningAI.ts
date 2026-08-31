@@ -17,14 +17,15 @@ async function callAI(prompt: string): Promise<string> {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'gemini-2.5-flash',
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.7, maxOutputTokens: 2048 },
+        parts: [{ text: prompt }],
       }),
     });
     if (res.ok) {
       const data = await res.json();
-      return data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      if (data?.result) return data.result;
+      if (data?.candidates?.[0]?.content?.parts?.[0]?.text) {
+        return data.candidates[0].content.parts[0].text;
+      }
     }
   } catch { /* fall through */ }
 
@@ -254,26 +255,40 @@ export function adaptDifficulty(profile: SubjectProfile, lastResult: ExerciseRes
 export function detectLearningStyle(results: ExerciseResult[]): 'visual' | 'auditory' | 'kinesthetic' | 'repetition' {
   if (results.length < 5) return 'visual'; // Default for new learners
 
-  const methodAccuracy: Record<string, { correct: number; total: number }> = {};
+  const methodToStyleMap: Record<TeachingMethod, 'visual' | 'auditory' | 'kinesthetic' | 'repetition'> = {
+    visual: 'visual',
+    audio: 'auditory',
+    interactive: 'kinesthetic',
+    repetition: 'repetition',
+    text: 'visual',
+  };
+
+  const styleAccuracy: Record<'visual' | 'auditory' | 'kinesthetic' | 'repetition', { correct: number; total: number }> = {
+    visual: { correct: 0, total: 0 },
+    auditory: { correct: 0, total: 0 },
+    kinesthetic: { correct: 0, total: 0 },
+    repetition: { correct: 0, total: 0 },
+  };
+
   for (const r of results.slice(-20)) {
-    if (!methodAccuracy[r.teachingMethodUsed]) {
-      methodAccuracy[r.teachingMethodUsed] = { correct: 0, total: 0 };
-    }
-    methodAccuracy[r.teachingMethodUsed].total++;
-    if (r.isCorrect) methodAccuracy[r.teachingMethodUsed].correct++;
+    const style = methodToStyleMap[r.teachingMethodUsed] || 'visual';
+    styleAccuracy[style].total++;
+    if (r.isCorrect) styleAccuracy[style].correct++;
   }
 
-  let bestMethod = 'visual';
-  let bestRate = 0;
-  for (const [method, stats] of Object.entries(methodAccuracy)) {
-    const rate = stats.total > 0 ? stats.correct / stats.total : 0;
-    if (rate > bestRate) {
-      bestRate = rate;
-      bestMethod = method;
+  let bestStyle: 'visual' | 'auditory' | 'kinesthetic' | 'repetition' = 'visual';
+  let bestRate = -1;
+  for (const [style, stats] of Object.entries(styleAccuracy) as ['visual' | 'auditory' | 'kinesthetic' | 'repetition', { correct: number; total: number }][]) {
+    if (stats.total > 0) {
+      const rate = stats.correct / stats.total;
+      if (rate > bestRate) {
+        bestRate = rate;
+        bestStyle = style;
+      }
     }
   }
 
-  return bestMethod as any;
+  return bestStyle;
 }
 
 // ── Generate Fallback Exercise (No AI needed) ──

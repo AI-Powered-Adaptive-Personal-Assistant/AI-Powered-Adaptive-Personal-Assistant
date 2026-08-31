@@ -41,11 +41,17 @@ export function deriveGoalMeta(
   return { progress, status };
 }
 
+export function parseGoalLocalDate(isoDate: string): Date {
+  if (!isoDate) return new Date();
+  const [y, m, d] = isoDate.split(/[-/T]/).map(Number);
+  if (!y || !m || !d) return new Date(isoDate);
+  return new Date(y, m - 1, d, 23, 59, 59, 999);
+}
+
 /** Returns true if a goal is overdue (deadline passed and not completed). */
 export function isGoalOverdue(goal: Goal): boolean {
   if (goal.status === 'completed') return false;
-  const deadlineDate = new Date(goal.deadline);
-  deadlineDate.setHours(23, 59, 59, 999); // end of deadline day
+  const deadlineDate = parseGoalLocalDate(goal.deadline);
   return deadlineDate < new Date();
 }
 
