@@ -1002,7 +1002,11 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
       // is left behind holding a camera.
       try { trackerRef.current?.stop(); } catch { /* ignore */ }
       trackerRef.current = null;
-      toast.error(isArabic ? 'تعذر الوصول إلى الكاميرا' : 'Could not access webcam');
+      toast.error(
+        isArabic
+          ? 'تعذر تشغيل تتبع العين. يمكنك المتابعة باستخدام الصوت أو لوحة المفاتيح.'
+          : "Eye tracking isn't available. You can continue using voice or keyboard."
+      );
     }
   };
 
