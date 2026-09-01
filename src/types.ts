@@ -103,6 +103,19 @@ export interface UserProfile {
   // that's the lockout protection. Only a super admin may write this field
   // (enforced in firestore.rules, not just the UI).
   isSuperAdmin?: boolean;
+  /**
+   * Labeled snapshot descriptions saved from the Visual Companion (blind
+   * users: "remember this as..."). Kept short and text-only — no images are
+   * stored, just what the person asked us to remember about it.
+   */
+  visionMemories?: VisionMemory[];
+}
+
+export interface VisionMemory {
+  id: string;
+  label: string;        // what the user called it, e.g. "أحمد" or "دوا الضغط"
+  description: string;  // the AI's description at the moment it was saved
+  createdAt: string;    // ISO date string
 }
 
 // ─── PATCH: Add these types to src/types.ts ───────────────────────────────────

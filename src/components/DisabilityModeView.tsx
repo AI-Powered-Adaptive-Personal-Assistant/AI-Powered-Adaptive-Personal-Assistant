@@ -8,6 +8,7 @@ import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import SignVideoStudio from './SignVideoStudio';
 import HumanCommunicationBridge from './HumanCommunicationBridge';
 import MotorEuphoniaView from './MotorEuphoniaView';
+import VisionCompanionView from './VisionCompanionView';
 import ChatInterface, { ChatInterfaceRef } from './ChatInterface';
 import OrgDashboard from './OrgDashboard';
 import { isAccessibilityUser } from '../lib/access';
@@ -22,7 +23,7 @@ interface DisabilityModeViewProps {
   externalMessage?: string;
   onStreamingUpdate?: (text: string) => void;
   onSTTStateChange?: (active: boolean) => void;
-  onTabChange?: (tab: 'chat' | 'settings' | 'video' | 'bridge' | 'org' | 'motor') => void;
+  onTabChange?: (tab: 'chat' | 'settings' | 'video' | 'bridge' | 'org' | 'motor' | 'vision') => void;
   setProfile?: (profile: UserProfile) => void;
 }
 
@@ -38,8 +39,10 @@ const DisabilityModeView = React.forwardRef<ChatInterfaceRef, DisabilityModeView
   onTabChange,
   setProfile
 }, ref) {
-  const [activeTab, setActiveTab] = React.useState<'chat' | 'settings' | 'video' | 'bridge' | 'org' | 'motor'>(() => {
-    return profile.accessibilityMode === 'Motor-Euphonia' ? 'motor' : 'video';
+  const [activeTab, setActiveTab] = React.useState<'chat' | 'settings' | 'video' | 'bridge' | 'org' | 'motor' | 'vision'>(() => {
+    if (profile.accessibilityMode === 'Motor-Euphonia') return 'motor';
+    if (profile.accessibilityMode === 'Visual') return 'vision';
+    return 'video';
   });
   // Organization staff (e.g. Care Center / NGO) get an extra tab scoped to THEIR users.
   const isOrgStaff = !!profile.isOrgManager && !!(profile.organization || '').trim();
@@ -135,6 +138,7 @@ const DisabilityModeView = React.forwardRef<ChatInterfaceRef, DisabilityModeView
         <div role="tablist" className="flex items-center bg-surface-3 p-1 rounded-xl w-full md:w-auto overflow-x-auto shrink-0">
           {([
             { id: 'motor' as const, label: localize(profile.language, '⚡ Motor & Euphonia', '⚡ تحكم حركي وإيفونيا') },
+            { id: 'vision' as const, label: localize(profile.language, '👁️ Visual Companion', '👁️ الرفيق البصري') },
             { id: 'video' as const, label: localize(profile.language, '🤖 AI Sign Studio', '🤖 الذكاء الاصطناعي والإشارة') },
             { id: 'bridge' as const, label: localize(profile.language, '🤝 Two-Way Bridge', '🤝 تواصل بشري مباشر') },
             { id: 'chat' as const, label: localize(profile.language, '💬 Text Chat', '💬 محادثة نصية') },
@@ -169,6 +173,16 @@ const DisabilityModeView = React.forwardRef<ChatInterfaceRef, DisabilityModeView
               className="w-full h-full min-h-0"
             >
               <MotorEuphoniaView profile={profile} />
+            </motion.div>
+          ) : activeTab === 'vision' ? (
+            <motion.div
+              key="vision"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="w-full h-full min-h-0"
+            >
+              <VisionCompanionView profile={profile} setProfile={setProfile} />
             </motion.div>
           ) : activeTab === 'bridge' ? (
             <motion.div

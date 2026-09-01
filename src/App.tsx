@@ -79,7 +79,7 @@ export default function App() {
   const [externalMessage, setExternalMessage] = useState("");
   const [currentAIResponse, setCurrentAIResponse] = useState("");
   const [isSTTActive, setIsSTTActive] = useState(false);
-  const [disabilityTab, setDisabilityTab] = useState<'chat' | 'settings' | 'video' | 'bridge' | 'org' | 'motor'>('video');
+  const [disabilityTab, setDisabilityTab] = useState<'chat' | 'settings' | 'video' | 'bridge' | 'org' | 'motor' | 'vision'>('video');
   const [isLiveCaptionsOpen, setIsLiveCaptionsOpen] = useState(false);
 
   const direction = isRTL(profile?.language) ? 'rtl' : 'ltr';
@@ -786,11 +786,12 @@ export default function App() {
             managers viewing their OrgDashboard) must NOT get a camera/mic overlay, so we
             gate on isAccessibilityUser rather than on the current view. */}
         {profile && isAccessibilityUser(profile)
-          // Hide while the Sign Studio OR the Motor & Euphonia tab is open — both
-          // run their own camera pipeline (Sign Studio's gesture vision, and the
-          // Motor tab's eye-gaze FacialHeadTracker), and two camera pipelines on
-          // one device conflict (camera-in-use / light stuck on / silent failure).
-          && !(currentView === 'disability' && (disabilityTab === 'video' || disabilityTab === 'motor')) && (
+          // Hide while the Sign Studio, Motor & Euphonia, or Visual Companion tab
+          // is open — all three run their own camera pipeline (Sign Studio's
+          // gesture vision, the Motor tab's eye-gaze FacialHeadTracker, and the
+          // Companion's scene camera), and two camera pipelines on one device
+          // conflict (camera-in-use / light stuck on / silent failure).
+          && !(currentView === 'disability' && (disabilityTab === 'video' || disabilityTab === 'motor' || disabilityTab === 'vision')) && (
           <AccessibilityOverlay
             mode={!profile.accessibilityMode || profile.accessibilityMode === 'None' ? 'Vocal-Deaf' : profile.accessibilityMode}
             profile={profile}
