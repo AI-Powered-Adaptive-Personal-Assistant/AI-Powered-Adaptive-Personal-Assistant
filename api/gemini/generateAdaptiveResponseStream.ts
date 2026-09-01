@@ -85,6 +85,8 @@ async function streamFallback(
             } catch { /* partial frame */ }
           }
         }
+      } catch (streamErr) {
+        logTelemetry({ provider, model, category, latencyMs: Date.now() - t0, success: false, error: String(streamErr) });
       } finally {
         try { await reader.cancel(); } catch { /* already closed */ }
       }
@@ -129,15 +131,16 @@ async function streamGemini(
           try {
             const j = JSON.parse(line.slice(6));
             const t = j?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-            if (t) { full += t; send({ text: full, done: false }); }
+            if (t) { full += t; send({ text: stripReasoning(full), done: false }); }
           } catch { /* partial JSON frame */ }
         }
       }
+    } catch (streamErr) {
+      logTelemetry({ provider: 'gemini', category, latencyMs: Date.now() - t0, success: false, error: String(streamErr) });
     } finally {
       try { await reader.cancel(); } catch { /* already closed */ }
     }
   }
-  logTelemetry({ provider: 'gemini', category, latencyMs: Date.now() - t0, success: !!full, outputChars: full.length });
   return full;
 }
 

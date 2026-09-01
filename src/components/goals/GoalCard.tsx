@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Goal } from '../../types';
-import { isGoalOverdue, deriveGoalMeta, updateGoal } from '../../lib/goals';
+import { isGoalOverdue, deriveGoalMeta, updateGoal, parseGoalLocalDate } from '../../lib/goals';
 import MilestoneList from './MilestoneList';
 import {
   ChevronDown,
@@ -151,7 +151,7 @@ export default function GoalCard({ goal, uid, onEdit, onDelete, language }: Goal
 
           <span className="flex items-center gap-1 text-[10px] font-bold text-slate-400 ms-auto">
             <Calendar className="w-3 h-3" />
-            {new Date(localGoal.deadline).toLocaleDateString(
+            {parseGoalLocalDate(localGoal.deadline).toLocaleDateString(
               isArabic ? 'ar-EG' : 'en-GB',
               { day: 'numeric', month: 'short', year: 'numeric' }
             )}

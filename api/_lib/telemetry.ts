@@ -44,7 +44,7 @@ const COST_PER_1K_TOKENS: Record<string, number> = {
   'grok-2-latest': 0.002,
 };
 
-const approxTokens = (chars = 0) => Math.ceil(chars / 4);
+const approxTokens = (chars: any = 0) => Math.ceil((Number(chars) || 0) / 4);
 
 export function estimateCostUsd(model: string | undefined, inputChars = 0, outputChars = 0): number {
   const rate = (model && COST_PER_1K_TOKENS[model]) || 0.001; // conservative default

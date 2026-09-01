@@ -42,7 +42,7 @@ export function classifyRequest(
   // of what the accompanying text says.
   if (attachments?.some((a) => a?.type?.startsWith('image/'))) return 'vision';
 
-  const text = message || '';
+  const text = typeof message === 'string' ? message : '';
   if (REASONING_SIGNALS.some((rx) => rx.test(text))) return 'reasoning';
   if (text.length > LONG_MESSAGE_CHARS) return 'reasoning';
 

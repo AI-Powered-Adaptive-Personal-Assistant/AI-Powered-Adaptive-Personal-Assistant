@@ -621,7 +621,7 @@ export class FacialHeadTracker {
         }
       }
 
-      if ((window as any).FaceMesh) {
+      if ((window as any).FaceMesh && this.isRunning && this.wantsRunning) {
         const FaceMeshConstructor = (window as any).FaceMesh;
         this.faceMeshInstance = new FaceMeshConstructor({
           // Same origin as the script above — no CDN round-trip for the wasm.

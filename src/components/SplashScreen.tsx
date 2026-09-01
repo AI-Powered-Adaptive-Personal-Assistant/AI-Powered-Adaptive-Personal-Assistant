@@ -9,7 +9,7 @@ export default function SplashScreen() {
   const [phase, setPhase] = useState<'show' | 'fade' | 'gone'>('show');
 
   useEffect(() => {
-    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    const reduce = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches ? true : false;
     const hold = reduce ? 500 : 1600;
     const t1 = setTimeout(() => setPhase('fade'), hold);
     const t2 = setTimeout(() => setPhase('gone'), hold + 500);

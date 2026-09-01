@@ -663,10 +663,12 @@ export default function App() {
                 </div>
 
                 <button 
-                  onClick={() => navigateTo('chat')}
+                  onClick={() => navigateTo(homeViewFor(profile))}
                   className="w-full py-5 bg-slate-100 text-slate-900 rounded-3xl text-xs font-black uppercase tracking-widest hover:bg-slate-200 active:scale-95 transition-all flex items-center justify-center gap-2"
                 >
-                  {getTranslation(profile.language, 'returnToChat')}
+                  {isAccessibilityUser(profile)
+                    ? (isRTL(profile.language) ? 'العودة لمركز إمكانية الوصول' : 'Return to Accessibility Hub')
+                    : getTranslation(profile.language, 'returnToChat')}
                 </button>
               </div>
             </div>
@@ -682,6 +684,8 @@ export default function App() {
               syncMessages={syncActiveThread} 
               onMenuClick={() => setIsMobileMenuOpen(true)}
               onStreamingUpdate={setCurrentAIResponse}
+              externalMessage={externalMessage}
+              onSTTStateChange={setIsSTTActive}
               setProfile={setProfile}
             />
           </>

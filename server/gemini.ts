@@ -1,12 +1,16 @@
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenAI } from "@google/genai";
 import { UserProfile, Message } from "../src/types";
 
 let aiInstance: GoogleGenAI | null = null;
 
 function getAI() {
   if (!aiInstance) {
-    const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || "AIzaSy_placeholder_key_replace_in_env";
-    aiInstance = new GoogleGenAI({ apiKey });
+    const raw = (process.env.GEMINI_API_KEY || '').trim();
+    const primaryKey = raw.split(/[,\s]+/)[0]?.trim();
+    if (!primaryKey) {
+      throw new Error('GEMINI_API_KEY is not configured in server environment.');
+    }
+    aiInstance = new GoogleGenAI({ apiKey: primaryKey });
   }
   return aiInstance;
 }

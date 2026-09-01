@@ -52,27 +52,31 @@ export default function Login() {
 
   const handleContinuePath = () => {
     clearPreLoginState();
-    localStorage.setItem('preLoginAccountPath', accountPath);
-    if (accountPath === 'Graduation Project') {
-      localStorage.setItem('preLoginUniEmail', universityEmail);
-      localStorage.setItem('preLoginFaculty', faculty);
-      localStorage.setItem('preLoginDepartment', department || 'General');
-    }
-    if (accountPath === 'Special Needs') {
-      const fullMap: Record<DisabilityOption, string> = {
-        'Visual': 'Visual Impairment',
-        'Hearing': 'Hearing Impairment',
-        'Motor': 'Motor Impairment',
-        'Speech': 'Speech Impairment',
-        'Cognitive': 'Cognitive/Learning Disability',
-      };
-      localStorage.setItem('preLoginDisability', fullMap[selectedDisability] || 'Visual Impairment');
+    try {
+      localStorage.setItem('preLoginAccountPath', accountPath);
+      if (accountPath === 'Graduation Project') {
+        localStorage.setItem('preLoginUniEmail', universityEmail);
+        localStorage.setItem('preLoginFaculty', faculty);
+        localStorage.setItem('preLoginDepartment', department || 'General');
+      }
+      if (accountPath === 'Special Needs') {
+        const fullMap: Record<DisabilityOption, string> = {
+          'Visual': 'Visual Impairment',
+          'Hearing': 'Hearing Impairment',
+          'Motor': 'Motor Impairment',
+          'Speech': 'Speech Impairment',
+          'Cognitive': 'Cognitive/Learning Disability',
+        };
+        localStorage.setItem('preLoginDisability', fullMap[selectedDisability] || 'Visual Impairment');
+      }
+    } catch (err) {
+      console.warn("LocalStorage unavailable in current context:", err);
     }
     setMode('email-login');
   };
 
   const validateUniversityEmail = (e: string) => {
-    return e && /^[^\s@]+@[^\s@]+\.edu(\.[^\s@]+)?$/.test(e);
+    return !!e && /^[^\s@]+@[^\s@]+\.edu(\.[^\s@]+)?$/i.test(e.trim());
   };
 
   const handleGoogleAuth = async () => {
@@ -157,7 +161,7 @@ export default function Login() {
       await sendPasswordResetEmail(auth, email);
       setResetSuccess(true);
     } catch (err: any) {
-      setError(err.message.replace("Firebase: ", ""));
+      setError((err?.message || String(err) || '').replace("Firebase: ", ""));
     } finally {
       setLoading(false);
     }

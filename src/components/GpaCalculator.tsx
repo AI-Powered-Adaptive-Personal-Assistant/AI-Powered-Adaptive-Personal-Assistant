@@ -46,7 +46,7 @@ export default function GpaCalculator({ profile, onMenuClick }: GpaCalculatorPro
   const creditsTotal = useMemo(() => totalCredits(courses), [courses]);
 
   const projected = useMemo(() => {
-    if (!courses.length && !whatIfCourse) return null;
+    if (!courses.length && whatIfCourse) return null;
     if (whatIfCourse) {
       return projectCGPA(courses, { courseId: whatIfCourse, grade: whatIfGrade, credits: 0 });
     }

@@ -21,10 +21,10 @@ import { logTelemetry } from './telemetry.js';
 const splitKeys = (raw?: string): string[] =>
   (raw || '').split(/[,\s]+/).map((k) => k.trim()).filter(Boolean);
 
-export const GEMINI_KEYS = () => splitKeys(process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY);
-export const NVIDIA_KEYS = () => splitKeys(process.env.NVIDIA_API_KEY || process.env.VITE_NVIDIA_API_KEY);
-export const GROQ_KEYS = () => splitKeys(process.env.GROQ_API_KEY || process.env.VITE_GROQ_API_KEY);
-export const XAI_KEYS = () => splitKeys(process.env.XAI_API_KEY || process.env.VITE_XAI_API_KEY);
+export const GEMINI_KEYS = () => splitKeys(process.env.GEMINI_API_KEY);
+export const NVIDIA_KEYS = () => splitKeys(process.env.NVIDIA_API_KEY);
+export const GROQ_KEYS = () => splitKeys(process.env.GROQ_API_KEY);
+export const XAI_KEYS = () => splitKeys(process.env.XAI_API_KEY);
 
 /** All OpenAI-compatible fallback / alternate keys (NVIDIA first, then Groq, then xAI). */
 export const FALLBACK_KEYS = () => [...NVIDIA_KEYS(), ...GROQ_KEYS(), ...XAI_KEYS()];
@@ -158,7 +158,10 @@ export function buildContents(message: string, history: Msg[], attachments: any[
 
   const parts: any[] = [{ text: message }];
   for (const f of attachments || []) {
-    if (f?.data && f?.type) parts.push({ inlineData: { mimeType: f.type, data: f.data } });
+    if (f?.data && f?.type) {
+      const cleanData = typeof f.data === 'string' ? f.data.replace(/^data:[^;]+;base64,/, '') : f.data;
+      parts.push({ inlineData: { mimeType: f.type, data: cleanData } });
+    }
   }
   return [...deduped, { role: 'user', parts }];
 }
@@ -193,14 +196,16 @@ export async function geminiFetch(
         r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
       } catch (err) {
         lastStatus = 0;
-        logTelemetry({ provider: 'gemini', model, category: opts.category, latencyMs: Date.now() - t0, success: false, error: String(err) });
+        logTelemetry({ provider: 'gemini', model, category: opts.category, latencyMs: Date.now() - t0, inputChars: body.length, success: false, error: String(err) });
         continue;
       }
-      logTelemetry({ provider: 'gemini', model, category: opts.category, latencyMs: Date.now() - t0, success: r.ok, status: r.status });
+      logTelemetry({ provider: 'gemini', model, category: opts.category, latencyMs: Date.now() - t0, inputChars: body.length, success: r.ok, status: r.status });
       if (r.ok && (!opts.stream || r.body)) return { res: r, status: r.status };
       lastStatus = r.status;
-      // 400/401/403 = bad request or bad key — another model won't help.
-      if (r.status === 400 || r.status === 401 || r.status === 403) break;
+      // 400 = bad request payload — another key/model won't help.
+      if (r.status === 400) return { res: null, status: 400 };
+      // 401/403 = bad key or exhausted quota — try next key in the pool.
+      if (r.status === 401 || r.status === 403) continue;
     }
   }
   return { res: null, status: lastStatus };
@@ -283,6 +288,7 @@ export async function generateText(prompt: string, system?: string): Promise<str
 export async function readBody(req: any): Promise<any> {
   if (req.body && typeof req.body === 'object') return req.body;
   if (typeof req.body === 'string') { try { return JSON.parse(req.body); } catch { return {}; } }
+  if (req.readableEnded || req.complete) return {};
   return await new Promise((resolve) => {
     let raw = '';
     req.on('data', (c: any) => { raw += c; });

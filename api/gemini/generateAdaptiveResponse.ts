@@ -32,7 +32,11 @@ export default async function handler(req: any, res: any) {
       const txt = j?.candidates?.[0]?.content?.parts?.[0]?.text || '';
       if (txt) { res.status(200).json({ result: txt }); return; }
     }
-    const txt = await fallbackChat(buildOpenAIMessages(message, system, history), category);
+
+    let txt = '';
+    if (category !== 'reasoning') {
+      txt = await fallbackChat(buildOpenAIMessages(message, system, history), category);
+    }
     const isAr = profile?.language === 'Arabic' || profile?.language === 'Egyptian Ammiya';
     res.status(200).json({
       result: txt || (isAr ? '⚠️ الذكاء الاصطناعي مشغول دلوقتي. جرّب تاني 🙏' : '⚠️ The AI is busy right now. Please try again 🙏'),
