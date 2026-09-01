@@ -66,9 +66,8 @@ export const DEFAULT_HEAD_TRACKING_CONFIG: HeadTrackingConfig = {
   autoScanIntervalMs: 1400,
   autoScanMode: 'row-column',
   // 0..1 pointer steadiness. Feeds the smoother's slow time constant AND the
-  // micro-tremor deadband. 0.55 settles in roughly a third of a second, which
-  // is well inside a 1.2s dwell while removing most of the tremor.
-  smoothing: 0.55,
+  // micro-tremor deadband. 0.65 delivers rock-solid steadiness on keys while keeping instant saccade breakout.
+  smoothing: 0.65,
   trackingMode: 'hybrid', // Hybrid: 60% Iris + 40% Head gives best stability & reach
 };
 
@@ -1118,11 +1117,9 @@ export class FacialHeadTracker {
         targetY = 0.5 + avgGazeY * 4.2;
       } else {
         // Hybrid: 60% Iris + 40% Head anchor (balanced, rock-solid, covers full screen comfortably)
-        // Iris weight raised (1.8 -> 2.4 / 2.0 -> 2.6) so the eyes, not the head,
-        // carry most of the reach — a user who cannot turn their head still gets
-        // the full screen.
-        targetX = 0.5 + avgGazeX * 2.4 + (noseNormX - 0.5) * 0.8;
-        targetY = 0.5 + avgGazeY * 2.6 + (noseNormY - 0.5) * 0.8;
+        // Head anchor weight adjusted to 1.05 so subtle natural head tilts easily reach the screen borders.
+        targetX = 0.5 + avgGazeX * 2.4 + (noseNormX - 0.5) * 1.05;
+        targetY = 0.5 + avgGazeY * 2.6 + (noseNormY - 0.5) * 1.05;
       }
 
       this.feedCalibrationSample(targetX, targetY);
@@ -1152,12 +1149,6 @@ export class FacialHeadTracker {
     if (this.calibCoeffsX && this.calibCoeffsY) {
       const px = this.calibCoeffsX[0] * rawNormX + this.calibCoeffsX[1] * rawNormY + this.calibCoeffsX[2];
       const py = this.calibCoeffsY[0] * rawNormX + this.calibCoeffsY[1] * rawNormY + this.calibCoeffsY[2];
-      // Sensitivity was read ONLY in the uncalibrated branch, so completing the
-      // 9-point calibration the app recommends silently killed both sensitivity
-      // controls: the slider and the +/- buttons still moved and still showed
-      // "2.4x" while changing nothing. Applied here as a gain about the screen
-      // centre, so the default (ratio 1) leaves the calibrated fit untouched and
-      // a caregiver can still widen or narrow a student's reach afterwards.
       const sGain = (this.config.sensitivity || DEFAULT_HEAD_TRACKING_CONFIG.sensitivity)
         / DEFAULT_HEAD_TRACKING_CONFIG.sensitivity;
       mappedX = Math.max(0.01, Math.min(0.99, 0.5 + (px - 0.5) * sGain));
@@ -1175,7 +1166,7 @@ export class FacialHeadTracker {
       const baseY = this.baselineGaze ? this.baselineGaze.y : 0.5;
       const deltaX = rawNormX - baseX;
       const deltaY = rawNormY - baseY;
-      const gain = 1.05 * this.config.sensitivity;
+      const gain = 1.15 * this.config.sensitivity;
       // Natural human eye elevation upward is mechanically ~30% smaller than downward depression.
       // Boost upward gaze (deltaY < 0) to effortlessly reach top navbar and upper keyboard rows without neck strain.
       const vGain = deltaY < 0 ? 1.55 : 1.35;
@@ -1192,12 +1183,9 @@ export class FacialHeadTracker {
     let screenY = Math.max(16, Math.min(window.innerHeight - 16, smoothed.y * window.innerHeight));
 
     // Sticky Magnetic Snapping with Smooth Spring Pull & Hysteresis
-    // Widened (40/75 -> 70/115). Gaze is inherently jittery, so a 40px capture
-    // radius meant the cursor hovered *beside* a key without ever latching, and
-    // the dwell timer never started. A bigger magnet is what makes eye-typing
-    // feel like it "wants" to help you.
-    const SNAP_ACQUIRE_RADIUS = 70;
-    const SNAP_RELEASE_RADIUS = 115;
+    // Widened (70/115 -> 95/150). High-assist magnetic snap makes keys effortless to land on.
+    const SNAP_ACQUIRE_RADIUS = 95;
+    const SNAP_RELEASE_RADIUS = 150;
 
     let isSnapped = false;
     let activeTargetId: string | null = null;
@@ -1205,8 +1193,8 @@ export class FacialHeadTracker {
     if (this.lockedSnapTarget) {
       const distFromLocked = Math.hypot(screenX - this.lockedSnapTarget.cx, screenY - this.lockedSnapTarget.cy);
       if (distFromLocked <= SNAP_RELEASE_RADIUS) {
-        // Smooth magnetic pull: 85% to target center, 15% smooth lead
-        const pull = 0.85;
+        // Smooth magnetic lock: 92% to target center, 8% lead
+        const pull = 0.92;
         screenX = this.lockedSnapTarget.cx * pull + screenX * (1 - pull);
         screenY = this.lockedSnapTarget.cy * pull + screenY * (1 - pull);
         isSnapped = true;
@@ -1230,7 +1218,7 @@ export class FacialHeadTracker {
 
       if (candidate) {
         this.lockedSnapTarget = candidate;
-        const pull = 0.85;
+        const pull = 0.92;
         screenX = candidate.cx * pull + screenX * (1 - pull);
         screenY = candidate.cy * pull + screenY * (1 - pull);
         isSnapped = true;
