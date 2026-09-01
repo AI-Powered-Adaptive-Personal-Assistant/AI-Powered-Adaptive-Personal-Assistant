@@ -12,6 +12,7 @@ import { db, storage, handleFirestoreError, OperationType, cleanDataForFirestore
 import { getTranslation } from "../lib/translations";
 import { toast } from "./Toast";
 import MarkdownMessage from "./MarkdownMessage";
+import { speak as speakText, cancelSpeech } from "../lib/tts";
 
 // Three.js is heavy — only load the sign avatar when a deaf-mode user opens it.
 const SignAvatar3D = React.lazy(() => import("./SignAvatar3D"));
@@ -300,82 +301,36 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
 
   const handleSpeak = (m: Message) => {
     if (speakingMessageId === m.id) {
-      window.speechSynthesis.cancel();
+      cancelSpeech();
       setSpeakingMessageId(null);
-    } else {
-      window.speechSynthesis.cancel();
-      setSpeakingMessageId(m.id);
-      
-      const cleanText = m.content.replace(/\[Signs:.*?\]/g, '').replace(/[*+#_`~\[\]()]/g, '');
-      const utterance = new SpeechSynthesisUtterance(cleanText);
-      
-      const hasArabic = /[\u0600-\u06FF]/.test(cleanText);
-      const langMap: Record<string, string> = {
-        'English': 'en-US',
-        'Arabic': 'ar-SA',
-        'Egyptian Ammiya': 'ar-EG',
-        'French': 'fr-FR',
-        'Spanish': 'es-ES',
-        'German': 'de-DE',
-        'Italian': 'it-IT',
-        'Portuguese': 'pt-BR',
-        'Russian': 'ru-RU',
-        'Chinese': 'zh-CN',
-        'Japanese': 'ja-JP'
-      };
-      
-      if (hasArabic) {
-        const isEgyptian = profile.language === 'Egyptian Ammiya' || 
-                           cleanText.includes('يا باشا') || 
-                           cleanText.includes('تمام') || 
-                           cleanText.includes('ازيك');
-        const defaultLang = isEgyptian ? 'ar-EG' : 'ar-SA';
-        utterance.lang = defaultLang;
-        
-        if ('speechSynthesis' in window) {
-          const voices = window.speechSynthesis.getVoices();
-          let voice = voices.find(v => v.lang.toLowerCase() === defaultLang.toLowerCase());
-          if (!voice) {
-            voice = voices.find(v => v.lang.toLowerCase() === 'ar-eg' || v.lang.toLowerCase() === 'ar-sa');
-          }
-          if (!voice) {
-            voice = voices.find(v => v.lang.toLowerCase().startsWith('ar'));
-          }
-          if (voice) {
-            utterance.voice = voice;
-            utterance.lang = voice.lang;
-          }
-        }
-      } else {
-        const defaultLang = langMap[profile.language || 'English'] || 'en-US';
-        utterance.lang = defaultLang;
-        
-        if ('speechSynthesis' in window) {
-          const voices = window.speechSynthesis.getVoices();
-          let voice = voices.find(v => v.lang.toLowerCase() === defaultLang.toLowerCase());
-          if (!voice) {
-            voice = voices.find(v => v.lang.toLowerCase().startsWith(defaultLang.split('-')[0].toLowerCase()));
-          }
-          if (voice) {
-            utterance.voice = voice;
-            utterance.lang = voice.lang;
-          }
-        }
-      }
-      
-      // Only clear the indicator if THIS message still owns it. Starting speech on
-      // a new message calls cancel(), which fires the previous utterance's onend
-      // AFTER speakingMessageId was set to the new id — a plain `null` would wrongly
-      // clear the new one.
-      const messageId = m.id;
-      utterance.onend = () => setSpeakingMessageId(prev => (prev === messageId ? null : prev));
-      utterance.onerror = () => setSpeakingMessageId(prev => (prev === messageId ? null : prev));
-
-      // Safety delay to allow browser to clear audio queue before playing
-      setTimeout(() => {
-        window.speechSynthesis.speak(utterance);
-      }, 100);
+      return;
     }
+
+    setSpeakingMessageId(m.id);
+    const messageId = m.id;
+    const isAr = profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya';
+
+    // Previously this reimplemented voice selection inline and had no
+    // silent-fail handling — a blind/Visual-mode user who can't see the reply
+    // got NO feedback at all when the browser silently dropped speak() (most
+    // commonly the very first call outside a real user gesture, or no voice
+    // installed for their language). Now routed through the shared helper
+    // (lib/tts.ts), which detects that case, and we surface it as a toast +
+    // clear the "speaking" indicator instead of leaving it stuck.
+    speakText(m.content, profile.language, {
+      onEnd: () => setSpeakingMessageId((prev) => (prev === messageId ? null : prev)),
+      onError: (err) => {
+        setSpeakingMessageId((prev) => (prev === messageId ? null : prev));
+        if (err === 'silent-fail' || err === 'synth-error' || err === 'unsupported') {
+          toast.warning(
+            isAr
+              ? 'معرفتش أشغّل الصوت. جرّب تاكد إن صوت اللغة دي متثبت على جهازك، أو استخدم قارئ الشاشة.'
+              : "Couldn't play audio for this reply. Check that a voice for this language is installed, or use a screen reader.",
+            isAr ? 'تعذّر النطق' : 'Speech unavailable',
+          );
+        }
+      },
+    });
   };
 
   const readDocument = async (file: {name: string, type: string, data?: string, url?: string}) => {
@@ -1264,17 +1219,12 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
                 {m.role === 'user' ? (
                   <div className="space-y-4 max-w-[90%] md:max-w-[80%]">
                     <div className="bg-primary-soft border border-border text-text-main px-4 py-3 rounded-[16px] rounded-ee-[4px] not-italic flex flex-col gap-2 text-[15px] leading-relaxed">
-                       {m.content.split('\n').map((line, i) => {
-                          if (line.match(/^\[Signs:\s(.+)\]$/)) {
-                            const signsMatch = line.match(/^\[Signs:\s(.+)\]$/);
-                            return (
-                               <div key={i} className="flex flex-col gap-2 mt-2 pt-2 border-t border-border not-italic">
-                                 <span className="text-3xl bg-bg-card border border-border p-2 rounded-xl inline-flex w-max shadow-sm">{signsMatch![1]}</span>
-                               </div>
-                            );
-                          }
-                          return <span key={i}>{line}</span>;
-                       })}
+                       {/* Legacy '[Signs: emoji]' lines (from old stored AI replies that
+                           may have been quoted back in) are just dropped, not rendered as
+                           a fake sign-translation panel — see MarkdownMessage.tsx. */}
+                       {m.content.split('\n').filter((line) => !/^\[Signs:\s(.+)\]$/.test(line)).map((line, i) => (
+                         <span key={i}>{line}</span>
+                       ))}
                     </div>
                     {m.attachments?.length ? m.attachments.map((file, idx) => (
                       <div key={`${m.id}-att-${idx}`} className="relative group max-w-sm">

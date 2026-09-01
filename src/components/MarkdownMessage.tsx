@@ -5,22 +5,21 @@ const SIGNS_RE = /^\[Signs:\s(.+)\]$/;
 
 /**
  * Renders an AI message as proper Markdown (GitHub-flavored: bold, lists,
- * tables, code, links) while preserving the app's `[Signs: 🤟👋]` accessibility
- * block, which is pulled out and rendered as a sign-translation panel for
- * deaf / hard-of-hearing users instead of being markdown-ed away.
+ * tables, code, links).
+ *
+ * Older stored messages may still contain a legacy `[Signs: 🤟👋]` line — the
+ * AI used to append one, rendered as a row of generic emoji. That line was
+ * NOT real sign language (Egyptian/ASL/etc.) and risked implying it was, so
+ * generation of it was removed. Deaf/hard-of-hearing users get an accurate
+ * translation instead via the "Show in sign language" button in
+ * ChatInterface, which drives the real SignAvatar3D avatar off the actual
+ * reply text. We still strip any leftover legacy line here so old messages
+ * don't render a stray "[Signs: ...]" bracket.
  */
 export default function MarkdownMessage({ content }: { content: string }) {
-  const signLines: string[] = [];
   const body = content
     .split('\n')
-    .filter((line) => {
-      const m = line.match(SIGNS_RE);
-      if (m) {
-        signLines.push(m[1]);
-        return false;
-      }
-      return true;
-    })
+    .filter((line) => !SIGNS_RE.test(line))
     .join('\n');
 
   return (
@@ -56,13 +55,6 @@ export default function MarkdownMessage({ content }: { content: string }) {
       >
         {body}
       </ReactMarkdown>
-
-      {signLines.map((emojis, i) => (
-        <div key={i} className="flex flex-col gap-2 mt-4 pt-4 border-t border-border not-italic">
-          <span className="text-[10px] font-black uppercase text-faint tracking-widest">Sign Translation</span>
-          <span className="text-3xl bg-surface-2 border border-border p-3 rounded-xl inline-flex w-max">{emojis}</span>
-        </div>
-      ))}
     </div>
   );
 }
