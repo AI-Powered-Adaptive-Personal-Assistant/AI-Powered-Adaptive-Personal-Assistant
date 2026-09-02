@@ -2413,52 +2413,60 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
 
   return (
     <div className={`flex-1 flex flex-col h-full bg-slate-950 text-white overflow-y-auto relative p-3 sm:p-5 lg:p-6 select-none font-sans ${isFullscreen ? 'fixed inset-0 z-[99998] p-6' : ''}`}>
-      {/* Head Pointer / Eye-Gaze MediaPipe Visual Interactive Cursor */}
-      <div
-        className="fixed pointer-events-none z-[99999] will-change-transform top-0 left-0"
-        style={{
-          transform: `translate3d(${cursorPos.x}px, ${cursorPos.y}px, 0) translate(-50%, -50%)`,
-        }}
-      >
-        <div className="relative flex items-center justify-center">
-          {/* Subtle OS-Style Precision Reticle */}
-          <div className="absolute w-5 h-[1.5px] bg-slate-400/50 pointer-events-none" />
-          <div className="absolute h-5 w-[1.5px] bg-slate-400/50 pointer-events-none" />
+      {/* Head Pointer / Eye-Gaze MediaPipe Visual Interactive Cursor.
+          Previously this rendered unconditionally — even with tracking OFF
+          ("Start Eye Tracker" not yet pressed), a ring+dot reticle sat at
+          screen-center (fixed, z-[99999], above literally everything
+          including the nav tabs) for no reason: nothing is being tracked,
+          so there's nothing for it to represent. Now only shown once eye
+          tracking is actually running. */}
+      {isCameraActive && (
+        <div
+          className="fixed pointer-events-none z-[99999] will-change-transform top-0 left-0"
+          style={{
+            transform: `translate3d(${cursorPos.x}px, ${cursorPos.y}px, 0) translate(-50%, -50%)`,
+          }}
+        >
+          <div className="relative flex items-center justify-center">
+            {/* Subtle OS-Style Precision Reticle */}
+            <div className="absolute w-5 h-[1.5px] bg-slate-400/50 pointer-events-none" />
+            <div className="absolute h-5 w-[1.5px] bg-slate-400/50 pointer-events-none" />
 
-          {/* Radial Dwell Countdown Ring */}
-          <svg className={`w-16 h-16 -rotate-90 transition-all duration-150 ${cursorPos.isSnapped ? 'scale-110 drop-shadow-[0_2px_8px_rgba(99,102,241,0.4)]' : 'drop-shadow-[0_2px_8px_rgba(16,185,129,0.3)]'}`}>
-            <circle
-              cx="32"
-              cy="32"
-              r="24"
-              stroke="currentColor"
-              strokeWidth="3.5"
-              className={cursorPos.isSnapped ? 'text-indigo-500/25' : 'text-emerald-500/20'}
-              fill="none"
-            />
-            <circle
-              cx="32"
-              cy="32"
-              r="24"
-              stroke="currentColor"
-              strokeWidth="3.5"
-              className={`${cursorPos.isSnapped ? 'text-indigo-400' : 'text-emerald-400'} transition-all duration-75`}
-              fill="none"
-              strokeDasharray="150"
-              strokeDashoffset={150 - 150 * dwellProgress}
-            />
-          </svg>
+            {/* Radial Dwell Countdown Ring */}
+            <svg className={`w-16 h-16 -rotate-90 transition-all duration-150 ${cursorPos.isSnapped ? 'scale-110 drop-shadow-[0_2px_8px_rgba(99,102,241,0.4)]' : 'drop-shadow-[0_2px_8px_rgba(16,185,129,0.3)]'}`}>
+              <circle
+                cx="32"
+                cy="32"
+                r="24"
+                stroke="currentColor"
+                strokeWidth="3.5"
+                className={cursorPos.isSnapped ? 'text-indigo-500/25' : 'text-emerald-500/20'}
+                fill="none"
+              />
+              <circle
+                cx="32"
+                cy="32"
+                r="24"
+                stroke="currentColor"
+                strokeWidth="3.5"
+                className={`${cursorPos.isSnapped ? 'text-indigo-400' : 'text-emerald-400'} transition-all duration-75`}
+                fill="none"
+                strokeDasharray="150"
+                strokeDashoffset={150 - 150 * dwellProgress}
+              />
+            </svg>
 
-          {/* Ergonomic OS-Style System Pointer Dot (Visually Static, Zero Glow/Pulse) */}
-          <div className={`absolute w-4 h-4 rounded-full border-2 border-white flex items-center justify-center shadow-md transition-colors duration-150 ${
-            cursorPos.isSnapped ? 'bg-indigo-600 ring-2 ring-indigo-300/60' : 'bg-slate-900'
-          }`}>
-            <div className={`w-1.5 h-1.5 rounded-full transition-colors duration-150 ${
-              cursorPos.isSnapped ? 'bg-white' : 'bg-slate-200'
-            }`} />
+            {/* Ergonomic OS-Style System Pointer Dot (Visually Static, Zero Glow/Pulse) */}
+            <div className={`absolute w-4 h-4 rounded-full border-2 border-white flex items-center justify-center shadow-md transition-colors duration-150 ${
+              cursorPos.isSnapped ? 'bg-indigo-600 ring-2 ring-indigo-300/60' : 'bg-slate-900'
+            }`}>
+              <div className={`w-1.5 h-1.5 rounded-full transition-colors duration-150 ${
+                cursorPos.isSnapped ? 'bg-white' : 'bg-slate-200'
+              }`} />
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Quick Pointer Tuning & Calibration Bar (Always Accessible) */}
       <div className="mb-3 px-4 py-2.5 rounded-2xl bg-slate-900/95 border border-slate-800 flex items-center justify-between gap-2 flex-wrap text-xs shadow-md">
