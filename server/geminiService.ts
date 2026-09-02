@@ -87,12 +87,8 @@ export const geminiService = {
     Context: User is likely deaf or hard of hearing. Clear captions are vital.
     Dialect: If Arabic, prioritize Egyptian dialect.
     Failure Policy: If there is absolute silence or zero recognizable speech, return "[NO_SPEECH]".
-    Signs Policy: After transcription, add a new line starting with "SIGNS: " then 3-5 emojis.
     Important: Do not be overly strict. If you hear someone talking even with noise, transcribe it.
-
-    Output Template:
-    [Transcription Text]
-    SIGNS: [Emojis]`;
+    Output: Return ONLY the exact transcription text. No preambles or decorative emojis.`;
 
     try {
       const response = await getAi().models.generateContent({

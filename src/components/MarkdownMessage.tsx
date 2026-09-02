@@ -1,7 +1,7 @@
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
-const SIGNS_RE = /^\[Signs:\s(.+)\]$/;
+const SIGNS_RE = /^\[Signs:\s*.*\]$/i;
 
 /**
  * Renders an AI message as proper Markdown (GitHub-flavored: bold, lists,
@@ -19,7 +19,7 @@ const SIGNS_RE = /^\[Signs:\s(.+)\]$/;
 export default function MarkdownMessage({ content }: { content: string }) {
   const body = content
     .split('\n')
-    .filter((line) => !SIGNS_RE.test(line))
+    .filter((line) => !SIGNS_RE.test(line.trim()))
     .join('\n');
 
   return (

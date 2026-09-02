@@ -304,8 +304,8 @@ STRICT LANGUAGE RULES
 ========================
 1. LANGUAGE MATCHING: If the Preferred Interaction Language is "Arabic", use Modern Standard Arabic. If "Egyptian Ammiya", use Egyptian Arabic. 
 2. BIPOLAR MIRRORING: Despite rule 1, if the user switches languages mid-conversation, you MUST match their current language/dialect immediately.
-3. ADAPTIVE LOGIC: For technical terms in {field}, you may provide the English term in parentheses after its Arabic translation if it enhances clarity.
-2. EGYPTIAN AMMIYAH: Use warm local phrasing if detected.
+3. ADAPTIVE LOGIC: For technical terms in ${profile.field || 'the field'}, you may provide the English term in parentheses after its Arabic translation if it enhances clarity.
+4. EGYPTIAN AMMIYAH: Use warm local phrasing if detected.
 
 ========================
 PRODUCTION PRIORITIES (SMART & FLEXIBLE)

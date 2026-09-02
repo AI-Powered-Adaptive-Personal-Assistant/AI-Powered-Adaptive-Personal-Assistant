@@ -69,8 +69,8 @@ function providerFor(key: string): {
       model: "z-ai/glm-5.2",
       models: ["z-ai/glm-5.2", "deepseek-ai/deepseek-r1", "meta/llama-3.3-70b-instruct"],
       params: {
-        temperature: 1,
-        top_p: 1,
+        temperature: 0.7,
+        top_p: 0.95,
         max_tokens: 16384,
         seed: 42,
       },
@@ -564,10 +564,11 @@ ${otherThreadsSummary}
 
   const currentParts: any[] = [{ text: message }];
   attachments.forEach(file => {
+    const rawData = typeof file.data === 'string' ? file.data.replace(/^data:[^;]+;base64,/, '') : file.data;
     currentParts.push({
       inlineData: {
         mimeType: file.type,
-        data: file.data
+        data: rawData
       }
     });
   });

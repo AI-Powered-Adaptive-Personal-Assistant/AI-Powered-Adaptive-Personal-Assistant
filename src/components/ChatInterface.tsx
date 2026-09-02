@@ -478,15 +478,7 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
       if (finalFullText && profile.accessibilityMode === 'Visual') {
         const isArabic = profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya';
         const confirmMsg = isArabic ? "تم الإرسال: " + finalFullText : "Sent: " + finalFullText;
-        const confirmUtterance = new SpeechSynthesisUtterance(confirmMsg);
-        const langMap: Record<string, string> = {
-          'English': 'en-US', 'Arabic': 'ar-SA', 'Egyptian Ammiya': 'ar-EG',
-          'French': 'fr-FR', 'Spanish': 'es-ES', 'German': 'de-DE',
-          'Italian': 'it-IT', 'Portuguese': 'pt-BR', 'Russian': 'ru-RU',
-          'Chinese': 'zh-CN', 'Japanese': 'ja-JP'
-        };
-        confirmUtterance.lang = langMap[profile.language || 'English'] || 'en-US';
-        window.speechSynthesis.speak(confirmUtterance);
+        speakText(confirmMsg, profile.language);
       }
       if (finalFullText) {
         handleSubmit(undefined, finalFullText);
@@ -1222,7 +1214,7 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
                        {/* Legacy '[Signs: emoji]' lines (from old stored AI replies that
                            may have been quoted back in) are just dropped, not rendered as
                            a fake sign-translation panel — see MarkdownMessage.tsx. */}
-                       {m.content.split('\n').filter((line) => !/^\[Signs:\s(.+)\]$/.test(line)).map((line, i) => (
+                       {m.content.split('\n').filter((line) => !/^\[Signs:\s*.*\]$/i.test(line.trim())).map((line, i) => (
                          <span key={i}>{line}</span>
                        ))}
                     </div>

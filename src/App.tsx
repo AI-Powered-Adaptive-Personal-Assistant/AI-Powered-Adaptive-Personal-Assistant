@@ -791,7 +791,7 @@ export default function App() {
           // gesture vision, the Motor tab's eye-gaze FacialHeadTracker, and the
           // Companion's scene camera), and two camera pipelines on one device
           // conflict (camera-in-use / light stuck on / silent failure).
-          && !(currentView === 'disability' && (disabilityTab === 'video' || disabilityTab === 'motor' || disabilityTab === 'vision')) && (
+          && !(currentView === 'video' || (currentView === 'disability' && (disabilityTab === 'video' || disabilityTab === 'motor' || disabilityTab === 'vision'))) && (
           <AccessibilityOverlay
             mode={!profile.accessibilityMode || profile.accessibilityMode === 'None' ? 'Vocal-Deaf' : profile.accessibilityMode}
             profile={profile}

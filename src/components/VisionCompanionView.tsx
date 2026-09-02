@@ -16,7 +16,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Camera, CameraOff, Volume2, BookmarkPlus, Loader2, AlertTriangle, X, Trash2 } from 'lucide-react';
 import { doc, setDoc } from 'firebase/firestore';
-import { db, handleFirestoreError, OperationType } from '../lib/firebase';
+import { db, cleanDataForFirestore } from '../lib/firebase';
 import { UserProfile, VisionMemory } from '../types';
 import { localize } from '../lib/translations';
 import { generateAdaptiveResponse } from '../services/gemini';
@@ -35,6 +35,7 @@ export default function VisionCompanionView({ profile, setProfile }: VisionCompa
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const isMountedRef = useRef(true);
 
   const [status, setStatus] = useState<Status>('idle');
   const [lastDescription, setLastDescription] = useState<string>('');
@@ -57,10 +58,22 @@ export default function VisionCompanionView({ profile, setProfile }: VisionCompa
     setStatus('starting-camera');
     try {
       streamRef.current?.getTracks().forEach((tr) => tr.stop());
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: mode, width: { ideal: 1280 }, height: { ideal: 720 } },
-        audio: false,
-      });
+      let stream: MediaStream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: mode, width: { ideal: 1280 }, height: { ideal: 720 } },
+          audio: false,
+        });
+      } catch {
+        // Fallback to any available video stream if environment mode fails (e.g. on laptops/desktops)
+        stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      }
+
+      if (!isMountedRef.current) {
+        stream.getTracks().forEach((tr) => tr.stop());
+        return;
+      }
+
       streamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
@@ -69,22 +82,32 @@ export default function VisionCompanionView({ profile, setProfile }: VisionCompa
       setStatus('ready');
       setAnnounce(t('Camera ready. Tap the big button to describe what\'s in front of you.', 'الكاميرا جاهزة. اضغط الزرار الكبير عشان أوصفلك اللي قدامك.'));
     } catch {
-      setStatus('camera-denied');
+      if (isMountedRef.current) setStatus('camera-denied');
     }
   }, [facingMode, t]);
 
   useEffect(() => {
-    // Unlock speechSynthesis inside this mount's user-gesture chain where
-    // possible; the real unlock still happens on the first button tap below,
-    // this just primes it early so that first tap's speech isn't dropped.
+    isMountedRef.current = true;
     unlockSpeechSynthesis();
     startCamera();
     return () => {
+      isMountedRef.current = false;
       streamRef.current?.getTracks().forEach((tr) => tr.stop());
+      streamRef.current = null;
       cancelSpeech();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Keyboard Escape listener for the save modal
+  useEffect(() => {
+    if (!showSaveDialog) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setShowSaveDialog(false);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showSaveDialog]);
 
   const flipCamera = () => {
     const next = facingMode === 'environment' ? 'user' : 'environment';
@@ -95,12 +118,22 @@ export default function VisionCompanionView({ profile, setProfile }: VisionCompa
   const captureFrame = (): string | null => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
-    if (!video || !canvas || video.readyState < 2) return null;
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
+    if (!video || !canvas || video.readyState < 2 || !video.videoWidth || !video.videoHeight) return null;
+    
+    // Constrain resolution to max 1280 for fast vision analysis
+    const maxDim = 1280;
+    let w = video.videoWidth;
+    let h = video.videoHeight;
+    if (w > maxDim || h > maxDim) {
+      if (w > h) { h = Math.round((h * maxDim) / w); w = maxDim; }
+      else { w = Math.round((w * maxDim) / h); h = maxDim; }
+    }
+
+    canvas.width = w;
+    canvas.height = h;
     const ctx = canvas.getContext('2d');
     if (!ctx) return null;
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    ctx.drawImage(video, 0, 0, w, h);
     return canvas.toDataURL('image/jpeg', 0.85);
   };
 
@@ -138,11 +171,12 @@ export default function VisionCompanionView({ profile, setProfile }: VisionCompa
       : `This is a photo from a blind person's everyday-life camera. Describe it exactly per the system instructions (hazards first, then any visible text verbatim, then a brief practical description).${knownContext}`;
 
     try {
+      const cleanData = frame.replace(/^data:[^;]+;base64,/, '');
       const result = await generateAdaptiveResponse(
         prompt,
         profile,
         [],
-        [{ name: 'scene.jpg', type: 'image/jpeg', data: frame }],
+        [{ name: 'scene.jpg', type: 'image/jpeg', data: cleanData }],
       );
       setLastDescription(result);
       setStatus('ready');
@@ -173,6 +207,7 @@ export default function VisionCompanionView({ profile, setProfile }: VisionCompa
       description: lastDescription,
       createdAt: new Date().toISOString(),
     };
+    const prevMemories = memories;
     const updated = [...memories, memory];
     if (setProfile) setProfile({ ...profile, visionMemories: updated });
     setShowSaveDialog(false);
@@ -180,20 +215,26 @@ export default function VisionCompanionView({ profile, setProfile }: VisionCompa
     setAnnounce(msg);
     speak(msg, lang);
     try {
-      await setDoc(doc(db, `users/${profile.uid}`), { visionMemories: updated }, { merge: true });
+      await setDoc(doc(db, `users/${profile.uid}`), { visionMemories: cleanDataForFirestore(updated) }, { merge: true });
     } catch (err) {
-      handleFirestoreError(err, OperationType.UPDATE, `users/${profile.uid}`);
+      console.warn('Failed to sync vision memory:', err);
+      if (setProfile) setProfile({ ...profile, visionMemories: prevMemories });
+      const errMsg = t('Failed to save to cloud. Please check your connection.', 'فشل حفظ العنصر في السحابة. تحقق من اتصالك.');
+      setAnnounce(errMsg);
+      speak(errMsg, lang);
     }
   };
 
   const deleteMemory = async (id: string) => {
     if (!profile.uid) return;
+    const prevMemories = memories;
     const updated = memories.filter((m) => m.id !== id);
     if (setProfile) setProfile({ ...profile, visionMemories: updated });
     try {
-      await setDoc(doc(db, `users/${profile.uid}`), { visionMemories: updated }, { merge: true });
+      await setDoc(doc(db, `users/${profile.uid}`), { visionMemories: cleanDataForFirestore(updated) }, { merge: true });
     } catch (err) {
-      handleFirestoreError(err, OperationType.UPDATE, `users/${profile.uid}`);
+      console.warn('Failed to delete vision memory:', err);
+      if (setProfile) setProfile({ ...profile, visionMemories: prevMemories });
     }
   };
 
@@ -316,9 +357,9 @@ export default function VisionCompanionView({ profile, setProfile }: VisionCompa
                   <button
                     onClick={() => deleteMemory(m.id)}
                     aria-label={t(`Forget "${m.label}"`, `انسَ "${m.label}"`)}
-                    className="hover:text-danger"
+                    className="p-1 min-w-[28px] min-h-[28px] flex items-center justify-center rounded-full hover:bg-surface-2 hover:text-danger transition-colors"
                   >
-                    <Trash2 className="w-3 h-3" />
+                    <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </span>
               ))}
@@ -338,6 +379,9 @@ export default function VisionCompanionView({ profile, setProfile }: VisionCompa
             onClick={() => setShowSaveDialog(false)}
           >
             <motion.div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="save-dialog-title"
               initial={{ y: 40, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 40, opacity: 0 }}
@@ -345,19 +389,20 @@ export default function VisionCompanionView({ profile, setProfile }: VisionCompa
               className="w-full sm:max-w-sm bg-bg-card rounded-2xl p-5 space-y-4 border border-border"
             >
               <div className="flex items-center justify-between">
-                <h3 className="font-semibold text-text-main">{t('Remember this as...', 'احفظ ده باسم...')}</h3>
-                <button onClick={() => setShowSaveDialog(false)} aria-label={t('Close', 'إغلاق')}>
+                <h3 id="save-dialog-title" className="font-semibold text-text-main">{t('Remember this as...', 'احفظ ده باسم...')}</h3>
+                <button onClick={() => setShowSaveDialog(false)} aria-label={t('Close', 'إغلاق')} className="p-1 rounded-lg hover:bg-surface-3">
                   <X className="w-5 h-5 text-text-muted" />
                 </button>
               </div>
               <input
                 autoFocus
                 type="text"
+                aria-label={t('Memory label', 'اسم العنصر')}
                 value={labelInput}
                 onChange={(e) => setLabelInput(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') saveMemory(); }}
                 placeholder={t('e.g. "Ahmed" or "blood pressure medicine"', 'مثلاً "أحمد" أو "دوا الضغط"')}
-                className="w-full px-4 py-3 rounded-xl border border-border bg-bg-main text-text-main"
+                className="w-full px-4 py-3 rounded-xl border border-border bg-bg-main text-text-main focus:ring-2 focus:ring-primary outline-none"
               />
               <button
                 onClick={saveMemory}
