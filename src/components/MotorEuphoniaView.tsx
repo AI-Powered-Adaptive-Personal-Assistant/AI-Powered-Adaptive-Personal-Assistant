@@ -2412,7 +2412,7 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
   }[theme];
 
   return (
-    <div className={`flex-1 flex flex-col h-full bg-slate-950 text-white overflow-y-auto relative p-3 sm:p-5 lg:p-6 select-none font-sans ${isFullscreen ? 'fixed inset-0 z-[99998] p-6' : ''}`}>
+    <div className={`flex-1 flex flex-col h-full bg-slate-950 text-white overflow-hidden relative p-3 sm:p-5 lg:p-6 select-none font-sans ${isFullscreen ? 'fixed inset-0 z-[99998] p-6' : ''}`}>
       {/* Head Pointer / Eye-Gaze MediaPipe Visual Interactive Cursor.
           Previously this rendered unconditionally — even with tracking OFF
           ("Start Eye Tracker" not yet pressed), a ring+dot reticle sat at
@@ -2468,6 +2468,11 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
         </div>
       )}
 
+      {/* Everything above here (pointer tuning bar, title/toolbar, the two big
+          mode-select buttons) is fixed-height "chrome" that should always be
+          visible — shrink-0 keeps it pinned instead of getting pushed off by
+          growing content below it. */}
+      <div className="shrink-0">
       {/* Quick Pointer Tuning & Calibration Bar (Always Accessible) */}
       <div className="mb-3 px-4 py-2.5 rounded-2xl bg-slate-900/95 border border-slate-800 flex items-center justify-between gap-2 flex-wrap text-xs shadow-md">
         <div className="flex items-center gap-2 flex-wrap">
@@ -2758,6 +2763,15 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
           )}
         </button>
       </div>
+      </div>
+      {/* End of pinned chrome. Everything below (the actual keyboard / voice
+          studio panels) gets the remaining viewport height and scrolls
+          WITHIN itself if it doesn't fit — min-h-0 is required for a flex
+          child to actually be allowed to shrink instead of forcing the page
+          to grow past the viewport. This is what removes the page-level
+          scroll a user previously had to do just to reach the keyboard
+          below the toolbar. */}
+      <div className="flex-1 min-h-0 overflow-y-auto -mx-3 sm:-mx-5 lg:-mx-6 px-3 sm:px-5 lg:px-6">
 
       {/* Main Communicator Grid: Left HUD / Floating PIP + Main Center Eye-Gaze Board */}
       <div className={`grid grid-cols-1 ${sidebarMode === 'docked' ? 'lg:grid-cols-12' : 'grid-cols-1'} gap-4 flex-1`}>
@@ -3630,6 +3644,7 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
             </motion.div>
           )}
         </div>
+      </div>
       </div>
 
       {/* 9-POINT MEDICAL EYE CALIBRATION MODAL */}
