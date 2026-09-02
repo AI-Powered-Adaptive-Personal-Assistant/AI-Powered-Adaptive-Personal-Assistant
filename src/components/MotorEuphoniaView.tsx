@@ -18,6 +18,7 @@ import {
   loadContacts,
   saveContacts,
   makePhoneCall,
+  isValidContactPhone,
   sendWhatsAppMessage,
   WHATSAPP_QUICK_MESSAGES,
 } from '../lib/contacts';
@@ -517,6 +518,10 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
   // Mobile Contacts & WhatsApp Modals
   const [contacts, setContacts] = useState<EmergencyContact[]>(loadContacts);
   const [showContactPickerModal, setShowContactPickerModal] = useState(false);
+  // Editable phone-number setup — a real number was previously impossible to
+  // enter anywhere in the app (see contacts.ts). A caregiver/parent typically
+  // does this one-time setup, so it's a plain form, not gaze/blink-driven.
+  const [showManageContactsModal, setShowManageContactsModal] = useState(false);
   const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
   const [selectedContactForWa, setSelectedContactForWa] = useState<EmergencyContact | null>(null);
   const [customWaMessage, setCustomWaMessage] = useState('');
@@ -1600,18 +1605,36 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
     isDialingRef.current = true;
 
     const primary = contacts.find((c) => c.isPrimaryEmergency) || contacts[0];
-    if (primary) {
-      speakSafe(
-        isArabic ? `جاري الاتصال برقم ${primary.nameAr}` : `Calling emergency ${primary.nameEn}`
-      );
-      toast.success(isArabic ? `اتصال طوارئ: ${primary.nameAr}` : `SOS Call: ${primary.nameEn}`);
-      trackedTimeout(() => {
-        makePhoneCall(primary.phone);
-        isDialingRef.current = false;
-      }, 1200);
-    } else {
+    if (!primary) { isDialingRef.current = false; return; }
+
+    // Previously this always announced "Calling [caregiver]" and dialed
+    // whatever was in primary.phone — including the shipped placeholder
+    // numbers nothing in the UI could ever change, so the app confidently
+    // lied about placing a call that went nowhere. Check first.
+    if (!isValidContactPhone(primary.phone)) {
       isDialingRef.current = false;
+      speakSafe(
+        isArabic
+          ? `لا يوجد رقم محفوظ لـ ${primary.nameAr}. من فضلك افتح إدارة جهات الاتصال وأضف رقم.`
+          : `No number saved for ${primary.nameEn}. Please open Manage Contacts and add one.`
+      );
+      toast.warning(
+        isArabic ? `مفيش رقم محفوظ لـ ${primary.nameAr}` : `No number saved for ${primary.nameEn}`,
+        isArabic ? 'إعداد ناقص' : 'Setup needed'
+      );
+      setShowContactPickerModal(true);
+      setShowManageContactsModal(true);
+      return;
     }
+
+    speakSafe(
+      isArabic ? `جاري الاتصال برقم ${primary.nameAr}` : `Calling emergency ${primary.nameEn}`
+    );
+    toast.success(isArabic ? `اتصال طوارئ: ${primary.nameAr}` : `SOS Call: ${primary.nameEn}`);
+    trackedTimeout(() => {
+      makePhoneCall(primary.phone);
+      isDialingRef.current = false;
+    }, 1200);
   };
 
   // Open Hands-Free Contact Picker
@@ -1682,6 +1705,14 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
     );
 
     if (match) {
+      if (!isValidContactPhone(match.phone)) {
+        toast.warning(
+          isArabic ? `مفيش رقم محفوظ لـ ${match.nameAr}` : `No number saved for ${match.nameEn}`,
+          isArabic ? 'إعداد ناقص' : 'Setup needed'
+        );
+        setShowManageContactsModal(true);
+        return;
+      }
       isDialingRef.current = true;
       speakSafe(isArabic ? `جاري الاتصال بـ ${match.nameAr}` : `Calling ${match.nameEn}`);
       toast.success(isArabic ? `تم التعرف: اتصال بـ ${match.nameAr}` : `Calling ${match.nameEn}`);
@@ -2051,6 +2082,15 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
       const contactId = cardId.replace('call-contact-', '');
       const target = contacts.find((c) => c.id === contactId);
       if (target) {
+        if (!isValidContactPhone(target.phone)) {
+          isDialingRef.current = false;
+          toast.warning(
+            isArabic ? `مفيش رقم محفوظ لـ ${target.nameAr}` : `No number saved for ${target.nameEn}`,
+            isArabic ? 'إعداد ناقص' : 'Setup needed'
+          );
+          setShowManageContactsModal(true);
+          return;
+        }
         speakSafe(isArabic ? `جاري الاتصال بـ ${target.nameAr}` : `Calling ${target.nameEn}`);
         trackedTimeout(() => {
           makePhoneCall(target.phone);
@@ -2079,6 +2119,14 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
       const template = WHATSAPP_QUICK_MESSAGES.find((m) => m.id === msgId);
       if (template && selectedContactForWa) {
         const text = isArabic ? template.textAr : template.textEn;
+        if (!isValidContactPhone(selectedContactForWa.phone)) {
+          toast.warning(
+            isArabic ? `مفيش رقم محفوظ لـ ${selectedContactForWa.nameAr}` : `No number saved for ${selectedContactForWa.nameEn}`,
+            isArabic ? 'إعداد ناقص' : 'Setup needed'
+          );
+          setShowManageContactsModal(true);
+          return;
+        }
         sendWhatsAppMessage(selectedContactForWa.phone, text);
         toast.success(isArabic ? 'جاري فتح واتساب لإرسال الرسالة' : 'Opening WhatsApp');
         setShowWhatsAppModal(false);
@@ -3681,12 +3729,21 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
                     </p>
                   </div>
                 </div>
-                <button
-                  onClick={() => setShowContactPickerModal(false)}
-                  className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400"
-                >
-                  <X className="w-5 h-5" />
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setShowManageContactsModal(true)}
+                    className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold flex items-center gap-1.5"
+                  >
+                    <Users className="w-4 h-4" />
+                    {isArabic ? 'إدارة الأرقام' : 'Manage numbers'}
+                  </button>
+                  <button
+                    onClick={() => setShowContactPickerModal(false)}
+                    className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
               </div>
 
               {/* Voice Listener Bar */}
@@ -3717,6 +3774,7 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
                 {contacts.map((c) => {
                   const cardKey = `call-contact-${c.id}`;
                   const isHovered = hoveredCardId === cardKey;
+                  const hasNumber = isValidContactPhone(c.phone);
 
                   return (
                     <div
@@ -3734,9 +3792,15 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
                         <h4 className="font-black text-base truncate">
                           {isArabic ? c.nameAr : c.nameEn}
                         </h4>
-                        <p className="text-xs opacity-75 font-mono mt-0.5">{c.phone}</p>
+                        {hasNumber ? (
+                          <p className="text-xs opacity-75 font-mono mt-0.5">{c.phone}</p>
+                        ) : (
+                          <p className="text-xs mt-0.5 font-bold text-rose-400">
+                            {isArabic ? '⚠ لا يوجد رقم محفوظ' : '⚠ No number saved'}
+                          </p>
+                        )}
                       </div>
-                      <Phone className="w-6 h-6 text-emerald-400 shrink-0" />
+                      <Phone className={`w-6 h-6 shrink-0 ${hasNumber ? 'text-emerald-400' : 'text-slate-600'}`} />
 
                       {isHovered && dwellProgress > 0 && (
                         <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-slate-950/50 rounded-b-2xl overflow-hidden">
@@ -3893,6 +3957,91 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
                   </div>
                 </div>
               )}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* MODAL 2.5: Manage emergency/WhatsApp contact numbers.
+          A plain form — not gaze/blink-driven — because this is one-time
+          setup a caregiver does with a keyboard, not something the student
+          operates hands-free. Before this modal existed, there was no way
+          in the whole app to set a real number: the shipped defaults were
+          placeholder digits and nothing ever called saveContacts(). */}
+      <AnimatePresence>
+        {showManageContactsModal && (
+          <div className="fixed inset-0 z-[70] bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-slate-900 border-2 border-slate-800 rounded-3xl p-6 max-w-lg w-full shadow-2xl overflow-y-auto max-h-[90vh]"
+            >
+              <div className="flex items-center justify-between pb-4 border-b border-slate-800 mb-4">
+                <div className="flex items-center gap-3">
+                  <span className="p-2.5 rounded-2xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                    <Users className="w-6 h-6" />
+                  </span>
+                  <div>
+                    <h3 className="font-black text-lg text-white">
+                      {isArabic ? 'إدارة أرقام الطوارئ' : 'Manage Emergency Numbers'}
+                    </h3>
+                    <p className="text-xs text-slate-400">
+                      {isArabic
+                        ? 'الأرقام دي بتتحفظ على الجهاز ده بس. اطلب من المرافق أو ولي الأمر يملأها.'
+                        : 'Saved on this device only. Ask a caregiver/parent to fill these in.'}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowManageContactsModal(false)}
+                  className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="space-y-3">
+                {contacts.map((c) => (
+                  <div key={c.id} className="p-3 rounded-2xl bg-slate-950 border border-slate-800">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-xl">{c.avatar}</span>
+                      <span className="font-bold text-sm text-white">{isArabic ? c.nameAr : c.nameEn}</span>
+                      {c.isPrimaryEmergency && (
+                        <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-400 border border-rose-500/30">
+                          {isArabic ? 'الطوارئ الأساسي' : 'Primary SOS'}
+                        </span>
+                      )}
+                    </div>
+                    <input
+                      type="tel"
+                      dir="ltr"
+                      value={c.phone}
+                      onChange={(e) => {
+                        const phone = e.target.value;
+                        setContacts((prev) => {
+                          const updated = prev.map((x) => (x.id === c.id ? { ...x, phone } : x));
+                          saveContacts(updated);
+                          return updated;
+                        });
+                      }}
+                      placeholder={isArabic ? 'مثال: 01012345678+' : 'e.g. +201012345678'}
+                      className="w-full px-3 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white font-mono text-sm focus:border-emerald-500 focus:outline-none"
+                    />
+                  </div>
+                ))}
+              </div>
+
+              <button
+                onClick={() => {
+                  setShowManageContactsModal(false);
+                  toast.success(isArabic ? 'تم حفظ الأرقام' : 'Numbers saved');
+                }}
+                className="mt-4 w-full py-3 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black flex items-center justify-center gap-2"
+              >
+                <Check className="w-5 h-5" />
+                {isArabic ? 'تم' : 'Done'}
+              </button>
             </motion.div>
           </div>
         )}
