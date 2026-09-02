@@ -279,7 +279,14 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
   >('keyboard');
 
   // Flexible UI Layout Mode: 'docked' (Sidebar on Left) | 'floating' (Full Width Keyboard with Floating Mini PIP) | 'hidden' (100% Full Width Focused)
-  const [sidebarMode, setSidebarMode] = useState<'docked' | 'floating' | 'hidden'>('floating');
+  // Default changed from 'floating' to 'docked': floating mode is a `position:
+  // fixed` panel with no reserved space in the page layout, so it used to sit
+  // ON TOP of the main content by default — for a dwell/gaze-clicking user,
+  // any target that happened to be under it was literally unreachable, and
+  // sighted users saw text clipped behind it (e.g. tab labels cut off).
+  // 'floating' is still available as an opt-in via the toggle below for users
+  // who want the extra width and don't mind a floating camera.
+  const [sidebarMode, setSidebarMode] = useState<'docked' | 'floating' | 'hidden'>('docked');
   const [cameraCorner, setCameraCorner] = useState<'top-right' | 'top-left' | 'bottom-right' | 'bottom-left' | 'minimized'>('top-right');
   const [showQuickNeedsRow, setShowQuickNeedsRow] = useState(true);
 
@@ -2662,7 +2669,10 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
             <span>{isAudioEngineActive ? (isArabic ? 'إيقاف إيفونيا' : 'Stop Euphonia') : (isArabic ? 'أصوات إيفونيا' : 'Vocal Sounds')}</span>
           </button>
 
-          {/* Layout Flexibility Switcher: Full Width vs Docked */}
+          {/* Layout Flexibility Switcher: Full Width vs Docked.
+              Relabeled — "Full 100%" / "Docked" described the CSS behavior,
+              not what the user actually gets: which layout the camera panel
+              uses. */}
           <div className="flex items-center bg-slate-900 border border-slate-700 rounded-2xl p-0.5 shadow-sm">
             <button
               onClick={() => setSidebarMode('floating')}
@@ -2671,10 +2681,10 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
                   ? 'bg-amber-400 text-slate-950 shadow-md'
                   : 'text-slate-300 hover:text-white'
               }`}
-              title={isArabic ? 'عرض كامل للكيبورد 100% مع كاميرا عائمة' : 'Full Width Keyboard (100%)'}
+              title={isArabic ? 'الكيبورد بعرض الشاشة، والكاميرا في نافذة صغيرة عائمة' : 'Wider keyboard, camera floats in a small window over the page'}
             >
               <Maximize2 className="w-3.5 h-3.5" />
-              <span>{isArabic ? 'عرض كامل 100%' : 'Full 100%'}</span>
+              <span>{isArabic ? 'كاميرا عائمة' : 'Floating camera'}</span>
             </button>
 
             <button
@@ -2684,10 +2694,10 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
                   ? 'bg-amber-400 text-slate-950 shadow-md'
                   : 'text-slate-300 hover:text-white'
               }`}
-              title={isArabic ? 'لوحة جانبية مقسومة' : 'Docked Sidebar'}
+              title={isArabic ? 'الكاميرا في شريط جانبي ثابت — متضربش فوق حاجة تانية' : 'Camera stays in a fixed side panel — never covers anything else'}
             >
               <Columns2 className="w-3.5 h-3.5" />
-              <span>{isArabic ? 'شاشة مقسومة' : 'Docked'}</span>
+              <span>{isArabic ? 'شريط جانبي ثابت' : 'Side-by-side'}</span>
             </button>
           </div>
 
@@ -2818,7 +2828,7 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
                 onClick={() => setSidebarMode('docked')} 
                 className="text-[10px] text-slate-300 hover:text-white px-2 py-0.5 rounded-lg bg-slate-800 font-bold border border-slate-700"
               >
-                {isArabic ? 'إرساء ⇲' : 'Dock ⇲'}
+                {isArabic ? 'ثبّت جانبًا ⇲' : 'Dock it ⇲'}
               </button>
             </div>
           )}
@@ -2889,7 +2899,11 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
             <div className="flex items-center justify-between mb-1.5">
               <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
                 <Mic className="w-3.5 h-3.5 text-emerald-400" />
-                {isArabic ? 'أصوات إيفونيا (همهمات)' : 'Euphonia Vocal Sounds'}
+                {/* Renamed from "Euphonia Vocal Sounds" — that name duplicated the
+                    "Vocal Sounds" toggle button in the toolbar above almost
+                    word-for-word, making them look like two different features
+                    when this is just a live level meter FOR that same toggle. */}
+                {isArabic ? 'مستوى الميكروفون (حي)' : 'Live Mic Level'}
               </span>
               <span className="text-[10px] text-slate-400 font-mono">
                 {audioMetrics.peakFrequency > 0 ? `${audioMetrics.peakFrequency} Hz` : '0 Hz'}
@@ -2968,7 +2982,25 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
         </div>
 
         {/* Right Side: Eye-Gaze Board Content (Expanded to 100% full width when floating) */}
-        <div className={`${sidebarMode === 'docked' ? 'lg:col-span-9' : 'col-span-12 w-full'} flex flex-col gap-3`}>
+        <div
+          className={`${sidebarMode === 'docked' ? 'lg:col-span-9' : 'col-span-12 w-full'} flex flex-col gap-3`}
+          style={
+            // The floating panel is `position: fixed` (it has to be, to float
+            // over/around scrolling content) — fixed elements are removed from
+            // normal document flow, so the grid has no idea it exists and
+            // never reserved room for it. Padding the content by the panel's
+            // own width+offset is what actually stops it covering buttons,
+            // eye-gaze targets, and tab labels underneath. Skipped when the
+            // panel is minimized (small pill, doesn't need a full lane) or
+            // docked/hidden (no fixed panel at all in those modes).
+            sidebarMode === 'floating' && cameraCorner !== 'minimized'
+              ? {
+                  paddingInlineStart: cameraCorner === 'top-left' || cameraCorner === 'bottom-left' ? '21rem' : undefined,
+                  paddingInlineEnd: cameraCorner === 'top-right' || cameraCorner === 'bottom-right' ? '21rem' : undefined,
+                }
+              : undefined
+          }
+        >
           {/* TAB 1: Arabic Eye-Gaze Virtual Keyboard (PySource Split Blink Keyboard) */}
           {activeTab === 'keyboard' && (
             <GazeBlinkKeyboard

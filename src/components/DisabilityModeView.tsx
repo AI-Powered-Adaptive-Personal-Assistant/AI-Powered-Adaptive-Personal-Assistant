@@ -94,8 +94,13 @@ const DisabilityModeView = React.forwardRef<ChatInterfaceRef, DisabilityModeView
   // clipping the bottom controls — the parent App container already sizes us.
   return (
     <div className="flex-1 flex flex-col h-full bg-bg-main overflow-hidden relative">
-      {/* Stacks on mobile: title row + full-width scrollable tabs. Single row again ≥md. */}
-      <header className="p-4 sm:p-6 md:px-10 md:py-8 shrink-0 flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-4 border-b border-border bg-bg-card shadow-sm">
+      {/* Stacks on mobile: title row + full-width scrollable tabs. Single row again ≥md.
+          relative + z-[9995]: MotorEuphoniaView's floating camera panel is
+          `position: fixed` at z-[9990] and can be pinned to any corner,
+          including one that overlapped this header — clipping tab labels and
+          making them unclickable underneath it. This header now always wins
+          the stacking order, regardless of which corner the panel sits in. */}
+      <header className="relative z-[9995] p-4 sm:p-6 md:px-10 md:py-8 shrink-0 flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-4 border-b border-border bg-bg-card shadow-sm">
         <div className="flex items-center gap-4">
           {/* Accessibility users are scoped OUT of 'chat' by canAccessView, so
               navigating there just bounces straight back here — which left blind
