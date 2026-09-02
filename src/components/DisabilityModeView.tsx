@@ -100,8 +100,8 @@ const DisabilityModeView = React.forwardRef<ChatInterfaceRef, DisabilityModeView
           including one that overlapped this header — clipping tab labels and
           making them unclickable underneath it. This header now always wins
           the stacking order, regardless of which corner the panel sits in. */}
-      <header className="relative z-[9995] p-4 sm:p-6 md:px-10 md:py-8 shrink-0 flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-4 border-b border-border bg-bg-card shadow-sm">
-        <div className="flex items-center gap-4">
+      <header className="relative z-[9995] px-4 py-2.5 sm:px-6 sm:py-3 shrink-0 flex flex-col md:flex-row md:items-center md:justify-between gap-2 md:gap-4 border-b border-border bg-bg-card shadow-sm">
+        <div className="flex items-center gap-3">
           {/* Accessibility users are scoped OUT of 'chat' by canAccessView, so
               navigating there just bounces straight back here — which left blind
               users with NO way to reach their profile, settings or logout. For
@@ -118,23 +118,28 @@ const DisabilityModeView = React.forwardRef<ChatInterfaceRef, DisabilityModeView
               : getTranslation(profile.language, 'back')}
             // Visible at EVERY width — the sidebar is an off-canvas drawer now, so
             // this is the only way to reach account / settings / Sign Out.
-            className="p-2 text-text-muted bg-bg-main border border-border hover:bg-surface-3 rounded-lg active:scale-95 transition-all flex items-center gap-2"
+            className="p-1.5 text-text-muted bg-bg-main border border-border hover:bg-surface-3 rounded-lg active:scale-95 transition-all flex items-center gap-2"
           >
             {isAccessibilityUser(profile)
-              ? <Menu className="w-5 h-5" />
-              : <ArrowLeft className={`w-5 h-5 ${localize(profile.language, '', 'rotate-180')}`} />}
+              ? <Menu className="w-4 h-4" />
+              : <ArrowLeft className={`w-4 h-4 ${localize(profile.language, '', 'rotate-180')}`} />}
             <span className="hidden sm:inline text-xs font-semibold uppercase tracking-widest text-text-muted">
               {isAccessibilityUser(profile)
                 ? localize(profile.language, 'Menu', 'القائمة')
                 : getTranslation(profile.language, 'back')}
             </span>
           </button>
-          <div className="min-w-0">
-            <h1 className="text-lg sm:text-2xl font-bold text-text-main tracking-tight flex items-center gap-2 sm:gap-3">
-              <Accessibility className="w-5 h-5 sm:w-6 sm:h-6 text-primary shrink-0" /> {getTranslation(profile.language, 'disabilityModeTitle')}
-            </h1>
-            <p className="hidden sm:block text-xs sm:text-sm text-text-muted mt-1">{getTranslation(profile.language, 'disabilityModeSubtitle')}</p>
-          </div>
+          {/* Title + subtitle were a full decorative hero block (big heading,
+              a full sentence of marketing copy) that ate roughly a third of
+              the screen on shorter viewports — reasonable on a landing page,
+              wasteful once someone is actively using a tool like the camera
+              below. Subtitle dropped entirely here; title shrunk to a compact
+              single line. The full hero still exists on first load/no tab
+              selected via the tab content itself if needed. */}
+          <h1 className="text-sm sm:text-base font-bold text-text-main tracking-tight flex items-center gap-2 shrink-0">
+            <Accessibility className="w-4 h-4 sm:w-5 sm:h-5 text-primary shrink-0" />
+            <span className="hidden sm:inline">{getTranslation(profile.language, 'disabilityModeTitle')}</span>
+          </h1>
         </div>
 
         {/* Tabs: full-width equal columns on mobile (never wider than the screen,
