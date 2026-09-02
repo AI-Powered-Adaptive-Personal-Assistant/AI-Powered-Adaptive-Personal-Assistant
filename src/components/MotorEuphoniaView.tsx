@@ -2592,123 +2592,121 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
           </div>
         </div>
 
-        {/* Action Toggles */}
-        <div className="flex items-center gap-2 flex-wrap">
-          {/* Theme Switcher */}
-          <button
-            onClick={() => setTheme((t) => (t === 'amber' ? 'cyan' : t === 'cyan' ? 'emerald' : t === 'emerald' ? 'monochrome' : 'amber'))}
-            className="p-2 rounded-2xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300"
-            title={isArabic ? 'تغيير ثيم التباين' : 'Change Theme'}
-          >
-            <Palette className="w-4 h-4" />
-          </button>
-
-          {/* Fullscreen Toggle */}
-          <button
-            onClick={toggleFullScreenMode}
-            className="p-2 rounded-2xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300"
-            title={isArabic ? 'وضع ملء الشاشة' : 'Fullscreen'}
-          >
-            {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-          </button>
-
-          {/* 5-Step Scientific Architecture Diagram Modal Button */}
-          <button
-            onClick={() => setShowScientificArchitectureModal(true)}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/40 text-cyan-300 font-black text-xs shadow-md"
-            title={isArabic ? 'عرض المخطط العلمي والفيزيائي لتتبع العين (5 مراحل)' : '5-Component Eye-Tracking Architecture'}
-          >
-            <Activity className="w-3.5 h-3.5 text-cyan-400" />
-            <span>{isArabic ? '🔬 المخطط العلمي (5 مراحل)' : 'Scientific Architecture'}</span>
-          </button>
-
-          {/* 9-Point Medical Eye Calibration Button */}
-          <button
-            onClick={runNinePointCalibration}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 font-black text-xs shadow-md"
-          >
-            <Target className="w-3.5 h-3.5 text-amber-400" />
-            <span>{isArabic ? 'معايرة الـ 9 نقاط' : '9-Point Calibration'}</span>
-          </button>
-
-          {/* Recalibrate Neutral Center */}
-          <button
-            onClick={() => {
-              trackerRef.current?.calibrateNeutral();
-              toast.info(isArabic ? 'تمت معايرة مركز العين' : 'Eye center recalibrated');
-            }}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-amber-400 font-bold text-xs"
-          >
-            <RefreshCw className="w-3.5 h-3.5" />
-            <span>{isArabic ? 'معايرة المركز' : 'Center'}</span>
-          </button>
-
-          {/* Camera Head Pointer Toggle */}
-          <button
-            onClick={toggleCamera}
-            className={`flex items-center gap-2 px-4 py-2 rounded-2xl font-bold text-xs transition-all shadow-md ${
-              isCameraActive
-                ? 'bg-amber-500 text-slate-950 shadow-amber-500/30'
-                : 'bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-700'
-            }`}
-          >
-            {isCameraActive ? <Camera className="w-4 h-4" /> : <CameraOff className="w-4 h-4" />}
-            <span>{isCameraActive ? (isArabic ? 'إيقاف الكاميرا' : 'Stop Camera') : (isArabic ? 'تشغيل تتبع العين' : 'Start Eye Tracker')}</span>
-          </button>
-
-          {/* Euphonia Vocal Sound Toggle */}
-          <button
-            onClick={toggleAudioEngine}
-            className={`flex items-center gap-2 px-4 py-2 rounded-2xl font-bold text-xs transition-all shadow-md ${
-              isAudioEngineActive
-                ? 'bg-emerald-500 text-slate-950 shadow-emerald-500/30'
-                : 'bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-700'
-            }`}
-          >
-            {isAudioEngineActive ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
-            <span>{isAudioEngineActive ? (isArabic ? 'إيقاف إيفونيا' : 'Stop Euphonia') : (isArabic ? 'أصوات إيفونيا' : 'Vocal Sounds')}</span>
-          </button>
-
-          {/* Layout Flexibility Switcher: Full Width vs Docked.
-              Relabeled — "Full 100%" / "Docked" described the CSS behavior,
-              not what the user actually gets: which layout the camera panel
-              uses. */}
-          <div className="flex items-center bg-slate-900 border border-slate-700 rounded-2xl p-0.5 shadow-sm">
+        {/* Action Toggles.
+            Previously one long row mixed ~10 controls of equal visual weight —
+            a one-time setup action (theme, fullscreen, the architecture info
+            modal, 9-point calibration) looked exactly as important as the
+            actual "turn tracking on" buttons, so nothing stood out and the
+            row wrapped into a wall of amber buttons. Split into two tiers:
+            muted/small "tools" the user sets up once, and the actual
+            start/stop + layout controls they touch every session. */}
+        <div className="flex flex-col items-end gap-2">
+          {/* Setup & info tools — small, muted, secondary */}
+          <div className="flex items-center gap-1.5 flex-wrap justify-end">
             <button
-              onClick={() => setSidebarMode('floating')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all ${
-                sidebarMode === 'floating'
-                  ? 'bg-amber-400 text-slate-950 shadow-md'
-                  : 'text-slate-300 hover:text-white'
-              }`}
-              title={isArabic ? 'الكيبورد بعرض الشاشة، والكاميرا في نافذة صغيرة عائمة' : 'Wider keyboard, camera floats in a small window over the page'}
+              onClick={() => setTheme((t) => (t === 'amber' ? 'cyan' : t === 'cyan' ? 'emerald' : t === 'emerald' ? 'monochrome' : 'amber'))}
+              className="p-1.5 rounded-xl bg-slate-900/60 hover:bg-slate-800 border border-slate-800 text-slate-400"
+              title={isArabic ? 'تغيير ثيم التباين' : 'Change Theme'}
             >
-              <Maximize2 className="w-3.5 h-3.5" />
-              <span>{isArabic ? 'كاميرا عائمة' : 'Floating camera'}</span>
+              <Palette className="w-3.5 h-3.5" />
             </button>
 
             <button
-              onClick={() => setSidebarMode('docked')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all ${
-                sidebarMode === 'docked'
-                  ? 'bg-amber-400 text-slate-950 shadow-md'
-                  : 'text-slate-300 hover:text-white'
-              }`}
-              title={isArabic ? 'الكاميرا في شريط جانبي ثابت — متضربش فوق حاجة تانية' : 'Camera stays in a fixed side panel — never covers anything else'}
+              onClick={toggleFullScreenMode}
+              className="p-1.5 rounded-xl bg-slate-900/60 hover:bg-slate-800 border border-slate-800 text-slate-400"
+              title={isArabic ? 'وضع ملء الشاشة' : 'Fullscreen'}
             >
-              <Columns2 className="w-3.5 h-3.5" />
-              <span>{isArabic ? 'شريط جانبي ثابت' : 'Side-by-side'}</span>
+              {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+            </button>
+
+            <button
+              onClick={() => setShowScientificArchitectureModal(true)}
+              className="flex items-center gap-1 px-2 py-1.5 rounded-xl bg-slate-900/60 hover:bg-slate-800 border border-slate-800 text-slate-400 font-bold text-[11px]"
+              title={isArabic ? 'عرض المخطط العلمي والفيزيائي لتتبع العين (5 مراحل)' : '5-Component Eye-Tracking Architecture'}
+            >
+              <Activity className="w-3 h-3" />
+              <span>{isArabic ? 'المخطط العلمي' : 'How it works'}</span>
+            </button>
+
+            <button
+              onClick={runNinePointCalibration}
+              className="flex items-center gap-1 px-2 py-1.5 rounded-xl bg-slate-900/60 hover:bg-slate-800 border border-slate-800 text-slate-400 font-bold text-[11px]"
+              title={isArabic ? 'معايرة دقيقة بـ9 نقاط — مرة واحدة كافية عادة' : 'Precise 9-point calibration — usually a one-time setup'}
+            >
+              <Target className="w-3 h-3" />
+              <span>{isArabic ? 'معايرة 9 نقاط' : '9-point calibration'}</span>
             </button>
           </div>
 
-          {/* Settings */}
-          <button
-            onClick={() => setShowConfigModal(!showConfigModal)}
-            className="p-2 rounded-2xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300"
-            title={isArabic ? 'المعايرة والإعدادات' : 'Settings'}
-          >
-            <SlidersHorizontal className="w-4 h-4" />
-          </button>
+          {/* Primary actions — the controls actually touched every session */}
+          <div className="flex items-center gap-2 flex-wrap justify-end">
+            {/* Camera Head Pointer Toggle */}
+            <button
+              onClick={toggleCamera}
+              className={`flex items-center gap-2 px-4 py-2 rounded-2xl font-bold text-xs transition-all shadow-md ${
+                isCameraActive
+                  ? 'bg-amber-500 text-slate-950 shadow-amber-500/30'
+                  : 'bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-700'
+              }`}
+            >
+              {isCameraActive ? <Camera className="w-4 h-4" /> : <CameraOff className="w-4 h-4" />}
+              <span>{isCameraActive ? (isArabic ? 'إيقاف الكاميرا' : 'Stop Camera') : (isArabic ? 'تشغيل تتبع العين' : 'Start Eye Tracker')}</span>
+            </button>
+
+            {/* Euphonia Vocal Sound Toggle */}
+            <button
+              onClick={toggleAudioEngine}
+              className={`flex items-center gap-2 px-4 py-2 rounded-2xl font-bold text-xs transition-all shadow-md ${
+                isAudioEngineActive
+                  ? 'bg-emerald-500 text-slate-950 shadow-emerald-500/30'
+                  : 'bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-700'
+              }`}
+            >
+              {isAudioEngineActive ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
+              <span>{isAudioEngineActive ? (isArabic ? 'إيقاف إيفونيا' : 'Stop Euphonia') : (isArabic ? 'أصوات إيفونيا' : 'Vocal Sounds')}</span>
+            </button>
+
+            {/* Layout Flexibility Switcher: Full Width vs Docked.
+                Relabeled — "Full 100%" / "Docked" described the CSS behavior,
+                not what the user actually gets: which layout the camera panel
+                uses. */}
+            <div className="flex items-center bg-slate-900 border border-slate-700 rounded-2xl p-0.5 shadow-sm">
+              <button
+                onClick={() => setSidebarMode('floating')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all ${
+                  sidebarMode === 'floating'
+                    ? 'bg-amber-400 text-slate-950 shadow-md'
+                    : 'text-slate-300 hover:text-white'
+                }`}
+                title={isArabic ? 'الكيبورد بعرض الشاشة، والكاميرا في نافذة صغيرة عائمة' : 'Wider keyboard, camera floats in a small window over the page'}
+              >
+                <Maximize2 className="w-3.5 h-3.5" />
+                <span>{isArabic ? 'كاميرا عائمة' : 'Floating camera'}</span>
+              </button>
+
+              <button
+                onClick={() => setSidebarMode('docked')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all ${
+                  sidebarMode === 'docked'
+                    ? 'bg-amber-400 text-slate-950 shadow-md'
+                    : 'text-slate-300 hover:text-white'
+                }`}
+                title={isArabic ? 'الكاميرا في شريط جانبي ثابت — متضربش فوق حاجة تانية' : 'Camera stays in a fixed side panel — never covers anything else'}
+              >
+                <Columns2 className="w-3.5 h-3.5" />
+                <span>{isArabic ? 'شريط جانبي ثابت' : 'Side-by-side'}</span>
+              </button>
+            </div>
+
+            {/* Settings */}
+            <button
+              onClick={() => setShowConfigModal(!showConfigModal)}
+              className="p-2 rounded-2xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300"
+              title={isArabic ? 'المعايرة والإعدادات' : 'Settings'}
+            >
+              <SlidersHorizontal className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       </div>
 
