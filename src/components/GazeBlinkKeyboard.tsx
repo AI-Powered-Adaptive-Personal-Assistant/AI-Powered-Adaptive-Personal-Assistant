@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from 'react';
 import { PointerPosition, FacialGestureState } from '../lib/facialHeadTracker';
 import { GazeBlinkEngine, GazeBlinkState } from '../lib/gazeBlinkEngine';
 import { speak } from '../lib/tts';
@@ -140,6 +140,7 @@ export default function GazeBlinkKeyboard({
 
   // Flexibility & Customization State
   const [keyScale, setKeyScale] = useState<KeyScale>('normal');
+  const [autoFitted, setAutoFitted] = useState(false); // once true, stop overriding a manual pick
   const [activeTheme, setActiveTheme] = useState<KeyboardTheme>(themeAccent);
   const [layoutMode, setLayoutMode] = useState<'full' | 'split'>('full');
   const [selectionMode, setSelectionMode] = useState<'hybrid' | 'dwell' | 'blink'>('hybrid');
@@ -165,6 +166,50 @@ export default function GazeBlinkKeyboard({
   const engineRef = useRef<GazeBlinkEngine | null>(null);
   const keyRefs = useRef<Map<string, HTMLElement>>(new Map());
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Parent screens (MotorEuphoniaView) run this whole tab with overflow
+  // hidden, no scroll at all — a paralyzed/dwell-clicking user has no way
+  // to scroll to a key that doesn't fit. So instead of relying on someone
+  // manually picking a small enough preset, measure the actual rendered
+  // height against the space really available and step the scale down
+  // (compact < normal < large < giant) until everything fits. Only steps
+  // DOWN automatically — never fights a size the user deliberately picked
+  // that already fits; it only intervenes when content would otherwise be
+  // unreachable.
+  useLayoutEffect(() => {
+    const el = containerRef.current;
+    if (!el || isKeyboardFullscreen) return;
+    const overflowing = el.scrollHeight > el.clientHeight + 2; // +2px rounding slack
+    if (overflowing) {
+      const order: KeyScale[] = ['giant', 'large', 'normal', 'compact'];
+      const idx = order.indexOf(keyScale);
+      if (idx < order.length - 1) {
+        setAutoFitted(true);
+        setKeyScale(order[idx + 1]);
+      }
+    }
+  }, [keyScale, isKeyboardFullscreen, layoutMode, showQuickPhrases, showSettings, showTelemetryHUD]);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(() => {
+      // Re-trigger the fit check on real size changes (window resize,
+      // sidebar layout toggle, camera panel appearing) by nudging state.
+      const overflowing = el.scrollHeight > el.clientHeight + 2;
+      if (overflowing) {
+        const order: KeyScale[] = ['giant', 'large', 'normal', 'compact'];
+        const idx = order.indexOf(keyScale);
+        if (idx < order.length - 1) {
+          setAutoFitted(true);
+          setKeyScale(order[idx + 1]);
+        }
+      }
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [keyScale]);
 
   // Dwell state
   const dwellStartTimeRef = useRef<number>(0);

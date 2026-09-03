@@ -2788,10 +2788,18 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
           to grow past the viewport. This is what removes the page-level
           scroll a user previously had to do just to reach the keyboard
           below the toolbar. */}
-      <div className="flex-1 min-h-0 overflow-y-auto -mx-3 sm:-mx-5 lg:-mx-6 px-3 sm:px-5 lg:px-6">
+      {/* overflow-hidden, not overflow-y-auto: explicitly required for this
+          audience — a paralyzed/dwell-clicking user cannot scroll at all, so
+          ANY scrollbar (even an internal one, even a rare edge case) is a
+          real access failure, not a minor inconvenience. The tradeoff this
+          creates: on a very short viewport, panels below now compress
+          (min-h-0 on every row) instead of scrolling into view — nothing is
+          literally deleted, but on a small enough screen some vertical
+          spacing gets tight rather than being reachable via scroll. */}
+      <div className="flex-1 min-h-0 overflow-hidden -mx-3 sm:-mx-5 lg:-mx-6 px-3 sm:px-5 lg:px-6 flex flex-col">
 
       {/* Main Communicator Grid: Left HUD / Floating PIP + Main Center Eye-Gaze Board */}
-      <div className={`grid grid-cols-1 ${sidebarMode === 'docked' ? 'lg:grid-cols-12' : 'grid-cols-1'} gap-4 flex-1`}>
+      <div className={`grid grid-cols-1 ${sidebarMode === 'docked' ? 'lg:grid-cols-12' : 'grid-cols-1'} gap-3 flex-1 min-h-0 overflow-hidden`}>
         {/* Left Side: Live Webcam HUD + Vocal Visualizer + Dysarthria Decoder */}
         <div className={
           sidebarMode === 'docked'
@@ -3020,7 +3028,7 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
 
         {/* Right Side: Eye-Gaze Board Content (Expanded to 100% full width when floating) */}
         <div
-          className={`${sidebarMode === 'docked' ? 'lg:col-span-9' : 'col-span-12 w-full'} flex flex-col gap-3`}
+          className={`${sidebarMode === 'docked' ? 'lg:col-span-9' : 'col-span-12 w-full'} flex flex-col gap-3 min-h-0 overflow-hidden`}
           style={
             // The floating panel is `position: fixed` (it has to be, to float
             // over/around scrolling content) — fixed elements are removed from
