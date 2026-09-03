@@ -26,8 +26,16 @@ export interface EyeTrackerLiveMetrics {
   leftPupil: { x: number; y: number };
   rightPupil: { x: number; y: number };
   avgEAR: number;
-  /** PySource p.2: Eye Blinking Ratio = horizontal_distance / vertical_distance (threshold ~5.7) */
+  /** PySource p.2: Eye Blinking Ratio = horizontal_distance / vertical_distance. */
   blinkingRatio?: number;
+  /**
+   * The ratio above which THIS person's eye counts as closed, learned from
+   * their own resting face. The PySource constant of 5.7 is an absolute number
+   * for a quantity that is anatomical: a narrow eye can sit near 4.3 at rest
+   * and cross 5.7 simply by looking down, which fires a blink-click and types a
+   * letter the student never chose.
+   */
+  blinkRatioThreshold?: number;
   /** PySource p.3/p.4: Gaze Ratio = left_sclera_dist / right_sclera_dist (< 0.85 Left, > 1.20 Right) */
   gazeRatio?: number;
   isBlinking: boolean;
@@ -356,6 +364,15 @@ export class FacialHeadTracker {
   private hoverLostSince = 0;
 
   private runningMaxEAR = 0;   // widest eye opening seen this session
+  /** Median resting blinking-ratio for this face, learned like the EAR baseline. */
+  private adaptiveNeutralRatio: number | null = null;
+  private restingRatioSamples: number[] = [];
+
+  /** Ratio above which THIS face reads as closed. Falls back to the PySource
+   *  constant until enough resting frames have been collected. */
+  private get ratioClosedThreshold(): number {
+    return this.adaptiveNeutralRatio ? Math.max(4.2, this.adaptiveNeutralRatio * 1.7) : 5.7;
+  }
   private eyesClosedSince = 0; // watchdog against a stuck "closed" state
 
   // Adaptive blink threshold
@@ -421,6 +438,8 @@ export class FacialHeadTracker {
     this.restingMouthRatio = null;
     this.mouthRatioSamples = [];
     this.smilingSince = 0;
+    this.adaptiveNeutralRatio = null;
+    this.restingRatioSamples = [];
   }
 
   public resetCalibration() {
@@ -899,7 +918,29 @@ export class FacialHeadTracker {
     // Fall back to the running max (relative) rather than an absolute constant.
     const neutral = this.adaptiveNeutralEAR ?? (this.runningMaxEAR > 0 ? this.runningMaxEAR : null);
     const blinkThreshold = neutral ? neutral * 0.62 : 0.18;
-    let isEyesClosed = avgEAR < blinkThreshold || (typeof blinkingRatio === 'number' && blinkingRatio > 5.7);
+
+    // Learn this face's resting blinking-ratio on the same frames the EAR
+    // baseline is collected from, and scale the closed threshold off it.
+    // A flat 5.7 is an absolute cut on an anatomical quantity: a narrow eye can
+    // rest near 4.3 and reach 5.7 just by GLANCING DOWN, which registered as a
+    // blink and typed a letter the student never chose. Everything below keeps
+    // the 5.7 behaviour for an average eye (resting ~3.3 x 1.7 = 5.6) while
+    // moving with the person it is actually measuring.
+    if (typeof blinkingRatio === 'number' && Number.isFinite(blinkingRatio)) {
+      if (this.adaptiveNeutralRatio === null) {
+        if (avgEAR > collectGate && blinkingRatio > 1 && blinkingRatio < 12) {
+          this.restingRatioSamples.push(blinkingRatio);
+        }
+        if (this.restingRatioSamples.length >= this.EAR_CALIBRATION_SAMPLE_TARGET) {
+          const sorted = [...this.restingRatioSamples].sort((a, b) => a - b);
+          this.adaptiveNeutralRatio = sorted[Math.floor(sorted.length / 2)];
+        }
+      }
+    }
+    const ratioClosedThreshold = this.ratioClosedThreshold;
+
+    let isEyesClosed = avgEAR < blinkThreshold
+      || (typeof blinkingRatio === 'number' && blinkingRatio > ratioClosedThreshold);
     // Looking DOWN narrows the eye: the upper lid follows the eye down, so the
     // aperture shrinks even though the eye is wide open and the iris is fully
     // visible. That routinely crosses the blink threshold — and the whole gaze
@@ -976,6 +1017,7 @@ export class FacialHeadTracker {
                 rightPupil: { x: rightIris.x, y: rightIris.y },
                 avgEAR,
                 blinkingRatio,
+                blinkRatioThreshold: this.ratioClosedThreshold,
                 gazeRatio,
                 isBlinking: true,
                 gazeVector: { x: this.currentPos.normalizedX, y: this.currentPos.normalizedY },
@@ -1270,6 +1312,7 @@ export class FacialHeadTracker {
           rightPupil: rightIris,
           avgEAR,
           blinkingRatio,
+          blinkRatioThreshold: this.ratioClosedThreshold,
           gazeRatio,
           isBlinking: false,
           gazeVector: { x: smoothed.x, y: smoothed.y },
@@ -1314,8 +1357,9 @@ export class FacialHeadTracker {
     ctx.fillText(`${distanceCm}cm ${isWithinRange ? '✓' : '⚠️'}`, w - 74, 16);
 
     // PySource Part 2 (mMObcjHs59E) Real-time Blinking Ratio HUD (Top Left)
-    const isBlinkThresholdExceeded = isEyesClosed || blinkingRatio > 5.7;
-    const ratioColor = isBlinkThresholdExceeded ? '#ef4444' : blinkingRatio > 4.5 ? '#f59e0b' : '#22c55e';
+    const ratioCut = this.ratioClosedThreshold;
+    const isBlinkThresholdExceeded = isEyesClosed || blinkingRatio > ratioCut;
+    const ratioColor = isBlinkThresholdExceeded ? '#ef4444' : blinkingRatio > ratioCut * 0.8 ? '#f59e0b' : '#22c55e';
     ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
     ctx.fillRect(4, 4, 115, 17);
     ctx.strokeStyle = ratioColor;

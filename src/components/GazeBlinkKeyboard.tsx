@@ -26,6 +26,21 @@ interface GazeBlinkKeyboardProps {
   onSendToWhatsApp?: (text: string) => void;
   onOpenCallPicker?: () => void;
   themeAccent?: 'amber' | 'cyan' | 'emerald' | 'pink' | 'yellow' | 'monochrome';
+  /**
+   * Dwell time from the shared eye-tracking settings. The keyboard kept its own
+   * 750ms in local state, so the "Dwell Time" slider in Settings — the one
+   * control a caregiver reaches for when keys fire too early or not at all —
+   * did nothing here, and the value never synced with the student's profile.
+   */
+  dwellTimeMsOverride?: number;
+  /**
+   * True while single-switch auto-scan is driving. The keyboard runs its OWN
+   * dwell and blink-click off the raw cursor, neither of which knows about the
+   * scan: a blink would fire the scan's selection AND whatever key the cursor
+   * happened to be over, and the dwell would fire keys the scan never
+   * highlighted.
+   */
+  suppressOwnSelection?: boolean;
 }
 
 // 1. Standard QWERTY / Arabic
@@ -105,6 +120,8 @@ export default function GazeBlinkKeyboard({
   onSendToAI,
   onSendToWhatsApp,
   onOpenCallPicker,
+  dwellTimeMsOverride,
+  suppressOwnSelection = false,
   themeAccent = 'amber'
 }: GazeBlinkKeyboardProps) {
   // Text & Language State
@@ -288,8 +305,8 @@ export default function GazeBlinkKeyboard({
       setHoveredKey(foundKey);
 
       // --- Dwell Selection Logic ---
-      const allowDwell = selectionMode === 'dwell' || selectionMode === 'hybrid';
-      const allowBlink = selectionMode === 'blink' || selectionMode === 'hybrid';
+      const allowDwell = !suppressOwnSelection && (selectionMode === 'dwell' || selectionMode === 'hybrid');
+      const allowBlink = !suppressOwnSelection && (selectionMode === 'blink' || selectionMode === 'hybrid');
 
       if (allowDwell && foundKey) {
         if (currentDwellKeyRef.current !== foundKey) {
@@ -319,7 +336,14 @@ export default function GazeBlinkKeyboard({
         setDwellProgress(null);
       }
     }
-  }, [cursorPos, gestureState, handleKeyPress, selectionMode, dwellTimeMs]);
+  }, [cursorPos, gestureState, handleKeyPress, selectionMode, dwellTimeMs, suppressOwnSelection]);
+
+  // Adopt the shared dwell setting whenever it changes.
+  useEffect(() => {
+    if (typeof dwellTimeMsOverride === 'number' && dwellTimeMsOverride > 0) {
+      setDwellTimeMs(dwellTimeMsOverride);
+    }
+  }, [dwellTimeMsOverride]);
 
   // Active Rows based on Language and Layout Type
   const rows = useMemo(() => {

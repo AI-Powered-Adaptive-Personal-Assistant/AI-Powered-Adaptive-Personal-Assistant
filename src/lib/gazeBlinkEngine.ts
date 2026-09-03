@@ -135,7 +135,13 @@ export class GazeBlinkEngine {
     const blinkingRatio = Number.isFinite(gestureState.metrics?.blinkingRatio)
       ? gestureState.metrics!.blinkingRatio!
       : (avgEAR && avgEAR > 0.001 ? 1 / avgEAR : 3.5);
-    const isEyesClosed = Boolean(gestureState.isBlinking || blinkingRatio > this.config.blinkRatioThreshold);
+    // Prefer the threshold the tracker learned from THIS face. The configured
+    // 5.7 is a reasonable default for an average eye but fires on a downward
+    // glance for a narrow one — which types a letter the student never chose.
+    const ratioThreshold = Number.isFinite(gestureState.metrics?.blinkRatioThreshold)
+      ? gestureState.metrics!.blinkRatioThreshold!
+      : this.config.blinkRatioThreshold;
+    const isEyesClosed = Boolean(gestureState.isBlinking || blinkingRatio > ratioThreshold);
     let blinkDurationMs = 0;
 
     if (isEyesClosed) {

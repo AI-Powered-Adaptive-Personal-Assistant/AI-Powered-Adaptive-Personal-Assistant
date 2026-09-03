@@ -3042,6 +3042,8 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
           {activeTab === 'keyboard' && (
             <GazeBlinkKeyboard
               isArabic={isArabic}
+              dwellTimeMsOverride={headConfig.dwellTimeMs}
+              suppressOwnSelection={scanActive}
               cursorPos={cursorPos}
               gestureState={gestureState}
               onSpeakText={(text) => speakSafe(text)}
