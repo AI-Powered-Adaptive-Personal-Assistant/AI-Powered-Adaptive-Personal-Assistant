@@ -83,11 +83,15 @@ export default function AccessibilityOverlay({
   // Enlarge the camera preview to a big centered panel (toggle).
   const [camExpanded, setCamExpanded] = useState(false);
 
+  const isMountedRef = useRef(true);
+
   // Free the recognizer AND stop the camera + any speech when the overlay
   // unmounts — otherwise the webcam light stays on (privacy) and TTS bleeds
   // into the next screen. Critical for a trusted hospital deployment.
   useEffect(() => {
+    isMountedRef.current = true;
     return () => {
+      isMountedRef.current = false;
       signClfRef.current?.dispose();
       signClfRef.current = null;
       try { cameraRef.current?.stop(); } catch { /* ignore */ }
@@ -256,9 +260,9 @@ export default function AccessibilityOverlay({
             }
           }
 
-          utterance.onstart = () => setIsSpeaking(true);
-          utterance.onend = () => setIsSpeaking(false);
-          utterance.onerror = () => setIsSpeaking(false);
+          utterance.onstart = () => { if (isMountedRef.current) setIsSpeaking(true); };
+          utterance.onend = () => { if (isMountedRef.current) setIsSpeaking(false); };
+          utterance.onerror = () => { if (isMountedRef.current) setIsSpeaking(false); };
 
           window.speechSynthesis.cancel(); // stop any ongoing synthesis
           timers.push(setTimeout(() => {
@@ -377,6 +381,10 @@ export default function AccessibilityOverlay({
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { width: 640, height: 480, facingMode: "user" },
       });
+      if (!isMountedRef.current) {
+        stream.getTracks().forEach((t) => t.stop());
+        return;
+      }
       // Assign the ref IMMEDIATELY so any later failure (or missing video el) can
       // still stop the stream — otherwise the camera light stays on with no handle.
       streamRef.current = stream;
@@ -487,6 +495,9 @@ export default function AccessibilityOverlay({
     });
     camera.start();
     cameraRef.current = camera;
+    return () => {
+      try { camera.stop(); } catch {}
+    };
   }, [camExpanded, isVisionActive]);
 
   // Hybrid fallback: on demand (NOT per frame), send the current camera frame to
@@ -508,20 +519,22 @@ export default function AccessibilityOverlay({
     try {
       const text = await geminiService.translateSign(
         imageData,
-        profile.language || "English",
-        profile.level || "Basic",
+        profile?.language || "English",
+        profile?.level || "Basic",
       );
       const clean = (text || "")
         .replace(/\[NO_SIGN\]/gi, "")
         .replace(/[\[\]]/g, "")
         .trim();
-      if (clean) {
+      if (isMountedRef.current && clean) {
         setTranscription((prev) => (prev ? prev + " " : "") + clean);
       }
     } catch (e) {
       console.error("AI sign interpret error", e);
     } finally {
-      setIsVisionAnalyzing(false);
+      if (isMountedRef.current) {
+        setIsVisionAnalyzing(false);
+      }
     }
   };
 

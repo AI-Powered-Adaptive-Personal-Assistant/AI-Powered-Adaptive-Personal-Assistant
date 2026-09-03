@@ -2,6 +2,7 @@ import { localize } from '../lib/translations';
 import { useEffect, useMemo, useState } from 'react';
 import { UserProfile, Course } from '../types';
 import { Menu, Plus, Trash2, Calculator, Sparkles, GraduationCap } from 'lucide-react';
+import { toast } from './Toast';
 import {
   GRADE_OPTIONS, GRADE_POINTS, calculateGPA, calculateCGPA, semestersOf,
   totalCredits, projectCGPA, subscribeToCourses, saveCourse, deleteCourse,
@@ -36,10 +37,10 @@ export default function GpaCalculator({ profile, onMenuClick }: GpaCalculatorPro
   const [whatIfCredits, setWhatIfCredits] = useState('3');
 
   useEffect(() => {
-    if (!profile.uid) return;
+    if (!profile?.uid) return;
     const unsub = subscribeToCourses(profile.uid, setCourses);
     return () => unsub();
-  }, [profile.uid]);
+  }, [profile?.uid]);
 
   const cgpa = useMemo(() => calculateCGPA(courses), [courses]);
   const semesters = useMemo(() => semestersOf(courses), [courses]);
@@ -50,12 +51,15 @@ export default function GpaCalculator({ profile, onMenuClick }: GpaCalculatorPro
     if (whatIfCourse) {
       return projectCGPA(courses, { courseId: whatIfCourse, grade: whatIfGrade, credits: 0 });
     }
-    const safeCredits = Math.max(0, Number(whatIfCredits) || 0) || 3;
+    const numCredits = Number(whatIfCredits);
+    const safeCredits = Number.isFinite(numCredits) && numCredits >= 0 ? numCredits : 3;
     return projectCGPA(courses, { courseId: null, grade: whatIfGrade, credits: safeCredits });
   }, [courses, whatIfCourse, whatIfGrade, whatIfCredits]);
 
+  const t = (en: string, ar: string) => localize(profile?.language, en, ar);
+
   const addCourse = async () => {
-    if (!name.trim() || !profile.uid) return;
+    if (!name.trim() || !profile?.uid) return;
     const course: Course = {
       id: `c-${Date.now()}`,
       name: name.trim(),
@@ -64,11 +68,26 @@ export default function GpaCalculator({ profile, onMenuClick }: GpaCalculatorPro
       semester: semester.trim() || 'Semester 1',
       createdAt: new Date().toISOString(),
     };
-    await saveCourse(profile.uid, course);
-    setName('');
+    try {
+      await saveCourse(profile.uid, course);
+      setName('');
+      toast.success(t('Course added.', 'تمت إضافة المادة.'), t('Saved', 'تم الحفظ'));
+    } catch (err) {
+      console.error('Failed to add course:', err);
+      toast.error(t('Failed to add course.', 'فشل إضافة المادة.'), t('Error', 'خطأ'));
+    }
   };
 
-  const t = (en: string, ar: string) => localize(profile.language, en, ar);
+  const handleDeleteCourse = async (courseId: string) => {
+    if (!profile?.uid) return;
+    try {
+      await deleteCourse(profile.uid, courseId);
+      toast.success(t('Course removed.', 'تم حذف المادة.'), t('Deleted', 'تم الحذف'));
+    } catch (err) {
+      console.error('Failed to delete course:', err);
+      toast.error(t('Failed to delete course.', 'فشل حذف المادة.'), t('Error', 'خطأ'));
+    }
+  };
 
   return (
     <div dir={isAr ? 'rtl' : 'ltr'} className="flex-1 h-screen overflow-y-auto bg-bg-main flex flex-col custom-scrollbar p-6 md:p-10 gap-6">
@@ -172,7 +191,7 @@ export default function GpaCalculator({ profile, onMenuClick }: GpaCalculatorPro
                     <span className="flex-1 font-bold text-text-main text-sm">{c.name}</span>
                     <span className="text-xs text-faint">{c.credits} {t('cr', 'س')}</span>
                     <span dir="ltr" className={`text-xs font-black px-2.5 py-1 rounded-lg border ${gradeColor(c.grade)}`}>{c.grade}</span>
-                    <button onClick={() => profile.uid && deleteCourse(profile.uid, c.id)}
+                    <button onClick={() => handleDeleteCourse(c.id)}
                       className="p-1.5 text-faint hover:text-red-500 transition-colors" title={t('Delete', 'حذف')}>
                       <Trash2 className="w-4 h-4" />
                     </button>

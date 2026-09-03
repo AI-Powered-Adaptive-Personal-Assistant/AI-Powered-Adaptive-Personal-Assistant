@@ -45,10 +45,10 @@ export default function VisionCompanionView({ profile, setProfile }: VisionCompa
   const [labelInput, setLabelInput] = useState('');
   const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
 
-  const lang = profile.language;
-  const memories = profile.visionMemories || [];
+  const lang = profile?.language;
+  const memories = profile?.visionMemories || [];
 
-  const t = (en: string, ar: string) => localize(lang, en, ar);
+  const t = useCallback((en: string, ar: string) => localize(lang, en, ar), [lang]);
 
   const startCamera = useCallback(async (mode: 'environment' | 'user' = facingMode) => {
     if (!navigator.mediaDevices?.getUserMedia) {
@@ -178,13 +178,15 @@ export default function VisionCompanionView({ profile, setProfile }: VisionCompa
         [],
         [{ name: 'scene.jpg', type: 'image/jpeg', data: cleanData }],
       );
+      if (!isMountedRef.current) return;
       setLastDescription(result);
       setStatus('ready');
       setAnnounce(result);
       speak(result, lang, {
-        onError: () => setAnnounce((prev) => prev), // description still shown as text even if TTS fails
+        onError: () => { if (isMountedRef.current) setAnnounce((prev) => prev); },
       });
     } catch {
+      if (!isMountedRef.current) return;
       setStatus('ready');
       const err = t('Something went wrong analyzing the image. Please try again.', 'حصلت مشكلة وأنا بحلل الصورة. جرب تاني.');
       setLastDescription(err);
@@ -200,7 +202,7 @@ export default function VisionCompanionView({ profile, setProfile }: VisionCompa
   };
 
   const saveMemory = async () => {
-    if (!labelInput.trim() || !profile.uid) { setShowSaveDialog(false); return; }
+    if (!labelInput.trim() || !profile?.uid) { setShowSaveDialog(false); return; }
     const memory: VisionMemory = {
       id: `vm_${Date.now()}`,
       label: labelInput.trim(),
@@ -218,6 +220,7 @@ export default function VisionCompanionView({ profile, setProfile }: VisionCompa
       await setDoc(doc(db, `users/${profile.uid}`), { visionMemories: cleanDataForFirestore(updated) }, { merge: true });
     } catch (err) {
       console.warn('Failed to sync vision memory:', err);
+      if (!isMountedRef.current) return;
       if (setProfile) setProfile({ ...profile, visionMemories: prevMemories });
       const errMsg = t('Failed to save to cloud. Please check your connection.', 'فشل حفظ العنصر في السحابة. تحقق من اتصالك.');
       setAnnounce(errMsg);
@@ -226,7 +229,7 @@ export default function VisionCompanionView({ profile, setProfile }: VisionCompa
   };
 
   const deleteMemory = async (id: string) => {
-    if (!profile.uid) return;
+    if (!profile?.uid) return;
     const prevMemories = memories;
     const updated = memories.filter((m) => m.id !== id);
     if (setProfile) setProfile({ ...profile, visionMemories: updated });
@@ -234,7 +237,7 @@ export default function VisionCompanionView({ profile, setProfile }: VisionCompa
       await setDoc(doc(db, `users/${profile.uid}`), { visionMemories: cleanDataForFirestore(updated) }, { merge: true });
     } catch (err) {
       console.warn('Failed to delete vision memory:', err);
-      if (setProfile) setProfile({ ...profile, visionMemories: prevMemories });
+      if (isMountedRef.current && setProfile) setProfile({ ...profile, visionMemories: prevMemories });
     }
   };
 

@@ -171,11 +171,13 @@ export class VocalSoundEngine {
       this.mediaStream.getTracks().forEach((t) => t.stop());
       this.mediaStream = null;
     }
-    if (this.audioCtx && this.audioCtx.state !== 'closed') {
-      try {
-        this.audioCtx.close();
-      } catch {
-        /* ignore */
+    if (this.audioCtx) {
+      if (this.audioCtx.state !== 'closed') {
+        try {
+          this.audioCtx.close().catch(() => {});
+        } catch {
+          /* ignore */
+        }
       }
       this.audioCtx = null;
     }

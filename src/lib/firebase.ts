@@ -25,8 +25,14 @@ const isIndexedDBSupported = (): boolean => {
     if (typeof window === 'undefined' || !window.indexedDB) {
       return false;
     }
-    // Probe opening a test database; if it throws synchrononously (SecurityError), indexedDb is blocked/unsupported
-    window.indexedDB.open('__firebase_probe__');
+    const req = window.indexedDB.open('__firebase_probe__');
+    req.onsuccess = () => {
+      try {
+        req.result.close();
+        window.indexedDB.deleteDatabase('__firebase_probe__');
+      } catch {}
+    };
+    req.onerror = (e) => { e.preventDefault(); };
     return true;
   } catch (err) {
     return false;
@@ -160,9 +166,16 @@ export function cleanDataForFirestore(data: any): any {
     return data.map(item => cleanDataForFirestore(item));
   }
   if (typeof data === 'object') {
-    // If it's a date or other special object, return it as is or serialize/format
     if (data instanceof Date) {
       return data.toISOString();
+    }
+    // Preserve Firestore FieldValue sentinels (serverTimestamp, arrayUnion, deleteField, etc.) and Timestamps
+    if (
+      (data.constructor && data.constructor.name !== 'Object' && data.constructor.name !== 'Array') ||
+      '_methodName' in data ||
+      typeof (data as any).toMillis === 'function'
+    ) {
+      return data;
     }
     const cleaned: any = {};
     for (const key of Object.keys(data)) {

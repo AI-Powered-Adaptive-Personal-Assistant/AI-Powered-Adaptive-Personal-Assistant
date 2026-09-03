@@ -9,10 +9,16 @@ import { guard, readBody, generateText } from '../_lib/ai.js';
 
 export default async function handler(req: any, res: any) {
   if (!guard(req, res)) return;
-  const { originalMessage = '', userMessage = '', profile = {} } = await readBody(req);
-  const isAr = profile?.language === 'Arabic' || profile?.language === 'Egyptian Ammiya';
 
-  const prompt = `You are a strict reviewer performing a SECOND-PASS review of an AI tutor's answer.
+  try {
+    const { originalMessage = '', userMessage = '', profile = {} } = await readBody(req);
+    if (!originalMessage && !userMessage) {
+      res.status(400).json({ error: 'originalMessage or userMessage is required' });
+      return;
+    }
+    const isAr = profile?.language === 'Arabic' || profile?.language === 'Egyptian Ammiya';
+
+    const prompt = `You are a strict reviewer performing a SECOND-PASS review of an AI tutor's answer.
 The user asked: "${userMessage}"
 The assistant (Cognify) replied: "${originalMessage}"
 
@@ -25,11 +31,12 @@ Respond in this EXACT format, in ${isAr ? 'Arabic' : 'English'}:
 ## Critique
 [Briefly: what the original did well, and what yours does better or differently.]`;
 
-  try {
     const txt = await generateText(prompt);
     res.status(200).json({ result: txt || (isAr ? 'تعذّر توليد المراجعة. جرّب تاني.' : 'Could not generate the review. Please try again.') });
   } catch (err) {
     console.error('[api] generateBenchmarkComparison:', err);
-    res.status(500).json({ error: 'AI request failed' });
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'AI request failed' });
+    }
   }
 }

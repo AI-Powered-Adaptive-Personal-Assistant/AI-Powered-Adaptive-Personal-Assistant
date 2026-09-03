@@ -42,7 +42,7 @@ const KEY_GETTERS_BY_PROVIDER: Record<'nvidia' | 'groq' | 'xai', () => string[]>
  * Groq/xAI; a "fast" request keeps the original Groq-before-NVIDIA order.
  */
 export const orderedFallbackKeys = (category: TaskCategory = 'fast'): string[] =>
-  PROVIDER_ORDER[category]
+  (PROVIDER_ORDER[category] || PROVIDER_ORDER.fast)
     .filter((p): p is 'nvidia' | 'groq' | 'xai' => p !== 'gemini')
     .flatMap((p) => KEY_GETTERS_BY_PROVIDER[p]());
 
@@ -104,7 +104,7 @@ export function providerFor(key: string): {
  * Handles the still-open tag too, which is what a truncated stream leaves.
  */
 export function stripReasoning(text: string): string {
-  if (!text) return text;
+  if (!text || typeof text !== 'string') return typeof text === 'string' ? text : '';
   let out = text.replace(/<think>[\s\S]*?<\/think>/gi, '');
   // An unterminated <think> means everything after it is still reasoning.
   const open = out.search(/<think>/i);
@@ -149,15 +149,17 @@ export function threadsSummary(profile: Profile): string {
 
 /** Gemini `contents`, with the trailing duplicate of the current message removed. */
 export function buildContents(message: string, history: Msg[], attachments: any[] = []) {
-  const mapped = (history || [])
-    .filter((m) => m.id !== 'welcome' && m.content?.trim())
+  const safeHistory = Array.isArray(history) ? history : [];
+  const safeAttachments = Array.isArray(attachments) ? attachments : [];
+  const mapped = safeHistory
+    .filter((m) => m && m.id !== 'welcome' && m.content?.trim())
     .map((m) => ({ role: m.role === 'user' ? 'user' : 'model', parts: [{ text: m.content }] }));
   const clean = mapped[0]?.role === 'model' ? mapped.slice(1) : mapped;
   const last = clean[clean.length - 1];
   const deduped = last?.role === 'user' && last.parts?.[0]?.text === message ? clean.slice(0, -1) : clean;
 
   const parts: any[] = [{ text: message }];
-  for (const f of attachments || []) {
+  for (const f of safeAttachments) {
     if (f?.data && f?.type) {
       const cleanData = typeof f.data === 'string' ? f.data.replace(/^data:[^;]+;base64,/, '') : f.data;
       parts.push({ inlineData: { mimeType: f.type, data: cleanData } });
@@ -168,8 +170,9 @@ export function buildContents(message: string, history: Msg[], attachments: any[
 
 /** OpenAI-compatible messages, same trailing-duplicate guard. */
 export function buildOpenAIMessages(message: string, system: string, history: Msg[]) {
-  const mapped = (history || [])
-    .filter((m) => m.id !== 'welcome' && m.content?.trim())
+  const safeHistory = Array.isArray(history) ? history : [];
+  const mapped = safeHistory
+    .filter((m) => m && m.id !== 'welcome' && m.content?.trim())
     .map((m) => ({ role: m.role === 'user' ? 'user' : 'assistant', content: m.content }));
   const last = mapped[mapped.length - 1];
   const deduped = last?.role === 'user' && last.content === message ? mapped.slice(0, -1) : mapped;
@@ -218,7 +221,9 @@ export async function geminiFetch(
  * telemetry.ts regardless of outcome.
  */
 export async function fallbackChat(messages: any[], category: TaskCategory = 'fast'): Promise<string> {
-  const inputChars = messages.reduce((sum, m) => sum + (m?.content?.length || 0), 0);
+  const inputChars = Array.isArray(messages)
+    ? messages.reduce((sum, m) => sum + (typeof m?.content === 'string' ? m.content.length : 0), 0)
+    : 0;
 
   for (const key of orderedFallbackKeys(category)) {
     const { url, models, params } = providerFor(key);
@@ -291,9 +296,23 @@ export async function readBody(req: any): Promise<any> {
   if (req.readableEnded || req.complete) return {};
   return await new Promise((resolve) => {
     let raw = '';
-    req.on('data', (c: any) => { raw += c; });
-    req.on('end', () => { try { resolve(JSON.parse(raw || '{}')); } catch { resolve({}); } });
-    req.on('error', () => resolve({}));
+    const MAX_BYTES = 10 * 1024 * 1024; // 10MB
+    const timer = setTimeout(() => resolve({}), 15000);
+    req.on('data', (c: any) => {
+      raw += c;
+      if (raw.length > MAX_BYTES) {
+        clearTimeout(timer);
+        resolve({});
+      }
+    });
+    req.on('end', () => {
+      clearTimeout(timer);
+      try { resolve(JSON.parse(raw || '{}')); } catch { resolve({}); }
+    });
+    req.on('error', () => {
+      clearTimeout(timer);
+      resolve({});
+    });
   });
 }
 

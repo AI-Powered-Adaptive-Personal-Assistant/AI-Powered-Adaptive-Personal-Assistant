@@ -11,123 +11,149 @@ import express from "express";
 // Vercel handlers removes that duplication — one implementation, everywhere.
 import generateAdaptiveResponseHandler from "../api/gemini/generateAdaptiveResponse";
 import generateAdaptiveResponseStreamHandler from "../api/gemini/generateAdaptiveResponseStream";
+import generateContentHandler from "../api/gemini/generateContent";
 
 export const geminiRouter = express.Router();
 
-geminiRouter.post('/evaluateQuizPOV', async (req, res) => {
-  const result = await evaluateQuizPOV(req.body.question, req.body.pov);
-  res.json({ result });
-});
+const wrap = (fn: (req: express.Request, res: express.Response) => Promise<any>) =>
+  async (req: express.Request, res: express.Response) => {
+    try {
+      await fn(req, res);
+    } catch (err: any) {
+      console.error(`[Route Error] ${req.path}:`, err);
+      if (!res.headersSent) {
+        res.status(500).json({ error: err.message || 'Internal server error' });
+      }
+    }
+  };
 
-geminiRouter.post('/translateQuiz', async (req, res) => {
-  const result = await translateQuiz(req.body.questions, req.body.language);
+geminiRouter.post('/evaluateQuizPOV', wrap(async (req, res) => {
+  const body = req.body || {};
+  const result = await evaluateQuizPOV(body.question, body.pov);
   res.json({ result });
-});
+}));
 
-geminiRouter.post('/generateAssessment', async (req, res) => {
-  const result = await generateAssessment(req.body.field, req.body.language, req.body.level, req.body.count);
+geminiRouter.post('/translateQuiz', wrap(async (req, res) => {
+  const body = req.body || {};
+  const result = await translateQuiz(body.questions, body.language);
   res.json({ result });
-});
+}));
 
-geminiRouter.post('/generateBenchmarkComparison', async (req, res) => {
-  const result = await generateBenchmarkComparison(req.body.originalMessage, req.body.userMessage, req.body.profile);
+geminiRouter.post('/generateAssessment', wrap(async (req, res) => {
+  const body = req.body || {};
+  const result = await generateAssessment(body.field, body.language, body.level, body.count);
   res.json({ result });
-});
+}));
 
-geminiRouter.post('/generateProactiveInsights', async (req, res) => {
-  const result = await generateProactiveInsights(req.body.profile, req.body.recentMessages);
+geminiRouter.post('/generateBenchmarkComparison', wrap(async (req, res) => {
+  const body = req.body || {};
+  const result = await generateBenchmarkComparison(body.originalMessage, body.userMessage, body.profile);
   res.json({ result });
-});
+}));
 
-geminiRouter.post('/generateLogicResponse', async (req, res) => {
-  const result = await generateLogicResponse(req.body.message, req.body.profile, req.body.moduleName, req.body.history);
+geminiRouter.post('/generateProactiveInsights', wrap(async (req, res) => {
+  const body = req.body || {};
+  const result = await generateProactiveInsights(body.profile, body.recentMessages);
   res.json({ result });
-});
+}));
+
+geminiRouter.post('/generateLogicResponse', wrap(async (req, res) => {
+  const body = req.body || {};
+  const result = await generateLogicResponse(body.message, body.profile, body.moduleName, body.history);
+  res.json({ result });
+}));
 
 // Both routes below delegate straight to the Vercel serverless handlers —
 // req.body is already parsed by express.json() upstream, and guard()/
 // readBody() in api/_lib/ai.ts both handle an Express (req, res) pair fine.
-geminiRouter.post('/generateAdaptiveResponse', async (req, res) => {
+geminiRouter.post('/generateAdaptiveResponse', wrap(async (req, res) => {
   await generateAdaptiveResponseHandler(req, res);
-});
+}));
 
 // SSE Stream for Adaptive Response
-geminiRouter.post('/generateAdaptiveResponseStream', async (req, res) => {
+geminiRouter.post('/generateAdaptiveResponseStream', wrap(async (req, res) => {
   await generateAdaptiveResponseStreamHandler(req, res);
-});
+}));
+
+// Generic one-shot generation
+geminiRouter.post('/generateContent', wrap(async (req, res) => {
+  await generateContentHandler(req, res);
+}));
 
 // geminiService endpoints
-geminiRouter.post('/translateSign', async (req, res) => {
-  const result = await geminiService.translateSign(req.body.imageData, req.body.language, req.body.level);
+geminiRouter.post('/translateSign', wrap(async (req, res) => {
+  const body = req.body || {};
+  const result = await geminiService.translateSign(body.imageData, body.language, body.level);
   res.json({ result });
-});
+}));
 
-geminiRouter.post('/enhanceCaptions', async (req, res) => {
-  const result = await geminiService.enhanceCaptions(req.body.text, req.body.language);
+geminiRouter.post('/enhanceCaptions', wrap(async (req, res) => {
+  const body = req.body || {};
+  const result = await geminiService.enhanceCaptions(body.text, body.language);
   res.json({ result });
-});
+}));
 
-geminiRouter.post('/transcribeAudio', async (req, res) => {
-  try {
-    const result = await geminiService.transcribeAudio(req.body.audioData, req.body.language, req.body.mimeType);
-    res.json({ result });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-geminiRouter.post('/generateSignSequence', async (req, res) => {
-  const result = await geminiService.generateSignSequence(req.body.text, req.body.language);
+geminiRouter.post('/transcribeAudio', wrap(async (req, res) => {
+  const body = req.body || {};
+  const result = await geminiService.transcribeAudio(body.audioData, body.language, body.mimeType);
   res.json({ result });
-});
+}));
 
-geminiRouter.post('/optimizeSignScript', async (req, res) => {
-  const result = await geminiService.optimizeSignScript(req.body.text, req.body.language);
+geminiRouter.post('/generateSignSequence', wrap(async (req, res) => {
+  const body = req.body || {};
+  const result = await geminiService.generateSignSequence(body.text, body.language);
   res.json({ result });
-});
+}));
 
-geminiRouter.post('/askGeneralQuestion', async (req, res) => {
-  const result = await geminiService.askGeneralQuestion(req.body.text, req.body.language);
+geminiRouter.post('/optimizeSignScript', wrap(async (req, res) => {
+  const body = req.body || {};
+  const result = await geminiService.optimizeSignScript(body.text, body.language);
   res.json({ result });
-});
+}));
 
-geminiRouter.post('/generateQuickReplies', async (req, res) => {
-  const result = await geminiService.generateQuickReplies(req.body.text, req.body.language);
+geminiRouter.post('/askGeneralQuestion', wrap(async (req, res) => {
+  const body = req.body || {};
+  const result = await geminiService.askGeneralQuestion(body.text, body.language);
   res.json({ result });
-});
+}));
 
-geminiRouter.post('/decodeDysarthria', async (req, res) => {
+geminiRouter.post('/generateQuickReplies', wrap(async (req, res) => {
+  const body = req.body || {};
+  const result = await geminiService.generateQuickReplies(body.text, body.language);
+  res.json({ result });
+}));
+
+geminiRouter.post('/decodeDysarthria', wrap(async (req, res) => {
+  const body = req.body || {};
   const result = await geminiService.decodeDysarthria(
-    req.body.text, 
-    req.body.profile, 
-    req.body.language, 
-    req.body.customMappings || []
+    body.text, 
+    body.profile, 
+    body.language, 
+    body.customMappings || []
   );
   res.json({ result });
-});
+}));
 
-geminiRouter.post('/correctTranscript', async (req, res) => {
+geminiRouter.post('/correctTranscript', wrap(async (req, res) => {
+  const body = req.body || {};
   const result = await geminiService.correctTranscript(
-    req.body.text,
-    req.body.language,
-    req.body.profile,
-    req.body.customMappings || [],
-    req.body.context || []
+    body.text,
+    body.language,
+    body.profile,
+    body.customMappings || [],
+    body.context || []
   );
   res.json({ result });
-});
+}));
 
-geminiRouter.post('/decodeEuphoniaAudio', async (req, res) => {
-  try {
-    const result = await geminiService.decodeEuphoniaAudio(
-      req.body.audioData, 
-      req.body.profile, 
-      req.body.language, 
-      req.body.customMappings || [],
-      req.body.mimeType || 'audio/webm'
-    );
-    res.json({ result });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
+geminiRouter.post('/decodeEuphoniaAudio', wrap(async (req, res) => {
+  const body = req.body || {};
+  const result = await geminiService.decodeEuphoniaAudio(
+    body.audioData, 
+    body.profile, 
+    body.language, 
+    body.customMappings || [],
+    body.mimeType || 'audio/webm'
+  );
+  res.json({ result });
+}));

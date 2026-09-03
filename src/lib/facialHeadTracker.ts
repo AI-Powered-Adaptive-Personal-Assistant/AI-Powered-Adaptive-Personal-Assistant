@@ -243,8 +243,18 @@ export class ContinuousGazeSmoother {
   }
 }
 
+function safeRoundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
+  if (typeof ctx.roundRect === 'function') {
+    ctx.roundRect(x, y, w, h, r);
+  } else {
+    ctx.rect(x, y, w, h);
+  }
+}
+
 function solveLeastSquares(A: number[][], b: number[]): number[] | null {
+  if (!A || !A.length || !A[0] || !b || A.length !== b.length) return null;
   const n = A[0].length;
+  if (A.length < n) return null;
   const AtA: number[][] = Array.from({ length: n }, () => new Array(n).fill(0));
   const Atb: number[] = new Array(n).fill(0);
 
@@ -1481,7 +1491,7 @@ export class FacialHeadTracker {
       // PIP Box background
       ctx.fillStyle = 'rgba(15, 23, 42, 0.94)';
       ctx.beginPath();
-      ctx.roundRect(pipX, pipY, pipW, pipH, 8);
+      safeRoundRect(ctx, pipX, pipY, pipW, pipH, 8);
       ctx.fill();
       ctx.strokeStyle = '#06b6d4';
       ctx.lineWidth = 1.2;
@@ -1547,7 +1557,7 @@ export class FacialHeadTracker {
     if (isBlinkThresholdExceeded) {
       ctx.fillStyle = 'rgba(239, 68, 68, 0.92)';
       ctx.beginPath();
-      ctx.roundRect(w / 2 - 58, h - 32, 116, 26, 8);
+      safeRoundRect(ctx, w / 2 - 58, h - 32, 116, 26, 8);
       ctx.fill();
       ctx.strokeStyle = '#ffffff';
       ctx.lineWidth = 1.5;

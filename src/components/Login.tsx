@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { signInWithGoogle, loginWithEmail, registerWithEmail, auth, clearPreLoginState } from '../lib/firebase';
 import { sendPasswordResetEmail } from 'firebase/auth';
 import { motion, AnimatePresence } from 'motion/react';
@@ -46,8 +46,16 @@ export default function Login() {
   const isRtl = lang === 'ar';
   const t = (en: string, ar: string) => (lang === 'ar' ? ar : en);
 
+  const isMountedRef = useRef(true);
+  const authTimeoutRef = useRef<any>(null);
+
   useEffect(() => {
+    isMountedRef.current = true;
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' as any });
+    return () => {
+      isMountedRef.current = false;
+      if (authTimeoutRef.current) clearTimeout(authTimeoutRef.current);
+    };
   }, []);
 
   const handleContinuePath = () => {
@@ -86,16 +94,20 @@ export default function Login() {
     setShowHelp(false);
 
     // Strict 10s watchdog so Google popup never hangs the UI if blocked by browser or network
-    const timeout = setTimeout(() => {
-      setLoading(false);
-      setError(t("Google Sign-In timed out or was blocked by browser. Please use Email & Password below.", "استغرق تسجيل جوجل وقتاً طويلاً أو تم حظره بواسطة المتصفح. يرجى استخدام البريد وكلمة المرور أدناه."));
+    if (authTimeoutRef.current) clearTimeout(authTimeoutRef.current);
+    authTimeoutRef.current = setTimeout(() => {
+      if (isMountedRef.current) {
+        setLoading(false);
+        setError(t("Google Sign-In timed out or was blocked by browser. Please use Email & Password below.", "استغرق تسجيل جوجل وقتاً طويلاً أو تم حظره بواسطة المتصفح. يرجى استخدام البريد وكلمة المرور أدناه."));
+      }
     }, 10000);
 
     try {
       await signInWithGoogle();
-      clearTimeout(timeout);
+      if (authTimeoutRef.current) clearTimeout(authTimeoutRef.current);
     } catch (err: any) {
-      clearTimeout(timeout);
+      if (authTimeoutRef.current) clearTimeout(authTimeoutRef.current);
+      if (!isMountedRef.current) return;
       if (err.code === 'auth/cancelled-popup-request') {
         /* another popup open */
       } else if (err.code === 'auth/popup-closed-by-user') {
@@ -106,8 +118,10 @@ export default function Login() {
         setError(err?.message?.replace("Firebase: ", "") || t("Google Sign-In failed. Please use Email & Password.", "تعذر تسجيل الدخول عبر جوجل. يرجى استخدام البريد وكلمة المرور."));
       }
     } finally {
-      clearTimeout(timeout);
-      setLoading(false);
+      if (authTimeoutRef.current) clearTimeout(authTimeoutRef.current);
+      if (isMountedRef.current) {
+        setLoading(false);
+      }
     }
   };
 
@@ -121,18 +135,23 @@ export default function Login() {
         await loginWithEmail(email, password);
       } else {
         if (password.length < 8) {
-          setError(t("Password must be at least 8 characters.", "كلمة المرور يجب أن تكون 8 أحرف على الأقل."));
-          setLoading(false);
+          if (isMountedRef.current) {
+            setError(t("Password must be at least 8 characters.", "كلمة المرور يجب أن تكون 8 أحرف على الأقل."));
+            setLoading(false);
+          }
           return;
         }
         if (password !== confirmPassword) {
-          setError(t("Passwords don't match. Please re-enter them.", "كلمتا المرور غير متطابقتين."));
-          setLoading(false);
+          if (isMountedRef.current) {
+            setError(t("Passwords don't match. Please re-enter them.", "كلمتا المرور غير متطابقتين."));
+            setLoading(false);
+          }
           return;
         }
         await registerWithEmail(email, password);
       }
     } catch (err: any) {
+      if (!isMountedRef.current) return;
       const code = err?.code || '';
       const msg = code === 'auth/network-request-failed'
         ? t("Network error — check your connection and try again.", "خطأ في الشبكة — تحقق من الاتصال وحاول مجدداً.")
@@ -143,7 +162,9 @@ export default function Login() {
             : (err.message || '').replace("Firebase: ", "");
       setError(msg);
     } finally {
-      setLoading(false);
+      if (isMountedRef.current) {
+        setLoading(false);
+      }
     }
   };
 
@@ -159,11 +180,15 @@ export default function Login() {
 
     try {
       await sendPasswordResetEmail(auth, email);
-      setResetSuccess(true);
+      if (isMountedRef.current) setResetSuccess(true);
     } catch (err: any) {
-      setError((err?.message || String(err) || '').replace("Firebase: ", ""));
+      if (isMountedRef.current) {
+        setError((err?.message || String(err) || '').replace("Firebase: ", ""));
+      }
     } finally {
-      setLoading(false);
+      if (isMountedRef.current) {
+        setLoading(false);
+      }
     }
   };
 

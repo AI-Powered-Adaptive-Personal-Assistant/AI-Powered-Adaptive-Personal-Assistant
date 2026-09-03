@@ -40,7 +40,7 @@ export function classifyRequest(
 ): TaskCategory {
   // An image/screenshot always needs the vision-capable model, regardless
   // of what the accompanying text says.
-  if (attachments?.some((a) => a?.type?.startsWith('image/'))) return 'vision';
+  if (Array.isArray(attachments) && attachments.some((a) => a?.type?.startsWith('image/'))) return 'vision';
 
   const text = typeof message === 'string' ? message : '';
   if (REASONING_SIGNALS.some((rx) => rx.test(text))) return 'reasoning';

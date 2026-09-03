@@ -224,13 +224,14 @@ export async function generateBenchmarkComparison(
   userMessage: string,
   profile: UserProfile
 ): Promise<string> {
-  const ai = getAI();
-  // NOTE: this used to instruct the model to "act as ChatGPT (GPT-4)" and to
-  // emit a "## ChatGPT Response" section. No OpenAI model is contacted anywhere
-  // in this project, so that output was our own model impersonating a competitor
-  // and being shown to the user as a third-party assessment. It is now an
-  // honest self-review, which is what it always actually was.
-  const prompt = `You are a strict reviewer performing a SECOND-PASS review of an AI tutor's answer.
+  try {
+    const ai = getAI();
+    // NOTE: this used to instruct the model to "act as ChatGPT (GPT-4)" and to
+    // emit a "## ChatGPT Response" section. No OpenAI model is contacted anywhere
+    // in this project, so that output was our own model impersonating a competitor
+    // and being shown to the user as a third-party assessment. It is now an
+    // honest self-review, which is what it always actually was.
+    const prompt = `You are a strict reviewer performing a SECOND-PASS review of an AI tutor's answer.
 The user asked: "${userMessage}"
 The assistant (Cognify) replied: "${originalMessage}"
 
@@ -246,7 +247,6 @@ Respond in this EXACT format:
 [Briefly: what the original answer did well, and what yours does better or differently.]
 `;
 
-  try {
     const response = await genContent({
       model: "gemini-2.5-flash",
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
@@ -260,17 +260,18 @@ Respond in this EXACT format:
 
 export async function generateProactiveInsights(
   profile: UserProfile,
-  recentMessages: Message[]
+  recentMessages: Message[] = []
 ): Promise<string> {
-  const ai = getAI();
-  const context = recentMessages.slice(-5).map(m => `${m.role}: ${m.content}`).join('\n');
-  const prompt = `You are a proactive AI mentor. The user is a ${profile.level} in the field of ${profile.field}.
+  try {
+    const ai = getAI();
+    const safeMessages = Array.isArray(recentMessages) ? recentMessages : [];
+    const context = safeMessages.slice(-5).map(m => `${m.role}: ${m.content}`).join('\n');
+    const prompt = `You are a proactive AI mentor. The user is a ${profile.level} in the field of ${profile.field}.
 Based on their recent conversation:
 ${context || 'No recent conversation.'}
 
 Proactively generate 3 highly relevant study materials, actionable insights, or next steps tailored specifically to their profile and current focus. Format as a concise, engaging markdown list.`;
 
-  try {
     const response = await genContent({
       model: "gemini-2.5-flash",
       contents: [{ role: 'user', parts: [{ text: prompt }] }],

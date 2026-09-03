@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { UserProfile, CognitiveLevel } from "../types";
 import { db, handleFirestoreError, OperationType } from "../lib/firebase";
 import { collection, onSnapshot, deleteDoc, doc, updateDoc, query, limit } from "firebase/firestore";
@@ -52,8 +52,9 @@ const MODE_META: Record<AccessibilityMode, { label: string; cls: string }> = {
 };
 
 /** Days since the user's MOST-RECENT activity signal; Infinity when unknown. */
-function daysSinceActive(u: UserProfile): number {
-  const candidates = [u.lastActiveDate, u.lastQuizDate, ...(u.chatThreads || []).map((t) => t.updatedAt)]
+function daysSinceActive(u?: UserProfile | null): number {
+  if (!u) return Infinity;
+  const candidates = [u.lastActiveDate, u.lastQuizDate, ...(u.chatThreads || []).map((t) => t?.updatedAt)]
     .filter(Boolean)
     .map((d) => new Date(d as string).getTime())
     .filter((t) => !isNaN(t));
@@ -62,8 +63,9 @@ function daysSinceActive(u: UserProfile): number {
 }
 
 /** ISO string of the user's MOST-RECENT activity signal, or undefined. */
-function newestActiveIso(u: UserProfile): string | undefined {
-  const candidates = [u.lastActiveDate, u.lastQuizDate, ...(u.chatThreads || []).map((t) => t.updatedAt)]
+function newestActiveIso(u?: UserProfile | null): string | undefined {
+  if (!u) return undefined;
+  const candidates = [u.lastActiveDate, u.lastQuizDate, ...(u.chatThreads || []).map((t) => t?.updatedAt)]
     .filter(Boolean) as string[];
   if (candidates.length === 0) return undefined;
   return candidates.reduce((a, b) => (new Date(b).getTime() > new Date(a).getTime() ? b : a));
@@ -81,6 +83,13 @@ export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardP
   const [selectedUserForModal, setSelectedUserForModal] = useState<UserProfile | null>(null);
   const [modalTab, setModalTab] = useState<'profile' | 'chats' | 'tasks' | 'raw'>('profile');
 
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => { isMountedRef.current = false; };
+  }, []);
+
   const isAdmin = isAdminUser(profile);
   // Only super admins can grant/revoke admin rights.
   const canManageAdmins = canManageAdminsFor(profile);
@@ -88,9 +97,9 @@ export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardP
   const copyToClipboard = async (text: string, label: string = 'Copied to clipboard') => {
     try {
       await navigator.clipboard.writeText(text);
-      setCopiedText(text);
+      if (isMountedRef.current) setCopiedText(text);
       toast.success(label, 'Copied');
-      setTimeout(() => setCopiedText(null), 2500);
+      setTimeout(() => { if (isMountedRef.current) setCopiedText(null); }, 2500);
     } catch {
       toast.error('Could not copy to clipboard.', 'Copy failed');
     }
@@ -180,8 +189,10 @@ export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardP
     if (window.confirm(`Delete "${u.name || u.email}"? This action cannot be undone.`)) {
       try {
         await deleteDoc(doc(db, "users", u.uid));
+        toast.success(`User "${u.name || u.email}" deleted successfully.`, "Deleted");
       } catch (error) {
-        handleFirestoreError(error, OperationType.DELETE, "users");
+        console.error("Delete user error:", error);
+        toast.error("Failed to delete user. Check your permissions and connection.", "Delete failed");
       }
     }
   };
@@ -198,9 +209,10 @@ export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardP
       await updateDoc(doc(db, "users", u.uid), { isAdmin: makeAdmin });
       toast.success(makeAdmin ? `${label} is now an admin.` : `${label} is no longer an admin.`, "Admins updated");
     } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, "users");
+      console.error("Toggle admin error:", error);
+      toast.error("Failed to update admin permissions.", "Update failed");
     } finally {
-      setBusyUid(null);
+      if (isMountedRef.current) setBusyUid(null);
     }
   };
 
@@ -222,9 +234,10 @@ export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardP
         "Super admins updated",
       );
     } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, "users");
+      console.error("Toggle super admin error:", error);
+      toast.error("Failed to update super admin status.", "Update failed");
     } finally {
-      setBusyUid(null);
+      if (isMountedRef.current) setBusyUid(null);
     }
   };
 
@@ -264,10 +277,11 @@ export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardP
   const exportAllJson = () => {
     const blob = new Blob([JSON.stringify(users, null, 2)], { type: 'application/json;charset=utf-8' });
     const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
+    const url = URL.createObjectURL(blob);
+    a.href = url;
     a.download = `cognify-all-users-backup-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
-    URL.revokeObjectURL(a.href);
+    setTimeout(() => URL.revokeObjectURL(url), 30000);
     toast.success(`Exported ${users.length} full user records as JSON.`, 'Backup Downloaded');
   };
 
@@ -295,10 +309,11 @@ export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardP
     const csv = '\uFEFF' + rows.map(r => r.map(c => sanitizeCsvCell(c)).join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
     const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
+    const url = URL.createObjectURL(blob);
+    a.href = url;
     a.download = `cognify-directory-${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
-    URL.revokeObjectURL(a.href);
+    setTimeout(() => URL.revokeObjectURL(url), 30000);
     toast.success(`Exported ${users.length} users to CSV.`, 'Excel file ready');
   };
 
@@ -317,9 +332,10 @@ export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardP
         setSelectedUserForModal({ ...selectedUserForModal, points: newPoints });
       }
     } catch (err) {
-      handleFirestoreError(err, OperationType.UPDATE, "users");
+      console.error("Update points error:", err);
+      toast.error("Failed to update points.", "Update error");
     } finally {
-      setBusyUid(null);
+      if (isMountedRef.current) setBusyUid(null);
     }
   };
 
@@ -332,9 +348,10 @@ export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardP
         setSelectedUserForModal({ ...selectedUserForModal, level: newLevel });
       }
     } catch (err) {
-      handleFirestoreError(err, OperationType.UPDATE, "users");
+      console.error("Update cognitive level error:", err);
+      toast.error("Failed to update cognitive level.", "Update error");
     } finally {
-      setBusyUid(null);
+      if (isMountedRef.current) setBusyUid(null);
     }
   };
 
@@ -376,9 +393,9 @@ export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardP
     const emails = a11yAll.map(u => u.email).filter(Boolean).join(', ');
     try {
       await navigator.clipboard.writeText(emails);
-      setCopiedEmails(true);
+      if (isMountedRef.current) setCopiedEmails(true);
       toast.success(`${a11yAll.length} email(s) copied to clipboard.`, 'Outreach list ready');
-      setTimeout(() => setCopiedEmails(false), 2500);
+      setTimeout(() => { if (isMountedRef.current) setCopiedEmails(false); }, 2500);
     } catch {
       toast.error('Could not copy to clipboard.', 'Copy failed');
     }
@@ -402,9 +419,10 @@ export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardP
         "Organization access updated",
       );
     } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, "users");
+      console.error("Toggle org manager error:", error);
+      toast.error("Failed to update organization access.", "Update failed");
     } finally {
-      setBusyUid(null);
+      if (isMountedRef.current) setBusyUid(null);
     }
   };
 

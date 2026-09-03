@@ -159,13 +159,22 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
     }
   };
 
+  const isMountedRef = useRef(true);
+
   const handleGenerateInsights = async () => {
     if (!profile.uid) return;
     ensureThreadExists();
     setIsGeneratingInsights(true);
-    const result = await generateProactiveInsights(profile, messages);
-    setInsights(result);
-    setIsGeneratingInsights(false);
+    try {
+      const result = await generateProactiveInsights(profile, messages);
+      if (isMountedRef.current) {
+        setInsights(result);
+      }
+    } finally {
+      if (isMountedRef.current) {
+        setIsGeneratingInsights(false);
+      }
+    }
   };
 
   const handleAddTask = (e: React.FormEvent) => {
@@ -224,12 +233,12 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
     if (isLoading) return;
     if (externalMessage === lastExternalRef.current) return;
     lastExternalRef.current = externalMessage;
-    if (profile.accessibilityMode === 'Vocal-Deaf' || profile.accessibilityMode === 'Sign-Only') {
+    if (profile?.accessibilityMode === 'Vocal-Deaf' || profile?.accessibilityMode === 'Sign-Only') {
       handleSubmit(undefined, externalMessage);
     } else {
       setInput(externalMessage);
     }
-  }, [externalMessage, isLoading]);
+  }, [externalMessage, isLoading, profile?.accessibilityMode]);
 
   // Warm up Speech Synthesis voices list on mount
   useEffect(() => {
@@ -503,7 +512,11 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
   }));
 
   useEffect(() => {
+    isMountedRef.current = true;
     return () => {
+      isMountedRef.current = false;
+      stopRef.current = true;
+      abortRef.current?.abort();
       recognitionRef.current?.stop();
       if ('speechSynthesis' in window) {
         window.speechSynthesis.cancel();
@@ -666,7 +679,9 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
         const storageRef = firebaseStorageRef(storage, `users/${profile.uid}/attachments/${Date.now()}_${att.name}`);
         await uploadString(storageRef, att.data, 'base64', { contentType: att.type });
         const url = await getDownloadURL(storageRef);
-        setSelectedFiles(prev => prev.map(f => (f.localId === att.localId && !f.url ? { ...f, url } : f)));
+        if (isMountedRef.current) {
+          setSelectedFiles(prev => prev.map(f => (f.localId === att.localId && !f.url ? { ...f, url } : f)));
+        }
       } catch (err) {
         console.error("Storage upload error (non-blocking):", err);
       }
@@ -677,13 +692,14 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
     setSelectedFiles(prev => prev.filter((_, i) => i !== index));
   };
 
-  const evaluateQuestionQuality = (text: string): number => {
-    const length = text.length;
+  const evaluateQuestionQuality = (text?: string): number => {
+    const safeText = text || '';
+    const length = safeText.length;
     let score = 3; 
 
     // Logic for Arabic and English complexity
-    const isArabic = /[\u0600-\u06FF]/.test(text);
-    const wordCount = text.split(/\s+/).length;
+    const isArabic = /[\u0600-\u06FF]/.test(safeText);
+    const wordCount = safeText.split(/\s+/).length;
 
     if (length > 30) score += 1;
     if (length > 60) score += 2;
@@ -691,7 +707,7 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
     if (wordCount > 15) score += 2;
 
     const analyticalTerms = ['how', 'why', 'analyze', 'compare', 'evaluate', 'كيف', 'لماذا', 'حلل', 'قارن', 'قيم'];
-    if (analyticalTerms.some(term => text.toLowerCase().includes(term))) {
+    if (analyticalTerms.some(term => safeText.toLowerCase().includes(term))) {
       score += 3;
     }
     
@@ -810,11 +826,11 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
       const stream = generateAdaptiveResponseStream(submittedMessage, profile, newHistory, attachmentsToSubmit, abortRef.current?.signal);
 
       for await (const chunk of stream) {
-        if (stopRef.current) break; // user pressed Stop — keep what's generated so far
+        if (!isMountedRef.current || stopRef.current) break; // user pressed Stop or left
         if ((chunk as any).usedFallback) usedFallback = true;
         if (chunk.text) {
           lastText = chunk.text;
-          setStreamingText(lastText);
+          if (isMountedRef.current) setStreamingText(lastText);
         }
         if (chunk.attachments) {
           streamedAttachments = chunk.attachments;
@@ -846,8 +862,10 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
       };
 
       const updatedHistory = [...newHistory, assistantMessage];
-      setMessages(updatedHistory);
-      setStreamingText("");
+      if (isMountedRef.current) {
+        setMessages(updatedHistory);
+        setStreamingText("");
+      }
 
       // A blind / low-vision student can't see the reply arrive, so read it to
       // them automatically. (The overlay handles this when it's mounted — skip
@@ -952,8 +970,10 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
         }
       );
     } finally {
-      setIsLoading(false);
-      setStreamingText("");
+      if (isMountedRef.current) {
+        setIsLoading(false);
+        setStreamingText("");
+      }
       // Mark the end of the turn and start the post-write cooldown so a lagging
       // server snapshot can't overwrite the just-saved reply.
       lastLocalWriteRef.current = Date.now();
@@ -1214,7 +1234,7 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
                        {/* Legacy '[Signs: emoji]' lines (from old stored AI replies that
                            may have been quoted back in) are just dropped, not rendered as
                            a fake sign-translation panel — see MarkdownMessage.tsx. */}
-                       {m.content.split('\n').filter((line) => !/^\[Signs:\s*.*\]$/i.test(line.trim())).map((line, i) => (
+                       {(m.content || '').split('\n').filter((line) => !/^\[Signs:\s*.*\]$/i.test(line.trim())).map((line, i) => (
                          <span key={i}>{line}</span>
                        ))}
                     </div>
@@ -1436,7 +1456,7 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
                           <h4 className="font-bold text-white tracking-widest uppercase text-xs">{comp.modelName}</h4>
                         </div>
                         <div className="space-y-3 text-sm opacity-90 font-mono leading-relaxed">
-                          {comp.content.split('\n').map((line, lidx) => (
+                          {(comp.content || '').split('\n').map((line, lidx) => (
                             <p key={lidx}>{line}</p>
                           ))}
                         </div>

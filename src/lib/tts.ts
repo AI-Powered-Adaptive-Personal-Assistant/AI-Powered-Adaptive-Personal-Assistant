@@ -131,12 +131,15 @@ export function hasArabicVoice(): boolean {
  * so the very first call in a session can be silently dropped). Callers that
  * care whether the phrase was actually spoken should pass onError.
  */
+// Keep active utterances in memory to prevent Chromium garbage collection mid-speech
+const activeUtterances = new Set<SpeechSynthesisUtterance>();
+
 export function speak(
   text: string,
   language?: string,
   cb?: SpeakCallbacks,
 ): void {
-  if (!("speechSynthesis" in window)) {
+  if (typeof window === "undefined" || !("speechSynthesis" in window)) {
     cb?.onError?.("unsupported");
     return;
   }
@@ -145,9 +148,32 @@ export function speak(
     cb?.onError?.("empty");
     return;
   }
-  utterance.onstart = () => cb?.onStart?.();
-  utterance.onend = () => cb?.onEnd?.();
-  utterance.onerror = () => cb?.onError?.("synth-error");
+
+  activeUtterances.add(utterance);
+  const cleanup = () => {
+    activeUtterances.delete(utterance);
+  };
+
+  let started = false;
+  let finished = false;
+
+  utterance.onstart = () => {
+    started = true;
+    cb?.onStart?.();
+  };
+
+  utterance.onend = () => {
+    finished = true;
+    cleanup();
+    cb?.onEnd?.();
+  };
+
+  utterance.onerror = (e: any) => {
+    cleanup();
+    if (e?.error === 'canceled' || e?.error === 'interrupted') return;
+    cb?.onError?.("synth-error");
+  };
+
   window.speechSynthesis.cancel();
   // Small delay works around a Chrome bug where speak() right after cancel() is dropped.
   setTimeout(() => {
@@ -157,7 +183,8 @@ export function speak(
     // or no voice is installed for the requested language. Detect that silent
     // failure instead of pretending the phrase was spoken.
     setTimeout(() => {
-      if (!window.speechSynthesis.speaking && !window.speechSynthesis.pending) {
+      if (!started && !finished && !window.speechSynthesis.speaking && !window.speechSynthesis.pending) {
+        cleanup();
         cb?.onError?.("silent-fail");
       }
     }, 500);
@@ -166,7 +193,10 @@ export function speak(
 
 /** Stop any ongoing speech. */
 export function cancelSpeech(): void {
-  if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+  if (typeof window !== "undefined" && "speechSynthesis" in window) {
+    window.speechSynthesis.cancel();
+    activeUtterances.clear();
+  }
 }
 
 /**
@@ -187,5 +217,5 @@ export function unlockSpeechSynthesis(): void {
 }
 
 export function isSpeaking(): boolean {
-  return "speechSynthesis" in window && window.speechSynthesis.speaking;
+  return typeof window !== "undefined" && "speechSynthesis" in window && window.speechSynthesis.speaking;
 }

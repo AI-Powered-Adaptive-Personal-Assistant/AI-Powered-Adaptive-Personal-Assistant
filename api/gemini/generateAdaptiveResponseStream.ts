@@ -108,38 +108,48 @@ async function streamGemini(
 ): Promise<string> {
   let full = '';
   const t0 = Date.now();
-  const body = JSON.stringify({
-    contents: buildContents(message, history, attachments),
-    systemInstruction: { parts: [{ text: system }] },
-    generationConfig: { temperature: 0.7, topP: 0.95 },
-  });
-  const { res: gres } = await geminiFetch('streamGenerateContent', body, { stream: true, category });
+  try {
+    const body = JSON.stringify({
+      contents: buildContents(message, history, attachments),
+      systemInstruction: { parts: [{ text: system }] },
+      generationConfig: { temperature: 0.7, topP: 0.95 },
+    });
+    const { res: gres } = await geminiFetch('streamGenerateContent', body, { stream: true, category });
 
-  if (gres && gres.body) {
-    const reader = (gres.body as any).getReader();
-    const dec = new TextDecoder('utf-8');
-    let buf = '';
-    try {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buf += dec.decode(value, { stream: true });
-        const lines = buf.split('\n');
-        buf = lines.pop() || '';
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue;
-          try {
-            const j = JSON.parse(line.slice(6));
-            const t = j?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-            if (t) { full += t; send({ text: stripReasoning(full), done: false }); }
-          } catch { /* partial JSON frame */ }
+    if (gres && gres.body) {
+      const reader = (gres.body as any).getReader();
+      const dec = new TextDecoder('utf-8');
+      let buf = '';
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buf += dec.decode(value, { stream: true });
+          const lines = buf.split('\n');
+          buf = lines.pop() || '';
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed.startsWith('data:')) continue;
+            const payload = trimmed.slice(5).trim();
+            if (!payload || payload === '[DONE]') continue;
+            try {
+              const j = JSON.parse(payload);
+              const t = j?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+              if (t) { full += t; send({ text: stripReasoning(full), done: false }); }
+            } catch { /* partial JSON frame */ }
+          }
         }
+        if (full) {
+          logTelemetry({ provider: 'gemini', category, latencyMs: Date.now() - t0, success: true, outputChars: full.length });
+        }
+      } catch (streamErr) {
+        logTelemetry({ provider: 'gemini', category, latencyMs: Date.now() - t0, success: false, error: String(streamErr) });
+      } finally {
+        try { await reader.cancel(); } catch { /* already closed */ }
       }
-    } catch (streamErr) {
-      logTelemetry({ provider: 'gemini', category, latencyMs: Date.now() - t0, success: false, error: String(streamErr) });
-    } finally {
-      try { await reader.cancel(); } catch { /* already closed */ }
     }
+  } catch (fetchErr) {
+    logTelemetry({ provider: 'gemini', category, latencyMs: Date.now() - t0, success: false, error: String(fetchErr) });
   }
   return full;
 }
@@ -147,51 +157,68 @@ async function streamGemini(
 export default async function handler(req: any, res: any) {
   if (!guard(req, res)) return;
 
-  const { message, profile = {}, history = [], attachments = [] } = await readBody(req);
-  if (!message || typeof message !== 'string') {
-    res.status(400).json({ error: 'message is required' });
-    return;
-  }
-
-  res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
-  res.setHeader('Cache-Control', 'no-cache, no-transform');
-  res.setHeader('Connection', 'keep-alive');
-  res.setHeader('X-Accel-Buffering', 'no'); // don't let a proxy buffer the stream
-
-  const send = (obj: any) => { try { res.write(`data: ${JSON.stringify(obj)}\n\n`); } catch { /* client gone */ } };
-
-  // Phase 1.1 — deterministic router. Plain classification, no model call.
-  const category = classifyRequest(message, attachments);
-  const system = buildPersona(profile, threadsSummary(profile));
-  let full = '';
-
   try {
-    if (category === 'reasoning') {
-      // Deep-reasoning requests: try NVIDIA (GLM-5.2 / DeepSeek-R1) first,
-      // fall back to Gemini streaming if that produced nothing.
-      full = await streamFallback(buildOpenAIMessages(message, system, history), category, attachments, send);
-      if (!full) {
-        full = await streamGemini(message, history, attachments, system, category, send);
-      }
-    } else {
-      // "fast" and "vision": Gemini first (native multimodal handles
-      // vision directly), OpenAI-compatible chain as the fallback.
-      full = await streamGemini(message, history, attachments, system, category, send);
-      if (!full) {
-        full = await streamFallback(buildOpenAIMessages(message, system, history), category, attachments, send);
-      }
+    const { message, profile = {}, history = [], attachments = [] } = await readBody(req);
+    if (!message || typeof message !== 'string') {
+      res.status(400).json({ error: 'message is required' });
+      return;
     }
-  } catch (err) {
-    console.error('[api] stream error:', err);
-  }
 
-  full = stripReasoning(full);
-  const isAr = profile?.language === 'Arabic' || profile?.language === 'Egyptian Ammiya';
-  if (!full) {
-    full = isAr
-      ? '⚠️ الذكاء الاصطناعي مشغول دلوقتي. جرّب تاني بعد لحظات 🙏'
-      : '⚠️ The AI is busy right now. Please try again in a moment 🙏';
+    res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no'); // don't let a proxy buffer the stream
+
+    const send = (obj: any) => {
+      if (!res.writableEnded) {
+        try { res.write(`data: ${JSON.stringify(obj)}\n\n`); } catch { /* client gone */ }
+      }
+    };
+
+    const safeHistory = Array.isArray(history) ? history : [];
+    const safeAttachments = Array.isArray(attachments) ? attachments : [];
+
+    // Phase 1.1 — deterministic router. Plain classification, no model call.
+    const category = classifyRequest(message, safeAttachments);
+    const system = buildPersona(profile, threadsSummary(profile));
+    let full = '';
+
+    try {
+      if (category === 'reasoning') {
+        // Deep-reasoning requests: try NVIDIA (GLM-5.2 / DeepSeek-R1) first,
+        // fall back to Gemini streaming if that produced nothing.
+        full = await streamFallback(buildOpenAIMessages(message, system, safeHistory), category, safeAttachments, send);
+        if (!full) {
+          full = await streamGemini(message, safeHistory, safeAttachments, system, category, send);
+        }
+      } else {
+        // "fast" and "vision": Gemini first (native multimodal handles
+        // vision directly), OpenAI-compatible chain as the fallback.
+        full = await streamGemini(message, safeHistory, safeAttachments, system, category, send);
+        if (!full) {
+          full = await streamFallback(buildOpenAIMessages(message, system, safeHistory), category, safeAttachments, send);
+        }
+      }
+    } catch (err) {
+      console.error('[api] stream inner error:', err);
+    }
+
+    full = stripReasoning(full);
+    const isAr = profile?.language === 'Arabic' || profile?.language === 'Egyptian Ammiya';
+    if (!full) {
+      full = isAr
+        ? '⚠️ الذكاء الاصطناعي مشغول دلوقتي. جرّب تاني بعد لحظات 🙏'
+        : '⚠️ The AI is busy right now. Please try again in a moment 🙏';
+    }
+    send({ text: full, done: true });
+  } catch (err) {
+    console.error('[api] stream handler error:', err);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'AI request failed' });
+    }
+  } finally {
+    if (!res.writableEnded) {
+      try { res.end(); } catch { /* ignore */ }
+    }
   }
-  send({ text: full, done: true });
-  res.end();
 }

@@ -65,8 +65,10 @@ export class LocalIndexedDbStorageAdapter implements EuphoniaStorageAdapter {
     return new Promise((resolve, reject) => {
       const tx = db.transaction(STORE_NAME, 'readwrite');
       tx.objectStore(STORE_NAME).put({ key, ...sample });
-      tx.oncomplete = () => resolve(key);
-      tx.onerror = () => reject(tx.error);
+      const finish = () => { try { db.close(); } catch {} };
+      tx.oncomplete = () => { finish(); resolve(key); };
+      tx.onerror = () => { finish(); reject(tx.error); };
+      tx.onabort = () => { finish(); reject(tx.error); };
     });
   }
 
@@ -76,8 +78,10 @@ export class LocalIndexedDbStorageAdapter implements EuphoniaStorageAdapter {
       const tx = db.transaction(STORE_NAME, 'readonly');
       const idx = tx.objectStore(STORE_NAME).index('phraseId');
       const req = idx.count(IDBKeyRange.only(phraseId));
-      req.onsuccess = () => resolve(req.result);
-      req.onerror = () => reject(req.error);
+      const finish = () => { try { db.close(); } catch {} };
+      req.onsuccess = () => { finish(); resolve(req.result); };
+      req.onerror = () => { finish(); reject(req.error); };
+      tx.onerror = () => { finish(); reject(tx.error); };
     });
   }
 
@@ -86,8 +90,10 @@ export class LocalIndexedDbStorageAdapter implements EuphoniaStorageAdapter {
     return new Promise((resolve, reject) => {
       const tx = db.transaction(STORE_NAME, 'readonly');
       const req = tx.objectStore(STORE_NAME).getAll();
-      req.onsuccess = () => resolve(req.result.map((r: any) => ({ key: r.key, blob: r.blob })));
-      req.onerror = () => reject(req.error);
+      const finish = () => { try { db.close(); } catch {} };
+      req.onsuccess = () => { finish(); resolve(req.result.map((r: any) => ({ key: r.key, blob: r.blob }))); };
+      req.onerror = () => { finish(); reject(req.error); };
+      tx.onerror = () => { finish(); reject(tx.error); };
     });
   }
 }
@@ -247,7 +253,21 @@ export class EuphoniaRecorder {
       this.maxTimer = null;
     }
     if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
-      this.mediaRecorder.stop();
+      try {
+        this.mediaRecorder.stop();
+      } catch {
+        /* ignore */
+      }
+    } else {
+      // mediaRecorder was never active or already stopped: release hardware now
+      try {
+        this.stream?.getTracks().forEach((t) => t.stop());
+      } catch {}
+      this.stream = null;
+      this.mediaRecorder = null;
+      try {
+        this.teardownLevelMeter();
+      } catch {}
     }
   }
 
@@ -287,9 +307,15 @@ export class EuphoniaRecorder {
     if (this.levelRaf) cancelAnimationFrame(this.levelRaf);
     this.levelRaf = null;
     if (this.audioCtx) {
-      try { this.audioCtx.close(); } catch { /* ignore */ }
+      if (this.audioCtx.state !== 'closed') {
+        try {
+          this.audioCtx.close().catch(() => {});
+        } catch {
+          /* ignore */
+        }
+      }
+      this.audioCtx = null;
     }
-    this.audioCtx = null;
     this.analyser = null;
   }
 }

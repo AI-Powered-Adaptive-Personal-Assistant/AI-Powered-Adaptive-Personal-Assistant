@@ -83,8 +83,9 @@ export class GazeBlinkEngine {
     osc.frequency.setValueAtTime(800, this.audioCtx.currentTime);
     osc.frequency.exponentialRampToValueAtTime(400, this.audioCtx.currentTime + 0.1);
 
-    gain.gain.setValueAtTime(this.config.audioVolume, this.audioCtx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.01, this.audioCtx.currentTime + 0.1);
+    const safeVol = Math.max(0.0001, this.config.audioVolume);
+    gain.gain.setValueAtTime(safeVol, this.audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.0001, this.audioCtx.currentTime + 0.1);
 
     osc.connect(gain);
     gain.connect(this.audioCtx.destination);
@@ -106,8 +107,9 @@ export class GazeBlinkEngine {
     osc.type = 'triangle';
     osc.frequency.setValueAtTime(300, this.audioCtx.currentTime);
     
-    gain.gain.setValueAtTime(this.config.audioVolume * 0.3, this.audioCtx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.01, this.audioCtx.currentTime + 0.05);
+    const safeVol = Math.max(0.0001, this.config.audioVolume * 0.3);
+    gain.gain.setValueAtTime(safeVol, this.audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.0001, this.audioCtx.currentTime + 0.05);
 
     osc.connect(gain);
     gain.connect(this.audioCtx.destination);
@@ -129,7 +131,10 @@ export class GazeBlinkEngine {
     this.isBlinkClickEvt = false;
 
     // --- Blink Detection (PySource p.2 Blinking Ratio) ---
-    const blinkingRatio = gestureState.metrics?.blinkingRatio ?? (gestureState.metrics?.avgEAR ? 1 / gestureState.metrics.avgEAR : 3.5);
+    const avgEAR = gestureState.metrics?.avgEAR;
+    const blinkingRatio = Number.isFinite(gestureState.metrics?.blinkingRatio)
+      ? gestureState.metrics!.blinkingRatio!
+      : (avgEAR && avgEAR > 0.001 ? 1 / avgEAR : 3.5);
     const isEyesClosed = Boolean(gestureState.isBlinking || blinkingRatio > this.config.blinkRatioThreshold);
     let blinkDurationMs = 0;
 
@@ -226,5 +231,6 @@ export class GazeBlinkEngine {
     if (this.audioCtx && this.audioCtx.state !== 'closed') {
       this.audioCtx.close().catch(console.error);
     }
+    this.audioCtx = null;
   }
 }

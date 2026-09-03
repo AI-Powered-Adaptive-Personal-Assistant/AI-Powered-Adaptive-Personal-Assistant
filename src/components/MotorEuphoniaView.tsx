@@ -756,7 +756,7 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
       window.removeEventListener('mousemove', handleMouseMove);
       if (dwellInterval) clearInterval(dwellInterval);
     };
-  }, [isCameraActive, headConfig.dwellTimeMs, hoveredCardId]);
+  }, [isCameraActive, headConfig.dwellTimeMs]);
 
   // Update word autocomplete suggestions when typedText changes
   useEffect(() => {
@@ -1117,11 +1117,13 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
         handleVocalTriggerRef.current(trig);
       },
       (metrics) => {
+        if (!mountedRef.current) return;
         audioMetricsRef.current = metrics;
         setAudioMetrics(metrics);
       }
     );
 
+    if (!mountedRef.current) return;
     if (ok) {
       setIsAudioEngineActive(true);
       toast.success(isArabic ? 'تم تفعيل معالج إيفونيا للأصوات الصوتية' : 'Euphonia vocal sound trigger active');
@@ -1138,13 +1140,15 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
     toast.info(isArabic ? 'سجّل الآن بنبرتك الطبيعية...' : 'Recording now...');
 
     euphoniaRecorder.start(phrase.id, phrase.text, {
-      onLevel: (rms) => setMicLevel(rms),
+      onLevel: (rms) => { if (mountedRef.current) setMicLevel(rms); },
       onError: (err) => {
         console.error(err);
+        if (!mountedRef.current) return;
         setRecordingPhraseId(null);
         toast.error(isArabic ? 'تعذر الوصول إلى الميكروفون' : 'Could not access microphone');
       },
       onStop: async (sample: EuphoniaAudioSample) => {
+        if (!mountedRef.current) return;
         setRecordingPhraseId(null);
         setMicLevel(0);
 
@@ -1155,6 +1159,7 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
 
         try {
           await storageAdapterRef.current.upload(sample);
+          if (!mountedRef.current) return;
           setEuphoniaTrainingState((prev) => ({
             ...prev,
             [phrase.id]: (prev[phrase.id] || 0) + 1,
@@ -1163,7 +1168,7 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
           toast.success(isArabic ? '✅ تم حفظ العينة الصوتية بنجاح' : 'Sample saved');
         } catch (err) {
           console.error(err);
-          toast.error(isArabic ? 'فشل حفظ العينة الصوتية' : 'Failed to save sample');
+          if (mountedRef.current) toast.error(isArabic ? 'فشل حفظ العينة الصوتية' : 'Failed to save sample');
         }
       },
     });
@@ -1182,21 +1187,24 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
     toast.info(isArabic ? 'جاري الاستماع لصوتك...' : 'Listening...');
 
     euphoniaRecorder.start('live-match', '(live)', {
-      onLevel: (rms) => setMicLevel(rms),
+      onLevel: (rms) => { if (mountedRef.current) setMicLevel(rms); },
       onError: (err) => {
         console.error(err);
+        if (!mountedRef.current) return;
         setIsEuphoniaLiveListening(false);
         toast.error(isArabic ? 'تعذر الوصول إلى الميكروفون' : 'Could not access microphone');
       },
       onStop: async (sample: EuphoniaAudioSample) => {
+        if (!mountedRef.current) return;
         setIsEuphoniaLiveListening(false);
         setMicLevel(0);
 
         try {
           const result = await transcribe({
             audioBlob: sample.blob,
-            langCode: profile.language === 'Egyptian Ammiya' ? 'ar-EG' : isArabic ? 'ar-SA' : 'en-US',
+            langCode: profile?.language === 'Egyptian Ammiya' ? 'ar-EG' : isArabic ? 'ar-SA' : 'en-US',
           });
+          if (!mountedRef.current) return;
 
           setEuphoniaMatchSource(result.source);
 
@@ -1216,7 +1224,7 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
           );
         } catch (err) {
           console.error(err);
-          toast.error(isArabic ? 'تعذر فهم الصوت، حاول مرة أخرى' : 'Could not understand audio, try again');
+          if (mountedRef.current) toast.error(isArabic ? 'تعذر فهم الصوت، حاول مرة أخرى' : 'Could not understand audio, try again');
         }
       },
     });
@@ -1228,16 +1236,24 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
 
   // Settings: save + health-check the API URL
   const handleSaveEuphoniaApiUrl = async () => {
-    setEuphoniaApiUrl(euphoniaApiUrlInput);
-    setEuphoniaApiUrlState(euphoniaApiUrlInput.trim()); // drives the adapter effect
-    toast.info(isArabic ? 'جاري التحقق من الاتصال...' : 'Checking connection...');
-    const healthy = await checkEuphoniaApiHealth(euphoniaApiUrlInput);
-    setEuphoniaApiHealthy(healthy);
-    toast[healthy ? 'success' : 'error'](
-      healthy
-        ? (isArabic ? '✅ متصل بنموذجك المخصص' : '✅ Connected to your custom model')
-        : (isArabic ? '⚠️ تعذر الوصول للخادم — سيتم استخدام المتصفح مؤقتاً' : '⚠️ Unreachable — using browser ASR for now')
-    );
+    try {
+      setEuphoniaApiUrl(euphoniaApiUrlInput);
+      setEuphoniaApiUrlState(euphoniaApiUrlInput.trim()); // drives the adapter effect
+      toast.info(isArabic ? 'جاري التحقق من الاتصال...' : 'Checking connection...');
+      const healthy = await checkEuphoniaApiHealth(euphoniaApiUrlInput);
+      if (!mountedRef.current) return;
+      setEuphoniaApiHealthy(healthy);
+      toast[healthy ? 'success' : 'error'](
+        healthy
+          ? (isArabic ? '✅ متصل بنموذجك المخصص' : '✅ Connected to your custom model')
+          : (isArabic ? '⚠️ تعذر الوصول للخادم — سيتم استخدام المتصفح مؤقتاً' : '⚠️ Unreachable — using browser ASR for now')
+      );
+    } catch (err) {
+      if (mountedRef.current) {
+        setEuphoniaApiHealthy(false);
+        toast.error(isArabic ? 'خطأ أثناء فحص الرابط' : 'Error checking API endpoint');
+      }
+    }
   };
 
   // Cleanup on unmount
@@ -1894,16 +1910,17 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
     if (!typedText.trim()) return;
     setIsProcessingAi(true);
     try {
-      const response = await geminiService.askGeneralQuestion(typedText, profile.language || 'Arabic');
+      const response = await geminiService.askGeneralQuestion(typedText, profile?.language || 'Arabic');
+      if (!mountedRef.current) return;
       setAiResponseText(response);
       speakSafe(response);
       if (onSendMessage) {
         onSendMessage(typedText);
       }
     } catch (err) {
-      toast.error(isArabic ? 'خطأ في معالجة الذكاء الاصطناعي' : 'AI processing error');
+      if (mountedRef.current) toast.error(isArabic ? 'خطأ في معالجة الذكاء الاصطناعي' : 'AI processing error');
     } finally {
-      setIsProcessingAi(false);
+      if (mountedRef.current) setIsProcessingAi(false);
     }
   };
 

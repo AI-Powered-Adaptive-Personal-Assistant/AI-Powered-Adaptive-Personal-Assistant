@@ -18,22 +18,22 @@ import { guard, readBody, geminiFetch, fallbackChat } from '../_lib/ai.js';
 export default async function handler(req: any, res: any) {
   if (!guard(req, res)) return;
 
-  const { parts } = await readBody(req);
-  if (!Array.isArray(parts) || parts.length === 0) {
-    res.status(400).json({ error: 'parts[] is required' });
-    return;
-  }
-
-  // Guard the serverless body limit (Vercel caps request bodies ~4.5MB). A long
-  // recording or large frame would otherwise fail with an opaque platform error.
-  const inlineBytes = parts.reduce(
-    (n: number, p: any) => n + (typeof p?.inlineData?.data === 'string' ? p.inlineData.data.length : 0), 0);
-  if (inlineBytes > 4_000_000) {
-    res.status(413).json({ error: 'Attached media is too large. Please record or capture something shorter.' });
-    return;
-  }
-
   try {
+    const { parts } = await readBody(req);
+    if (!Array.isArray(parts) || parts.length === 0) {
+      res.status(400).json({ error: 'parts[] is required' });
+      return;
+    }
+
+    // Guard the serverless body limit (Vercel caps request bodies ~4.5MB). A long
+    // recording or large frame would otherwise fail with an opaque platform error.
+    const inlineBytes = parts.reduce(
+      (n: number, p: any) => n + (typeof p?.inlineData?.data === 'string' ? p.inlineData.data.length : 0), 0);
+    if (inlineBytes > 4_000_000) {
+      res.status(413).json({ error: 'Attached media is too large. Please record or capture something shorter.' });
+      return;
+    }
+
     const body = JSON.stringify({ contents: [{ role: 'user', parts }] });
     const { res: gres } = await geminiFetch('generateContent', body);
     if (gres) {

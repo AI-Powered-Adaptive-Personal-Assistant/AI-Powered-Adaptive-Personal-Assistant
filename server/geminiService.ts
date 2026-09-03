@@ -9,45 +9,54 @@ function getAi() {
   return aiInstance;
 }
 
+const cleanBase64 = (d: string) => typeof d === 'string' ? d.replace(/^data:[^;]+;base64,/, '') : d;
+
 export const geminiService = {
   /**
-   * Translates a sign language image to text.
+   * Translates visual sign language from a base64 webcam frame.
+   * Model: gemini-2.5-flash
    */
   async translateSign(imageData: string, language: string = "English", level: string = "Basic") {
-    const prompt = `You are an advanced Sign Language recognition AI expert, modeled after the Kaggle Sign Language MNIST dataset for alphabet recognition, alongside diverse global sign language datasets (like ArSL and ASL).
-    
-    Analyze this image frame completely, paying CRITICAL attention to:
-    1. Hand shape, orientation, and fingerspelling configurations (especially A-Z letters based on Sign Language MNIST).
-    2. Facial expressions (eyebrows, mouth, eyes) which add crucial context and grammar.
-    3. Precise orientation and spatial location of the hands.
-    
-    CONTEXT FOR THIS USER:
-    - Target Language Context: ${language}
-    - Signer Skill Level: ${level} (If 'Basic', recognize foundational, beginner-level vocabulary. If 'Advanced', look for nuances).
+    try {
+      const cleanImg = cleanBase64(imageData);
+      const prompt = `You are an advanced Sign Language recognition AI expert, modeled after the Kaggle Sign Language MNIST dataset for alphabet recognition, alongside diverse global sign language datasets (like ArSL and ASL).
+      
+      Analyze this image frame completely, paying CRITICAL attention to:
+      1. Hand shape, orientation, and fingerspelling configurations (especially A-Z letters based on Sign Language MNIST).
+      2. Facial expressions (eyebrows, mouth, eyes) which add crucial context and grammar.
+      3. Precise orientation and spatial location of the hands.
+      
+      CONTEXT FOR THIS USER:
+      - Target Language Context: ${language}
+      - Signer Skill Level: ${level} (If 'Basic', recognize foundational, beginner-level vocabulary. If 'Advanced', look for nuances).
 
-    INSTRUCTIONS:
-    1. If the user is fingerspelling (signing a static alphabet letter A-Y), return EXACTLY that single uppercase letter (e.g., "A").
-    2. If the user is signing a full word or gesture, return the best translated word in ${language}.
-    3. If no hand is clearly visible or no deliberate sign is occurring, respond EXACTLY with [NO_SIGN].
-    
-    Return ONLY the letter, translated word, or [NO_SIGN]. Do NOT include any markdown formatting, conversational text, or punctuation.`;
+      INSTRUCTIONS:
+      1. If the user is fingerspelling (signing a static alphabet letter A-Y), return EXACTLY that single uppercase letter (e.g., "A").
+      2. If the user is signing a full word or gesture, return the best translated word in ${language}.
+      3. If no hand is clearly visible or no deliberate sign is occurring, respond EXACTLY with [NO_SIGN].
+      
+      Return ONLY the letter, translated word, or [NO_SIGN]. Do NOT include any markdown formatting, conversational text, or punctuation.`;
 
-    const response = await getAi().models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: {
-        parts: [
-          { text: prompt },
-          { 
-            inlineData: { 
-              data: imageData, 
-              mimeType: "image/jpeg" 
-            } 
-          }
-        ]
-      }
-    });
+      const response = await getAi().models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: {
+          parts: [
+            { text: prompt },
+            { 
+              inlineData: { 
+                data: cleanImg, 
+                mimeType: "image/jpeg" 
+              } 
+            }
+          ]
+        }
+      });
 
-    return response.text?.trim() || "[NO_SIGN]";
+      return response.text?.trim() || "[NO_SIGN]";
+    } catch (err) {
+      console.error("translateSign error:", err);
+      return "[NO_SIGN]";
+    }
   },
 
   /**
@@ -91,6 +100,7 @@ export const geminiService = {
     Output: Return ONLY the exact transcription text. No preambles or decorative emojis.`;
 
     try {
+      const cleanAudio = cleanBase64(audioData);
       const response = await getAi().models.generateContent({
         model: "gemini-2.5-flash",
         contents: {
@@ -98,7 +108,7 @@ export const geminiService = {
             { text: prompt },
             { 
               inlineData: { 
-                data: audioData, 
+                data: cleanAudio, 
                 mimeType: mimeType 
               } 
             }
@@ -267,9 +277,10 @@ export const geminiService = {
    */
   async decodeDysarthria(text: string, profile: string = "Multilingual", language: string = "Auto-Detect", customMappings: Array<{ phrase: string; translation: string }> = []) {
     let mappingsText = "";
-    if (customMappings && customMappings.length > 0) {
+    const safeMappings = Array.isArray(customMappings) ? customMappings : [];
+    if (safeMappings.length > 0) {
       mappingsText = `Here is a set of customized/personalized voice mapping examples configured by the user:
-${customMappings.map(m => `- When they say/sound like "${m.phrase}", they actually mean: "${m.translation}"`).join("\n")}
+${safeMappings.map(m => `- When they say/sound like "${m.phrase}", they actually mean: "${m.translation}"`).join("\n")}
 
 Prioritize matching the input "${text}" against these patterns with high phonetic and semantic tolerance.`;
     }
@@ -310,9 +321,10 @@ Prioritize matching the input "${text}" against these patterns with high phoneti
    */
   async decodeEuphoniaAudio(audioData: string, profile: string = "Multilingual", language: string = "Auto-Detect", customMappings: Array<{ phrase: string; translation: string }> = [], mimeType: string = "audio/webm") {
     let mappingsText = "";
-    if (customMappings && customMappings.length > 0) {
+    const safeMappings = Array.isArray(customMappings) ? customMappings : [];
+    if (safeMappings.length > 0) {
       mappingsText = `Here is a set of customized voice-mapping associations configured by the user:
-${customMappings.map(m => `- Sound approximation: "${m.phrase}" ➜ Intended phrase: "${m.translation}"`).join("\n")}
+${safeMappings.map(m => `- Sound approximation: "${m.phrase}" ➜ Intended phrase: "${m.translation}"`).join("\n")}
 
 Prioritize looking for matching acoustic patterns corresponding to these mapped profiles.`;
     }
@@ -332,6 +344,7 @@ Prioritize looking for matching acoustic patterns corresponding to these mapped 
     5. Return ONLY the final translated sentence. Do NOT write notes, markdown backticks, prefix headers, or explanations.`;
 
     try {
+      const cleanAudio = cleanBase64(audioData);
       const response = await getAi().models.generateContent({
         model: "gemini-2.5-flash",
         contents: {
@@ -339,7 +352,7 @@ Prioritize looking for matching acoustic patterns corresponding to these mapped 
             { text: prompt },
             { 
               inlineData: { 
-                data: audioData, 
+                data: cleanAudio, 
                 mimeType: mimeType 
               } 
             }
@@ -367,13 +380,15 @@ Prioritize looking for matching acoustic patterns corresponding to these mapped 
     customMappings: Array<{ phrase: string; translation: string }> = [],
     context: string[] = [],
   ): Promise<{ corrected: string; confidence: number; alternatives: string[] }> {
-    const mappingsText = customMappings.length
-      ? `Personalized pronunciation mappings (heard → intended):\n${customMappings
+    const safeMappings = Array.isArray(customMappings) ? customMappings : [];
+    const safeContext = Array.isArray(context) ? context : [];
+    const mappingsText = safeMappings.length
+      ? `Personalized pronunciation mappings (heard → intended):\n${safeMappings
           .map((m) => `- "${m.phrase}" → "${m.translation}"`)
           .join("\n")}\n`
       : "";
-    const contextText = context.length
-      ? `Recent conversation context (most recent last), use it to resolve unclear words:\n${context
+    const contextText = safeContext.length
+      ? `Recent conversation context (most recent last), use it to resolve unclear words:\n${safeContext
           .map((c) => `- ${c}`)
           .join("\n")}\n`
       : "";

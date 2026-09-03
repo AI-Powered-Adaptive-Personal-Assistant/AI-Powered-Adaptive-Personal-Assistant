@@ -56,25 +56,33 @@ export async function transcribeWithCustomModel(audio: Blob): Promise<Transcript
   const form = new FormData();
   form.append('audio', audio, 'clip.webm');
 
-  const res = await fetch(`${apiUrl.replace(/\/$/, '')}/transcribe`, {
-    method: 'POST',
-    body: form,
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
 
-  if (!res.ok) {
-    throw new Error(`Transcription API returned ${res.status}`);
+  try {
+    const res = await fetch(`${apiUrl.replace(/\/$/, '')}/transcribe`, {
+      method: 'POST',
+      body: form,
+      signal: controller.signal,
+    });
+
+    if (!res.ok) {
+      throw new Error(`Transcription API returned ${res.status}`);
+    }
+
+    const data = await res.json();
+    if (!data || typeof data.text !== 'string') {
+      throw new Error('Malformed transcription response');
+    }
+
+    return {
+      text: data.text,
+      confidence: typeof data.confidence === 'number' ? data.confidence : undefined,
+      source: 'custom-model',
+    };
+  } finally {
+    clearTimeout(timeoutId);
   }
-
-  const data = await res.json();
-  if (!data || typeof data.text !== 'string') {
-    throw new Error('Malformed transcription response');
-  }
-
-  return {
-    text: data.text,
-    confidence: typeof data.confidence === 'number' ? data.confidence : undefined,
-    source: 'custom-model',
-  };
 }
 
 /**
@@ -84,7 +92,13 @@ export async function transcribeWithCustomModel(audio: Blob): Promise<Transcript
 export async function checkEuphoniaApiHealth(apiUrl: string): Promise<boolean> {
   if (!apiUrl) return false;
   try {
-    const res = await fetch(`${apiUrl.replace(/\/$/, '')}/health`, { method: 'GET' });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 4000);
+    const res = await fetch(`${apiUrl.replace(/\/$/, '')}/health`, {
+      method: 'GET',
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
     return res.ok;
   } catch {
     return false;
@@ -105,21 +119,34 @@ export function transcribeWithBrowserFallback(langCode: string): Promise<Transcr
       return;
     }
 
+    let resolved = false;
     const rec = new SpeechRec();
     rec.continuous = false;
     rec.interimResults = false;
     rec.lang = langCode;
 
     rec.onresult = (e: any) => {
-      const transcript = e.results[0][0].transcript as string;
+      const transcript = e?.results?.[0]?.[0]?.transcript || '';
+      resolved = true;
       resolve({ text: transcript, source: 'browser-fallback' });
     };
-    rec.onerror = (e: any) => reject(new Error(e.error || 'speech recognition error'));
+    rec.onerror = (e: any) => {
+      resolved = true;
+      reject(new Error(e?.error || 'speech recognition error'));
+    };
     rec.onend = () => {
-      // If onresult never fired (silence), reject so caller can handle it.
+      // If onresult never fired (silence), reject so caller can handle it
+      if (!resolved) {
+        resolved = true;
+        reject(new Error('no-speech-detected'));
+      }
     };
 
-    rec.start();
+    try {
+      rec.start();
+    } catch (startErr) {
+      reject(startErr);
+    }
   });
 }
 

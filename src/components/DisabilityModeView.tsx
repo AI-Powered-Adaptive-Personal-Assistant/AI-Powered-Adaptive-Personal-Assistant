@@ -5,6 +5,7 @@ import { Settings, Eye, Accessibility, Menu, Sparkles, User, Ear, Mic, Brain, Ar
 import { motion, AnimatePresence } from 'motion/react';
 import { doc, setDoc } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
+import { toast } from './Toast';
 import SignVideoStudio from './SignVideoStudio';
 import HumanCommunicationBridge from './HumanCommunicationBridge';
 import MotorEuphoniaView from './MotorEuphoniaView';
@@ -40,12 +41,12 @@ const DisabilityModeView = React.forwardRef<ChatInterfaceRef, DisabilityModeView
   setProfile
 }, ref) {
   const [activeTab, setActiveTab] = React.useState<'chat' | 'settings' | 'video' | 'bridge' | 'org' | 'motor' | 'vision'>(() => {
-    if (profile.accessibilityMode === 'Motor-Euphonia') return 'motor';
-    if (profile.accessibilityMode === 'Visual') return 'vision';
+    if (profile?.accessibilityMode === 'Motor-Euphonia') return 'motor';
+    if (profile?.accessibilityMode === 'Visual') return 'vision';
     return 'video';
   });
   // Organization staff (e.g. Care Center / NGO) get an extra tab scoped to THEIR users.
-  const isOrgStaff = !!profile.isOrgManager && !!(profile.organization || '').trim();
+  const isOrgStaff = !!profile?.isOrgManager && !!(profile?.organization || '').trim();
 
   // Tell the parent which tab is active so it can hide the floating overlay
   // (with its own camera) while the Sign Studio or Motor tab is using the camera —
@@ -54,7 +55,8 @@ const DisabilityModeView = React.forwardRef<ChatInterfaceRef, DisabilityModeView
   React.useEffect(() => () => { onTabChange?.('chat'); }, []);
 
   const updateAccessibilityMode = async (mode: AccessibilityMode) => {
-    if (!profile.uid) return;
+    if (!profile?.uid) return;
+    const previousMode = profile.accessibilityMode;
     // Apply locally FIRST so the UI switches instantly — without this the change
     // only showed up after a Firestore round-trip (felt like it needed a refresh).
     if (setProfile) setProfile({ ...profile, accessibilityMode: mode });
@@ -62,7 +64,12 @@ const DisabilityModeView = React.forwardRef<ChatInterfaceRef, DisabilityModeView
     try {
       await setDoc(doc(db, path), { accessibilityMode: mode }, { merge: true });
     } catch (err) {
-      handleFirestoreError(err, OperationType.UPDATE, path);
+      console.error('Failed to update accessibility mode:', err);
+      if (setProfile) setProfile({ ...profile, accessibilityMode: previousMode });
+      toast.error(
+        localize(profile?.language, 'Failed to update accessibility mode. Please check your connection.', 'فشل تحديث وضع إمكانية الوصول. تحقق من اتصالك.'),
+        localize(profile?.language, 'Update Error', 'خطأ في التحديث')
+      );
     }
   };
 
