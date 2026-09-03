@@ -14,12 +14,28 @@ export interface EmergencyContact {
 
 const STORAGE_KEY = 'cognify_saved_contacts';
 
+/**
+ * IMPORTANT: caregiver/family/doctor numbers below are intentionally EMPTY,
+ * not filled with example numbers.
+ *
+ * This used to ship with realistic-looking placeholder numbers
+ * (+201000000001 etc.). Nothing in the UI ever let a caregiver replace them
+ * (no edit form existed at all — see the new "Manage contacts" modal in
+ * MotorEuphoniaView.tsx), so a student relying on hands-free SOS dialing
+ * (via a vocal trigger, gaze+blink, or voice) would have the app confidently
+ * announce "Calling emergency [caregiver]" and silently dial a fake number
+ * that reaches no one — in an actual emergency. An empty number is honest:
+ * the "not set up" badge (see isValidContactPhone) makes the gap visible
+ * instead of hiding it behind a number that merely looks real.
+ * '123' (Egypt's real ambulance/emergency line) is kept as-is — it needs no
+ * per-user setup and is genuinely correct out of the box.
+ */
 export const DEFAULT_CONTACTS: EmergencyContact[] = [
   {
     id: 'c-caregiver',
     nameEn: 'Caregiver / Supervisor',
     nameAr: 'المرافق / المشرف',
-    phone: '+201000000001',
+    phone: '',
     relationship: 'caregiver',
     avatar: '👨‍⚕️',
     isPrimaryEmergency: true,
@@ -28,7 +44,7 @@ export const DEFAULT_CONTACTS: EmergencyContact[] = [
     id: 'c-mother',
     nameEn: 'Mother / Family',
     nameAr: 'ماما / العائلة',
-    phone: '+201000000002',
+    phone: '',
     relationship: 'family',
     avatar: '👩‍🦰',
   },
@@ -36,7 +52,7 @@ export const DEFAULT_CONTACTS: EmergencyContact[] = [
     id: 'c-doctor',
     nameEn: 'Specialist Doctor',
     nameAr: 'الدكتور المعالج',
-    phone: '+201000000003',
+    phone: '',
     relationship: 'doctor',
     avatar: '🩺',
   },
@@ -71,11 +87,20 @@ export function saveContacts(contacts: EmergencyContact[]): void {
   }
 }
 
-/** Trigger phone dialer */
-export function makePhoneCall(phone: string): void {
+/** A contact is actually callable — not empty, not obviously too short to be a real number. */
+export function isValidContactPhone(phone: string | undefined | null): boolean {
+  if (!phone) return false;
+  const digits = phone.replace(/[^0-9]/g, '');
+  return digits.length >= 3; // '123' (ambulance) is the shortest legitimate case
+}
+
+/** Trigger phone dialer. Returns false (and dials nothing) if the number isn't set up. */
+export function makePhoneCall(phone: string): boolean {
+  if (!isValidContactPhone(phone)) return false;
   const cleanPhone = phone.replace(/[^0-9+]/g, '');
-  if (!cleanPhone) return;
+  if (!cleanPhone) return false;
   window.open(`tel:${cleanPhone}`, '_self');
+  return true;
 }
 
 /** Open WhatsApp chat with pre-filled message */

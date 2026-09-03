@@ -60,13 +60,31 @@ export default function VisionCompanionView({ profile, setProfile }: VisionCompa
       streamRef.current?.getTracks().forEach((tr) => tr.stop());
       let stream: MediaStream;
       try {
+        // `ideal` alone lets the browser pick something much lower if it
+        // decides to — on some laptop webcams this silently settled for a
+        // low resolution, which made "what's in front of me" genuinely hard
+        // for the vision model to read (small text, distant objects) even
+        // though the request itself succeeded. `min` forces a real floor.
         stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: mode, width: { ideal: 1280 }, height: { ideal: 720 } },
+          video: {
+            facingMode: mode,
+            width: { min: 960, ideal: 1920, max: 1920 },
+            height: { min: 540, ideal: 1080, max: 1080 },
+          },
           audio: false,
         });
       } catch {
-        // Fallback to any available video stream if environment mode fails (e.g. on laptops/desktops)
-        stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        // The min constraint itself can fail on very old/basic webcams —
+        // fall back to just requesting the best available, still not
+        // accepting whatever tiny default the browser feels like.
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: mode, width: { ideal: 1280 }, height: { ideal: 720 } },
+            audio: false,
+          });
+        } catch {
+          stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        }
       }
 
       if (!isMountedRef.current) {

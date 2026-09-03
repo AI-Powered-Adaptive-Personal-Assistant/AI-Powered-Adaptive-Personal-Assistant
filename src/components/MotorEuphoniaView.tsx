@@ -18,6 +18,7 @@ import {
   loadContacts,
   saveContacts,
   makePhoneCall,
+  isValidContactPhone,
   sendWhatsAppMessage,
   WHATSAPP_QUICK_MESSAGES,
 } from '../lib/contacts';
@@ -278,7 +279,14 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
   >('keyboard');
 
   // Flexible UI Layout Mode: 'docked' (Sidebar on Left) | 'floating' (Full Width Keyboard with Floating Mini PIP) | 'hidden' (100% Full Width Focused)
-  const [sidebarMode, setSidebarMode] = useState<'docked' | 'floating' | 'hidden'>('floating');
+  // Default changed from 'floating' to 'docked': floating mode is a `position:
+  // fixed` panel with no reserved space in the page layout, so it used to sit
+  // ON TOP of the main content by default — for a dwell/gaze-clicking user,
+  // any target that happened to be under it was literally unreachable, and
+  // sighted users saw text clipped behind it (e.g. tab labels cut off).
+  // 'floating' is still available as an opt-in via the toggle below for users
+  // who want the extra width and don't mind a floating camera.
+  const [sidebarMode, setSidebarMode] = useState<'docked' | 'floating' | 'hidden'>('docked');
   const [cameraCorner, setCameraCorner] = useState<'top-right' | 'top-left' | 'bottom-right' | 'bottom-left' | 'minimized'>('top-right');
   const [showQuickNeedsRow, setShowQuickNeedsRow] = useState(true);
 
@@ -517,6 +525,10 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
   // Mobile Contacts & WhatsApp Modals
   const [contacts, setContacts] = useState<EmergencyContact[]>(loadContacts);
   const [showContactPickerModal, setShowContactPickerModal] = useState(false);
+  // Editable phone-number setup — a real number was previously impossible to
+  // enter anywhere in the app (see contacts.ts). A caregiver/parent typically
+  // does this one-time setup, so it's a plain form, not gaze/blink-driven.
+  const [showManageContactsModal, setShowManageContactsModal] = useState(false);
   const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
   const [selectedContactForWa, setSelectedContactForWa] = useState<EmergencyContact | null>(null);
   const [customWaMessage, setCustomWaMessage] = useState('');
@@ -1616,18 +1628,36 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
     isDialingRef.current = true;
 
     const primary = contacts.find((c) => c.isPrimaryEmergency) || contacts[0];
-    if (primary) {
-      speakSafe(
-        isArabic ? `جاري الاتصال برقم ${primary.nameAr}` : `Calling emergency ${primary.nameEn}`
-      );
-      toast.success(isArabic ? `اتصال طوارئ: ${primary.nameAr}` : `SOS Call: ${primary.nameEn}`);
-      trackedTimeout(() => {
-        makePhoneCall(primary.phone);
-        isDialingRef.current = false;
-      }, 1200);
-    } else {
+    if (!primary) { isDialingRef.current = false; return; }
+
+    // Previously this always announced "Calling [caregiver]" and dialed
+    // whatever was in primary.phone — including the shipped placeholder
+    // numbers nothing in the UI could ever change, so the app confidently
+    // lied about placing a call that went nowhere. Check first.
+    if (!isValidContactPhone(primary.phone)) {
       isDialingRef.current = false;
+      speakSafe(
+        isArabic
+          ? `لا يوجد رقم محفوظ لـ ${primary.nameAr}. من فضلك افتح إدارة جهات الاتصال وأضف رقم.`
+          : `No number saved for ${primary.nameEn}. Please open Manage Contacts and add one.`
+      );
+      toast.warning(
+        isArabic ? `مفيش رقم محفوظ لـ ${primary.nameAr}` : `No number saved for ${primary.nameEn}`,
+        isArabic ? 'إعداد ناقص' : 'Setup needed'
+      );
+      setShowContactPickerModal(true);
+      setShowManageContactsModal(true);
+      return;
     }
+
+    speakSafe(
+      isArabic ? `جاري الاتصال برقم ${primary.nameAr}` : `Calling emergency ${primary.nameEn}`
+    );
+    toast.success(isArabic ? `اتصال طوارئ: ${primary.nameAr}` : `SOS Call: ${primary.nameEn}`);
+    trackedTimeout(() => {
+      makePhoneCall(primary.phone);
+      isDialingRef.current = false;
+    }, 1200);
   };
 
   // Open Hands-Free Contact Picker
@@ -1698,6 +1728,14 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
     );
 
     if (match) {
+      if (!isValidContactPhone(match.phone)) {
+        toast.warning(
+          isArabic ? `مفيش رقم محفوظ لـ ${match.nameAr}` : `No number saved for ${match.nameEn}`,
+          isArabic ? 'إعداد ناقص' : 'Setup needed'
+        );
+        setShowManageContactsModal(true);
+        return;
+      }
       isDialingRef.current = true;
       speakSafe(isArabic ? `جاري الاتصال بـ ${match.nameAr}` : `Calling ${match.nameEn}`);
       toast.success(isArabic ? `تم التعرف: اتصال بـ ${match.nameAr}` : `Calling ${match.nameEn}`);
@@ -2068,6 +2106,15 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
       const contactId = cardId.replace('call-contact-', '');
       const target = contacts.find((c) => c.id === contactId);
       if (target) {
+        if (!isValidContactPhone(target.phone)) {
+          isDialingRef.current = false;
+          toast.warning(
+            isArabic ? `مفيش رقم محفوظ لـ ${target.nameAr}` : `No number saved for ${target.nameEn}`,
+            isArabic ? 'إعداد ناقص' : 'Setup needed'
+          );
+          setShowManageContactsModal(true);
+          return;
+        }
         speakSafe(isArabic ? `جاري الاتصال بـ ${target.nameAr}` : `Calling ${target.nameEn}`);
         trackedTimeout(() => {
           makePhoneCall(target.phone);
@@ -2096,6 +2143,14 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
       const template = WHATSAPP_QUICK_MESSAGES.find((m) => m.id === msgId);
       if (template && selectedContactForWa) {
         const text = isArabic ? template.textAr : template.textEn;
+        if (!isValidContactPhone(selectedContactForWa.phone)) {
+          toast.warning(
+            isArabic ? `مفيش رقم محفوظ لـ ${selectedContactForWa.nameAr}` : `No number saved for ${selectedContactForWa.nameEn}`,
+            isArabic ? 'إعداد ناقص' : 'Setup needed'
+          );
+          setShowManageContactsModal(true);
+          return;
+        }
         sendWhatsAppMessage(selectedContactForWa.phone, text);
         toast.success(isArabic ? 'جاري فتح واتساب لإرسال الرسالة' : 'Opening WhatsApp');
         setShowWhatsAppModal(false);
@@ -2374,54 +2429,67 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
   }[theme];
 
   return (
-    <div className={`flex-1 flex flex-col h-full bg-slate-950 text-white overflow-y-auto relative p-3 sm:p-5 lg:p-6 select-none font-sans ${isFullscreen ? 'fixed inset-0 z-[99998] p-6' : ''}`}>
-      {/* Head Pointer / Eye-Gaze MediaPipe Visual Interactive Cursor */}
-      <div
-        className="fixed pointer-events-none z-[99999] will-change-transform top-0 left-0"
-        style={{
-          transform: `translate3d(${cursorPos.x}px, ${cursorPos.y}px, 0) translate(-50%, -50%)`,
-        }}
-      >
-        <div className="relative flex items-center justify-center">
-          {/* Subtle OS-Style Precision Reticle */}
-          <div className="absolute w-5 h-[1.5px] bg-slate-400/50 pointer-events-none" />
-          <div className="absolute h-5 w-[1.5px] bg-slate-400/50 pointer-events-none" />
+    <div className={`flex-1 flex flex-col h-full bg-slate-950 text-white overflow-hidden relative p-3 sm:p-5 lg:p-6 select-none font-sans ${isFullscreen ? 'fixed inset-0 z-[99998] p-6' : ''}`}>
+      {/* Head Pointer / Eye-Gaze MediaPipe Visual Interactive Cursor.
+          Previously this rendered unconditionally — even with tracking OFF
+          ("Start Eye Tracker" not yet pressed), a ring+dot reticle sat at
+          screen-center (fixed, z-[99999], above literally everything
+          including the nav tabs) for no reason: nothing is being tracked,
+          so there's nothing for it to represent. Now only shown once eye
+          tracking is actually running. */}
+      {isCameraActive && (
+        <div
+          className="fixed pointer-events-none z-[99999] will-change-transform top-0 left-0"
+          style={{
+            transform: `translate3d(${cursorPos.x}px, ${cursorPos.y}px, 0) translate(-50%, -50%)`,
+          }}
+        >
+          <div className="relative flex items-center justify-center">
+            {/* Subtle OS-Style Precision Reticle */}
+            <div className="absolute w-5 h-[1.5px] bg-slate-400/50 pointer-events-none" />
+            <div className="absolute h-5 w-[1.5px] bg-slate-400/50 pointer-events-none" />
 
-          {/* Radial Dwell Countdown Ring */}
-          <svg className={`w-16 h-16 -rotate-90 transition-all duration-150 ${cursorPos.isSnapped ? 'scale-110 drop-shadow-[0_2px_8px_rgba(99,102,241,0.4)]' : 'drop-shadow-[0_2px_8px_rgba(16,185,129,0.3)]'}`}>
-            <circle
-              cx="32"
-              cy="32"
-              r="24"
-              stroke="currentColor"
-              strokeWidth="3.5"
-              className={cursorPos.isSnapped ? 'text-indigo-500/25' : 'text-emerald-500/20'}
-              fill="none"
-            />
-            <circle
-              cx="32"
-              cy="32"
-              r="24"
-              stroke="currentColor"
-              strokeWidth="3.5"
-              className={`${cursorPos.isSnapped ? 'text-indigo-400' : 'text-emerald-400'} transition-all duration-75`}
-              fill="none"
-              strokeDasharray="150"
-              strokeDashoffset={150 - 150 * dwellProgress}
-            />
-          </svg>
+            {/* Radial Dwell Countdown Ring */}
+            <svg className={`w-16 h-16 -rotate-90 transition-all duration-150 ${cursorPos.isSnapped ? 'scale-110 drop-shadow-[0_2px_8px_rgba(99,102,241,0.4)]' : 'drop-shadow-[0_2px_8px_rgba(16,185,129,0.3)]'}`}>
+              <circle
+                cx="32"
+                cy="32"
+                r="24"
+                stroke="currentColor"
+                strokeWidth="3.5"
+                className={cursorPos.isSnapped ? 'text-indigo-500/25' : 'text-emerald-500/20'}
+                fill="none"
+              />
+              <circle
+                cx="32"
+                cy="32"
+                r="24"
+                stroke="currentColor"
+                strokeWidth="3.5"
+                className={`${cursorPos.isSnapped ? 'text-indigo-400' : 'text-emerald-400'} transition-all duration-75`}
+                fill="none"
+                strokeDasharray="150"
+                strokeDashoffset={150 - 150 * dwellProgress}
+              />
+            </svg>
 
-          {/* Ergonomic OS-Style System Pointer Dot (Visually Static, Zero Glow/Pulse) */}
-          <div className={`absolute w-4 h-4 rounded-full border-2 border-white flex items-center justify-center shadow-md transition-colors duration-150 ${
-            cursorPos.isSnapped ? 'bg-indigo-600 ring-2 ring-indigo-300/60' : 'bg-slate-900'
-          }`}>
-            <div className={`w-1.5 h-1.5 rounded-full transition-colors duration-150 ${
-              cursorPos.isSnapped ? 'bg-white' : 'bg-slate-200'
-            }`} />
+            {/* Ergonomic OS-Style System Pointer Dot (Visually Static, Zero Glow/Pulse) */}
+            <div className={`absolute w-4 h-4 rounded-full border-2 border-white flex items-center justify-center shadow-md transition-colors duration-150 ${
+              cursorPos.isSnapped ? 'bg-indigo-600 ring-2 ring-indigo-300/60' : 'bg-slate-900'
+            }`}>
+              <div className={`w-1.5 h-1.5 rounded-full transition-colors duration-150 ${
+                cursorPos.isSnapped ? 'bg-white' : 'bg-slate-200'
+              }`} />
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
+      {/* Everything above here (pointer tuning bar, title/toolbar, the two big
+          mode-select buttons) is fixed-height "chrome" that should always be
+          visible — shrink-0 keeps it pinned instead of getting pushed off by
+          growing content below it. */}
+      <div className="shrink-0">
       {/* Quick Pointer Tuning & Calibration Bar (Always Accessible) */}
       <div className="mb-3 px-4 py-2.5 rounded-2xl bg-slate-900/95 border border-slate-800 flex items-center justify-between gap-2 flex-wrap text-xs shadow-md">
         <div className="flex items-center gap-2 flex-wrap">
@@ -2554,120 +2622,121 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
           </div>
         </div>
 
-        {/* Action Toggles */}
-        <div className="flex items-center gap-2 flex-wrap">
-          {/* Theme Switcher */}
-          <button
-            onClick={() => setTheme((t) => (t === 'amber' ? 'cyan' : t === 'cyan' ? 'emerald' : t === 'emerald' ? 'monochrome' : 'amber'))}
-            className="p-2 rounded-2xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300"
-            title={isArabic ? 'تغيير ثيم التباين' : 'Change Theme'}
-          >
-            <Palette className="w-4 h-4" />
-          </button>
-
-          {/* Fullscreen Toggle */}
-          <button
-            onClick={toggleFullScreenMode}
-            className="p-2 rounded-2xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300"
-            title={isArabic ? 'وضع ملء الشاشة' : 'Fullscreen'}
-          >
-            {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-          </button>
-
-          {/* 5-Step Scientific Architecture Diagram Modal Button */}
-          <button
-            onClick={() => setShowScientificArchitectureModal(true)}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/40 text-cyan-300 font-black text-xs shadow-md"
-            title={isArabic ? 'عرض المخطط العلمي والفيزيائي لتتبع العين (5 مراحل)' : '5-Component Eye-Tracking Architecture'}
-          >
-            <Activity className="w-3.5 h-3.5 text-cyan-400" />
-            <span>{isArabic ? '🔬 المخطط العلمي (5 مراحل)' : 'Scientific Architecture'}</span>
-          </button>
-
-          {/* 9-Point Medical Eye Calibration Button */}
-          <button
-            onClick={runNinePointCalibration}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 font-black text-xs shadow-md"
-          >
-            <Target className="w-3.5 h-3.5 text-amber-400" />
-            <span>{isArabic ? 'معايرة الـ 9 نقاط' : '9-Point Calibration'}</span>
-          </button>
-
-          {/* Recalibrate Neutral Center */}
-          <button
-            onClick={() => {
-              trackerRef.current?.calibrateNeutral();
-              toast.info(isArabic ? 'تمت معايرة مركز العين' : 'Eye center recalibrated');
-            }}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-amber-400 font-bold text-xs"
-          >
-            <RefreshCw className="w-3.5 h-3.5" />
-            <span>{isArabic ? 'معايرة المركز' : 'Center'}</span>
-          </button>
-
-          {/* Camera Head Pointer Toggle */}
-          <button
-            onClick={toggleCamera}
-            className={`flex items-center gap-2 px-4 py-2 rounded-2xl font-bold text-xs transition-all shadow-md ${
-              isCameraActive
-                ? 'bg-amber-500 text-slate-950 shadow-amber-500/30'
-                : 'bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-700'
-            }`}
-          >
-            {isCameraActive ? <Camera className="w-4 h-4" /> : <CameraOff className="w-4 h-4" />}
-            <span>{isCameraActive ? (isArabic ? 'إيقاف الكاميرا' : 'Stop Camera') : (isArabic ? 'تشغيل تتبع العين' : 'Start Eye Tracker')}</span>
-          </button>
-
-          {/* Euphonia Vocal Sound Toggle */}
-          <button
-            onClick={toggleAudioEngine}
-            className={`flex items-center gap-2 px-4 py-2 rounded-2xl font-bold text-xs transition-all shadow-md ${
-              isAudioEngineActive
-                ? 'bg-emerald-500 text-slate-950 shadow-emerald-500/30'
-                : 'bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-700'
-            }`}
-          >
-            {isAudioEngineActive ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
-            <span>{isAudioEngineActive ? (isArabic ? 'إيقاف إيفونيا' : 'Stop Euphonia') : (isArabic ? 'أصوات إيفونيا' : 'Vocal Sounds')}</span>
-          </button>
-
-          {/* Layout Flexibility Switcher: Full Width vs Docked */}
-          <div className="flex items-center bg-slate-900 border border-slate-700 rounded-2xl p-0.5 shadow-sm">
+        {/* Action Toggles.
+            Previously one long row mixed ~10 controls of equal visual weight —
+            a one-time setup action (theme, fullscreen, the architecture info
+            modal, 9-point calibration) looked exactly as important as the
+            actual "turn tracking on" buttons, so nothing stood out and the
+            row wrapped into a wall of amber buttons. Split into two tiers:
+            muted/small "tools" the user sets up once, and the actual
+            start/stop + layout controls they touch every session. */}
+        <div className="flex flex-col items-end gap-2">
+          {/* Setup & info tools — small, muted, secondary */}
+          <div className="flex items-center gap-1.5 flex-wrap justify-end">
             <button
-              onClick={() => setSidebarMode('floating')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all ${
-                sidebarMode === 'floating'
-                  ? 'bg-amber-400 text-slate-950 shadow-md'
-                  : 'text-slate-300 hover:text-white'
-              }`}
-              title={isArabic ? 'عرض كامل للكيبورد 100% مع كاميرا عائمة' : 'Full Width Keyboard (100%)'}
+              onClick={() => setTheme((t) => (t === 'amber' ? 'cyan' : t === 'cyan' ? 'emerald' : t === 'emerald' ? 'monochrome' : 'amber'))}
+              className="p-1.5 rounded-xl bg-slate-900/60 hover:bg-slate-800 border border-slate-800 text-slate-400"
+              title={isArabic ? 'تغيير ثيم التباين' : 'Change Theme'}
             >
-              <Maximize2 className="w-3.5 h-3.5" />
-              <span>{isArabic ? 'عرض كامل 100%' : 'Full 100%'}</span>
+              <Palette className="w-3.5 h-3.5" />
             </button>
 
             <button
-              onClick={() => setSidebarMode('docked')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all ${
-                sidebarMode === 'docked'
-                  ? 'bg-amber-400 text-slate-950 shadow-md'
-                  : 'text-slate-300 hover:text-white'
-              }`}
-              title={isArabic ? 'لوحة جانبية مقسومة' : 'Docked Sidebar'}
+              onClick={toggleFullScreenMode}
+              className="p-1.5 rounded-xl bg-slate-900/60 hover:bg-slate-800 border border-slate-800 text-slate-400"
+              title={isArabic ? 'وضع ملء الشاشة' : 'Fullscreen'}
             >
-              <Columns2 className="w-3.5 h-3.5" />
-              <span>{isArabic ? 'شاشة مقسومة' : 'Docked'}</span>
+              {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+            </button>
+
+            <button
+              onClick={() => setShowScientificArchitectureModal(true)}
+              className="flex items-center gap-1 px-2 py-1.5 rounded-xl bg-slate-900/60 hover:bg-slate-800 border border-slate-800 text-slate-400 font-bold text-[11px]"
+              title={isArabic ? 'عرض المخطط العلمي والفيزيائي لتتبع العين (5 مراحل)' : '5-Component Eye-Tracking Architecture'}
+            >
+              <Activity className="w-3 h-3" />
+              <span>{isArabic ? 'المخطط العلمي' : 'How it works'}</span>
+            </button>
+
+            <button
+              onClick={runNinePointCalibration}
+              className="flex items-center gap-1 px-2 py-1.5 rounded-xl bg-slate-900/60 hover:bg-slate-800 border border-slate-800 text-slate-400 font-bold text-[11px]"
+              title={isArabic ? 'معايرة دقيقة بـ9 نقاط — مرة واحدة كافية عادة' : 'Precise 9-point calibration — usually a one-time setup'}
+            >
+              <Target className="w-3 h-3" />
+              <span>{isArabic ? 'معايرة 9 نقاط' : '9-point calibration'}</span>
             </button>
           </div>
 
-          {/* Settings */}
-          <button
-            onClick={() => setShowConfigModal(!showConfigModal)}
-            className="p-2 rounded-2xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300"
-            title={isArabic ? 'المعايرة والإعدادات' : 'Settings'}
-          >
-            <SlidersHorizontal className="w-4 h-4" />
-          </button>
+          {/* Primary actions — the controls actually touched every session */}
+          <div className="flex items-center gap-2 flex-wrap justify-end">
+            {/* Camera Head Pointer Toggle */}
+            <button
+              onClick={toggleCamera}
+              className={`flex items-center gap-2 px-4 py-2 rounded-2xl font-bold text-xs transition-all shadow-md ${
+                isCameraActive
+                  ? 'bg-amber-500 text-slate-950 shadow-amber-500/30'
+                  : 'bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-700'
+              }`}
+            >
+              {isCameraActive ? <Camera className="w-4 h-4" /> : <CameraOff className="w-4 h-4" />}
+              <span>{isCameraActive ? (isArabic ? 'إيقاف الكاميرا' : 'Stop Camera') : (isArabic ? 'تشغيل تتبع العين' : 'Start Eye Tracker')}</span>
+            </button>
+
+            {/* Euphonia Vocal Sound Toggle */}
+            <button
+              onClick={toggleAudioEngine}
+              className={`flex items-center gap-2 px-4 py-2 rounded-2xl font-bold text-xs transition-all shadow-md ${
+                isAudioEngineActive
+                  ? 'bg-emerald-500 text-slate-950 shadow-emerald-500/30'
+                  : 'bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-700'
+              }`}
+            >
+              {isAudioEngineActive ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
+              <span>{isAudioEngineActive ? (isArabic ? 'إيقاف إيفونيا' : 'Stop Euphonia') : (isArabic ? 'أصوات إيفونيا' : 'Vocal Sounds')}</span>
+            </button>
+
+            {/* Layout Flexibility Switcher: Full Width vs Docked.
+                Relabeled — "Full 100%" / "Docked" described the CSS behavior,
+                not what the user actually gets: which layout the camera panel
+                uses. */}
+            <div className="flex items-center bg-slate-900 border border-slate-700 rounded-2xl p-0.5 shadow-sm">
+              <button
+                onClick={() => setSidebarMode('floating')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all ${
+                  sidebarMode === 'floating'
+                    ? 'bg-amber-400 text-slate-950 shadow-md'
+                    : 'text-slate-300 hover:text-white'
+                }`}
+                title={isArabic ? 'الكيبورد بعرض الشاشة، والكاميرا في نافذة صغيرة عائمة' : 'Wider keyboard, camera floats in a small window over the page'}
+              >
+                <Maximize2 className="w-3.5 h-3.5" />
+                <span>{isArabic ? 'كاميرا عائمة' : 'Floating camera'}</span>
+              </button>
+
+              <button
+                onClick={() => setSidebarMode('docked')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all ${
+                  sidebarMode === 'docked'
+                    ? 'bg-amber-400 text-slate-950 shadow-md'
+                    : 'text-slate-300 hover:text-white'
+                }`}
+                title={isArabic ? 'الكاميرا في شريط جانبي ثابت — متضربش فوق حاجة تانية' : 'Camera stays in a fixed side panel — never covers anything else'}
+              >
+                <Columns2 className="w-3.5 h-3.5" />
+                <span>{isArabic ? 'شريط جانبي ثابت' : 'Side-by-side'}</span>
+              </button>
+            </div>
+
+            {/* Settings */}
+            <button
+              onClick={() => setShowConfigModal(!showConfigModal)}
+              className="p-2 rounded-2xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300"
+              title={isArabic ? 'المعايرة والإعدادات' : 'Settings'}
+            >
+              <SlidersHorizontal className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -2711,6 +2780,15 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
           )}
         </button>
       </div>
+      </div>
+      {/* End of pinned chrome. Everything below (the actual keyboard / voice
+          studio panels) gets the remaining viewport height and scrolls
+          WITHIN itself if it doesn't fit — min-h-0 is required for a flex
+          child to actually be allowed to shrink instead of forcing the page
+          to grow past the viewport. This is what removes the page-level
+          scroll a user previously had to do just to reach the keyboard
+          below the toolbar. */}
+      <div className="flex-1 min-h-0 overflow-y-auto -mx-3 sm:-mx-5 lg:-mx-6 px-3 sm:px-5 lg:px-6">
 
       {/* Main Communicator Grid: Left HUD / Floating PIP + Main Center Eye-Gaze Board */}
       <div className={`grid grid-cols-1 ${sidebarMode === 'docked' ? 'lg:grid-cols-12' : 'grid-cols-1'} gap-4 flex-1`}>
@@ -2787,7 +2865,7 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
                 onClick={() => setSidebarMode('docked')} 
                 className="text-[10px] text-slate-300 hover:text-white px-2 py-0.5 rounded-lg bg-slate-800 font-bold border border-slate-700"
               >
-                {isArabic ? 'إرساء ⇲' : 'Dock ⇲'}
+                {isArabic ? 'ثبّت جانبًا ⇲' : 'Dock it ⇲'}
               </button>
             </div>
           )}
@@ -2858,7 +2936,11 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
             <div className="flex items-center justify-between mb-1.5">
               <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
                 <Mic className="w-3.5 h-3.5 text-emerald-400" />
-                {isArabic ? 'أصوات إيفونيا (همهمات)' : 'Euphonia Vocal Sounds'}
+                {/* Renamed from "Euphonia Vocal Sounds" — that name duplicated the
+                    "Vocal Sounds" toggle button in the toolbar above almost
+                    word-for-word, making them look like two different features
+                    when this is just a live level meter FOR that same toggle. */}
+                {isArabic ? 'مستوى الميكروفون (حي)' : 'Live Mic Level'}
               </span>
               <span className="text-[10px] text-slate-400 font-mono">
                 {audioMetrics.peakFrequency > 0 ? `${audioMetrics.peakFrequency} Hz` : '0 Hz'}
@@ -2937,7 +3019,25 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
         </div>
 
         {/* Right Side: Eye-Gaze Board Content (Expanded to 100% full width when floating) */}
-        <div className={`${sidebarMode === 'docked' ? 'lg:col-span-9' : 'col-span-12 w-full'} flex flex-col gap-3`}>
+        <div
+          className={`${sidebarMode === 'docked' ? 'lg:col-span-9' : 'col-span-12 w-full'} flex flex-col gap-3`}
+          style={
+            // The floating panel is `position: fixed` (it has to be, to float
+            // over/around scrolling content) — fixed elements are removed from
+            // normal document flow, so the grid has no idea it exists and
+            // never reserved room for it. Padding the content by the panel's
+            // own width+offset is what actually stops it covering buttons,
+            // eye-gaze targets, and tab labels underneath. Skipped when the
+            // panel is minimized (small pill, doesn't need a full lane) or
+            // docked/hidden (no fixed panel at all in those modes).
+            sidebarMode === 'floating' && cameraCorner !== 'minimized'
+              ? {
+                  paddingInlineStart: cameraCorner === 'top-left' || cameraCorner === 'bottom-left' ? '21rem' : undefined,
+                  paddingInlineEnd: cameraCorner === 'top-right' || cameraCorner === 'bottom-right' ? '21rem' : undefined,
+                }
+              : undefined
+          }
+        >
           {/* TAB 1: Arabic Eye-Gaze Virtual Keyboard (PySource Split Blink Keyboard) */}
           {activeTab === 'keyboard' && (
             <GazeBlinkKeyboard
@@ -3562,6 +3662,7 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
           )}
         </div>
       </div>
+      </div>
 
       {/* 9-POINT MEDICAL EYE CALIBRATION MODAL */}
       <AnimatePresence>
@@ -3698,12 +3799,21 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
                     </p>
                   </div>
                 </div>
-                <button
-                  onClick={() => setShowContactPickerModal(false)}
-                  className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400"
-                >
-                  <X className="w-5 h-5" />
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setShowManageContactsModal(true)}
+                    className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold flex items-center gap-1.5"
+                  >
+                    <Users className="w-4 h-4" />
+                    {isArabic ? 'إدارة الأرقام' : 'Manage numbers'}
+                  </button>
+                  <button
+                    onClick={() => setShowContactPickerModal(false)}
+                    className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
               </div>
 
               {/* Voice Listener Bar */}
@@ -3734,6 +3844,7 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
                 {contacts.map((c) => {
                   const cardKey = `call-contact-${c.id}`;
                   const isHovered = hoveredCardId === cardKey;
+                  const hasNumber = isValidContactPhone(c.phone);
 
                   return (
                     <div
@@ -3751,9 +3862,15 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
                         <h4 className="font-black text-base truncate">
                           {isArabic ? c.nameAr : c.nameEn}
                         </h4>
-                        <p className="text-xs opacity-75 font-mono mt-0.5">{c.phone}</p>
+                        {hasNumber ? (
+                          <p className="text-xs opacity-75 font-mono mt-0.5">{c.phone}</p>
+                        ) : (
+                          <p className="text-xs mt-0.5 font-bold text-rose-400">
+                            {isArabic ? '⚠ لا يوجد رقم محفوظ' : '⚠ No number saved'}
+                          </p>
+                        )}
                       </div>
-                      <Phone className="w-6 h-6 text-emerald-400 shrink-0" />
+                      <Phone className={`w-6 h-6 shrink-0 ${hasNumber ? 'text-emerald-400' : 'text-slate-600'}`} />
 
                       {isHovered && dwellProgress > 0 && (
                         <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-slate-950/50 rounded-b-2xl overflow-hidden">
@@ -3910,6 +4027,91 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
                   </div>
                 </div>
               )}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* MODAL 2.5: Manage emergency/WhatsApp contact numbers.
+          A plain form — not gaze/blink-driven — because this is one-time
+          setup a caregiver does with a keyboard, not something the student
+          operates hands-free. Before this modal existed, there was no way
+          in the whole app to set a real number: the shipped defaults were
+          placeholder digits and nothing ever called saveContacts(). */}
+      <AnimatePresence>
+        {showManageContactsModal && (
+          <div className="fixed inset-0 z-[70] bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-slate-900 border-2 border-slate-800 rounded-3xl p-6 max-w-lg w-full shadow-2xl overflow-y-auto max-h-[90vh]"
+            >
+              <div className="flex items-center justify-between pb-4 border-b border-slate-800 mb-4">
+                <div className="flex items-center gap-3">
+                  <span className="p-2.5 rounded-2xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                    <Users className="w-6 h-6" />
+                  </span>
+                  <div>
+                    <h3 className="font-black text-lg text-white">
+                      {isArabic ? 'إدارة أرقام الطوارئ' : 'Manage Emergency Numbers'}
+                    </h3>
+                    <p className="text-xs text-slate-400">
+                      {isArabic
+                        ? 'الأرقام دي بتتحفظ على الجهاز ده بس. اطلب من المرافق أو ولي الأمر يملأها.'
+                        : 'Saved on this device only. Ask a caregiver/parent to fill these in.'}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowManageContactsModal(false)}
+                  className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="space-y-3">
+                {contacts.map((c) => (
+                  <div key={c.id} className="p-3 rounded-2xl bg-slate-950 border border-slate-800">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-xl">{c.avatar}</span>
+                      <span className="font-bold text-sm text-white">{isArabic ? c.nameAr : c.nameEn}</span>
+                      {c.isPrimaryEmergency && (
+                        <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-400 border border-rose-500/30">
+                          {isArabic ? 'الطوارئ الأساسي' : 'Primary SOS'}
+                        </span>
+                      )}
+                    </div>
+                    <input
+                      type="tel"
+                      dir="ltr"
+                      value={c.phone}
+                      onChange={(e) => {
+                        const phone = e.target.value;
+                        setContacts((prev) => {
+                          const updated = prev.map((x) => (x.id === c.id ? { ...x, phone } : x));
+                          saveContacts(updated);
+                          return updated;
+                        });
+                      }}
+                      placeholder={isArabic ? 'مثال: 01012345678+' : 'e.g. +201012345678'}
+                      className="w-full px-3 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white font-mono text-sm focus:border-emerald-500 focus:outline-none"
+                    />
+                  </div>
+                ))}
+              </div>
+
+              <button
+                onClick={() => {
+                  setShowManageContactsModal(false);
+                  toast.success(isArabic ? 'تم حفظ الأرقام' : 'Numbers saved');
+                }}
+                className="mt-4 w-full py-3 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black flex items-center justify-center gap-2"
+              >
+                <Check className="w-5 h-5" />
+                {isArabic ? 'تم' : 'Done'}
+              </button>
             </motion.div>
           </div>
         )}
