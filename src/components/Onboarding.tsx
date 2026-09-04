@@ -17,9 +17,11 @@ import {
   BarChart3,
   Layers,
   ChevronRight,
+  ChevronLeft,
   Flame,
   Award,
   Sparkles,
+  Check,
 } from "lucide-react";
 import { auth, logout } from "../lib/firebase";
 import { getTranslation, isRTL } from "../lib/translations";
@@ -78,11 +80,11 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
     sustainabilityGoal: "quality-edu"
   });
 
-  // Cognitive Baseline & IQ Assessment state for Normal Mode
+  // Cognitive Baseline & IQ Assessment state for Normal Mode (10 Questions · 10 Minutes)
   const [iqStep, setIqStep] = useState<'intro' | 'active' | 'result'>('intro');
   const [currentIqIdx, setCurrentIqIdx] = useState(0);
   const [iqAnswers, setIqAnswers] = useState<Record<string, string>>({});
-  const [iqSecondsLeft, setIqSecondsLeft] = useState(45);
+  const [iqTotalSecondsLeft, setIqTotalSecondsLeft] = useState(600); // 10 minutes total timer (600s)
   const [iqStartTime, setIqStartTime] = useState<number | null>(null);
   const [computedIq, setComputedIq] = useState<{
     score: number;
@@ -90,6 +92,11 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
     domains: CognitiveDomainScores;
     persona: 'Foundational' | 'Balanced' | 'Socratic';
   } | null>(null);
+
+  const iqAnswersRef = useRef(iqAnswers);
+  useEffect(() => {
+    iqAnswersRef.current = iqAnswers;
+  }, [iqAnswers]);
 
   // Special-needs accounts skip straight to a ready profile (no assessment).
   useEffect(() => {
@@ -118,14 +125,15 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
     }
   }, [formData.accountPath]);
 
-  // Timer effect for active IQ question in Onboarding
+  // 10-Minute Overall Countdown Timer for Cognitive Assessment
   useEffect(() => {
     if (step !== 4 || iqStep !== 'active') return;
 
     const timer = setInterval(() => {
-      setIqSecondsLeft((prev) => {
+      setIqTotalSecondsLeft((prev) => {
         if (prev <= 1) {
-          handleIqOptionSelect(null);
+          clearInterval(timer);
+          finishIqTest(iqAnswersRef.current);
           return 0;
         }
         return prev - 1;
@@ -133,29 +141,38 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [step, iqStep, currentIqIdx]);
+  }, [step, iqStep]);
 
-  const handleNextStep = () => setStep(step + 1);
+  const formatTimer = (secs: number) => {
+    const mins = Math.floor(secs / 60);
+    const s = secs % 60;
+    return `${mins.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  };
 
-  const handleIqOptionSelect = (optionId: string | null) => {
-    const q = IQ_QUESTION_BATTERY[currentIqIdx];
-    const newAnswers = { ...iqAnswers };
-    if (optionId && q) {
-      newAnswers[q.id] = optionId;
-      setIqAnswers(newAnswers);
+  const handleNextStep = () => {
+    // Normal mode proceeds through step 4 (Cognitive assessment). Special needs skips directly to completion.
+    if (step === 3 && formData.accountPath === 'Special Needs') {
+      finishOnboarding();
+      return;
     }
+    setStep(step + 1);
+  };
 
+  const handleIqOptionSelect = (optionId: string) => {
+    const q = IQ_QUESTION_BATTERY[currentIqIdx];
+    if (!q) return;
+    const newAnswers = { ...iqAnswers, [q.id]: optionId };
+    setIqAnswers(newAnswers);
+    iqAnswersRef.current = newAnswers;
+
+    // Smoothly auto-advance to next question if not at the end
     if (currentIqIdx < IQ_QUESTION_BATTERY.length - 1) {
-      const nextIdx = currentIqIdx + 1;
-      setCurrentIqIdx(nextIdx);
-      setIqSecondsLeft(IQ_QUESTION_BATTERY[nextIdx].timeLimitSeconds || 45);
-    } else {
-      finishIqTest(newAnswers);
+      setCurrentIqIdx(currentIqIdx + 1);
     }
   };
 
   const finishIqTest = (answers: Record<string, string>) => {
-    const elapsed = iqStartTime ? Math.round((Date.now() - iqStartTime) / 1000) : 180;
+    const elapsed = iqStartTime ? Math.min(600, Math.round((Date.now() - iqStartTime) / 1000)) : (600 - iqTotalSecondsLeft);
     const result = calculateStandardizedIq(answers, elapsed);
     const derivedLevel: CognitiveLevel =
       result.iqScore < 90 ? 'Basic' : result.iqScore >= 115 ? 'Advanced' : 'Intermediate';
@@ -470,8 +487,8 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
               <p className="text-xs md:text-sm text-text-muted leading-relaxed">
                 {localize(
                   formData.language,
-                  "Cognify dynamically personalizes its explanation depth, cognitive scaffolds, and difficulty based on your thinking profile. Take the culture-fair 12-item matrix assessment (~5-7 mins), or start with our balanced baseline.",
-                  "يتكيّف كوجنيفاي تلقائياً مع طريقتك في التفكير وعمق الشرح ودرجة صعوبة المسائل. يمكنك خوض اختبار المصفوفات البصرية القياسي غير المنحاز ثقافياً الآن (~5-7 دقائق)، أو البدء بالمستوى المتوازن وممارسة التمارين لاحقاً."
+                  "Cognify personalizes its pedagogical depth, scaffolding, and problem complexity to your unique cognitive profile. Complete the 10-question standardized assessment (10:00 minutes total), or start with our balanced baseline.",
+                  "يتكيّف كوجنيفاي تلقائياً مع طريقتك في التفكير وعمق الشرح ودرجة صعوبة المسائل. يتكون التقييم من 10 أسئلة مصفوفات بصرية غير منحازة ثقافياً ومؤقت إجمالي مدته 10 دقائق، أو يمكنك البدء بالمستوى المتوازن وممارسة التمارين لاحقاً."
                 )}
               </p>
             </div>
@@ -482,7 +499,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
             <div className="p-3 rounded-2xl bg-white border border-border/70 shadow-sm space-y-1">
               <div className="flex items-center gap-1.5 text-primary font-bold text-xs">
                 <Layers className="w-3.5 h-3.5" />
-                <span>{localize(formData.language, "Fluid Reasoning", "الاستدلال المرن")}</span>
+                <span>{localize(formData.language, "Fluid Reasoning (3Q)", "الاستدلال المرن (3 أسئلة)")}</span>
               </div>
               <p className="text-[10px] text-text-muted leading-tight">
                 {localize(formData.language, "Pattern transformation logic (Gf)", "تحليل الأنماط والتحولات (Gf)")}
@@ -492,7 +509,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
             <div className="p-3 rounded-2xl bg-white border border-border/70 shadow-sm space-y-1">
               <div className="flex items-center gap-1.5 text-indigo-500 font-bold text-xs">
                 <BarChart3 className="w-3.5 h-3.5" />
-                <span>{localize(formData.language, "Quantitative Logic", "المنطق الكمي")}</span>
+                <span>{localize(formData.language, "Quantitative Logic (3Q)", "المنطق الكمي (3 أسئلة)")}</span>
               </div>
               <p className="text-[10px] text-text-muted leading-tight">
                 {localize(formData.language, "Relational & numeric deduction (Gq)", "الاستنتاج الرياضي التتابعي (Gq)")}
@@ -502,7 +519,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
             <div className="p-3 rounded-2xl bg-white border border-border/70 shadow-sm space-y-1">
               <div className="flex items-center gap-1.5 text-violet-500 font-bold text-xs">
                 <Sparkles className="w-3.5 h-3.5" />
-                <span>{localize(formData.language, "Working Memory", "الذاكرة العاملة")}</span>
+                <span>{localize(formData.language, "Working Memory (2Q)", "الذاكرة العاملة (سؤالان)")}</span>
               </div>
               <p className="text-[10px] text-text-muted leading-tight">
                 {localize(formData.language, "Spatial & sequence recall (Gwm)", "استبقاء الترتيب المكاني (Gwm)")}
@@ -512,7 +529,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
             <div className="p-3 rounded-2xl bg-white border border-border/70 shadow-sm space-y-1">
               <div className="flex items-center gap-1.5 text-amber-500 font-bold text-xs">
                 <Zap className="w-3.5 h-3.5" />
-                <span>{localize(formData.language, "Processing Speed", "سرعة المعالجة")}</span>
+                <span>{localize(formData.language, "Processing Speed (2Q)", "سرعة المعالجة (سؤالان)")}</span>
               </div>
               <p className="text-[10px] text-text-muted leading-tight">
                 {localize(formData.language, "Perceptual discrimination (Gs)", "التمييز البصري السريع (Gs)")}
@@ -526,12 +543,12 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
                 setCurrentIqIdx(0);
                 setIqAnswers({});
                 setIqStartTime(Date.now());
-                setIqSecondsLeft(IQ_QUESTION_BATTERY[0].timeLimitSeconds || 45);
+                setIqTotalSecondsLeft(600);
                 setIqStep('active');
               }}
               className="w-full py-4 px-6 rounded-2xl bg-primary text-white font-bold text-sm shadow-xl shadow-primary/20 hover:bg-primary-press active:scale-[0.98] transition-all flex items-center justify-center gap-2 group"
             >
-              <span>{localize(formData.language, "Start IQ Assessment (5-7 mins)", "ابدأ تقييم الذكاء الآن (5-7 دقائق)")}</span>
+              <span>{localize(formData.language, "Start Assessment (10 Questions · 10 Mins)", "ابدأ تقييم الذكاء (10 أسئلة · 10 دقائق)")}</span>
               <ArrowRight className="w-4 h-4 group-hover:translate-x-1 rtl:group-hover:-translate-x-1 transition-transform" />
             </button>
 
@@ -552,15 +569,17 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
 
     // ─── 2. ACTIVE TEST VIEW ──────────────────────────────────────────────────
     if (iqStep === 'active' && currentQ) {
+      const answeredCount = Object.keys(iqAnswers).length;
+
       return (
         <motion.div
           key={currentQ.id}
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: -20 }}
-          className="flex flex-col gap-5 w-full max-w-lg bg-white p-6 md:p-8 rounded-3xl shadow-xl border border-border"
+          className="flex flex-col gap-4 w-full max-w-lg bg-white p-6 md:p-8 rounded-3xl shadow-xl border border-border"
         >
-          {/* Progress Header */}
+          {/* Progress Header with 10-Minute Total Timer */}
           <div className="flex items-center justify-between text-xs text-text-muted pb-3 border-b border-border/60">
             <div className="flex items-center gap-2">
               <span className="font-bold text-text-main">
@@ -571,28 +590,66 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
                 )}
               </span>
               <span className="px-2.5 py-0.5 rounded-full bg-primary/10 text-primary font-semibold text-[10px]">
-                {currentQ.domain}
+                {currentQ.domain === 'fluidReasoning'
+                  ? localize(formData.language, 'Fluid (Gf)', 'الاستدلال (Gf)')
+                  : currentQ.domain === 'quantitativeLogic'
+                  ? localize(formData.language, 'Quantitative (Gq)', 'الكمي (Gq)')
+                  : currentQ.domain === 'workingMemory'
+                  ? localize(formData.language, 'Memory (Gwm)', 'الذاكرة (Gwm)')
+                  : localize(formData.language, 'Speed (Gs)', 'السرعة (Gs)')}
               </span>
             </div>
 
-            <div className={`flex items-center gap-1 font-mono text-xs font-bold ${
-              iqSecondsLeft <= 10 ? 'text-danger animate-pulse' : 'text-amber-500'
-            }`}>
+            {/* 10-Minute Overall Countdown Clock */}
+            <div
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-xl font-mono text-xs font-bold border transition-colors ${
+                iqTotalSecondsLeft <= 60
+                  ? 'text-red-600 bg-red-50 border-red-200 animate-pulse'
+                  : iqTotalSecondsLeft <= 180
+                  ? 'text-amber-600 bg-amber-50 border-amber-200'
+                  : 'text-primary bg-primary/10 border-primary/20'
+              }`}
+              title={localize(formData.language, 'Remaining Time (10 minutes total)', 'الوقت المتبقي (10 دقائق إجمالاً)')}
+            >
               <Clock className="w-3.5 h-3.5" />
-              <span>{iqSecondsLeft}s</span>
+              <span>{formatTimer(iqTotalSecondsLeft)}</span>
             </div>
           </div>
 
-          {/* Progress Bar */}
+          {/* 10-Question Quick Jump Navigation Row */}
+          <div className="flex items-center justify-between gap-1 py-1">
+            {IQ_QUESTION_BATTERY.map((q, idx) => {
+              const isAnswered = !!iqAnswers[q.id];
+              const isCurrent = idx === currentIqIdx;
+              return (
+                <button
+                  key={q.id}
+                  onClick={() => setCurrentIqIdx(idx)}
+                  className={`flex-1 h-7 rounded-lg text-[11px] font-bold transition-all flex items-center justify-center border ${
+                    isCurrent
+                      ? 'bg-primary text-white border-primary shadow-sm ring-2 ring-primary/20 scale-105'
+                      : isAnswered
+                      ? 'bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100'
+                      : 'bg-surface-2 text-text-muted border-border hover:bg-surface-3'
+                  }`}
+                  title={`Question ${idx + 1}`}
+                >
+                  {idx + 1}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Overall Completion Progress Bar */}
           <div className="w-full h-1.5 bg-surface-3 rounded-full overflow-hidden">
             <div
               className="h-full bg-primary transition-all duration-300"
-              style={{ width: `${((currentIqIdx + 1) / IQ_QUESTION_BATTERY.length) * 100}%` }}
+              style={{ width: `${(answeredCount / IQ_QUESTION_BATTERY.length) * 100}%` }}
             />
           </div>
 
           {/* Question Prompt */}
-          <div className="space-y-3">
+          <div className="space-y-3 pt-1">
             <h3 className="font-bold text-text-main text-sm md:text-base leading-snug">
               {localize(formData.language, currentQ.promptEn, currentQ.promptAr)}
             </h3>
@@ -626,27 +683,84 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
           </div>
 
           {/* Options Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-2">
-            {currentQ.options.map((opt) => (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+            {currentQ.options.map((opt) => {
+              const isSelected = iqAnswers[currentQ.id] === opt.id;
+              return (
+                <button
+                  key={opt.id}
+                  onClick={() => handleIqOptionSelect(opt.id)}
+                  className={`flex items-center gap-3 p-3.5 rounded-2xl border-2 transition-all text-start active:scale-[0.98] ${
+                    isSelected
+                      ? 'border-primary bg-primary-soft text-primary ring-2 ring-primary/20 shadow-sm'
+                      : 'border-border hover:border-primary/40 hover:bg-surface-2 text-text-main'
+                  }`}
+                >
+                  {opt.symbol ? (
+                    <span
+                      className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg font-bold shrink-0 border transition-colors ${
+                        isSelected
+                          ? 'bg-primary text-white border-primary'
+                          : 'bg-surface-2 border-border/60'
+                      }`}
+                    >
+                      {opt.symbol}
+                    </span>
+                  ) : (
+                    <span
+                      className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 transition-colors ${
+                        isSelected
+                          ? 'bg-primary text-white'
+                          : 'bg-surface-2 text-text-muted'
+                      }`}
+                    >
+                      {isSelected ? <Check className="w-3.5 h-3.5" /> : '•'}
+                    </span>
+                  )}
+                  <span className="font-semibold text-xs leading-snug flex-1">
+                    {localize(formData.language, opt.labelEn, opt.labelAr)}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Navigation & Submit Bar */}
+          <div className="flex items-center justify-between gap-2 pt-3 border-t border-border/60">
+            <button
+              onClick={() => setCurrentIqIdx((prev) => Math.max(0, prev - 1))}
+              disabled={currentIqIdx === 0}
+              className="px-3.5 py-2.5 rounded-xl border border-border text-text-muted hover:text-text-main font-semibold text-xs disabled:opacity-30 disabled:pointer-events-none transition-all flex items-center gap-1"
+            >
+              <ChevronLeft className="w-4 h-4 rtl:rotate-180" />
+              <span>{localize(formData.language, "Previous", "السابق")}</span>
+            </button>
+
+            <div className="text-[11px] text-text-muted font-medium">
+              {localize(
+                formData.language,
+                `${answeredCount}/10 answered`,
+                `${answeredCount}/10 تمت الإجابة`
+              )}
+            </div>
+
+            {currentIqIdx < IQ_QUESTION_BATTERY.length - 1 ? (
               <button
-                key={opt.id}
-                onClick={() => handleIqOptionSelect(opt.id)}
-                className="flex items-center gap-3 p-3.5 rounded-2xl border-2 border-border hover:border-primary hover:bg-primary-soft/50 text-text-main active:scale-[0.98] transition-all text-start"
+                onClick={() => setCurrentIqIdx((prev) => Math.min(IQ_QUESTION_BATTERY.length - 1, prev + 1))}
+                className="px-4 py-2.5 rounded-xl bg-primary text-white font-semibold text-xs shadow-md shadow-primary/20 hover:bg-primary-press transition-all flex items-center gap-1"
               >
-                {opt.symbol ? (
-                  <span className="w-10 h-10 rounded-xl bg-surface-2 flex items-center justify-center text-lg font-bold shrink-0 border border-border/60">
-                    {opt.symbol}
-                  </span>
-                ) : (
-                  <span className="w-7 h-7 rounded-lg bg-surface-2 flex items-center justify-center text-xs font-bold text-text-muted shrink-0">
-                    •
-                  </span>
-                )}
-                <span className="font-semibold text-xs leading-snug">
-                  {localize(formData.language, opt.labelEn, opt.labelAr)}
-                </span>
+                <span>{localize(formData.language, "Next", "التالي")}</span>
+                <ChevronRight className="w-4 h-4 rtl:rotate-180" />
               </button>
-            ))}
+            ) : (
+              <button
+                onClick={() => finishIqTest(iqAnswersRef.current)}
+                className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md shadow-emerald-600/20 transition-all flex items-center gap-1.5"
+              >
+                <span>{localize(formData.language, "Submit Assessment", "تسليم التقييم")}</span>
+                <CheckCircle className="w-4 h-4" />
+              </button>
+            )}
           </div>
         </motion.div>
       );
@@ -691,10 +805,14 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
               <div className="h-10 w-px bg-border" />
               <div className="text-center">
                 <span className="text-[10px] uppercase font-bold text-text-muted tracking-widest block">
-                  {localize(formData.language, "Cognitive Tier", "المستوى المعرفي")}
+                  {localize(formData.language, "Cognitive Stage", "المرحلة المعرفية")}
                 </span>
                 <span className="text-sm font-black text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full inline-block mt-1">
-                  {computedIq.level}
+                  {computedIq.level === 'Basic'
+                    ? localize(formData.language, "Basic (< 90)", "المرحلة التأسيسية (< 90)")
+                    : computedIq.level === 'Advanced'
+                    ? localize(formData.language, "Advanced (≥ 115)", "المرحلة المتقدمة (≥ 115)")
+                    : localize(formData.language, "Intermediate (90-114)", "المرحلة المتوسطة (90-114)")}
                 </span>
               </div>
             </div>
@@ -721,21 +839,69 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
                 {computedIq.persona === 'Socratic'
                   ? localize(
                       formData.language,
-                      'Your AI will challenge you with inquiry-based questions, theoretical rigor, and multi-variable problem solving.',
-                      'سيتحداك معلمك الذكي بأسئلة استقصائية وتعمق نظري وحلول متعددة المتغيرات.'
+                      'Your AI mentor will challenge you with inquiry-based questions, theoretical rigor, structural proofs, and edge-case deduction.',
+                      'سيتحداك معلمك الذكي بأسئلة استقصائية وتعمق نظري وبراهين هيكلية واستنتاج الحالات الحافة.'
                     )
                   : computedIq.persona === 'Balanced'
                   ? localize(
                       formData.language,
-                      'Your AI provides clear, structured explanations with real-world examples and step-by-step guidance.',
-                      'يقدم معلمك الذكي شروحاً واضحة ومتوازنة مع أمثلة واقعية وتطبيقات عملية.'
+                      'Your AI mentor provides clear, structured explanations balancing conceptual intuition with real-world applications and progressive steps.',
+                      'يقدم معلمك الذكي شروحاً واضحة ومتوازنة تجمع بين الفهم الحدسي والأمثلة الواقعية والتدرج المنطقي.'
                     )
                   : localize(
                       formData.language,
-                      'Your AI breaks complex topics down into intuitive, progressive scaffolds with analogies and patient guidance.',
-                      'يقوم معلمك الذكي بتبسيط المفاهيم المعقدة خطوة بخطوة مع أمثلة تشبيهية ميسرة.'
+                      'Your AI mentor breaks complex topics down into intuitive, progressive scaffolds with everyday analogies and patient guidance.',
+                      'يقوم معلمك الذكي بتبسيط المفاهيم المعقدة خطوة بخطوة مع أمثلة تشبيهية ميسرة وتأكيد دوري على الفهم.'
                     )}
               </p>
+            </div>
+
+            {/* 4 Domains Breakdown */}
+            <div className="space-y-2 text-start pt-1">
+              <span className="text-[10px] uppercase font-bold text-text-muted tracking-wider block">
+                {localize(formData.language, "Cognitive Domain Breakdown", "تفصيل القدرات المعرفية")}
+              </span>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="p-2.5 rounded-xl bg-white border border-border/80 text-xs">
+                  <div className="flex justify-between font-bold text-text-main text-[11px] mb-1">
+                    <span>{localize(formData.language, "Fluid (Gf)", "الاستدلال (Gf)")}</span>
+                    <span className="text-primary">{computedIq.domains.fluidReasoning}%</span>
+                  </div>
+                  <div className="w-full h-1.5 bg-surface-2 rounded-full overflow-hidden">
+                    <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${computedIq.domains.fluidReasoning}%` }} />
+                  </div>
+                </div>
+
+                <div className="p-2.5 rounded-xl bg-white border border-border/80 text-xs">
+                  <div className="flex justify-between font-bold text-text-main text-[11px] mb-1">
+                    <span>{localize(formData.language, "Quantitative (Gq)", "الكمي (Gq)")}</span>
+                    <span className="text-indigo-500">{computedIq.domains.quantitativeLogic}%</span>
+                  </div>
+                  <div className="w-full h-1.5 bg-surface-2 rounded-full overflow-hidden">
+                    <div className="h-full bg-indigo-500 rounded-full transition-all" style={{ width: `${computedIq.domains.quantitativeLogic}%` }} />
+                  </div>
+                </div>
+
+                <div className="p-2.5 rounded-xl bg-white border border-border/80 text-xs">
+                  <div className="flex justify-between font-bold text-text-main text-[11px] mb-1">
+                    <span>{localize(formData.language, "Memory (Gwm)", "الذاكرة (Gwm)")}</span>
+                    <span className="text-violet-500">{computedIq.domains.workingMemory}%</span>
+                  </div>
+                  <div className="w-full h-1.5 bg-surface-2 rounded-full overflow-hidden">
+                    <div className="h-full bg-violet-500 rounded-full transition-all" style={{ width: `${computedIq.domains.workingMemory}%` }} />
+                  </div>
+                </div>
+
+                <div className="p-2.5 rounded-xl bg-white border border-border/80 text-xs">
+                  <div className="flex justify-between font-bold text-text-main text-[11px] mb-1">
+                    <span>{localize(formData.language, "Speed (Gs)", "السرعة (Gs)")}</span>
+                    <span className="text-amber-500">{computedIq.domains.processingSpeed}%</span>
+                  </div>
+                  <div className="w-full h-1.5 bg-surface-2 rounded-full overflow-hidden">
+                    <div className="h-full bg-amber-500 rounded-full transition-all" style={{ width: `${computedIq.domains.processingSpeed}%` }} />
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -824,12 +990,19 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
       {step < 5 && (
         <div className="w-full flex justify-center mb-16 pt-4">
           <div className="flex items-center">
-            {[
-              { id: 1, label: localize(formData.language, 'Language', 'اللغة') },
-              { id: 2, label: localize(formData.language, 'Profile', 'الملف') },
-              { id: 3, label: localize(formData.language, 'Goals', 'الأهداف') },
-              { id: 4, label: localize(formData.language, 'Cognitive', 'الذكاء') },
-            ].map((s, i, arr) => (
+            {(formData.accountPath === 'Special Needs'
+              ? [
+                  { id: 1, label: localize(formData.language, 'Language', 'اللغة') },
+                  { id: 2, label: localize(formData.language, 'Profile', 'الملف') },
+                  { id: 3, label: localize(formData.language, 'Goals', 'الأهداف') },
+                ]
+              : [
+                  { id: 1, label: localize(formData.language, 'Language', 'اللغة') },
+                  { id: 2, label: localize(formData.language, 'Profile', 'الملف') },
+                  { id: 3, label: localize(formData.language, 'Goals', 'الأهداف') },
+                  { id: 4, label: localize(formData.language, 'Cognitive', 'الذكاء') },
+                ]
+            ).map((s, i, arr) => (
               <div key={s.id} className="flex items-center">
                 <div className="flex flex-col items-center relative">
                   <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all shadow-sm z-10 ${

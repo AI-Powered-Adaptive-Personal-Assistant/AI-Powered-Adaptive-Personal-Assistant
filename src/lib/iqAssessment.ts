@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Phase 4: Scientific Adaptive IQ Assessment & Cognitive Gym Engine
  * 
  * Implements:
@@ -205,30 +205,12 @@ export const IQ_QUESTION_BATTERY: IqQuestion[] = [
     explanationEn: 'Top-Left (0,0), Center (1,1), and Bottom-Right (2,2) form the main diagonal.',
     explanationAr: 'أعلى اليسار (0,0) والمركز (1,1) وأسفل اليمين (2,2) تشكل القطر الرئيسي.',
   },
-  {
-    id: 'gwm_03',
-    domain: 'workingMemory',
-    difficulty: 4,
-    timeLimitSeconds: 40,
-    promptEn: 'Mental rotation tracking: An object starts at 0°, rotates +90°, then -180°, then +270°. What is its final heading?',
-    promptAr: 'تتبع الدوران الذهني: بدأ جسم عند 0°، ثم دار +90°، ثم -180°، ثم +270°. ما هو اتجاهه النهائي؟',
-    options: [
-      { id: 'opt_1', labelEn: '180° (Opposite)', labelAr: '180° (عكس البداية)' },
-      { id: 'opt_2', labelEn: '90° (Quarter Turn)', labelAr: '90° (ربع دورة)' },
-      { id: 'opt_3', labelEn: '270° (Three Quarters)', labelAr: '270° (ثلاثة أرباع)' },
-      { id: 'opt_4', labelEn: '0° (Original)', labelAr: '0° (الأصل)' },
-    ],
-    correctOptionId: 'opt_1',
-    explanationEn: '0 + 90 - 180 + 270 = 180 degrees.',
-    explanationAr: '0 + 90 - 180 + 270 = 180 درجة.',
-  },
-
   // ─── Gs: Processing Speed (Micro-Timed Perceptual Discrimination) ──────────
   {
     id: 'gs_01',
     domain: 'processingSpeed',
     difficulty: 1,
-    timeLimitSeconds: 15,
+    timeLimitSeconds: 60,
     promptEn: 'Fast match: Which symbol pair is identical?',
     promptAr: 'تطابق سريع: أي زوج من الرموز متطابق تماماً؟',
     options: [
@@ -245,7 +227,7 @@ export const IQ_QUESTION_BATTERY: IqQuestion[] = [
     id: 'gs_02',
     domain: 'processingSpeed',
     difficulty: 2,
-    timeLimitSeconds: 20,
+    timeLimitSeconds: 60,
     promptEn: 'Rapid count: How many "★" stars are in this set? [ ★, ☆, ★, ★, ☆, ★ ]',
     promptAr: 'عد سريع: كم عدد النجوم المصمتة "★" في هذه المجموعة؟ [ ★، ☆، ★، ★، ☆، ★ ]',
     options: [
@@ -257,23 +239,6 @@ export const IQ_QUESTION_BATTERY: IqQuestion[] = [
     correctOptionId: 'opt_1',
     explanationEn: 'There are exactly 4 filled stars (positions 1, 3, 4, 6) and 2 outline stars.',
     explanationAr: 'يوجد 4 نجوم مصمتة بالضبط (المواضع 1، 3، 4، 6) ونجمتان مفرغتان.',
-  },
-  {
-    id: 'gs_03',
-    domain: 'processingSpeed',
-    difficulty: 3,
-    timeLimitSeconds: 20,
-    promptEn: 'Find the odd symbol out: [ Ж, Ж, Ж, Ӂ, Ж ]',
-    promptAr: 'حدد الرمز المختلف في المجموعة: [ Ж، Ж، Ж، Ӂ، Ж ]',
-    options: [
-      { id: 'opt_1', labelEn: 'Position 4 (Ӂ has diacritic mark)', labelAr: 'الموضع 4 (Ӂ يحتوي علامة أعلى الحرف)' },
-      { id: 'opt_2', labelEn: 'Position 1', labelAr: 'الموضع 1' },
-      { id: 'opt_3', labelEn: 'Position 3', labelAr: 'الموضع 3' },
-      { id: 'opt_4', labelEn: 'All symbols are identical', labelAr: 'جميع الرموز متطابقة' },
-    ],
-    correctOptionId: 'opt_1',
-    explanationEn: 'Symbol at position 4 has a breve diacritic (Ӂ) distinguishing it from the plain Ж.',
-    explanationAr: 'الرمز في الموضع الرابع يحتوي علامة تميزه عن باقي الرموز.',
   },
 ];
 
@@ -369,7 +334,7 @@ export function calculateStandardizedIq(
   const rawPercentage = totalMaxWeight > 0 ? totalWeightedScore / totalMaxWeight : 0.5;
 
   // Speed bonus (up to +4 IQ points if finished with >25% time buffer without sacrificing accuracy)
-  const maxAllocatedSeconds = IQ_QUESTION_BATTERY.reduce((acc, q) => acc + q.timeLimitSeconds, 0);
+  const maxAllocatedSeconds = 600; // 10 minutes (600 seconds) total battery duration
   const timeBufferRatio = Math.max(0, (maxAllocatedSeconds - elapsedSeconds) / maxAllocatedSeconds);
   const speedBonus = rawPercentage >= 0.75 ? Math.round(timeBufferRatio * 4) : 0;
 

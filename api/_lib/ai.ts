@@ -156,19 +156,23 @@ ${prefs}
 ${confirmed}\n`;
 }
 
-function formatCognitiveCalibration(iqScore?: number, style?: string): string {
+function formatCognitiveCalibration(iqScore?: number, style?: string, level?: string): string {
   let res = '';
-  if (typeof iqScore === 'number' && iqScore > 0) {
-    if (iqScore < 90) {
-      res += `\n## COGNITIVE CALIBRATION: FOUNDATIONAL (CALIBRATED IQ: ${iqScore})
+  const effectiveIq = typeof iqScore === 'number' && iqScore > 0
+    ? iqScore
+    : (level === 'Basic' ? 85 : level === 'Advanced' ? 120 : (level === 'Intermediate' ? 100 : undefined));
+
+  if (typeof effectiveIq === 'number') {
+    if (effectiveIq < 90) {
+      res += `\n## COGNITIVE CALIBRATION: FOUNDATIONAL (CALIBRATED IQ: ${effectiveIq})
 - Break complex concepts into intuitive, bite-sized components with concrete analogies.
 - Emphasize foundational clarity, intuitive explanations, and frequent comprehension checkpoints.`;
-    } else if (iqScore >= 115) {
-      res += `\n## COGNITIVE CALIBRATION: SOCRATIC & DEEP RIGOR (CALIBRATED IQ: ${iqScore})
+    } else if (effectiveIq >= 115) {
+      res += `\n## COGNITIVE CALIBRATION: SOCRATIC & DEEP RIGOR (CALIBRATED IQ: ${effectiveIq})
 - Deliver high-density analytical reasoning, formal proofs, structural abstractions, and edge cases.
 - Use Socratic inquiry to challenge assumptions and probe advanced mathematical/algorithmic implications.`;
     } else {
-      res += `\n## COGNITIVE CALIBRATION: BALANCED (CALIBRATED IQ: ${iqScore})
+      res += `\n## COGNITIVE CALIBRATION: BALANCED (CALIBRATED IQ: ${effectiveIq})
 - Deliver structured explanations balancing conceptual intuition, real-world context, and logical progression.`;
     }
   }
@@ -195,7 +199,7 @@ function formatCognitiveCalibration(iqScore?: number, style?: string): string {
 export function buildPersona(profile: Profile, otherThreads = ''): string {
   const a11y = profile.accessibilityMode;
   const memoryBlock = formatStudentMemoryBlock(profile.memory);
-  const cognitiveBlock = formatCognitiveCalibration(profile.iqScore, profile.preferredPedagogyStyle);
+  const cognitiveBlock = formatCognitiveCalibration(profile.iqScore, profile.preferredPedagogyStyle, profile.level);
   return `You are Cognify, an adaptive AI mentor. Give the most correct, useful answer calibrated to THIS user.
 - Level: ${profile.level || 'Basic'} | Role: ${profile.role || 'Student'} | Field: ${profile.field || 'General'}
 

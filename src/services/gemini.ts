@@ -131,11 +131,31 @@ function buildPersona(profile: UserProfile): string {
     memoryBlock = `\n## COGNIFY STUDENT MEMORY\n- Language: ${profile.memory.preferredLanguage || 'English'}\n- Style: ${profile.memory.explanationStyle || 'Practical examples first'}\n- Goals:\n${goals}\n- Preferences:\n${prefs}\n- Confirmed Facts:\n${confirmed}`;
   }
 
+  let cognitiveBlock = '';
+  const effectiveIq = typeof profile.iqScore === 'number' && profile.iqScore > 0
+    ? profile.iqScore
+    : (profile.level === 'Basic' ? 85 : profile.level === 'Advanced' ? 120 : (profile.level === 'Intermediate' ? 100 : undefined));
+
+  if (typeof effectiveIq === 'number') {
+    if (effectiveIq < 90) {
+      cognitiveBlock = `\n## COGNITIVE CALIBRATION: FOUNDATIONAL (CALIBRATED IQ: ${effectiveIq})
+- Break complex concepts into intuitive, bite-sized components with concrete analogies.
+- Emphasize foundational clarity, intuitive explanations, and frequent comprehension checkpoints.`;
+    } else if (effectiveIq >= 115) {
+      cognitiveBlock = `\n## COGNITIVE CALIBRATION: SOCRATIC & DEEP RIGOR (CALIBRATED IQ: ${effectiveIq})
+- Deliver high-density analytical reasoning, formal proofs, structural abstractions, and edge cases.
+- Use Socratic inquiry to challenge assumptions and probe advanced mathematical/algorithmic implications.`;
+    } else {
+      cognitiveBlock = `\n## COGNITIVE CALIBRATION: BALANCED (CALIBRATED IQ: ${effectiveIq})
+- Deliver structured explanations balancing conceptual intuition, real-world context, and logical progression.`;
+    }
+  }
+
   return `You are Cognify, an adaptive AI mentor. Answer the most correct, useful answer calibrated to THIS user.
 - Level: ${profile.level} | Role: ${profile.role} | Field: ${profile.field}
 - Reply in the SAME language/dialect as the user's last message (incl. Egyptian Arabic if they use it).
 - Basic: simple, analogies, no jargon. Intermediate: normal, brief reasoning. Advanced: rigorous, direct.
-- Answer first, no filler openers. Be honest if unsure; never invent facts.${memoryBlock}`;
+- Answer first, no filler openers. Be honest if unsure; never invent facts.${memoryBlock}${cognitiveBlock}`;
 }
 
 // Stream a chat completion from Groq (OpenAI-compatible). Yields {text, done}.
