@@ -2429,7 +2429,7 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
   }[theme];
 
   return (
-    <div className={`flex-1 flex flex-col h-full bg-slate-950 text-white overflow-hidden relative p-3 sm:p-5 lg:p-6 select-none font-sans ${isFullscreen ? 'fixed inset-0 z-[99998] p-6' : ''}`}>
+    <div className={`flex-1 flex flex-col h-full bg-slate-950 text-white overflow-hidden relative p-1.5 sm:p-2.5 lg:p-3 select-none font-sans ${isFullscreen ? 'fixed inset-0 z-[99998] p-3' : ''}`}>
       {/* Head Pointer / Eye-Gaze MediaPipe Visual Interactive Cursor.
           Previously this rendered unconditionally — even with tracking OFF
           ("Start Eye Tracker" not yet pressed), a ring+dot reticle sat at
@@ -2485,115 +2485,7 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
         </div>
       )}
 
-      {/* Everything above here (pointer tuning bar, title/toolbar, the two big
-          mode-select buttons) is fixed-height "chrome" that should always be
-          visible — shrink-0 keeps it pinned instead of getting pushed off by
-          growing content below it. */}
-      <div className="shrink-0">
-      {/* Quick Pointer Tuning & Calibration Bar (Always Accessible) */}
-      <div className="mb-3 px-4 py-2.5 rounded-2xl bg-slate-900/95 border border-slate-800 flex items-center justify-between gap-2 flex-wrap text-xs shadow-md">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="font-black text-amber-400 flex items-center gap-1">
-            <Gauge className="w-3.5 h-3.5" />
-            {isArabic ? 'نوع التتبع:' : 'Mode:'}
-          </span>
-
-          {/* Tracking Mode Switcher Pills */}
-          <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800">
-            <button
-              onClick={() => updateHeadConfig({ trackingMode: 'iris' })}
-              className={`px-2.5 py-1 rounded-lg font-black text-[11px] transition-all ${
-                (headConfig.trackingMode || 'iris') === 'iris'
-                  ? 'bg-amber-400 text-slate-950 shadow-md'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              👁️ {isArabic ? 'بؤبؤ العين (Iris)' : 'Eye Iris'}
-            </button>
-            <button
-              onClick={() => updateHeadConfig({ trackingMode: 'nose' })}
-              className={`px-2.5 py-1 rounded-lg font-black text-[11px] transition-all ${
-                headConfig.trackingMode === 'nose'
-                  ? 'bg-amber-400 text-slate-950 shadow-md'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              👤 {isArabic ? 'الأنف / الرأس' : 'Nose Head'}
-            </button>
-            <button
-              onClick={() => updateHeadConfig({ trackingMode: 'hybrid' })}
-              className={`px-2.5 py-1 rounded-lg font-black text-[11px] transition-all ${
-                headConfig.trackingMode === 'hybrid'
-                  ? 'bg-amber-400 text-slate-950 shadow-md'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              ⚡ {isArabic ? 'هجين' : 'Hybrid'}
-            </button>
-          </div>
-
-          {/* Sensitivity Adjuster */}
-          <div className="flex items-center gap-1 bg-slate-950 rounded-xl px-2 py-1 border border-slate-800">
-            <span className="text-slate-400 text-[11px]">{isArabic ? 'الحساسية:' : 'Sens:'}</span>
-            <button
-              onClick={() => updateHeadConfig({ sensitivity: Math.max(1.2, headConfig.sensitivity - 0.3) })}
-              className="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-white font-bold"
-            >
-              -
-            </button>
-            <span className="font-mono font-bold text-amber-300 px-1">{headConfig.sensitivity.toFixed(1)}x</span>
-            <button
-              onClick={() => updateHeadConfig({ sensitivity: Math.min(4.8, headConfig.sensitivity + 0.3) })}
-              className="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-white font-bold"
-            >
-              +
-            </button>
-          </div>
-
-          {/* Dwell Time Adjuster */}
-          <div className="flex items-center gap-1 bg-slate-950 rounded-xl px-2 py-1 border border-slate-800">
-            <span className="text-slate-400 text-[11px]">{isArabic ? 'سرعة التثبيت:' : 'Dwell:'}</span>
-            <button
-              onClick={() => updateHeadConfig({ dwellTimeMs: Math.max(500, headConfig.dwellTimeMs - 100) })}
-              className="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-white font-bold"
-            >
-              -
-            </button>
-            <span className="font-mono font-bold text-emerald-300 px-1">{(headConfig.dwellTimeMs / 1000).toFixed(1)}s</span>
-            <button
-              onClick={() => updateHeadConfig({ dwellTimeMs: Math.min(2200, headConfig.dwellTimeMs + 100) })}
-              className="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-white font-bold"
-            >
-              +
-            </button>
-          </div>
-        </div>
-
-        {/* Center Recalibrate Quick Button.
-            Shows a dot at the ACTUAL centre and captures the neutral baseline
-            while the user looks at it — otherwise the baseline was captured
-            while they looked at this button (top of screen), which is what left
-            the cursor permanently offset to one side. */}
-        <button
-          onClick={() => {
-            setShowCenterDot(true);
-            // calibrateNeutral() clears the baseline; it is re-captured over the
-            // next ~20 frames. Wait ~1.3s while the user fixes on the dot, then
-            // confirm.
-            trackerRef.current?.calibrateNeutral();
-            trackedTimeout(() => {
-              setShowCenterDot(false);
-              toast.success(isArabic ? '🎯 تم ضبط مركز النظر' : 'Eye center set');
-            }, 1400);
-          }}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs shadow-md transition-all"
-        >
-          <Target className="w-3.5 h-3.5" />
-          <span>{isArabic ? '🎯 ضبط مركز النظر الآن' : 'Center Eye'}</span>
-        </button>
-      </div>
-
-      {/* Center-gaze recenter target — a dot at the true centre to look at. */}
+            {/* Center-gaze recenter target — a dot at the true centre to look at. */}
       {showCenterDot && (
         <div className="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-slate-950/80 backdrop-blur-sm pointer-events-none">
           <p className="text-amber-300 font-black text-lg mb-6">
@@ -2606,182 +2498,209 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
         </div>
       )}
 
-      {/* Top Bar: Title & Navigation Modes */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pb-3 border-b border-slate-800 mb-4">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-2xl bg-amber-500/20 text-amber-400 border border-amber-500/30 shadow-lg shadow-amber-500/10">
-            <Eye className="w-6 h-6" />
-          </div>
-          <div>
-            <h1 className="text-xl sm:text-2xl font-black text-white tracking-wide">
-              {localize(profile.language, 'Google Project Euphonia & Eye-Gaze Suite', 'نظام إيفونيا (Google Project Euphonia) والتواصل بالعين')}
-            </h1>
-            <p className="text-xs text-slate-400 font-medium">
-              {localize(profile.language, 'Atypical voice model training, eye-gaze typing, blink-clicks, and smart room automation.', 'تدريب نماذج الصوت غير النمطي، كيبورد العين، تدريب النظرة، وتحكم الغرفة.')}
-            </p>
-          </div>
+      {/* Consolidated High-Efficiency Top Command Bar (Single Ergonomic Row) */}
+      <div className="shrink-0 mb-2 p-1.5 sm:p-2 rounded-2xl bg-slate-900/95 border border-slate-800 flex items-center justify-between gap-1.5 sm:gap-2 flex-wrap text-xs shadow-md">
+        {/* 1. Mode Navigation Tabs (Eye-Gaze Accessible with Dwell Progress) */}
+        <div className="flex items-center gap-1 sm:gap-1.5">
+          {/* Tab: Eye Keyboard */}
+          <button
+            data-aac-id="tab-keyboard"
+            onClick={() => setActiveTab('keyboard')}
+            className={`relative px-2.5 sm:px-3 py-1.5 rounded-xl font-black text-xs flex items-center gap-1.5 transition-all ${
+              activeTab === 'keyboard'
+                ? themeClasses.activeTab + ' shadow-md'
+                : 'bg-slate-950 border border-slate-800 text-slate-300 hover:bg-slate-800'
+            }`}
+          >
+            <KeyboardIcon className="w-3.5 h-3.5" />
+            <span>{isArabic ? 'كيبورد العين' : 'Eye Keyboard'}</span>
+            {hoveredCardId === 'tab-keyboard' && dwellProgress > 0 && (
+              <div className="absolute bottom-0 left-0 right-0 h-1 bg-slate-950 rounded-b-xl overflow-hidden">
+                <div className="h-full bg-amber-400 transition-all duration-75" style={{ width: `${dwellProgress * 100}%` }} />
+              </div>
+            )}
+          </button>
+
+          {/* Tab: Euphonia Voice Studio */}
+          <button
+            data-aac-id="tab-euphonia-studio"
+            onClick={() => setActiveTab('euphonia-studio')}
+            className={`relative px-2.5 sm:px-3 py-1.5 rounded-xl font-black text-xs flex items-center gap-1.5 transition-all ${
+              activeTab === 'euphonia-studio'
+                ? themeClasses.activeTab + ' shadow-md'
+                : 'bg-slate-950 border border-slate-800 text-slate-300 hover:bg-slate-800'
+            }`}
+          >
+            <Radio className="w-3.5 h-3.5" />
+            <span>{isArabic ? 'استوديو إيفونيا' : 'Euphonia Studio'}</span>
+            {hoveredCardId === 'tab-euphonia-studio' && dwellProgress > 0 && (
+              <div className="absolute bottom-0 left-0 right-0 h-1 bg-slate-950 rounded-b-xl overflow-hidden">
+                <div className="h-full bg-amber-400 transition-all duration-75" style={{ width: `${dwellProgress * 100}%` }} />
+              </div>
+            )}
+          </button>
         </div>
 
-        {/* Action Toggles.
-            Previously one long row mixed ~10 controls of equal visual weight —
-            a one-time setup action (theme, fullscreen, the architecture info
-            modal, 9-point calibration) looked exactly as important as the
-            actual "turn tracking on" buttons, so nothing stood out and the
-            row wrapped into a wall of amber buttons. Split into two tiers:
-            muted/small "tools" the user sets up once, and the actual
-            start/stop + layout controls they touch every session. */}
-        <div className="flex flex-col items-end gap-2">
-          {/* Setup & info tools — small, muted, secondary */}
-          <div className="flex items-center gap-1.5 flex-wrap justify-end">
+        {/* 2. Quick Tracking Tuning & Recalibration */}
+        <div className="flex items-center gap-1 sm:gap-2 flex-wrap">
+          {/* Tracking Mode Switcher */}
+          <div className="flex items-center gap-0.5 bg-slate-950 p-0.5 rounded-xl border border-slate-800 text-[11px]">
             <button
-              onClick={() => setTheme((t) => (t === 'amber' ? 'cyan' : t === 'cyan' ? 'emerald' : t === 'emerald' ? 'monochrome' : 'amber'))}
-              className="p-1.5 rounded-xl bg-slate-900/60 hover:bg-slate-800 border border-slate-800 text-slate-400"
-              title={isArabic ? 'تغيير ثيم التباين' : 'Change Theme'}
+              onClick={() => updateHeadConfig({ trackingMode: 'iris' })}
+              className={`px-2 py-1 rounded-lg font-bold transition-all ${
+                (headConfig.trackingMode || 'iris') === 'iris'
+                  ? 'bg-amber-400 text-slate-950 shadow-sm'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+              title={isArabic ? 'بؤبؤ العين' : 'Eye Iris'}
             >
-              <Palette className="w-3.5 h-3.5" />
+              👁️ <span className="hidden md:inline">{isArabic ? 'بؤبؤ' : 'Iris'}</span>
             </button>
-
             <button
-              onClick={toggleFullScreenMode}
-              className="p-1.5 rounded-xl bg-slate-900/60 hover:bg-slate-800 border border-slate-800 text-slate-400"
-              title={isArabic ? 'وضع ملء الشاشة' : 'Fullscreen'}
+              onClick={() => updateHeadConfig({ trackingMode: 'nose' })}
+              className={`px-2 py-1 rounded-lg font-bold transition-all ${
+                headConfig.trackingMode === 'nose'
+                  ? 'bg-amber-400 text-slate-950 shadow-sm'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+              title={isArabic ? 'الأنف والرأس' : 'Nose Head'}
             >
-              {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+              👤 <span className="hidden md:inline">{isArabic ? 'رأس' : 'Nose'}</span>
             </button>
-
             <button
-              onClick={() => setShowScientificArchitectureModal(true)}
-              className="flex items-center gap-1 px-2 py-1.5 rounded-xl bg-slate-900/60 hover:bg-slate-800 border border-slate-800 text-slate-400 font-bold text-[11px]"
-              title={isArabic ? 'عرض المخطط العلمي والفيزيائي لتتبع العين (5 مراحل)' : '5-Component Eye-Tracking Architecture'}
+              onClick={() => updateHeadConfig({ trackingMode: 'hybrid' })}
+              className={`px-2 py-1 rounded-lg font-bold transition-all ${
+                headConfig.trackingMode === 'hybrid'
+                  ? 'bg-amber-400 text-slate-950 shadow-sm'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+              title={isArabic ? 'هجين' : 'Hybrid'}
             >
-              <Activity className="w-3 h-3" />
-              <span>{isArabic ? 'المخطط العلمي' : 'How it works'}</span>
-            </button>
-
-            <button
-              onClick={runNinePointCalibration}
-              className="flex items-center gap-1 px-2 py-1.5 rounded-xl bg-slate-900/60 hover:bg-slate-800 border border-slate-800 text-slate-400 font-bold text-[11px]"
-              title={isArabic ? 'معايرة دقيقة بـ9 نقاط — مرة واحدة كافية عادة' : 'Precise 9-point calibration — usually a one-time setup'}
-            >
-              <Target className="w-3 h-3" />
-              <span>{isArabic ? 'معايرة 9 نقاط' : '9-point calibration'}</span>
+              ⚡ <span className="hidden md:inline">{isArabic ? 'هجين' : 'Hybrid'}</span>
             </button>
           </div>
 
-          {/* Primary actions — the controls actually touched every session */}
-          <div className="flex items-center gap-2 flex-wrap justify-end">
-            {/* Camera Head Pointer Toggle */}
+          {/* Dwell Time Adjuster */}
+          <div className="flex items-center gap-1 bg-slate-950 rounded-xl px-1.5 py-0.5 border border-slate-800 text-[11px]">
+            <span className="text-slate-400 hidden sm:inline">{isArabic ? 'تثبيت:' : 'Dwell:'}</span>
             <button
-              onClick={toggleCamera}
-              className={`flex items-center gap-2 px-4 py-2 rounded-2xl font-bold text-xs transition-all shadow-md ${
-                isCameraActive
-                  ? 'bg-amber-500 text-slate-950 shadow-amber-500/30'
-                  : 'bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-700'
-              }`}
+              onClick={() => updateHeadConfig({ dwellTimeMs: Math.max(500, headConfig.dwellTimeMs - 100) })}
+              className="px-1 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-white font-bold"
             >
-              {isCameraActive ? <Camera className="w-4 h-4" /> : <CameraOff className="w-4 h-4" />}
-              <span>{isCameraActive ? (isArabic ? 'إيقاف الكاميرا' : 'Stop Camera') : (isArabic ? 'تشغيل تتبع العين' : 'Start Eye Tracker')}</span>
+              -
             </button>
-
-            {/* Euphonia Vocal Sound Toggle */}
+            <span className="font-mono font-bold text-emerald-300 px-0.5">{(headConfig.dwellTimeMs / 1000).toFixed(1)}s</span>
             <button
-              onClick={toggleAudioEngine}
-              className={`flex items-center gap-2 px-4 py-2 rounded-2xl font-bold text-xs transition-all shadow-md ${
-                isAudioEngineActive
-                  ? 'bg-emerald-500 text-slate-950 shadow-emerald-500/30'
-                  : 'bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-700'
-              }`}
+              onClick={() => updateHeadConfig({ dwellTimeMs: Math.min(2200, headConfig.dwellTimeMs + 100) })}
+              className="px-1 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-white font-bold"
             >
-              {isAudioEngineActive ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
-              <span>{isAudioEngineActive ? (isArabic ? 'إيقاف إيفونيا' : 'Stop Euphonia') : (isArabic ? 'أصوات إيفونيا' : 'Vocal Sounds')}</span>
-            </button>
-
-            {/* Layout Flexibility Switcher: Full Width vs Docked.
-                Relabeled — "Full 100%" / "Docked" described the CSS behavior,
-                not what the user actually gets: which layout the camera panel
-                uses. */}
-            <div className="flex items-center bg-slate-900 border border-slate-700 rounded-2xl p-0.5 shadow-sm">
-              <button
-                onClick={() => setSidebarMode('floating')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all ${
-                  sidebarMode === 'floating'
-                    ? 'bg-amber-400 text-slate-950 shadow-md'
-                    : 'text-slate-300 hover:text-white'
-                }`}
-                title={isArabic ? 'الكيبورد بعرض الشاشة، والكاميرا في نافذة صغيرة عائمة' : 'Wider keyboard, camera floats in a small window over the page'}
-              >
-                <Maximize2 className="w-3.5 h-3.5" />
-                <span>{isArabic ? 'كاميرا عائمة' : 'Floating camera'}</span>
-              </button>
-
-              <button
-                onClick={() => setSidebarMode('docked')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all ${
-                  sidebarMode === 'docked'
-                    ? 'bg-amber-400 text-slate-950 shadow-md'
-                    : 'text-slate-300 hover:text-white'
-                }`}
-                title={isArabic ? 'الكاميرا في شريط جانبي ثابت — متضربش فوق حاجة تانية' : 'Camera stays in a fixed side panel — never covers anything else'}
-              >
-                <Columns2 className="w-3.5 h-3.5" />
-                <span>{isArabic ? 'شريط جانبي ثابت' : 'Side-by-side'}</span>
-              </button>
-            </div>
-
-            {/* Settings */}
-            <button
-              onClick={() => setShowConfigModal(!showConfigModal)}
-              className="p-2 rounded-2xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300"
-              title={isArabic ? 'المعايرة والإعدادات' : 'Settings'}
-            >
-              <SlidersHorizontal className="w-4 h-4" />
+              +
             </button>
           </div>
+
+          {/* Center Recalibrate Button */}
+          <button
+            onClick={() => {
+              setShowCenterDot(true);
+              trackerRef.current?.calibrateNeutral();
+              trackedTimeout(() => {
+                setShowCenterDot(false);
+                toast.success(isArabic ? '🎯 تم ضبط مركز النظر' : 'Eye center set');
+              }, 1400);
+            }}
+            className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs shadow-sm transition-all"
+            title={isArabic ? 'ضبط نقطة المنتصف للنظر' : 'Recenter eye tracking'}
+          >
+            <Target className="w-3.5 h-3.5" />
+            <span>{isArabic ? '🎯 ضبط المركز' : 'Center'}</span>
+          </button>
+        </div>
+
+        {/* 3. Primary Session Controls & Utilities */}
+        <div className="flex items-center gap-1 sm:gap-1.5">
+          {/* Camera Head Pointer Toggle */}
+          <button
+            onClick={toggleCamera}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold text-xs transition-all shadow-sm ${
+              isCameraActive
+                ? 'bg-amber-500 text-slate-950 shadow-amber-500/20'
+                : 'bg-slate-950 text-slate-300 hover:bg-slate-800 border border-slate-700'
+            }`}
+            title={isCameraActive ? (isArabic ? 'إيقاف الكاميرا' : 'Stop Camera') : (isArabic ? 'تشغيل الكاميرا' : 'Start Camera')}
+          >
+            {isCameraActive ? <Camera className="w-3.5 h-3.5" /> : <CameraOff className="w-3.5 h-3.5" />}
+            <span className="hidden sm:inline">{isCameraActive ? (isArabic ? 'إيقاف الكاميرا' : 'Stop Camera') : (isArabic ? 'تشغيل الكاميرا' : 'Start Camera')}</span>
+          </button>
+
+          {/* Euphonia Vocal Sound Toggle */}
+          <button
+            onClick={toggleAudioEngine}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold text-xs transition-all shadow-sm ${
+              isAudioEngineActive
+                ? 'bg-emerald-500 text-slate-950 shadow-emerald-500/20'
+                : 'bg-slate-950 text-slate-300 hover:bg-slate-800 border border-slate-700'
+            }`}
+            title={isAudioEngineActive ? (isArabic ? 'إيقاف إيفونيا' : 'Stop Euphonia') : (isArabic ? 'أصوات إيفونيا' : 'Vocal Sounds')}
+          >
+            {isAudioEngineActive ? <Mic className="w-3.5 h-3.5" /> : <MicOff className="w-3.5 h-3.5" />}
+            <span className="hidden sm:inline">{isAudioEngineActive ? (isArabic ? 'إيقاف إيفونيا' : 'Stop Euphonia') : (isArabic ? 'أصوات إيفونيا' : 'Vocal Sounds')}</span>
+          </button>
+
+          {/* Layout Flexibility Switcher: Docked vs Floating */}
+          <div className="flex items-center bg-slate-950 border border-slate-800 rounded-xl p-0.5">
+            <button
+              onClick={() => setSidebarMode(sidebarMode === 'docked' ? 'floating' : 'docked')}
+              className="px-2 py-1 rounded-lg text-xs font-bold flex items-center gap-1 text-slate-300 hover:text-white"
+              title={sidebarMode === 'docked' ? (isArabic ? 'تحويل إلى كاميرا عائمة' : 'Switch to floating camera') : (isArabic ? 'تثبيت جانبي' : 'Switch to side-by-side')}
+            >
+              {sidebarMode === 'docked' ? <Columns2 className="w-3.5 h-3.5 text-amber-400" /> : <Maximize2 className="w-3.5 h-3.5 text-amber-400" />}
+              <span className="hidden md:inline">{sidebarMode === 'docked' ? (isArabic ? 'جانبي' : 'Docked') : (isArabic ? 'عائم' : 'Floating')}</span>
+            </button>
+          </div>
+
+          {/* Icon Utilities: Theme, 9-point, Architecture, Fullscreen, Settings */}
+          <button
+            onClick={() => setTheme((t) => (t === 'amber' ? 'cyan' : t === 'cyan' ? 'emerald' : t === 'emerald' ? 'monochrome' : 'amber'))}
+            className="p-1.5 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-white"
+            title={isArabic ? 'تغيير ثيم التباين' : 'Change Theme'}
+          >
+            <Palette className="w-3.5 h-3.5" />
+          </button>
+
+          <button
+            onClick={runNinePointCalibration}
+            className="p-1.5 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-white"
+            title={isArabic ? 'معايرة 9 نقاط' : '9-Point Calibration'}
+          >
+            <Target className="w-3.5 h-3.5" />
+          </button>
+
+          <button
+            onClick={() => setShowScientificArchitectureModal(true)}
+            className="p-1.5 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-white"
+            title={isArabic ? 'المخطط العلمي' : 'Scientific Architecture'}
+          >
+            <Activity className="w-3.5 h-3.5" />
+          </button>
+
+          <button
+            onClick={toggleFullScreenMode}
+            className="p-1.5 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-white"
+            title={isArabic ? 'ملء الشاشة' : 'Fullscreen'}
+          >
+            {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+          </button>
+
+          <button
+            onClick={() => setShowConfigModal(!showConfigModal)}
+            className="p-1.5 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-white"
+            title={isArabic ? 'الإعدادات والمعايرة' : 'Settings & Calibration'}
+          >
+            <SlidersHorizontal className="w-3.5 h-3.5" />
+          </button>
         </div>
       </div>
-
-      {/* Main Mode Navigation Bar (Eye-Gaze Selectable Tabs) */}
-      <div className="grid grid-cols-2 gap-3 mb-4">
-        {/* Tab 1: Arabic Keyboard & Gaze Communication */}
-        <button
-          data-aac-id="tab-keyboard"
-          onClick={() => setActiveTab('keyboard')}
-          className={`relative p-3.5 rounded-2xl border-2 font-black text-sm flex items-center justify-center gap-2 transition-all ${
-            activeTab === 'keyboard'
-              ? themeClasses.activeTab + ' shadow-xl'
-              : 'bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-800'
-          }`}
-        >
-          <KeyboardIcon className="w-5 h-5" />
-          <span className="truncate">{isArabic ? '⌨️ كيبورد العين (Eye Keyboard)' : 'Eye Keyboard'}</span>
-          {hoveredCardId === 'tab-keyboard' && dwellProgress > 0 && (
-            <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-slate-950 rounded-b-2xl overflow-hidden">
-              <div className="h-full bg-slate-950 transition-all duration-75" style={{ width: `${dwellProgress * 100}%` }} />
-            </div>
-          )}
-        </button>
-
-        {/* Tab 2: Google Project Euphonia Training Studio */}
-        <button
-          data-aac-id="tab-euphonia-studio"
-          onClick={() => setActiveTab('euphonia-studio')}
-          className={`relative p-3.5 rounded-2xl border-2 font-black text-sm flex items-center justify-center gap-2 transition-all ${
-            activeTab === 'euphonia-studio'
-              ? themeClasses.activeTab + ' shadow-xl'
-              : 'bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-800'
-          }`}
-        >
-          <Radio className="w-5 h-5" />
-          <span className="truncate">{isArabic ? '🎙️ استوديو تدريب إيفونيا (Euphonia Studio)' : 'Euphonia Voice Studio'}</span>
-          {hoveredCardId === 'tab-euphonia-studio' && dwellProgress > 0 && (
-            <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-slate-950 rounded-b-2xl overflow-hidden">
-              <div className="h-full bg-slate-950 transition-all duration-75" style={{ width: `${dwellProgress * 100}%` }} />
-            </div>
-          )}
-        </button>
-      </div>
-      </div>
-      {/* End of pinned chrome. Everything below (the actual keyboard / voice
+{/* End of pinned chrome. Everything below (the actual keyboard / voice
           studio panels) gets the remaining viewport height and scrolls
           WITHIN itself if it doesn't fit — min-h-0 is required for a flex
           child to actually be allowed to shrink instead of forcing the page
@@ -2796,14 +2715,14 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
           (min-h-0 on every row) instead of scrolling into view — nothing is
           literally deleted, but on a small enough screen some vertical
           spacing gets tight rather than being reachable via scroll. */}
-      <div className="flex-1 min-h-0 overflow-hidden -mx-3 sm:-mx-5 lg:-mx-6 px-3 sm:px-5 lg:px-6 flex flex-col">
+      <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
 
       {/* Main Communicator Grid: Left HUD / Floating PIP + Main Center Eye-Gaze Board */}
-      <div className={`grid grid-cols-1 ${sidebarMode === 'docked' ? 'lg:grid-cols-12' : 'grid-cols-1'} gap-3 flex-1 min-h-0 overflow-hidden`}>
+      <div className={`grid grid-cols-1 ${sidebarMode === 'docked' ? 'md:grid-cols-12' : 'grid-cols-1'} gap-2 sm:gap-3 flex-1 min-h-0 overflow-hidden`}>
         {/* Left Side: Live Webcam HUD + Vocal Visualizer + Dysarthria Decoder */}
         <div className={
           sidebarMode === 'docked'
-            ? 'lg:col-span-3 flex flex-col gap-3'
+            ? 'md:col-span-3 sm:col-span-4 flex flex-col gap-2 min-h-0 overflow-hidden'
             : sidebarMode === 'floating'
             ? `${
                 cameraCorner === 'top-right'
@@ -2879,7 +2798,7 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
           )}
 
           {/* Live Webcam Box */}
-          <div className="bg-slate-900/90 rounded-3xl border border-slate-800 p-3 shadow-xl relative overflow-hidden">
+          <div className="bg-slate-900/90 rounded-2xl border border-slate-800 p-2 sm:p-2.5 shadow-xl relative overflow-hidden shrink-0">
             <div className="flex items-center justify-between mb-2">
               <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
                 <Eye className="w-3.5 h-3.5 text-amber-400" />
@@ -2895,7 +2814,7 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
               )}
             </div>
 
-            <div className="relative aspect-video rounded-2xl bg-black flex items-center justify-center overflow-hidden border border-slate-800">
+            <div className="relative aspect-video max-h-32 sm:max-h-36 rounded-xl bg-black flex items-center justify-center overflow-hidden border border-slate-800">
               <video
                 ref={videoRef}
                 className="w-full h-full object-cover -scale-x-100"
@@ -2940,7 +2859,7 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
           </div>
 
           {/* Euphonia Audio Signal Analyzer Bar */}
-          <div className="bg-slate-900/90 rounded-3xl border border-slate-800 p-3 shadow-xl">
+          <div className="bg-slate-900/90 rounded-2xl border border-slate-800 p-2 sm:p-2.5 shadow-xl shrink-0">
             <div className="flex items-center justify-between mb-1.5">
               <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
                 <Mic className="w-3.5 h-3.5 text-emerald-400" />
@@ -2983,7 +2902,7 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
           </div>
 
           {/* Direct Dysarthric Speech AI Decoder */}
-          <div className="bg-slate-900/90 rounded-3xl border border-slate-800 p-3 shadow-xl">
+          <div className="bg-slate-900/90 rounded-2xl border border-slate-800 p-2 sm:p-2.5 shadow-xl shrink-0">
             <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
               <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
               {isArabic ? 'فك شفرة الكلام غير النمطي' : 'Dysarthria Decoder'}
@@ -3028,7 +2947,7 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
 
         {/* Right Side: Eye-Gaze Board Content (Expanded to 100% full width when floating) */}
         <div
-          className={`${sidebarMode === 'docked' ? 'lg:col-span-9' : 'col-span-12 w-full'} flex flex-col gap-3 min-h-0 overflow-hidden`}
+          className={`${sidebarMode === 'docked' ? 'md:col-span-9 sm:col-span-8' : 'col-span-12 w-full'} flex flex-col gap-2 min-h-0 overflow-hidden h-full`}
           style={
             // The floating panel is `position: fixed` (it has to be, to float
             // over/around scrolling content) — fixed elements are removed from

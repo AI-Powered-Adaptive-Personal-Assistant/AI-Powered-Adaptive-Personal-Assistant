@@ -106,10 +106,10 @@ const THEME_CONFIGS: Record<KeyboardTheme, { text: string; bg: string; border: s
 export type KeyScale = 'compact' | 'normal' | 'large' | 'giant';
 
 const SCALE_PRESETS: Record<KeyScale, { keyMinH: string; textSize: string; containerP: string; gap: string; nameAr: string; nameEn: string }> = {
-  compact: { keyMinH: 'min-h-[42px]', textSize: 'text-base font-semibold', containerP: 'p-2.5', gap: 'gap-1.5', nameAr: 'مدمج (صغير)', nameEn: 'Compact (S)' },
-  normal: { keyMinH: 'min-h-[52px]', textSize: 'text-xl font-bold', containerP: 'p-3.5', gap: 'gap-2', nameAr: 'قياسي (متوسط)', nameEn: 'Standard (M)' },
-  large: { keyMinH: 'min-h-[66px]', textSize: 'text-2xl font-black', containerP: 'p-4', gap: 'gap-2.5', nameAr: 'كبير (واضح)', nameEn: 'Large (L)' },
-  giant: { keyMinH: 'min-h-[82px]', textSize: 'text-3xl font-black', containerP: 'p-5', gap: 'gap-3', nameAr: 'عملاق (سهل جداً بالعين)', nameEn: 'Giant (XL)' },
+  compact: { keyMinH: 'min-h-[28px]', textSize: 'text-sm sm:text-base font-bold', containerP: 'p-1.5 sm:p-2', gap: 'gap-1', nameAr: 'مدمج (صغير)', nameEn: 'Compact (S)' },
+  normal: { keyMinH: 'min-h-[34px]', textSize: 'text-base sm:text-lg font-bold', containerP: 'p-2 sm:p-2.5', gap: 'gap-1 sm:gap-1.5', nameAr: 'قياسي (متوسط)', nameEn: 'Standard (M)' },
+  large: { keyMinH: 'min-h-[44px]', textSize: 'text-lg sm:text-xl font-black', containerP: 'p-2.5 sm:p-3', gap: 'gap-1.5 sm:gap-2', nameAr: 'كبير (واضح)', nameEn: 'Large (L)' },
+  giant: { keyMinH: 'min-h-[56px]', textSize: 'text-xl sm:text-2xl font-black', containerP: 'p-3 sm:p-3.5', gap: 'gap-2 sm:gap-2.5', nameAr: 'عملاق (سهل جداً بالعين)', nameEn: 'Giant (XL)' },
 };
 
 export default function GazeBlinkKeyboard({
@@ -437,9 +437,9 @@ export default function GazeBlinkKeyboard({
           else keyRefs.current.delete(char);
         }}
         onClick={() => handleKeyPress(char)}
-        className={`relative flex-1 flex items-center justify-center ${currentScale.keyMinH} rounded-2xl ${currentScale.textSize} transition-all duration-150 overflow-hidden select-none
+        className={`relative flex-1 h-full flex items-center justify-center ${currentScale.keyMinH} max-h-[64px] rounded-xl sm:rounded-2xl ${currentScale.textSize} transition-all duration-150 overflow-hidden select-none
           ${opacityClass}
-          ${isHovered ? `ring-4 ${currentTheme.ring} bg-slate-800 shadow-2xl shadow-black/80 scale-[1.05] z-20` : 'bg-slate-900 border border-slate-700/80 hover:border-slate-500'}
+          ${isHovered ? `ring-4 ${currentTheme.ring} bg-slate-800 shadow-2xl shadow-black/80 scale-[1.03] z-20` : 'bg-slate-900 border border-slate-700/80 hover:border-slate-500'}
           ${isActive ? `${currentTheme.bg} text-slate-950 scale-95` : 'text-slate-100'}
         `}
       >
@@ -466,7 +466,7 @@ export default function GazeBlinkKeyboard({
   return (
     <div 
       ref={containerRef}
-      className={`flex flex-col ${isKeyboardFullscreen ? 'fixed inset-0 z-[99999] rounded-none' : 'h-full rounded-3xl'} bg-slate-950 text-white border border-slate-800 ${currentScale.containerP} ${currentScale.gap} shadow-2xl transition-all ${isArabic ? 'dir-rtl' : 'dir-ltr'}`}
+      className={`flex flex-col ${isKeyboardFullscreen ? 'fixed inset-0 z-[99999] rounded-none' : 'h-full rounded-2xl sm:rounded-3xl'} bg-slate-950 text-white border border-slate-800 ${currentScale.containerP} ${currentScale.gap} shadow-2xl transition-all min-h-0 overflow-hidden ${isArabic ? 'dir-rtl' : 'dir-ltr'}`}
       dir={isArabic ? 'rtl' : 'ltr'}
     >
       {/* 1. Ultra-Flexible Top Quick Bar */}
@@ -829,25 +829,25 @@ export default function GazeBlinkKeyboard({
       </AnimatePresence>
 
       {/* 4. Text Display & Quick Actions */}
-      <div className="bg-slate-900 rounded-3xl p-3.5 border border-slate-800 flex flex-col gap-2.5 shrink-0 shadow-lg">
-        <div className="min-h-[55px] text-2xl font-bold break-words text-white flex items-center px-2">
-          {typedText || <span className="text-slate-600 font-normal text-sm">{isArabic ? 'انظر إلى أي حرف واغمض عينك أو ثبت نظرك للكتابة...' : 'Gaze at any key and blink or dwell...'}</span>}
-          <span className={`inline-block w-2.5 h-6 ml-1.5 align-middle animate-pulse ${currentTheme.bg}`}></span>
+      <div className="bg-slate-900 rounded-2xl p-2 sm:p-2.5 border border-slate-800 flex flex-col gap-1.5 shrink-0 shadow-lg">
+        <div className="min-h-[38px] max-h-[50px] text-lg sm:text-xl font-bold break-words text-white flex items-center px-2 overflow-x-auto">
+          {typedText || <span className="text-slate-600 font-normal text-xs sm:text-sm">{isArabic ? 'انظر إلى أي حرف واغمض عينك أو ثبت نظرك للكتابة...' : 'Gaze at any key and blink or dwell...'}</span>}
+          <span className={`inline-block w-2.5 h-5 ml-1.5 align-middle animate-pulse ${currentTheme.bg}`}></span>
         </div>
         
         {/* Action Controls */}
-        <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-800/60">
+        <div className="flex flex-wrap gap-1 sm:gap-1.5 pt-1.5 border-t border-slate-800/60">
           <button 
             data-aac-id="kb-speak"
             ref={(el) => { if (el) keyRefs.current.set('SPEAK', el); else keyRefs.current.delete('SPEAK'); }}
             onClick={() => handleSpeak()}
-            className={`flex-1 min-w-[70px] py-2.5 rounded-2xl flex justify-center items-center gap-1.5 text-xs font-bold transition-all ${
+            className={`flex-1 min-w-[55px] py-1.5 px-2 rounded-xl flex justify-center items-center gap-1 text-[11px] sm:text-xs font-bold transition-all ${
               hoveredKey === 'SPEAK' 
                 ? `ring-4 ${currentTheme.ring} bg-slate-800 shadow-md scale-105` 
                 : 'bg-slate-800 text-slate-100 hover:bg-slate-700'
             } ${activeKey === 'SPEAK' ? currentTheme.bg + ' text-slate-950 scale-95' : ''}`}
           >
-            <Volume2 size={16} />
+            <Volume2 size={14} />
             <span>{isArabic ? 'نطق' : 'Speak'}</span>
           </button>
 
@@ -855,13 +855,13 @@ export default function GazeBlinkKeyboard({
             data-aac-id="kb-backspace"
             ref={(el) => { if (el) keyRefs.current.set('BACKSPACE', el); else keyRefs.current.delete('BACKSPACE'); }}
             onClick={() => handleKeyPress('BACKSPACE')}
-            className={`flex-1 min-w-[70px] py-2.5 rounded-2xl flex justify-center items-center gap-1.5 text-xs font-bold transition-all ${
+            className={`flex-1 min-w-[55px] py-1.5 px-2 rounded-xl flex justify-center items-center gap-1 text-[11px] sm:text-xs font-bold transition-all ${
               hoveredKey === 'BACKSPACE' 
                 ? `ring-4 ${currentTheme.ring} bg-slate-800 shadow-md scale-105` 
                 : 'bg-slate-800 text-slate-100 hover:bg-slate-700'
             } ${activeKey === 'BACKSPACE' ? currentTheme.bg + ' text-slate-950 scale-95' : ''}`}
           >
-            <Delete size={16} />
+            <Delete size={14} />
             <span>{isArabic ? 'حذف' : 'Del'}</span>
           </button>
 
@@ -869,11 +869,11 @@ export default function GazeBlinkKeyboard({
             data-aac-id="kb-clear"
             ref={(el) => { if (el) keyRefs.current.set('CLEAR', el); else keyRefs.current.delete('CLEAR'); }}
             onClick={() => handleKeyPress('CLEAR')}
-            className={`flex-1 min-w-[70px] py-2.5 rounded-2xl flex justify-center items-center gap-1.5 text-xs font-bold transition-all text-rose-400 ${
+            className={`flex-1 min-w-[50px] py-1.5 px-2 rounded-xl flex justify-center items-center gap-1 text-[11px] sm:text-xs font-bold transition-all text-rose-400 ${
               hoveredKey === 'CLEAR' ? 'ring-4 ring-rose-500 bg-rose-500/10 scale-105' : 'bg-slate-800 hover:bg-slate-700'
             } ${activeKey === 'CLEAR' ? 'bg-rose-500 text-white scale-95' : ''}`}
           >
-            <Trash2 size={16} />
+            <Trash2 size={14} />
             <span>{isArabic ? 'مسح' : 'Clear'}</span>
           </button>
           
@@ -882,11 +882,11 @@ export default function GazeBlinkKeyboard({
               data-aac-id="kb-ai"
               ref={(el) => { if (el) keyRefs.current.set('AI', el); else keyRefs.current.delete('AI'); }}
               onClick={() => { if(typedText) onSendToAI(typedText); }}
-              className={`flex-1 min-w-[70px] py-2.5 rounded-2xl flex justify-center items-center gap-1.5 text-xs font-bold transition-all text-purple-400 ${
+              className={`flex-1 min-w-[50px] py-1.5 px-2 rounded-xl flex justify-center items-center gap-1 text-[11px] sm:text-xs font-bold transition-all text-purple-400 ${
                 hoveredKey === 'AI' ? 'ring-4 ring-purple-500 bg-purple-500/10 scale-105' : 'bg-slate-800 hover:bg-slate-700'
               } ${activeKey === 'AI' ? 'bg-purple-500 text-white scale-95' : ''}`}
             >
-              <Sparkles size={16} />
+              <Sparkles size={14} />
               <span>{isArabic ? 'ذكاء' : 'AI'}</span>
             </button>
           )}
@@ -896,11 +896,11 @@ export default function GazeBlinkKeyboard({
               data-aac-id="kb-whatsapp"
               ref={(el) => { if (el) keyRefs.current.set('WHATSAPP', el); else keyRefs.current.delete('WHATSAPP'); }}
               onClick={() => { if(typedText) onSendToWhatsApp(typedText); }}
-              className={`flex-1 min-w-[70px] py-2.5 rounded-2xl flex justify-center items-center gap-1.5 text-xs font-bold transition-all text-emerald-400 ${
+              className={`flex-1 min-w-[50px] py-1.5 px-2 rounded-xl flex justify-center items-center gap-1 text-[11px] sm:text-xs font-bold transition-all text-emerald-400 ${
                 hoveredKey === 'WHATSAPP' ? 'ring-4 ring-emerald-500 bg-emerald-500/10 scale-105' : 'bg-slate-800 hover:bg-slate-700'
               } ${activeKey === 'WHATSAPP' ? 'bg-emerald-500 text-white scale-95' : ''}`}
             >
-              <MessageCircle size={16} />
+              <MessageCircle size={14} />
               <span>واتساب</span>
             </button>
           )}
@@ -910,11 +910,11 @@ export default function GazeBlinkKeyboard({
               data-aac-id="kb-call"
               ref={(el) => { if (el) keyRefs.current.set('CALL', el); else keyRefs.current.delete('CALL'); }}
               onClick={onOpenCallPicker}
-              className={`flex-1 min-w-[70px] py-2.5 rounded-2xl flex justify-center items-center gap-1.5 text-xs font-bold transition-all text-amber-400 ${
+              className={`flex-1 min-w-[50px] py-1.5 px-2 rounded-xl flex justify-center items-center gap-1 text-[11px] sm:text-xs font-bold transition-all text-amber-400 ${
                 hoveredKey === 'CALL' ? 'ring-4 ring-amber-500 bg-amber-500/10 scale-105' : 'bg-slate-800 hover:bg-slate-700'
               } ${activeKey === 'CALL' ? 'bg-amber-500 text-slate-950 scale-95' : ''}`}
             >
-              <PhoneCall size={16} />
+              <PhoneCall size={14} />
               <span>{isArabic ? 'اتصال' : 'Call'}</span>
             </button>
           )}
@@ -923,11 +923,11 @@ export default function GazeBlinkKeyboard({
             data-aac-id="kb-lang"
             ref={(el) => { if (el) keyRefs.current.set('LANG', el); else keyRefs.current.delete('LANG'); }}
             onClick={() => setKbLang(prev => prev === 'ar' ? 'en' : 'ar')}
-            className={`flex-1 min-w-[70px] py-2.5 rounded-2xl flex justify-center items-center gap-1.5 text-xs font-black transition-all text-cyan-400 ${
+            className={`flex-1 min-w-[50px] py-1.5 px-2 rounded-xl flex justify-center items-center gap-1 text-[11px] sm:text-xs font-black transition-all text-cyan-400 ${
               hoveredKey === 'LANG' ? 'ring-4 ring-cyan-500 bg-cyan-500/10 scale-105' : 'bg-slate-800 hover:bg-slate-700'
             } ${activeKey === 'LANG' ? 'bg-cyan-500 text-slate-950 scale-95' : ''}`}
           >
-            <Languages size={16} />
+            <Languages size={14} />
             <span>{kbLang === 'ar' ? 'EN' : 'عربي'}</span>
           </button>
         </div>
@@ -935,13 +935,13 @@ export default function GazeBlinkKeyboard({
 
       {/* 5. Smart Word Predictions Bar */}
       {showPredictions && (
-        <div className="bg-slate-900/90 rounded-2xl p-2 border border-slate-800/90 flex items-center gap-2 shrink-0 overflow-hidden">
-          <div className={`text-xs font-black ${currentTheme.text} flex items-center gap-1 px-2 shrink-0`}>
-            <Sparkles size={14} />
-            <span className="hidden sm:inline">{isArabic ? 'التنبؤ الذكي:' : 'Predictions:'}</span>
+        <div className="bg-slate-900/90 rounded-xl p-1 sm:p-1.5 border border-slate-800/90 flex items-center gap-1.5 shrink-0 overflow-hidden">
+          <div className={`text-[11px] font-black ${currentTheme.text} flex items-center gap-1 px-1.5 shrink-0`}>
+            <Sparkles size={13} />
+            <span className="hidden sm:inline">{isArabic ? 'التنبؤ:' : 'Predictions:'}</span>
           </div>
 
-          <div className="flex-1 flex gap-2 overflow-x-auto no-scrollbar">
+          <div className="flex-1 flex gap-1.5 overflow-x-auto no-scrollbar">
             {predictions.map((predWord, idx) => {
               const predKey = `PRED_${idx}`;
               const isHovered = hoveredKey === predKey;
@@ -978,7 +978,7 @@ export default function GazeBlinkKeyboard({
       )}
 
       {/* 6. Dynamic Main Keyboard Grid */}
-      <div className="flex-1 relative flex flex-col bg-slate-950 rounded-3xl p-3 min-h-[300px] border border-slate-900 overflow-hidden">
+      <div className="flex-1 relative flex flex-col bg-slate-950 rounded-2xl sm:rounded-3xl p-1.5 sm:p-2 border border-slate-900 overflow-hidden min-h-0">
         {/* In Split Mode: Highlighting Box Overlays */}
         {layoutMode === 'split' && (
           <>
@@ -993,21 +993,21 @@ export default function GazeBlinkKeyboard({
         )}
 
         {/* Rows Container */}
-        <div className={`flex-1 flex flex-col justify-around ${currentScale.gap} z-10 w-full relative`}>
+        <div className={`flex-1 flex flex-col justify-between ${currentScale.gap} z-10 w-full relative min-h-0`}>
           {rows.map((row, rIndex) => (
-            <div key={rIndex} className={`flex w-full ${currentScale.gap} px-0.5`}>
+            <div key={rIndex} className={`flex w-full ${currentScale.gap} px-0.5 flex-1 min-h-0`}>
               {layoutMode === 'split' ? (
                 <>
                   {/* Left Half */}
-                  <div className={`flex-1 flex ${currentScale.gap} justify-end`}>
+                  <div className={`flex-1 flex ${currentScale.gap} justify-end min-h-0`}>
                     {row.slice(0, Math.ceil(row.length / 2)).map((char, cIndex) => 
                       renderKey(char, rIndex, cIndex, row.length)
                     )}
                   </div>
                   {/* Divider Gap */}
-                  <div className="w-3 shrink-0" />
+                  <div className="w-2 sm:w-3 shrink-0" />
                   {/* Right Half */}
-                  <div className={`flex-1 flex ${currentScale.gap} justify-start`}>
+                  <div className={`flex-1 flex ${currentScale.gap} justify-start min-h-0`}>
                     {row.slice(Math.ceil(row.length / 2)).map((char, cIndex) => 
                       renderKey(char, rIndex, cIndex + Math.ceil(row.length / 2), row.length)
                     )}
@@ -1021,12 +1021,12 @@ export default function GazeBlinkKeyboard({
           ))}
           
           {/* Space Bar Row */}
-          <div className="flex w-full justify-center px-1 pt-1">
+          <div className="flex w-full justify-center px-1 pt-0.5 flex-1 min-h-0 max-h-11 sm:max-h-12">
             <button
               data-aac-id="kb-space"
               ref={(el) => { if (el) keyRefs.current.set('SPACE', el); else keyRefs.current.delete('SPACE'); }}
               onClick={() => handleKeyPress('SPACE')}
-              className={`relative w-2/3 max-w-lg ${currentScale.keyMinH} rounded-2xl flex items-center justify-center transition-all overflow-hidden select-none
+              className={`relative w-2/3 max-w-lg h-full min-h-[28px] max-h-11 sm:max-h-12 rounded-xl sm:rounded-2xl flex items-center justify-center transition-all overflow-hidden select-none
                 ${hoveredKey === 'SPACE' ? `ring-4 ${currentTheme.ring} bg-slate-800 shadow-2xl scale-[1.03]` : 'bg-slate-900 border border-slate-700 text-slate-300 hover:border-slate-500'}
                 ${activeKey === 'SPACE' ? `${currentTheme.bg} text-slate-950 scale-95` : ''}
               `}
@@ -1037,8 +1037,8 @@ export default function GazeBlinkKeyboard({
                   style={{ width: `${dwellProgress.percent}%` }}
                 />
               )}
-              <div className="flex items-center gap-2 relative z-10 font-bold text-sm">
-                <Space size={22} />
+              <div className="flex items-center gap-2 relative z-10 font-bold text-xs sm:text-sm">
+                <Space size={18} />
                 <span>{isArabic ? 'مسافة' : 'Space'}</span>
               </div>
             </button>
