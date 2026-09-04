@@ -1,5 +1,5 @@
-﻿import React, { useState, useEffect, useRef } from 'react';
-import { UserProfile, CognitiveDomainScores, IqAssessmentRecord } from '../types';
+import React, { useState, useEffect, useRef } from 'react';
+import { UserProfile, CognitiveDomainScores, IqAssessmentRecord, CognitiveLevel } from '../types';
 import { localize } from '../lib/translations';
 import { toast } from './Toast';
 import {
@@ -30,7 +30,7 @@ interface IqAssessmentModalProps {
   isOpen: boolean;
   onClose: () => void;
   profile: UserProfile;
-  onIqUpdated: (newScore: number, domainScores: CognitiveDomainScores) => void;
+  onIqUpdated: (newScore: number, domainScores: CognitiveDomainScores, newLevel?: CognitiveLevel) => void;
 }
 
 export default function IqAssessmentModal({
@@ -138,17 +138,21 @@ export default function IqAssessmentModal({
         const cooldownDays = 7 * Math.pow(2, exponent);
         nextDate.setTime(nextDate.getTime() + cooldownDays * 24 * 60 * 60 * 1000);
 
+        const computedLevel: CognitiveLevel =
+          recommendedPersona === 'Socratic' ? 'Advanced' : (recommendedPersona === 'Foundational' ? 'Basic' : 'Intermediate');
+
         const updates = {
           iqScore,
           cognitiveDomains: domainScores,
           lastIqTestDate: newRecord.date,
           nextEligibleIqDate: nextDate.toISOString(),
           iqAssessmentHistory: arrayUnion(cleanDataForFirestore(newRecord)),
-          cognitiveLevel: recommendedPersona === 'Socratic' ? 'Advanced' : (recommendedPersona === 'Foundational' ? 'Basic' : 'Intermediate'),
+          cognitiveLevel: computedLevel,
+          level: computedLevel,
         };
 
         await updateDoc(doc(db, 'users', profile.uid), cleanDataForFirestore(updates));
-        onIqUpdated(iqScore, domainScores);
+        onIqUpdated(iqScore, domainScores, computedLevel);
 
         toast.success(
           localize(

@@ -146,6 +146,7 @@ export interface UserProfile {
   /**
    * Phase 4: Cognitive Architecture & Scientific IQ Assessment
    */
+  cognitiveLevel?: CognitiveLevel;
   cognitiveDomains?: CognitiveDomainScores;
   iqAssessmentHistory?: IqAssessmentRecord[];
   lastIqTestDate?: string;

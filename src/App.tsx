@@ -13,7 +13,7 @@ import AccessibilityOverlay from "./components/AccessibilityOverlay";
 import LiveCaptions from "./components/LiveCaptions";
 import ReadAloudSelection from "./components/ReadAloudSelection";
 import { motion, AnimatePresence } from "motion/react";
-import { Message, UserProfile, AccessibilityMode } from "./types";
+import { Message, UserProfile, AccessibilityMode, CognitiveLevel } from "./types";
 import { auth, db, handleFirestoreError, OperationType, cleanDataForFirestore, clearPreLoginState, logout } from "./lib/firebase";
 import { useAuthState } from "react-firebase-hooks/auth";
 import { doc, setDoc, onSnapshot, getDocFromServer } from "firebase/firestore";
@@ -911,13 +911,17 @@ export default function App() {
               isOpen={isIqModalOpen}
               onClose={() => setIsIqModalOpen(false)}
               profile={fullProfile || profile}
-              onIqUpdated={(newScore, domainScores) => {
+              onIqUpdated={(newScore, domainScores, newLevel) => {
+                const computedLevel: CognitiveLevel =
+                  newLevel || (newScore < 90 ? 'Basic' : newScore >= 115 ? 'Advanced' : 'Intermediate');
                 if (profile) {
                   setProfile({
                     ...profile,
                     iqScore: newScore,
                     cognitiveDomains: domainScores,
                     lastIqTestDate: new Date().toISOString(),
+                    level: computedLevel,
+                    cognitiveLevel: computedLevel,
                   });
                 }
               }}
