@@ -7,14 +7,15 @@ import GoalStats from './goals/GoalStats';
 import GoalCard from './goals/GoalCard';
 import AddGoalModal from './goals/AddGoalModal';
 import EditGoalModal from './goals/EditGoalModal';
-import { Plus, Target, Loader2, Menu } from 'lucide-react';
+import { Plus, Target, Loader2, Menu, ArrowLeft } from 'lucide-react';
 
 interface GoalTrackerProps {
   profile: UserProfile;
   onMenuClick?: () => void;
+  onNavigateBack?: () => void;
 }
 
-export default function GoalTracker({ profile, onMenuClick }: GoalTrackerProps) {
+export default function GoalTracker({ profile, onMenuClick, onNavigateBack }: GoalTrackerProps) {
   const [goals, setGoals] = useState<Goal[]>([]);
   const [loading, setLoading] = useState(true);
   const [addOpen, setAddOpen] = useState(false);
@@ -66,12 +67,26 @@ export default function GoalTracker({ profile, onMenuClick }: GoalTrackerProps) 
       <header className="p-6 md:p-10 pb-0 shrink-0">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-start gap-4">
-            <button
-              onClick={onMenuClick}
-              className="p-2 mt-1 text-text-muted bg-bg-card shadow-sm border border-border hover:bg-bg-main rounded-lg active:scale-95"
-            >
-              <Menu className="w-6 h-6" />
-            </button>
+            {onNavigateBack && (
+              <button
+                onClick={onNavigateBack}
+                className="p-2 mt-1 text-text-muted hover:text-text-main bg-bg-card shadow-sm border border-border hover:bg-surface-2 rounded-xl active:scale-95 transition-all flex items-center gap-1.5 shrink-0"
+                title={localize(profile.language, 'Back to Assistant', 'العودة للمساعد')}
+              >
+                <ArrowLeft className="w-5 h-5 rtl:rotate-180" />
+                <span className="text-xs font-bold hidden sm:inline">{localize(profile.language, 'Back', 'رجوع')}</span>
+              </button>
+            )}
+            {onMenuClick && (
+              <button
+                onClick={onMenuClick}
+                className="p-2 mt-1 text-text-muted bg-bg-card shadow-sm border border-border hover:bg-bg-main rounded-lg active:scale-95 shrink-0"
+                aria-label={localize(profile.language, 'Toggle menu', 'القائمة')}
+                title={localize(profile.language, 'Open Menu', 'فتح القائمة')}
+              >
+                <Menu className="w-6 h-6" />
+              </button>
+            )}
             <div>
               <h1 className="text-2xl md:text-4xl font-black text-text-main tracking-tighter uppercase">
                 {localize(profile.language, 'Goal Tracker', 'متتبع الأهداف')}

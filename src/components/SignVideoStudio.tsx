@@ -2,7 +2,7 @@ import { localize } from '../lib/translations';
 import { useState, useEffect, useRef } from "react";
 import { UserProfile } from "../types";
 import { motion, AnimatePresence } from "motion/react";
-import { Mic, Square, Play, RefreshCw, Menu, FileText, Settings, Video, Sparkles, Brain, Zap, Activity, Camera, CameraOff, Hand, Keyboard, Volume2 } from "lucide-react";
+import { Mic, Square, Play, RefreshCw, Menu, FileText, Settings, Video, Sparkles, Brain, Zap, Activity, Camera, CameraOff, Hand, Keyboard, Volume2, ArrowLeft } from "lucide-react";
 import SignAvatar3D from "./SignAvatar3D";
 import { geminiService } from "../services/geminiService";
 import { Hands, Results } from "@mediapipe/hands";
@@ -14,9 +14,10 @@ interface SignVideoStudioProps {
   profile: UserProfile;
   onMenuClick: () => void;
   isEmbedded?: boolean;
+  onNavigateBack?: () => void;
 }
 
-export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: SignVideoStudioProps) {
+export default function SignVideoStudio({ profile, onMenuClick, isEmbedded, onNavigateBack }: SignVideoStudioProps) {
   const [inputText, setInputText] = useState("");
   const [isRecording, setIsRecording] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -642,9 +643,21 @@ export default function SignVideoStudio({ profile, onMenuClick, isEmbedded }: Si
       {!isEmbedded && (
         <header className="p-6 md:p-10 shrink-0 flex items-center justify-between z-10 relative bg-white border-b border-border">
            <div className="flex items-center gap-4">
+             {onNavigateBack && (
+               <button
+                 onClick={onNavigateBack}
+                 className="p-2 text-text-muted hover:text-text-main bg-white shadow-sm border border-border hover:bg-surface-2 rounded-xl active:scale-95 transition-all flex items-center gap-1.5 shrink-0"
+                 title="Back to Assistant / العودة للمساعد"
+               >
+                 <ArrowLeft className="w-5 h-5 rtl:rotate-180" />
+                 <span className="text-xs font-bold hidden sm:inline">Back</span>
+               </button>
+             )}
              <button
               onClick={onMenuClick}
-              className="p-2 text-text-muted bg-white shadow-sm border border-border hover:bg-surface-2 rounded-lg active:scale-95"
+              aria-label="Toggle menu"
+              title="Open Menu"
+              className="p-2 text-text-muted bg-white shadow-sm border border-border hover:bg-surface-2 rounded-lg active:scale-95 shrink-0"
             >
               <Menu className="w-6 h-6" />
             </button>

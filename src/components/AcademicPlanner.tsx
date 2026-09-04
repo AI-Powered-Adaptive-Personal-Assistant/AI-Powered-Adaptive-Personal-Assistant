@@ -1,12 +1,13 @@
 import { localize } from '../lib/translations';
 import { useEffect, useMemo, useState } from 'react';
 import { UserProfile, PlannerTask, PlannerTaskType } from '../types';
-import { Menu, Plus, Trash2, CalendarDays, CheckCircle2, Circle } from 'lucide-react';
+import { Menu, Plus, Trash2, CalendarDays, CheckCircle2, Circle, ArrowLeft } from 'lucide-react';
 import { daysUntilDue, isOverdue, subscribeToTasks, saveTask, deleteTask } from '../lib/planner';
 
 interface AcademicPlannerProps {
   profile: UserProfile;
   onMenuClick?: () => void;
+  onNavigateBack?: () => void;
 }
 
 const TYPE_META: Record<PlannerTaskType, { en: string; ar: string; color: string }> = {
@@ -22,7 +23,7 @@ const TYPE_META: Record<PlannerTaskType, { en: string; ar: string; color: string
 // crashing the planner with `undefined.color`.
 const metaOf = (type?: string) => TYPE_META[(type as PlannerTaskType)] || TYPE_META.other;
 
-export default function AcademicPlanner({ profile, onMenuClick }: AcademicPlannerProps) {
+export default function AcademicPlanner({ profile, onMenuClick, onNavigateBack }: AcademicPlannerProps) {
   const isAr = profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya';
   const t = (en: string, ar: string) => localize(profile.language, en, ar);
   const [tasks, setTasks] = useState<PlannerTask[]>([]);
@@ -114,9 +115,26 @@ export default function AcademicPlanner({ profile, onMenuClick }: AcademicPlanne
   return (
     <div dir={isAr ? 'rtl' : 'ltr'} className="flex-1 h-screen overflow-y-auto bg-bg-main flex flex-col custom-scrollbar p-6 md:p-10 gap-6">
       <header className="flex items-start gap-4">
-        <button onClick={onMenuClick} className="p-2 mt-1 text-text-muted bg-bg-card shadow-sm border border-border hover:bg-bg-main rounded-lg active:scale-95 shrink-0">
-          <Menu className="w-6 h-6" />
-        </button>
+        {onNavigateBack && (
+          <button
+            onClick={onNavigateBack}
+            className="p-2 mt-1 text-text-muted hover:text-text-main bg-bg-card shadow-sm border border-border hover:bg-surface-2 rounded-xl active:scale-95 transition-all flex items-center gap-1.5 shrink-0"
+            title={t('Back to Assistant', 'العودة للمساعد')}
+          >
+            <ArrowLeft className="w-5 h-5 rtl:rotate-180" />
+            <span className="text-xs font-bold hidden sm:inline">{t('Back', 'رجوع')}</span>
+          </button>
+        )}
+        {onMenuClick && (
+          <button
+            onClick={onMenuClick}
+            className="p-2 mt-1 text-text-muted bg-bg-card shadow-sm border border-border hover:bg-bg-main rounded-lg active:scale-95 shrink-0"
+            aria-label={t('Toggle menu', 'القائمة')}
+            title={t('Open Menu', 'فتح القائمة')}
+          >
+            <Menu className="w-6 h-6" />
+          </button>
+        )}
         <div>
           <h1 className="text-2xl md:text-4xl font-black text-text-main tracking-tighter uppercase flex items-center gap-3">
             <CalendarDays className="w-7 h-7 text-primary" /> {t('Academic Planner', 'المخطّط الأكاديمي')}

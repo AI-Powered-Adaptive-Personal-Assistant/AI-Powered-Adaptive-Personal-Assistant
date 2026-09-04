@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { UserProfile, CognitiveDomainScores } from '../types';
 import { localize } from '../lib/translations';
 import { toast } from './Toast';
@@ -18,18 +18,21 @@ import {
   Menu,
   RotateCcw,
   Target,
+  ArrowLeft,
 } from 'lucide-react';
 
 interface CognitiveGymProps {
   profile: UserProfile;
   onMenuClick?: () => void;
   onOpenIqModal: () => void;
+  onNavigateBack?: () => void;
 }
 
 export default function CognitiveGym({
   profile,
   onMenuClick,
   onOpenIqModal,
+  onNavigateBack,
 }: CognitiveGymProps) {
   const isAr = profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya';
   const historyCount = profile.iqAssessmentHistory?.length || 0;
@@ -104,10 +107,22 @@ export default function CognitiveGym({
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-5">
         <div className="flex items-center gap-3.5">
+          {onNavigateBack && (
+            <button
+              onClick={onNavigateBack}
+              className="p-2.5 text-text-muted hover:text-text-main bg-bg-card shadow-sm border border-border hover:bg-surface-2 rounded-xl active:scale-95 transition-all flex items-center gap-1.5 shrink-0"
+              title={localize(profile.language, 'Back to Assistant', 'العودة للمساعد')}
+            >
+              <ArrowLeft className="w-5 h-5 rtl:rotate-180" />
+              <span className="text-xs font-bold hidden sm:inline">{localize(profile.language, 'Back', 'رجوع')}</span>
+            </button>
+          )}
           {onMenuClick && (
             <button
               onClick={onMenuClick}
-              className="p-2 text-text-muted bg-bg-card shadow-sm border border-border hover:bg-bg-main rounded-xl active:scale-95 shrink-0 md:hidden"
+              className="p-2.5 text-text-muted bg-bg-card shadow-sm border border-border hover:bg-bg-main rounded-xl active:scale-95 shrink-0"
+              aria-label={localize(profile.language, 'Toggle menu', 'القائمة')}
+              title={localize(profile.language, 'Open Menu', 'فتح القائمة')}
             >
               <Menu className="w-5 h-5" />
             </button>

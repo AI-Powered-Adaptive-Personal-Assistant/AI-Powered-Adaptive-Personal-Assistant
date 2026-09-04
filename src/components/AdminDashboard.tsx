@@ -13,7 +13,8 @@ import {
   ShieldCheck, Crown, UserPlus, UserMinus, Brain, Heart, GraduationCap, 
   Accessibility, Eye, Ear, Mic, User as UserIcon, Copy, CheckCircle2, Download, 
   Printer, AlertTriangle, Building2, X, Sliders, MessageSquare, 
-  ListTodo, FileJson, RefreshCw, BarChart2, BookOpen, Clock, Award, Check, Sparkles
+  ListTodo, FileJson, RefreshCw, BarChart2, BookOpen, Clock, Award, Check, Sparkles,
+  ArrowLeft
 } from "lucide-react";
 import { AccountPath, AccessibilityMode } from "../types";
 import { sectionOf, isAccessibilityUser } from "../lib/access";
@@ -21,6 +22,7 @@ import { sectionOf, isAccessibilityUser } from "../lib/access";
 interface AdminDashboardProps {
   profile: UserProfile;
   onMenuClick: () => void;
+  onNavigateBack?: () => void;
 }
 
 // Visual identity for each enrolment section, shown in the directory.
@@ -71,7 +73,7 @@ function newestActiveIso(u?: UserProfile | null): string | undefined {
   return candidates.reduce((a, b) => (new Date(b).getTime() > new Date(a).getTime() ? b : a));
 }
 
-export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardProps) {
+export default function AdminDashboard({ profile, onMenuClick, onNavigateBack }: AdminDashboardProps) {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -563,9 +565,21 @@ export default function AdminDashboard({ profile, onMenuClick }: AdminDashboardP
   return (
     <div className="flex-1 flex flex-col bg-bg-main relative overflow-hidden custom-scrollbar">
       <header className="flex items-center gap-4 p-6 md:p-10 shrink-0 border-b border-border bg-bg-card shadow-sm z-10">
+        {onNavigateBack && (
+          <button
+            onClick={onNavigateBack}
+            className="p-2 text-text-muted hover:text-text-main bg-bg-card shadow-sm border border-border hover:bg-surface-2 rounded-xl active:scale-95 transition-all flex items-center gap-1.5 shrink-0"
+            title="Back to Assistant / العودة للمساعد"
+          >
+            <ArrowLeft className="w-5 h-5 rtl:rotate-180" />
+            <span className="text-xs font-bold hidden sm:inline">Back</span>
+          </button>
+        )}
         <button 
           onClick={onMenuClick}
-          className="p-2 text-text-muted bg-bg-card shadow-sm border border-border hover:bg-bg-main rounded-lg active:scale-95"
+          aria-label="Toggle menu"
+          title="Open Menu"
+          className="p-2 text-text-muted bg-bg-card shadow-sm border border-border hover:bg-bg-main rounded-lg active:scale-95 shrink-0"
         >
           <Menu className="w-6 h-6" />
         </button>

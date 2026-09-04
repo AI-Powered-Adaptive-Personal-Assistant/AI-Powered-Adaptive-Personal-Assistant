@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { UserProfile } from '../types';
-import { Menu, LifeBuoy, ChevronDown, Mail, MessageSquare, Accessibility, Globe, Activity, ShieldCheck } from 'lucide-react';
+import { Menu, LifeBuoy, ChevronDown, Mail, MessageSquare, Accessibility, Globe, Activity, ShieldCheck, ArrowLeft } from 'lucide-react';
 import { localize } from '../lib/translations';
 
 interface SupportCenterProps {
   profile: UserProfile;
   onMenuClick?: () => void;
+  onNavigateBack?: () => void;
 }
 
 // Support goes to the admin team (all of them).
@@ -17,7 +18,7 @@ const SUPPORT_EMAILS = [
 ];
 const SUPPORT_MAILTO = `mailto:${SUPPORT_EMAILS.join(',')}`;
 
-export default function SupportCenter({ profile, onMenuClick }: SupportCenterProps) {
+export default function SupportCenter({ profile, onMenuClick, onNavigateBack }: SupportCenterProps) {
   const isAr = profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya';
   const t = (en: string, ar: string) => localize(profile.language, en, ar);
   const [open, setOpen] = useState<number | null>(0);
@@ -58,9 +59,21 @@ export default function SupportCenter({ profile, onMenuClick }: SupportCenterPro
   return (
     <div dir={isAr ? 'rtl' : 'ltr'} className="flex-1 h-screen overflow-y-auto bg-bg-main flex flex-col custom-scrollbar p-6 md:p-10 gap-6">
       <header className="flex items-start gap-4">
-        <button onClick={onMenuClick} aria-label={t('Open menu', 'افتح القائمة')} className="p-2 mt-1 text-text-muted bg-bg-card shadow-sm border border-border hover:bg-surface-2 rounded-lg active:scale-95 shrink-0">
-          <Menu className="w-6 h-6" />
-        </button>
+        {onNavigateBack && (
+          <button
+            onClick={onNavigateBack}
+            className="p-2 mt-1 text-text-muted hover:text-text-main bg-bg-card shadow-sm border border-border hover:bg-surface-2 rounded-xl active:scale-95 transition-all flex items-center gap-1.5 shrink-0"
+            title={t('Back to Assistant', 'العودة للمساعد')}
+          >
+            <ArrowLeft className="w-5 h-5 rtl:rotate-180" />
+            <span className="text-xs font-bold hidden sm:inline">{t('Back', 'رجوع')}</span>
+          </button>
+        )}
+        {onMenuClick && (
+          <button onClick={onMenuClick} aria-label={t('Open menu', 'افتح القائمة')} title={t('Open Menu', 'فتح القائمة')} className="p-2 mt-1 text-text-muted bg-bg-card shadow-sm border border-border hover:bg-surface-2 rounded-lg active:scale-95 shrink-0">
+            <Menu className="w-6 h-6" />
+          </button>
+        )}
         <div>
           <h1 className="font-display text-2xl md:text-3xl font-bold text-text-main tracking-tight flex items-center gap-3">
             <LifeBuoy className="w-7 h-7 text-primary" /> {t('Support Center', 'مركز الدعم')}

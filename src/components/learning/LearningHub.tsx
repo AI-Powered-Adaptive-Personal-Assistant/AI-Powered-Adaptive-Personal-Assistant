@@ -18,6 +18,7 @@ import {
 interface LearningHubProps {
   profile: UserProfile | null;
   onMenuClick?: () => void;
+  onNavigateBack?: () => void;
 }
 
 const ALL_SUBJECTS: SubjectType[] = [
@@ -30,7 +31,7 @@ const ALL_SUBJECTS: SubjectType[] = [
   'english',
 ];
 
-export const LearningHub: React.FC<LearningHubProps> = ({ profile, onMenuClick }) => {
+export const LearningHub: React.FC<LearningHubProps> = ({ profile, onMenuClick, onNavigateBack }) => {
   const isArabic = profile?.language === 'Arabic' || profile?.language === 'Egyptian Ammiya';
   const userId = profile?.uid || profile?.email || 'guest_child';
   const childName = profile?.name || (isArabic ? 'البطل' : 'Champion');
@@ -70,10 +71,23 @@ export const LearningHub: React.FC<LearningHubProps> = ({ profile, onMenuClick }
       {/* Top Banner & Header */}
       <header className="flex items-center justify-between gap-4 mb-6 pb-4 border-b border-slate-800 flex-wrap">
         <div className="flex items-center gap-3">
+          {onNavigateBack && (
+            <button
+              onClick={onNavigateBack}
+              className="p-2.5 rounded-2xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-white flex items-center gap-1.5 font-bold text-xs transition-all shadow-md active:scale-95 shrink-0"
+              title={isArabic ? 'العودة للمساعد' : 'Back to Assistant'}
+            >
+              <ArrowLeft className="w-4 h-4 rtl:rotate-180" />
+              <span className="hidden sm:inline">{isArabic ? 'العودة للمساعد' : 'Back to Assistant'}</span>
+            </button>
+          )}
+
           {onMenuClick && (
             <button
               onClick={onMenuClick}
-              className="lg:hidden p-2.5 rounded-2xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white"
+              className="p-2.5 rounded-2xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white shrink-0 active:scale-95"
+              aria-label={isArabic ? 'القائمة' : 'Menu'}
+              title={isArabic ? 'فتح القائمة' : 'Open Menu'}
             >
               <Menu className="w-5 h-5" />
             </button>

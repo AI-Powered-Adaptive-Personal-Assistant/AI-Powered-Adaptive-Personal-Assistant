@@ -2,7 +2,7 @@ import { localize } from '../lib/translations';
 import React, { useState } from 'react';
 import { UserProfile, EducationLevel } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
-import { User, Mail, Shield, Award, Languages, Globe, BookOpen, GraduationCap, Briefcase, MapPin, Calendar, Clock, MessageSquare, Edit3, Save, X, Camera, Eye, Brain as BrainIcon, Menu, Sprout, Heart, ThumbsUp, ThumbsDown, Loader2 } from 'lucide-react';
+import { User, Mail, Shield, Award, Languages, Globe, BookOpen, GraduationCap, Briefcase, MapPin, Calendar, Clock, MessageSquare, Edit3, Save, X, Camera, Eye, Brain as BrainIcon, Menu, Sprout, Heart, ThumbsUp, ThumbsDown, Loader2, ArrowLeft } from 'lucide-react';
 import { formatDate } from '../lib/utils';
 import { doc, setDoc, collection, getDocs } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType, cleanDataForFirestore } from '../lib/firebase';
@@ -12,6 +12,7 @@ interface ProfilePageProps {
   profile: UserProfile;
   onMenuClick?: () => void;
   setProfile?: (profile: UserProfile) => void;
+  onNavigateBack?: () => void;
 }
 
 const SUSTAINABILITY_GOALS = [
@@ -21,7 +22,7 @@ const SUSTAINABILITY_GOALS = [
   { id: 'zero-hunger', label: 'Zero Hunger / Sustainable Food', icon: Sprout }
 ];
 
-export default function ProfilePage({ profile, onMenuClick, setProfile }: ProfilePageProps) {
+export default function ProfilePage({ profile, onMenuClick, setProfile, onNavigateBack }: ProfilePageProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedProfile, setEditedProfile] = useState<UserProfile>(profile);
   const [saving, setSaving] = useState(false);
@@ -195,12 +196,26 @@ export default function ProfilePage({ profile, onMenuClick, setProfile }: Profil
     <div className="flex-1 h-screen overflow-y-auto bg-bg-main p-6 md:p-10 flex flex-col gap-6 md:gap-10 custom-scrollbar relative">
       <header className="flex flex-col md:flex-row justify-between md:items-center gap-4">
         <div className="flex items-start gap-4 space-y-2">
-          <button 
-            onClick={onMenuClick}
-            className="p-2 mt-1 text-text-muted bg-bg-card shadow-sm border border-border hover:bg-bg-main rounded-lg active:scale-95"
-          >
-            <Menu className="w-6 h-6" />
-          </button>
+          {onNavigateBack && (
+            <button
+              onClick={onNavigateBack}
+              className="p-2 mt-1 text-text-muted hover:text-text-main bg-bg-card shadow-sm border border-border hover:bg-surface-2 rounded-xl active:scale-95 transition-all flex items-center gap-1.5 shrink-0"
+              title={localize(profile.language, 'Back to Assistant', 'العودة للمساعد')}
+            >
+              <ArrowLeft className="w-5 h-5 rtl:rotate-180" />
+              <span className="text-xs font-bold hidden sm:inline">{localize(profile.language, 'Back', 'رجوع')}</span>
+            </button>
+          )}
+          {onMenuClick && (
+            <button 
+              onClick={onMenuClick}
+              className="p-2 mt-1 text-text-muted bg-bg-card shadow-sm border border-border hover:bg-bg-main rounded-lg active:scale-95 shrink-0"
+              aria-label={localize(profile.language, 'Toggle menu', 'القائمة')}
+              title={localize(profile.language, 'Open Menu', 'فتح القائمة')}
+            >
+              <Menu className="w-6 h-6" />
+            </button>
+          )}
           <div>
             <h1 className="text-2xl md:text-4xl font-black text-text-main tracking-tighter uppercase">{getTranslation(profile.language, 'myProfile')}</h1>
             <p className="text-xs md:text-sm text-text-muted font-medium mt-1">Manage your academic and account details.</p>

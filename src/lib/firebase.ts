@@ -151,6 +151,7 @@ export const logout = async () => {
   clearPreLoginState();
   try {
     PER_USER_LOCAL_KEYS.forEach((k) => localStorage.removeItem(k));
+    sessionStorage.clear();
   } catch { /* storage unavailable */ }
   await signOut(auth);
 };

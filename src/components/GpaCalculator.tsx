@@ -1,7 +1,7 @@
 import { localize } from '../lib/translations';
 import { useEffect, useMemo, useState } from 'react';
 import { UserProfile, Course } from '../types';
-import { Menu, Plus, Trash2, Calculator, Sparkles, GraduationCap } from 'lucide-react';
+import { Menu, Plus, Trash2, Calculator, Sparkles, GraduationCap, ArrowLeft } from 'lucide-react';
 import { toast } from './Toast';
 import {
   GRADE_OPTIONS, GRADE_POINTS, calculateGPA, calculateCGPA, semestersOf,
@@ -11,6 +11,7 @@ import {
 interface GpaCalculatorProps {
   profile: UserProfile;
   onMenuClick?: () => void;
+  onNavigateBack?: () => void;
 }
 
 const gradeColor = (grade: string) => {
@@ -21,7 +22,7 @@ const gradeColor = (grade: string) => {
   return 'text-danger bg-danger-soft border-danger/20';
 };
 
-export default function GpaCalculator({ profile, onMenuClick }: GpaCalculatorProps) {
+export default function GpaCalculator({ profile, onMenuClick, onNavigateBack }: GpaCalculatorProps) {
   const isAr = profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya';
   const [courses, setCourses] = useState<Course[]>([]);
 
@@ -92,9 +93,26 @@ export default function GpaCalculator({ profile, onMenuClick }: GpaCalculatorPro
   return (
     <div dir={isAr ? 'rtl' : 'ltr'} className="flex-1 h-screen overflow-y-auto bg-bg-main flex flex-col custom-scrollbar p-6 md:p-10 gap-6">
       <header className="flex items-start gap-4">
-        <button onClick={onMenuClick} className="p-2 mt-1 text-text-muted bg-bg-card shadow-sm border border-border hover:bg-bg-main rounded-lg active:scale-95 shrink-0">
-          <Menu className="w-6 h-6" />
-        </button>
+        {onNavigateBack && (
+          <button
+            onClick={onNavigateBack}
+            className="p-2 mt-1 text-text-muted hover:text-text-main bg-bg-card shadow-sm border border-border hover:bg-surface-2 rounded-xl active:scale-95 transition-all flex items-center gap-1.5 shrink-0"
+            title={t('Back to Assistant', 'العودة للمساعد')}
+          >
+            <ArrowLeft className="w-5 h-5 rtl:rotate-180" />
+            <span className="text-xs font-bold hidden sm:inline">{t('Back', 'رجوع')}</span>
+          </button>
+        )}
+        {onMenuClick && (
+          <button
+            onClick={onMenuClick}
+            className="p-2 mt-1 text-text-muted bg-bg-card shadow-sm border border-border hover:bg-bg-main rounded-lg active:scale-95 shrink-0"
+            aria-label={t('Toggle menu', 'القائمة')}
+            title={t('Open Menu', 'فتح القائمة')}
+          >
+            <Menu className="w-6 h-6" />
+          </button>
+        )}
         <div>
           <h1 className="text-2xl md:text-4xl font-black text-text-main tracking-tighter uppercase flex items-center gap-3">
             <Calculator className="w-7 h-7 text-primary" /> {t('GPA Calculator', 'حاسبة الـ GPA')}

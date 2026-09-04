@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { UserProfile, CognitiveLevel } from '../types';
 import {
   InstitutionCohortStats,
@@ -32,14 +32,16 @@ import {
   Loader2,
   Check,
   Layers,
+  ArrowLeft,
 } from 'lucide-react';
 
 interface InstitutionCohortHubProps {
   profile: UserProfile;
   onMenuClick?: () => void;
+  onNavigateBack?: () => void;
 }
 
-export default function InstitutionCohortHub({ profile, onMenuClick }: InstitutionCohortHubProps) {
+export default function InstitutionCohortHub({ profile, onMenuClick, onNavigateBack }: InstitutionCohortHubProps) {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
@@ -157,11 +159,22 @@ export default function InstitutionCohortHub({ profile, onMenuClick }: Instituti
         {/* Header Bar */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-bg-card border border-border rounded-3xl p-6 shadow-sm">
           <div className="flex items-center gap-4">
+            {onNavigateBack && (
+              <button
+                onClick={onNavigateBack}
+                className="p-2.5 text-text-muted hover:text-text-main bg-surface-3 hover:bg-surface-2 rounded-xl active:scale-95 transition-all flex items-center gap-1.5 shrink-0"
+                title={L('Back to Assistant', 'العودة للمساعد')}
+              >
+                <ArrowLeft className="w-5 h-5 rtl:rotate-180" />
+                <span className="text-xs font-bold hidden sm:inline">{L('Back', 'رجوع')}</span>
+              </button>
+            )}
             {onMenuClick && (
               <button
                 onClick={onMenuClick}
-                className="lg:hidden p-2.5 text-text-muted bg-surface-3 hover:bg-surface-2 rounded-xl active:scale-95 transition-all"
+                className="p-2.5 text-text-muted bg-surface-3 hover:bg-surface-2 rounded-xl active:scale-95 transition-all shrink-0"
                 aria-label="Open navigation menu"
+                title={L('Open Menu', 'فتح القائمة')}
               >
                 <Menu className="w-5 h-5" />
               </button>

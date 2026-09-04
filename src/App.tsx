@@ -17,7 +17,7 @@ import { Message, UserProfile, AccessibilityMode } from "./types";
 import { auth, db, handleFirestoreError, OperationType, cleanDataForFirestore, clearPreLoginState, logout } from "./lib/firebase";
 import { useAuthState } from "react-firebase-hooks/auth";
 import { doc, setDoc, onSnapshot, getDocFromServer } from "firebase/firestore";
-import { Loader2, Settings, Layers, Menu, Moon, Sun, AlertCircle, RefreshCw, Mail } from "lucide-react";
+import { Loader2, Settings, Layers, Menu, Moon, Sun, AlertCircle, RefreshCw, Mail, ArrowLeft } from "lucide-react";
 import { ToastContainer } from "./components/Toast";
 import PwaInstallPrompt from "./components/PwaInstallPrompt";
 
@@ -605,9 +605,9 @@ export default function App() {
           </>
         );
       case 'learning':
-        return <LearningHub profile={activeProfile} onMenuClick={() => setIsMobileMenuOpen(true)} />;
+        return <LearningHub profile={activeProfile} onMenuClick={() => setIsMobileMenuOpen(true)} onNavigateBack={() => navigateTo(homeViewFor(profile))} />;
       case 'video':
-        return <SignVideoStudio profile={activeProfile} onMenuClick={() => setIsMobileMenuOpen(true)} />;
+        return <SignVideoStudio profile={activeProfile} onMenuClick={() => setIsMobileMenuOpen(true)} onNavigateBack={() => navigateTo(homeViewFor(profile))} />;
       case 'disability':
         return <DisabilityModeView
           ref={chatRef}
@@ -630,6 +630,7 @@ export default function App() {
             loading={memoryLoading}
             error={memoryError}
             onMenuClick={() => setIsMobileMenuOpen(true)}
+            onNavigateBack={() => navigateTo(homeViewFor(profile))}
             onRetry={() => {
               if (user?.uid) {
                 setMemoryLoading(true);
@@ -640,27 +641,28 @@ export default function App() {
           />
         );
       case 'profile':
-        return <ProfilePage profile={activeProfile} onMenuClick={() => setIsMobileMenuOpen(true)} />;
+        return <ProfilePage profile={activeProfile} onMenuClick={() => setIsMobileMenuOpen(true)} onNavigateBack={() => navigateTo(homeViewFor(profile))} />;
       case 'admin':
-        return <AdminDashboard profile={activeProfile} onMenuClick={() => setIsMobileMenuOpen(true)} />;
+        return <AdminDashboard profile={activeProfile} onMenuClick={() => setIsMobileMenuOpen(true)} onNavigateBack={() => navigateTo(homeViewFor(profile))} />;
       case 'support':
-        return <SupportCenter profile={activeProfile} onMenuClick={() => setIsMobileMenuOpen(true)} />;
+        return <SupportCenter profile={activeProfile} onMenuClick={() => setIsMobileMenuOpen(true)} onNavigateBack={() => navigateTo(homeViewFor(profile))} />;
 
       case 'goals':
         return (
           <GoalTracker
             profile={activeProfile}
             onMenuClick={() => setIsMobileMenuOpen(true)}
+            onNavigateBack={() => navigateTo(homeViewFor(profile))}
           />
         );
       case 'gpa':
-        return <GpaCalculator profile={activeProfile} onMenuClick={() => setIsMobileMenuOpen(true)} />;
+        return <GpaCalculator profile={activeProfile} onMenuClick={() => setIsMobileMenuOpen(true)} onNavigateBack={() => navigateTo(homeViewFor(profile))} />;
       case 'analytics':
-        return <StudentAnalytics profile={activeProfile} onMenuClick={() => setIsMobileMenuOpen(true)} />;
+        return <StudentAnalytics profile={activeProfile} onMenuClick={() => setIsMobileMenuOpen(true)} onNavigateBack={() => navigateTo(homeViewFor(profile))} />;
       case 'planner':
-        return <AcademicPlanner profile={activeProfile} onMenuClick={() => setIsMobileMenuOpen(true)} />;
+        return <AcademicPlanner profile={activeProfile} onMenuClick={() => setIsMobileMenuOpen(true)} onNavigateBack={() => navigateTo(homeViewFor(profile))} />;
       case 'institution':
-        return <InstitutionCohortHub profile={activeProfile} onMenuClick={() => setIsMobileMenuOpen(true)} />;
+        return <InstitutionCohortHub profile={activeProfile} onMenuClick={() => setIsMobileMenuOpen(true)} onNavigateBack={() => navigateTo(homeViewFor(profile))} />;
 
       case 'gym':
       case 'iq':
@@ -669,16 +671,27 @@ export default function App() {
             profile={activeProfile}
             onMenuClick={() => setIsMobileMenuOpen(true)}
             onOpenIqModal={() => setIsIqModalOpen(true)}
+            onNavigateBack={() => navigateTo(homeViewFor(profile))}
           />
         );
 
       case 'settings':
         return (
           <div className="flex-1 flex flex-col bg-slate-50 relative overflow-hidden">
-            <header className="p-6 md:p-10 shrink-0">
-               <button 
+            <header className="p-6 md:p-10 shrink-0 flex items-center gap-3">
+              <button
+                onClick={() => navigateTo(homeViewFor(profile))}
+                className="p-2.5 text-slate-500 hover:text-slate-900 bg-white shadow-sm border border-slate-200 hover:bg-slate-50 rounded-xl active:scale-95 transition-all flex items-center gap-1.5 shrink-0"
+                title={localize(profile.language, 'Back to Assistant', 'العودة للمساعد')}
+              >
+                <ArrowLeft className="w-5 h-5 rtl:rotate-180" />
+                <span className="text-xs font-bold hidden sm:inline">{localize(profile.language, 'Back', 'رجوع')}</span>
+              </button>
+              <button 
                 onClick={() => setIsMobileMenuOpen(true)}
-                className="lg:hidden p-2 text-slate-500 bg-white shadow-sm border border-slate-200 hover:bg-slate-50 rounded-lg active:scale-95"
+                className="p-2.5 text-slate-500 bg-white shadow-sm border border-slate-200 hover:bg-slate-50 rounded-xl active:scale-95 shrink-0"
+                aria-label="Toggle menu"
+                title="Open Menu"
               >
                 <Menu className="w-6 h-6" />
               </button>
