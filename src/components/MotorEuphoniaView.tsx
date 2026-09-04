@@ -301,6 +301,17 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
   const [theme, setTheme] = useState<ColorTheme>('amber');
   const [isFullscreen, setIsFullscreen] = useState(false);
 
+  // Previously isFullscreen was only ever set optimistically inside
+  // toggleFullScreenMode() — never corrected against reality. Exiting via
+  // the OS/Escape key (not this screen's own button) left it stuck true
+  // forever: wrong icon, and any layout that branches on isFullscreen
+  // staying wrong until the user happened to press the button twice.
+  useEffect(() => {
+    const onFsChange = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', onFsChange);
+    return () => document.removeEventListener('fullscreenchange', onFsChange);
+  }, []);
+
   // Tracking states
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [isAudioEngineActive, setIsAudioEngineActive] = useState(false);

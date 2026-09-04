@@ -144,12 +144,28 @@ export default function VisionCompanionView({ profile, setProfile }: VisionCompa
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [showSaveDialog]);
 
+  // isFullscreen used to be set synchronously and optimistically right when
+  // the button was pressed — before requestFullscreen()'s promise even
+  // resolved. If the browser denied the request, or the user exited via the
+  // OS/Escape key (not our own button), that left the state permanently
+  // wrong: stuck showing "exit fullscreen" while the app wasn't actually
+  // fullscreen (or vice versa), with a mismatched layout class applied.
+  // Tracking the real browser event is the only way this can't drift.
+  useEffect(() => {
+    const onFsChange = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', onFsChange);
+    return () => document.removeEventListener('fullscreenchange', onFsChange);
+  }, []);
+
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
-      containerRef.current?.requestFullscreen?.().catch(() => {
-        setIsFullscreen(!isFullscreen);
-      });
+      // Optimistic UI update; if the real Fullscreen API is unavailable or
+      // denied, this doubles as the CSS-simulated fullscreen fallback. If it
+      // succeeds, the fullscreenchange listener above just confirms the same
+      // value again — if it's denied, we stay on the CSS fallback rather
+      // than silently doing nothing.
       setIsFullscreen(true);
+      containerRef.current?.requestFullscreen?.().catch(() => {});
     } else {
       document.exitFullscreen?.().catch(() => {});
       setIsFullscreen(false);
@@ -297,8 +313,19 @@ export default function VisionCompanionView({ profile, setProfile }: VisionCompa
   };
 
   const saveMemory = async () => {
-    if (!labelInput.trim() || !profile?.uid) {
+    if (!labelInput.trim()) { setShowSaveDialog(false); return; }
+    if (!profile?.uid) {
+      // Previously this just closed the dialog with zero feedback — the
+      // person types a label, hits Save, and it silently vanishes with no
+      // indication it was never actually saved (not logged in). For someone
+      // relying entirely on the spoken announcement, that's indistinguishable
+      // from a successful save until they ask for it again and it's gone.
       setShowSaveDialog(false);
+      const msg = companionLang === 'ar'
+        ? 'مينفعش نحفظ من غير تسجيل دخول.'
+        : "Can't save without being signed in.";
+      setAnnounce(msg);
+      speak(msg, companionLang === 'ar' ? 'Arabic' : 'English');
       return;
     }
     const memory: VisionMemory = {
