@@ -36,7 +36,33 @@ async function withRetry<T>(fn: () => Promise<T>, retries = 2): Promise<T> {
 const genContent = (args: any) => withRetry(() => getAI().models.generateContent(args));
 const genContentStream = (args: any) => withRetry(() => getAI().models.generateContentStream(args));
 
-const getSystemInstruction = (profile: UserProfile, otherThreadsSummary: string = 'None') => `
+const getSystemInstruction = (profile: UserProfile, otherThreadsSummary: string = 'None') => {
+  let studentMemoryBlock = '';
+  if (profile.memory && profile.memory.enabled === true) {
+    const goals = profile.memory.learningGoals?.length
+      ? profile.memory.learningGoals.map((g) => `- ${g}`).join('\n')
+      : '- None specified';
+    const prefs = profile.memory.knownPreferences?.length
+      ? profile.memory.knownPreferences.map((p) => `- ${p}`).join('\n')
+      : '- None specified';
+    const confirmed = profile.memory.explicitConfirmedInfo?.length
+      ? profile.memory.explicitConfirmedInfo.map((c) => `- ${c}`).join('\n')
+      : '- None specified';
+
+    studentMemoryBlock = `
+## COGNIFY STUDENT MEMORY
+- Preferred Explanation Language: ${profile.memory.preferredLanguage || 'English'}
+- Explanation Style Preference: ${profile.memory.explanationStyle || 'Practical examples first'}
+- Current Learning Goals:
+${goals}
+- Known Preferences:
+${prefs}
+- Explicitly Confirmed Student Facts:
+${confirmed}
+`;
+  }
+
+  return `
 You are Cognify, an adaptive AI mentor. Your only goal: the most correct, useful answer possible, calibrated to THIS user.
 
 ## USER
@@ -74,14 +100,15 @@ ${profile.accessibilityMode === 'Visual' ? `- USER IS BLIND. Describing an image
   4) Be concise — a few short sentences, not a paragraph. No flowery/"vivid" language, no markdown, no tables — this is read aloud by TTS.` : ''}
 ${(profile.accessibilityMode === 'Vocal-Deaf' || profile.accessibilityMode === 'Sign-Only') ? `- User is deaf. Short, visual sentences.` : ''}
 ${profile.accessibilityMode === 'Speech' ? `- Output is read aloud by TTS: smooth speakable prose, no tables, no symbol clutter, no markdown noise.` : ''}
-
-## MEMORY
+${studentMemoryBlock}
+## THREAD MEMORY
 Summaries of the user's other threads are below. Use them ONLY if the user explicitly asks about past conversations. Otherwise ignore them completely — never volunteer them, especially not on greetings.
 ${otherThreadsSummary}
 
 ## TOOLS
 Call generateImage only when the user asks for an image.
 `;
+};
 
 export async function evaluateQuizPOV(question: string, pov: string): Promise<boolean> {
   try {

@@ -22,8 +22,10 @@ import { ToastContainer } from "./components/Toast";
 
 import { isRTL, getTranslation, localize } from "./lib/translations";
 import { canAccessSection } from "./lib/academics";
-import { canAccessView, homeViewFor, isAccessibilityUser } from "./lib/access";
+import { canAccessView, homeViewFor, isAccessibilityUser, AppView } from "./lib/access";
 import { isAdminUser } from "./lib/roles";
+import { subscribeToStudentMemory } from "./lib/memory";
+import { StudentMemory } from "./types";
 
 // Heavy, route-specific views are code-split so they don't bloat the initial
 // bundle. They load on demand the first time a user opens that screen, which
@@ -38,26 +40,21 @@ const GpaCalculator = lazy(() => import("./components/GpaCalculator"));
 const StudentAnalytics = lazy(() => import("./components/StudentAnalytics"));
 const AcademicPlanner = lazy(() => import("./components/AcademicPlanner"));
 const LearningHub = lazy(() => import("./components/learning/LearningHub"));
+const StudentMemoryPage = lazy(() => import("./components/StudentMemoryPage"));
 
 /** Every hash route the app answers to — the single source of truth for both the
  *  initial read on mount and the popstate handler, so they can't drift apart. */
 const VALID_VIEWS = [
   'chat', 'learning', 'profile', 'settings', 'video', 'disability',
-  'admin', 'goals', 'gpa', 'analytics', 'planner', 'support',
+  'admin', 'goals', 'gpa', 'analytics', 'planner', 'support', 'memory',
 ] as const;
 
 export default function App() {
   const [user, loading, authError] = useAuthState(auth);
   const chatRef = useRef<any>(null);
   
-  // Seed from the URL hash so deep links and F5 land on the right screen. This
-  // was hardcoded to 'chat', so every shared link and every refresh dropped the
-  // user on the chat view with the address bar still showing the old hash — and
-  // an accessibility user was then bounced by the access guard to #disability,
-  // losing their page on every reload.
-  const [currentView, setCurrentView] = useState<
-  'chat' | 'learning' | 'profile' | 'settings' | 'video' | 'disability' | 'admin' | 'goals' | 'gpa' | 'analytics' | 'planner' | 'support'
->(() => {
+  // Seed from the URL hash so deep links and F5 land on the right screen.
+  const [currentView, setCurrentView] = useState<AppView>(() => {
     const h = typeof window !== 'undefined' ? window.location.hash.replace('#', '') : '';
     return (VALID_VIEWS as readonly string[]).includes(h) ? (h as any) : 'chat';
   });
@@ -81,6 +78,45 @@ export default function App() {
   const [isSTTActive, setIsSTTActive] = useState(false);
   const [disabilityTab, setDisabilityTab] = useState<'chat' | 'settings' | 'video' | 'bridge' | 'org' | 'motor' | 'vision'>('video');
   const [isLiveCaptionsOpen, setIsLiveCaptionsOpen] = useState(false);
+
+  // Cognify Memory (Phase 2) state
+  const [memoryState, setMemoryState] = useState<StudentMemory | null>(null);
+  const [memoryLoading, setMemoryLoading] = useState<boolean>(true);
+  const [memoryError, setMemoryError] = useState<string | null>(null);
+
+  // Subscribe to Cognify Memory snapshot from Firestore (Single Source of Truth)
+  useEffect(() => {
+    if (!user?.uid) {
+      setMemoryState(null);
+      setMemoryLoading(false);
+      setMemoryError(null);
+      return;
+    }
+
+    setMemoryLoading(true);
+    setMemoryError(null);
+
+    const unsubscribe = subscribeToStudentMemory(
+      user.uid,
+      (mem) => {
+        setMemoryState(mem);
+        setMemoryLoading(false);
+        setMemoryError(null);
+      },
+      (err) => {
+        console.error('Firestore memory subscription error:', err);
+        setMemoryError('Failed to load Cognify Memory from Firestore.');
+        setMemoryLoading(false);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [user?.uid]);
+
+  // Merge memory snapshot with user profile
+  const fullProfile: UserProfile | null = profile
+    ? { ...profile, memory: memoryState || undefined }
+    : null;
 
   const direction = isRTL(profile?.language) ? 'rtl' : 'ltr';
 
@@ -170,7 +206,7 @@ export default function App() {
 
   // Custom navigation function that updates URL and state
  const navigateTo = (
-  view: 'chat' | 'learning' | 'profile' | 'settings' | 'video' | 'disability' | 'admin' | 'goals' | 'gpa' | 'analytics' | 'planner' | 'support'
+  view: AppView
 ) => {
   window.history.pushState(null, '', `#${view}`);
   setCurrentView(view);
@@ -523,17 +559,17 @@ export default function App() {
   }
 
   const renderView = () => {
-    if (!profile) return null;
+    const activeProfile = fullProfile || profile;
+    if (!activeProfile) return null;
     // Guard academic sections that aren't available for this education level
-    // (e.g. a school/professional user landing on #gpa or #analytics directly).
     if (
       (['gpa', 'analytics', 'goals', 'planner'] as const).includes(currentView as any) &&
-      !canAccessSection(profile.educationLevel, currentView as any)
+      !canAccessSection(activeProfile.educationLevel, currentView as any)
     ) {
       return (
         <ChatInterface
           ref={chatRef}
-          profile={profile}
+          profile={activeProfile}
           onQuestionEvaluated={updateQuestionHistory}
           syncMessages={syncActiveThread}
           onMenuClick={() => setIsMobileMenuOpen(true)}
@@ -550,7 +586,7 @@ export default function App() {
           <>
             <ChatInterface 
               ref={chatRef}
-              profile={profile} 
+              profile={activeProfile}
               onQuestionEvaluated={updateQuestionHistory} 
               syncMessages={syncActiveThread} 
               onMenuClick={() => setIsMobileMenuOpen(true)} 
@@ -562,13 +598,13 @@ export default function App() {
           </>
         );
       case 'learning':
-        return <LearningHub profile={profile} onMenuClick={() => setIsMobileMenuOpen(true)} />;
+        return <LearningHub profile={activeProfile} onMenuClick={() => setIsMobileMenuOpen(true)} />;
       case 'video':
-        return <SignVideoStudio profile={profile} onMenuClick={() => setIsMobileMenuOpen(true)} />;
+        return <SignVideoStudio profile={activeProfile} onMenuClick={() => setIsMobileMenuOpen(true)} />;
       case 'disability':
         return <DisabilityModeView
           ref={chatRef}
-          profile={profile}
+          profile={activeProfile}
           onMenuClick={() => setIsMobileMenuOpen(true)}
           onNavigate={navigateTo}
           onQuestionEvaluated={updateQuestionHistory}
@@ -579,26 +615,41 @@ export default function App() {
           onTabChange={setDisabilityTab}
           setProfile={setProfile}
         />;
+      case 'memory':
+        return (
+          <StudentMemoryPage
+            profile={activeProfile}
+            memory={memoryState}
+            loading={memoryLoading}
+            error={memoryError}
+            onRetry={() => {
+              if (user?.uid) {
+                setMemoryLoading(true);
+                setMemoryError(null);
+              }
+            }}
+          />
+        );
       case 'profile':
-        return <ProfilePage profile={profile} onMenuClick={() => setIsMobileMenuOpen(true)} />;
+        return <ProfilePage profile={activeProfile} onMenuClick={() => setIsMobileMenuOpen(true)} />;
       case 'admin':
-        return <AdminDashboard profile={profile} onMenuClick={() => setIsMobileMenuOpen(true)} />;
+        return <AdminDashboard profile={activeProfile} onMenuClick={() => setIsMobileMenuOpen(true)} />;
       case 'support':
-        return <SupportCenter profile={profile} onMenuClick={() => setIsMobileMenuOpen(true)} />;
+        return <SupportCenter profile={activeProfile} onMenuClick={() => setIsMobileMenuOpen(true)} />;
 
-        case 'goals':
-  return (
-    <GoalTracker
-      profile={profile}
-      onMenuClick={() => setIsMobileMenuOpen(true)}
-    />
-  );
+      case 'goals':
+        return (
+          <GoalTracker
+            profile={activeProfile}
+            onMenuClick={() => setIsMobileMenuOpen(true)}
+          />
+        );
       case 'gpa':
-        return <GpaCalculator profile={profile} onMenuClick={() => setIsMobileMenuOpen(true)} />;
+        return <GpaCalculator profile={activeProfile} onMenuClick={() => setIsMobileMenuOpen(true)} />;
       case 'analytics':
-        return <StudentAnalytics profile={profile} onMenuClick={() => setIsMobileMenuOpen(true)} />;
+        return <StudentAnalytics profile={activeProfile} onMenuClick={() => setIsMobileMenuOpen(true)} />;
       case 'planner':
-        return <AcademicPlanner profile={profile} onMenuClick={() => setIsMobileMenuOpen(true)} />;
+        return <AcademicPlanner profile={activeProfile} onMenuClick={() => setIsMobileMenuOpen(true)} />;
 
       case 'settings':
         return (
@@ -729,7 +780,7 @@ export default function App() {
             aria-label={localize(profile?.language, 'Main menu', 'القائمة الرئيسية')}
             className={`fixed inset-y-0 start-0 z-50 transform ${isMobileMenuOpen ? 'translate-x-0' : (direction === 'rtl' ? 'translate-x-full invisible' : '-translate-x-full invisible')} transition-transform duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] shadow-2xl`}>
             <Sidebar 
-              profile={profile} 
+              profile={fullProfile || profile}
               setProfile={async (p) => {
                 // Update local state instantly so UI is highly reactive
                 setProfile(p);

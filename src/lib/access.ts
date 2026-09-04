@@ -5,7 +5,7 @@ import { UserProfile, AccountPath } from '../types';
 // experience without belonging to it.
 export type AppView =
   | 'chat' | 'learning' | 'profile' | 'settings' | 'video' | 'disability'
-  | 'admin' | 'goals' | 'gpa' | 'analytics' | 'planner' | 'support';
+  | 'admin' | 'goals' | 'gpa' | 'analytics' | 'planner' | 'support' | 'memory';
 
 /** A user counts as an accessibility user if they picked the Special Needs path
  *  OR have a real accessibility mode enabled. */
@@ -22,7 +22,7 @@ export function sectionOf(profile: Pick<UserProfile, 'accountPath'>): AccountPat
 
 /** Views an accessibility (Special Needs) user is allowed to open — their world
  *  is the disability center plus personal/account screens and adaptive learning hub. */
-const ACCESSIBILITY_ALLOWED: AppView[] = ['disability', 'learning', 'profile', 'settings', 'support'];
+const ACCESSIBILITY_ALLOWED: AppView[] = ['disability', 'learning', 'profile', 'settings', 'support', 'memory'];
 
 /**
  * Can this profile open the given view?

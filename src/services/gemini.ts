@@ -116,11 +116,26 @@ console.info(
 
 /** Compact adaptive system prompt (shared by the Groq fallback). */
 function buildPersona(profile: UserProfile): string {
+  let memoryBlock = '';
+  if (profile.memory && profile.memory.enabled === true) {
+    const goals = profile.memory.learningGoals?.length
+      ? profile.memory.learningGoals.map((g) => `- ${g}`).join('\n')
+      : '- None specified';
+    const prefs = profile.memory.knownPreferences?.length
+      ? profile.memory.knownPreferences.map((p) => `- ${p}`).join('\n')
+      : '- None specified';
+    const confirmed = profile.memory.explicitConfirmedInfo?.length
+      ? profile.memory.explicitConfirmedInfo.map((c) => `- ${c}`).join('\n')
+      : '- None specified';
+
+    memoryBlock = `\n## COGNIFY STUDENT MEMORY\n- Language: ${profile.memory.preferredLanguage || 'English'}\n- Style: ${profile.memory.explanationStyle || 'Practical examples first'}\n- Goals:\n${goals}\n- Preferences:\n${prefs}\n- Confirmed Facts:\n${confirmed}`;
+  }
+
   return `You are Cognify, an adaptive AI mentor. Answer the most correct, useful answer calibrated to THIS user.
 - Level: ${profile.level} | Role: ${profile.role} | Field: ${profile.field}
 - Reply in the SAME language/dialect as the user's last message (incl. Egyptian Arabic if they use it).
 - Basic: simple, analogies, no jargon. Intermediate: normal, brief reasoning. Advanced: rigorous, direct.
-- Answer first, no filler openers. Be honest if unsure; never invent facts.`;
+- Answer first, no filler openers. Be honest if unsure; never invent facts.${memoryBlock}`;
 }
 
 // Stream a chat completion from Groq (OpenAI-compatible). Yields {text, done}.
@@ -498,6 +513,31 @@ async function* generateAdaptiveResponseStreamClient(
     .map(t => `Thread "${t.title}": ${t.lastMessageSnippet || 'No summary'}`)
     .join('\n') || 'None';
 
+  let studentMemoryBlock = '';
+  if (profile.memory && profile.memory.enabled === true) {
+    const goals = profile.memory.learningGoals?.length
+      ? profile.memory.learningGoals.map((g) => `- ${g}`).join('\n')
+      : '- None specified';
+    const prefs = profile.memory.knownPreferences?.length
+      ? profile.memory.knownPreferences.map((p) => `- ${p}`).join('\n')
+      : '- None specified';
+    const confirmed = profile.memory.explicitConfirmedInfo?.length
+      ? profile.memory.explicitConfirmedInfo.map((c) => `- ${c}`).join('\n')
+      : '- None specified';
+
+    studentMemoryBlock = `
+## COGNIFY STUDENT MEMORY
+- Preferred Explanation Language: ${profile.memory.preferredLanguage || 'English'}
+- Explanation Style Preference: ${profile.memory.explanationStyle || 'Practical examples first'}
+- Current Learning Goals:
+${goals}
+- Known Preferences:
+${prefs}
+- Explicitly Confirmed Student Facts:
+${confirmed}
+`;
+  }
+
   const systemInstruction = `
 You are Cognify, an adaptive AI mentor. Your only goal: the most correct, useful answer possible, calibrated to THIS user.
 
@@ -536,8 +576,8 @@ ${profile.accessibilityMode === 'Visual' ? `- USER IS BLIND. Describing an image
   4) Be concise — a few short sentences, not a paragraph. No flowery/"vivid" language, no markdown, no tables — this is read aloud by TTS.` : ''}
 ${(profile.accessibilityMode === 'Vocal-Deaf' || profile.accessibilityMode === 'Sign-Only') ? `- User is deaf. Short, visual sentences.` : ''}
 ${profile.accessibilityMode === 'Speech' ? `- Output is read aloud by TTS: smooth speakable prose, no tables, no symbol clutter, no markdown noise.` : ''}
-
-## MEMORY
+${studentMemoryBlock}
+## THREAD MEMORY
 Summaries of the user's other threads are below. Use them ONLY if the user explicitly asks about past conversations. Otherwise ignore them completely — never volunteer them, especially not on greetings.
 ${otherThreadsSummary}
 `;

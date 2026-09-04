@@ -1,19 +1,19 @@
 import { localize } from '../lib/translations';
 import { useState } from "react";
 import { UserProfile, CognitiveLevel, UserRole, ChatThread } from "../types";
-import { User, Settings, GraduationCap, Accessibility, LifeBuoy, MessageSquare, BarChart3, AlertCircle, LogOut, Plus, ChevronRight, X, Moon, Sun, Mic, Target, Calculator, CalendarCheck, LayoutDashboard, CalendarDays, Sparkles } from "lucide-react";
+import { User, Settings, GraduationCap, Accessibility, LifeBuoy, MessageSquare, BarChart3, AlertCircle, LogOut, Plus, ChevronRight, X, Moon, Sun, Mic, Target, Calculator, CalendarCheck, LayoutDashboard, CalendarDays, Sparkles, Brain } from "lucide-react";
 import { logout, db } from "../lib/firebase";
 import { deleteDoc, doc } from "firebase/firestore";
 import { getTranslation } from "../lib/translations";
 import { isAdminUser } from "../lib/roles";
 import { visibleAcademicSections } from "../lib/academics";
-import { isAccessibilityUser } from "../lib/access";
+import { isAccessibilityUser, AppView } from "../lib/access";
 
 interface SidebarProps {
   profile: UserProfile;
   setProfile: (profile: UserProfile) => void;
-  currentView: 'chat' | 'learning' | 'profile' | 'settings' | 'video' | 'disability' | 'admin' | 'goals' | 'gpa' | 'analytics' | 'planner' | 'support';
-  setCurrentView: (view: 'chat' | 'learning' | 'profile' | 'settings' | 'video' | 'disability' | 'admin' | 'goals' | 'gpa' | 'analytics' | 'planner' | 'support') => void;
+  currentView: AppView;
+  setCurrentView: (view: AppView) => void;
   isDarkMode: boolean;
   toggleTheme: () => void;
   openLiveCaptions: () => void;
@@ -149,6 +149,12 @@ export default function Sidebar({ profile, setProfile, currentView, setCurrentVi
             )}
           </>
         )}
+
+        {/* Cognify Memory */}
+        <button onClick={() => setCurrentView('memory')} className={navBtn(currentView === 'memory')}>
+          <Brain className={navIcon(currentView === 'memory')} />
+          {localize(profile.language, 'Cognify Memory', 'ذاكرة كوجنيفي')}
+        </button>
 
         {/* Accessibility — for accessibility users (Special Needs path or a real
             mode), admins (inspect everything), and org managers (their org

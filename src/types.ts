@@ -38,6 +38,16 @@ export interface Task {
   createdAt: string;
 }
 
+export interface StudentMemory {
+  enabled: boolean; // Privacy-first default: false
+  preferredLanguage: string;
+  explanationStyle: string;
+  learningGoals: string[];
+  knownPreferences: string[];
+  explicitConfirmedInfo: string[];
+  updatedAt: string; // ISO 8601 string
+}
+
 export interface UserProfile {
   uid: string;
   email: string;
@@ -76,6 +86,11 @@ export interface UserProfile {
   activeThreadId?: string;
   tasks?: Task[];
   lastActiveDate?: string;
+  /**
+   * Phase 2: Cognify Memory (Transparent Student Memory).
+   * Stored under users/{userId}/memory/config in Firestore.
+   */
+  memory?: StudentMemory;
   /**
    * Eye-tracking / auto-scan tuning, synced so it follows the student.
    *
