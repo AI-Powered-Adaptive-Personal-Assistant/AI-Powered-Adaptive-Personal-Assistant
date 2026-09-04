@@ -48,6 +48,54 @@ export interface StudentMemory {
   updatedAt: string; // ISO 8601 string
 }
 
+export type PedagogyStyle = 'analogies' | 'technical' | 'scaffolded' | 'socratic';
+
+export interface CognitiveDomainScores {
+  fluidReasoning: number;      // 0–100 scaled
+  quantitativeLogic: number;   // 0–100 scaled
+  workingMemory: number;       // 0–100 scaled
+  processingSpeed: number;     // 0–100 scaled
+}
+
+export interface IqAssessmentRecord {
+  id: string;
+  testIndex: number;          // 1, 2, 3...
+  date: string;               // ISO date
+  iqScore: number;            // Normalized (mean 100, SD 15)
+  domainScores: CognitiveDomainScores;
+  durationSeconds: number;
+  recommendedPersona: 'Foundational' | 'Balanced' | 'Socratic';
+}
+
+export interface ConceptMastery {
+  conceptId: string;
+  conceptName: string;
+  domain: string;
+  confidenceScore: number;    // 0-100%
+  status: 'developing' | 'mastered';
+  evidenceCount: number;      // Count of confirming interactions
+  lastPracticed: string;      // ISO date
+}
+
+export interface LearningIntelligenceProfile {
+  masteredConcepts: ConceptMastery[];
+  developingConcepts: ConceptMastery[];
+  confidenceScore: number;    // Overall 0-100%
+  cognitiveStrengths: string[];
+  recommendedFocus: string[];
+  updatedAt: string;
+}
+
+export interface EvaluationRecord {
+  id: string;
+  topic: string;
+  date: string;
+  preQuizScore: number;       // 0-100
+  postQuizScore: number;      // 0-100
+  normalizedGain: number;     // Hake's g: (Post - Pre) / (100 - Pre)
+  durationMinutes: number;
+}
+
 export interface UserProfile {
   uid: string;
   email: string;
@@ -91,6 +139,25 @@ export interface UserProfile {
    * Stored under users/{userId}/memory/config in Firestore.
    */
   memory?: StudentMemory;
+  /**
+   * Phase 3: Adaptive Pedagogy Style Preference
+   */
+  preferredPedagogyStyle?: PedagogyStyle;
+  /**
+   * Phase 4: Cognitive Architecture & Scientific IQ Assessment
+   */
+  cognitiveDomains?: CognitiveDomainScores;
+  iqAssessmentHistory?: IqAssessmentRecord[];
+  lastIqTestDate?: string;
+  nextEligibleIqDate?: string;
+  dailyGymStreak?: number;
+  lastGymDate?: string;
+  gymPoints?: number;
+  learningIntelligence?: LearningIntelligenceProfile;
+  /**
+   * Phase 5: Empirical Evaluation Engine
+   */
+  evaluationRecords?: EvaluationRecord[];
   /**
    * Eye-tracking / auto-scan tuning, synced so it follows the student.
    *

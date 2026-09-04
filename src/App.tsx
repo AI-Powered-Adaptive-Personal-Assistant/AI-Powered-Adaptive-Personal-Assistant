@@ -19,6 +19,7 @@ import { useAuthState } from "react-firebase-hooks/auth";
 import { doc, setDoc, onSnapshot, getDocFromServer } from "firebase/firestore";
 import { Loader2, Settings, Layers, Menu, Moon, Sun, AlertCircle, RefreshCw, Mail } from "lucide-react";
 import { ToastContainer } from "./components/Toast";
+import PwaInstallPrompt from "./components/PwaInstallPrompt";
 
 import { isRTL, getTranslation, localize } from "./lib/translations";
 import { canAccessSection } from "./lib/academics";
@@ -41,12 +42,16 @@ const StudentAnalytics = lazy(() => import("./components/StudentAnalytics"));
 const AcademicPlanner = lazy(() => import("./components/AcademicPlanner"));
 const LearningHub = lazy(() => import("./components/learning/LearningHub"));
 const StudentMemoryPage = lazy(() => import("./components/StudentMemoryPage"));
+const InstitutionCohortHub = lazy(() => import("./components/InstitutionCohortHub"));
+const CognitiveGym = lazy(() => import("./components/CognitiveGym"));
+const IqAssessmentModal = lazy(() => import("./components/IqAssessmentModal"));
 
 /** Every hash route the app answers to — the single source of truth for both the
  *  initial read on mount and the popstate handler, so they can't drift apart. */
 const VALID_VIEWS = [
   'chat', 'learning', 'profile', 'settings', 'video', 'disability',
   'admin', 'goals', 'gpa', 'analytics', 'planner', 'support', 'memory',
+  'institution', 'gym', 'iq',
 ] as const;
 
 export default function App() {
@@ -78,6 +83,7 @@ export default function App() {
   const [isSTTActive, setIsSTTActive] = useState(false);
   const [disabilityTab, setDisabilityTab] = useState<'chat' | 'settings' | 'video' | 'bridge' | 'org' | 'motor' | 'vision'>('video');
   const [isLiveCaptionsOpen, setIsLiveCaptionsOpen] = useState(false);
+  const [isIqModalOpen, setIsIqModalOpen] = useState(false);
 
   // Cognify Memory (Phase 2) state
   const [memoryState, setMemoryState] = useState<StudentMemory | null>(null);
@@ -653,6 +659,18 @@ export default function App() {
         return <StudentAnalytics profile={activeProfile} onMenuClick={() => setIsMobileMenuOpen(true)} />;
       case 'planner':
         return <AcademicPlanner profile={activeProfile} onMenuClick={() => setIsMobileMenuOpen(true)} />;
+      case 'institution':
+        return <InstitutionCohortHub profile={activeProfile} onMenuClick={() => setIsMobileMenuOpen(true)} />;
+
+      case 'gym':
+      case 'iq':
+        return (
+          <CognitiveGym
+            profile={activeProfile}
+            onMenuClick={() => setIsMobileMenuOpen(true)}
+            onOpenIqModal={() => setIsIqModalOpen(true)}
+          />
+        );
 
       case 'settings':
         return (
@@ -757,6 +775,7 @@ export default function App() {
         dir={direction}
       >
         <ToastContainer rtl={direction === 'rtl'} />
+        <PwaInstallPrompt language={profile?.language} />
         <ReadAloudSelection language={profile?.language} />
 
         {/* Mobile menu backdrop */}
@@ -872,6 +891,26 @@ export default function App() {
             />
           )}
         </AnimatePresence>
+
+        <Suspense fallback={null}>
+          {isIqModalOpen && (fullProfile || profile) && (
+            <IqAssessmentModal
+              isOpen={isIqModalOpen}
+              onClose={() => setIsIqModalOpen(false)}
+              profile={fullProfile || profile}
+              onIqUpdated={(newScore, domainScores) => {
+                if (profile) {
+                  setProfile({
+                    ...profile,
+                    iqScore: newScore,
+                    cognitiveDomains: domainScores,
+                    lastIqTestDate: new Date().toISOString(),
+                  });
+                }
+              }}
+            />
+          )}
+        </Suspense>
       </div>
     </ErrorBoundary>
   );

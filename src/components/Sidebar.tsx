@@ -1,7 +1,7 @@
 import { localize } from '../lib/translations';
 import { useState } from "react";
 import { UserProfile, CognitiveLevel, UserRole, ChatThread } from "../types";
-import { User, Settings, GraduationCap, Accessibility, LifeBuoy, MessageSquare, BarChart3, AlertCircle, LogOut, Plus, ChevronRight, X, Moon, Sun, Mic, Target, Calculator, CalendarCheck, LayoutDashboard, CalendarDays, Sparkles, Brain } from "lucide-react";
+import { User, Settings, GraduationCap, Accessibility, LifeBuoy, MessageSquare, BarChart3, AlertCircle, LogOut, Plus, ChevronRight, X, Moon, Sun, Mic, Target, Calculator, CalendarCheck, LayoutDashboard, CalendarDays, Sparkles, Brain, Building2, Flame } from "lucide-react";
 import { logout, db } from "../lib/firebase";
 import { deleteDoc, doc } from "firebase/firestore";
 import { getTranslation } from "../lib/translations";
@@ -156,6 +156,20 @@ export default function Sidebar({ profile, setProfile, currentView, setCurrentVi
           {localize(profile.language, 'Cognify Memory', 'ذاكرة كوجنيفي')}
         </button>
 
+        {/* Phase 4: Cognitive Gym */}
+        <button onClick={() => setCurrentView('gym')} className={navBtn(currentView === 'gym')}>
+          <Flame className={navIcon(currentView === 'gym')} />
+          {localize(profile.language, 'Cognitive Gym', 'الجيم المعرفي')}
+        </button>
+
+        {/* Phase 7: Institution Cohorts Hub */}
+        {(isAdmin || profile.isOrgManager === true) && (
+          <button onClick={() => setCurrentView('institution')} className={navBtn(currentView === 'institution')}>
+            <Building2 className={navIcon(currentView === 'institution')} />
+            {localize(profile.language, 'Institution Cohorts', 'شؤون المؤسسة')}
+          </button>
+        )}
+
         {/* Accessibility — for accessibility users (Special Needs path or a real
             mode), admins (inspect everything), and org managers (their org
             dashboard lives inside the hub). */}
@@ -181,6 +195,7 @@ export default function Sidebar({ profile, setProfile, currentView, setCurrentVi
             <span className="ms-auto text-[10px] font-bold text-text-muted bg-surface-3 px-[7px] py-[3px] rounded-full">{localize(profile.language, 'Staff', 'مقيّد')}</span>
           </button>
         )}
+
 
         {/* Recent threads — hidden for accessibility users: switchThread() ends in
             setCurrentView('chat'), which they can't access, so the access guard

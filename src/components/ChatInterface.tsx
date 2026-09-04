@@ -1,8 +1,9 @@
 import { localize } from '../lib/translations';
 import React, { useState, useRef, useEffect } from "react";
-import { Message, UserProfile, Task } from "../types";
+import { Message, UserProfile, Task, PedagogyStyle } from "../types";
 import { generateAdaptiveResponseStream, generateBenchmarkComparison, generateProactiveInsights, generateChatTitle } from "../services/gemini";
 import { geminiService } from "../services/geminiService";
+import { PEDAGOGY_STYLES } from "../lib/adaptiveLearning";
 import { Send, Bot, User, Loader2, Sparkles, BrainCircuit, Paperclip, ImageIcon, FileText, X, Accessibility, Menu, Download, Mic, MicOff, RefreshCw, Volume2, ListTodo, Plus, Trash2, CheckCircle2, Circle, Scale, Lightbulb, ThumbsUp, ThumbsDown, Copy, Square } from "lucide-react";
 import Markdown from 'react-markdown';
 import { motion, AnimatePresence } from "motion/react";
@@ -129,6 +130,20 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
   const [showInsights, setShowInsights] = useState(false);
   const [insights, setInsights] = useState<string | null>(null);
   const [isGeneratingInsights, setIsGeneratingInsights] = useState(false);
+
+  const [activePedagogyStyle, setActivePedagogyStyle] = useState<PedagogyStyle>(profile?.preferredPedagogyStyle || 'analogies');
+
+  const handleSelectPedagogy = (style: PedagogyStyle) => {
+    setActivePedagogyStyle(style);
+    if (setProfile) {
+      setProfile({ ...profile, preferredPedagogyStyle: style });
+    }
+    if (profile?.uid) {
+      setDoc(doc(db, `users/${profile.uid}`), cleanDataForFirestore({
+        preferredPedagogyStyle: style
+      }), { merge: true }).catch(() => {});
+    }
+  };
 
   const currentThreadId = profile.activeThreadId || Date.now().toString();
 
@@ -823,7 +838,11 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
     let streamedAttachments: any[] = [];
     let usedFallback = false;
     try {
-      const stream = generateAdaptiveResponseStream(submittedMessage, profile, newHistory, attachmentsToSubmit, abortRef.current?.signal);
+      const calibratedProfile: UserProfile = {
+        ...profile,
+        preferredPedagogyStyle: activePedagogyStyle,
+      };
+      const stream = generateAdaptiveResponseStream(submittedMessage, calibratedProfile, newHistory, attachmentsToSubmit, abortRef.current?.signal);
 
       for await (const chunk of stream) {
         if (!isMountedRef.current || stopRef.current) break; // user pressed Stop or left
@@ -1719,6 +1738,31 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
             )}
           </AnimatePresence>
           
+          {/* Phase 3: Adaptive Pedagogy Style Bar */}
+          <div className="flex items-center gap-1.5 mb-2 overflow-x-auto custom-scrollbar py-0.5 px-1">
+            <span className="text-[10px] text-text-muted font-bold uppercase shrink-0">
+              {localize(profile.language, 'Pedagogy:', 'أسلوب الشرح:')}
+            </span>
+            {PEDAGOGY_STYLES.map((st) => {
+              const isSelected = activePedagogyStyle === st.id;
+              return (
+                <button
+                  key={st.id}
+                  type="button"
+                  onClick={() => handleSelectPedagogy(st.id)}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all shrink-0 flex items-center gap-1 border ${
+                    isSelected
+                      ? 'bg-primary/15 text-primary border-primary/30 shadow-xs ring-1 ring-primary/20'
+                      : 'bg-surface-2 text-text-muted border-border/60 hover:bg-surface-3 hover:text-text-main'
+                  }`}
+                  title={localize(profile.language, st.descriptionEn, st.descriptionAr)}
+                >
+                  <span>{localize(profile.language, st.labelEn, st.labelAr)}</span>
+                </button>
+              );
+            })}
+          </div>
+
           <form onSubmit={handleSubmit} className="relative group">
             <input
               type="file"

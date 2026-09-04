@@ -5,7 +5,8 @@ import { UserProfile, AccountPath } from '../types';
 // experience without belonging to it.
 export type AppView =
   | 'chat' | 'learning' | 'profile' | 'settings' | 'video' | 'disability'
-  | 'admin' | 'goals' | 'gpa' | 'analytics' | 'planner' | 'support' | 'memory';
+  | 'admin' | 'goals' | 'gpa' | 'analytics' | 'planner' | 'support' | 'memory'
+  | 'gym' | 'iq' | 'institution';
 
 /** A user counts as an accessibility user if they picked the Special Needs path
  *  OR have a real accessibility mode enabled. */
@@ -22,7 +23,7 @@ export function sectionOf(profile: Pick<UserProfile, 'accountPath'>): AccountPat
 
 /** Views an accessibility (Special Needs) user is allowed to open — their world
  *  is the disability center plus personal/account screens and adaptive learning hub. */
-const ACCESSIBILITY_ALLOWED: AppView[] = ['disability', 'learning', 'profile', 'settings', 'support', 'memory'];
+const ACCESSIBILITY_ALLOWED: AppView[] = ['disability', 'learning', 'profile', 'settings', 'support', 'memory', 'gym', 'iq'];
 
 /**
  * Can this profile open the given view?
@@ -40,6 +41,7 @@ export function canAccessView(
 ): boolean {
   if (!profile) return false;
   if (view === 'admin') return isAdmin;
+  if (view === 'institution') return isAdmin || profile.isOrgManager === true;
   if (isAdmin) return true; // admins/testers bypass section scoping
 
   const accessibility = isAccessibilityUser(profile);

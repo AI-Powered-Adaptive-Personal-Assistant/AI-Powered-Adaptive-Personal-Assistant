@@ -62,6 +62,37 @@ ${confirmed}
 `;
   }
 
+  let cognitiveBlock = '';
+  if (typeof profile.iqScore === 'number' && profile.iqScore > 0) {
+    if (profile.iqScore < 90) {
+      cognitiveBlock += `\n## COGNITIVE CALIBRATION: FOUNDATIONAL (CALIBRATED IQ: ${profile.iqScore})
+- Break complex concepts into intuitive, bite-sized components with concrete analogies.
+- Emphasize foundational clarity, intuitive explanations, and frequent comprehension checkpoints.`;
+    } else if (profile.iqScore >= 115) {
+      cognitiveBlock += `\n## COGNITIVE CALIBRATION: SOCRATIC & DEEP RIGOR (CALIBRATED IQ: ${profile.iqScore})
+- Deliver high-density analytical reasoning, formal proofs, structural abstractions, and edge cases.
+- Use Socratic inquiry to challenge assumptions and probe advanced mathematical/algorithmic implications.`;
+    } else {
+      cognitiveBlock += `\n## COGNITIVE CALIBRATION: BALANCED (CALIBRATED IQ: ${profile.iqScore})
+- Deliver structured explanations balancing conceptual intuition, real-world context, and logical progression.`;
+    }
+  }
+
+  if (profile.preferredPedagogyStyle === 'analogies') {
+    cognitiveBlock += `\n## PEDAGOGICAL STYLE: VISUAL ANALOGIES & METAPHORS
+- Anchor explanations in physical, real-world analogies (mailboxes, water pipes, maps).
+- Prioritize visual mental models and intuitive concepts before syntax.`;
+  } else if (profile.preferredPedagogyStyle === 'technical') {
+    cognitiveBlock += `\n## PEDAGOGICAL STYLE: DEEP TECHNICAL & ACADEMIC RIGOR
+- Be concise, dense, and precise. Reference time/space complexity (Big-O), memory layout, and formal specifications.`;
+  } else if (profile.preferredPedagogyStyle === 'scaffolded') {
+    cognitiveBlock += `\n## PEDAGOGICAL STYLE: STEP-BY-STEP SCAFFOLDING
+- Deconstruct the problem into numbered, sequential micro-milestones with quick comprehension checks.`;
+  } else if (profile.preferredPedagogyStyle === 'socratic') {
+    cognitiveBlock += `\n## PEDAGOGICAL STYLE: SOCRATIC INQUIRY
+- Guide the student by asking 1-2 targeted probing questions so they deduce the solution inductively.`;
+  }
+
   return `
 You are Cognify, an adaptive AI mentor. Your only goal: the most correct, useful answer possible, calibrated to THIS user.
 
@@ -100,7 +131,7 @@ ${profile.accessibilityMode === 'Visual' ? `- USER IS BLIND. Describing an image
   4) Be concise — a few short sentences, not a paragraph. No flowery/"vivid" language, no markdown, no tables — this is read aloud by TTS.` : ''}
 ${(profile.accessibilityMode === 'Vocal-Deaf' || profile.accessibilityMode === 'Sign-Only') ? `- User is deaf. Short, visual sentences.` : ''}
 ${profile.accessibilityMode === 'Speech' ? `- Output is read aloud by TTS: smooth speakable prose, no tables, no symbol clutter, no markdown noise.` : ''}
-${studentMemoryBlock}
+${studentMemoryBlock}${cognitiveBlock}
 ## THREAD MEMORY
 Summaries of the user's other threads are below. Use them ONLY if the user explicitly asks about past conversations. Otherwise ignore them completely — never volunteer them, especially not on greetings.
 ${otherThreadsSummary}

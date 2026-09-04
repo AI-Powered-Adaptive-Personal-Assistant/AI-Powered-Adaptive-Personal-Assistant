@@ -117,6 +117,8 @@ export interface Profile {
   accessibilityMode?: string;
   chatThreads?: { id?: string; title?: string; lastMessageSnippet?: string }[];
   activeThreadId?: string;
+  iqScore?: number;
+  preferredPedagogyStyle?: string;
   memory?: {
     enabled?: boolean;
     preferredLanguage?: string;
@@ -154,10 +156,46 @@ ${prefs}
 ${confirmed}\n`;
 }
 
+function formatCognitiveCalibration(iqScore?: number, style?: string): string {
+  let res = '';
+  if (typeof iqScore === 'number' && iqScore > 0) {
+    if (iqScore < 90) {
+      res += `\n## COGNITIVE CALIBRATION: FOUNDATIONAL (CALIBRATED IQ: ${iqScore})
+- Break complex concepts into intuitive, bite-sized components with concrete analogies.
+- Emphasize foundational clarity, intuitive explanations, and frequent comprehension checkpoints.`;
+    } else if (iqScore >= 115) {
+      res += `\n## COGNITIVE CALIBRATION: SOCRATIC & DEEP RIGOR (CALIBRATED IQ: ${iqScore})
+- Deliver high-density analytical reasoning, formal proofs, structural abstractions, and edge cases.
+- Use Socratic inquiry to challenge assumptions and probe advanced mathematical/algorithmic implications.`;
+    } else {
+      res += `\n## COGNITIVE CALIBRATION: BALANCED (CALIBRATED IQ: ${iqScore})
+- Deliver structured explanations balancing conceptual intuition, real-world context, and logical progression.`;
+    }
+  }
+
+  if (style === 'analogies') {
+    res += `\n## PEDAGOGICAL STYLE: VISUAL ANALOGIES & METAPHORS
+- Anchor explanations in physical, real-world analogies (mailboxes, water pipes, maps).
+- Prioritize visual mental models and intuitive concepts before syntax.`;
+  } else if (style === 'technical') {
+    res += `\n## PEDAGOGICAL STYLE: DEEP TECHNICAL & ACADEMIC RIGOR
+- Be concise, dense, and precise. Reference time/space complexity (Big-O), memory layout, and formal specifications.`;
+  } else if (style === 'scaffolded') {
+    res += `\n## PEDAGOGICAL STYLE: STEP-BY-STEP SCAFFOLDING
+- Deconstruct the problem into numbered, sequential micro-milestones with quick comprehension checks.`;
+  } else if (style === 'socratic') {
+    res += `\n## PEDAGOGICAL STYLE: SOCRATIC INQUIRY
+- Guide the student by asking 1-2 targeted probing questions so they deduce the solution inductively.`;
+  }
+
+  return res;
+}
+
 /** The adaptive system prompt. Kept in step with the client's previous inline version. */
 export function buildPersona(profile: Profile, otherThreads = ''): string {
   const a11y = profile.accessibilityMode;
   const memoryBlock = formatStudentMemoryBlock(profile.memory);
+  const cognitiveBlock = formatCognitiveCalibration(profile.iqScore, profile.preferredPedagogyStyle);
   return `You are Cognify, an adaptive AI mentor. Give the most correct, useful answer calibrated to THIS user.
 - Level: ${profile.level || 'Basic'} | Role: ${profile.role || 'Student'} | Field: ${profile.field || 'General'}
 
@@ -171,7 +209,7 @@ export function buildPersona(profile: Profile, otherThreads = ''): string {
 - Simple question → 1-4 sentences of plain prose. Bullets/headers ONLY when genuinely multi-part.
 - If the input is messy or mixed-language, infer the intent and answer it.
 - If you are not certain, say so briefly. Never invent facts, sources or numbers.
-${a11y === 'Visual' ? '\n## ACCESSIBILITY\n- USER IS BLIND. Describing an image/photo is a practical task, not a creative one:\n  1) Say FIRST if anything looks like a hazard (traffic, stairs, obstacles, fire, spills, sharp/hot objects) — one short sentence, before anything else.\n  2) Read any visible text VERBATIM (labels, signs, medicine dosage, prices, dates) — do not paraphrase or summarize numbers/instructions.\n  3) Then describe what matters practically: what/who is there, roughly where (left/right/near/far, or clock position like "at 2 o\'clock"), not colors or aesthetics unless asked.\n  4) Be concise — a few short sentences, not a paragraph. No flowery/"vivid" language, no markdown, no tables — this is read aloud by TTS.' : ''}${a11y === 'Vocal-Deaf' || a11y === 'Sign-Only' ? '\n## ACCESSIBILITY\n- User is deaf. Short, visual sentences.' : ''}${a11y === 'Speech' ? '\n## ACCESSIBILITY\n- Output is read aloud by TTS: smooth speakable prose, no tables, no markdown noise.' : ''}${memoryBlock}
+${a11y === 'Visual' ? '\n## ACCESSIBILITY\n- USER IS BLIND. Describing an image/photo is a practical task, not a creative one:\n  1) Say FIRST if anything looks like a hazard (traffic, stairs, obstacles, fire, spills, sharp/hot objects) — one short sentence, before anything else.\n  2) Read any visible text VERBATIM (labels, signs, medicine dosage, prices, dates) — do not paraphrase or summarize numbers/instructions.\n  3) Then describe what matters practically: what/who is there, roughly where (left/right/near/far, or clock position like "at 2 o\'clock"), not colors or aesthetics unless asked.\n  4) Be concise — a few short sentences, not a paragraph. No flowery/"vivid" language, no markdown, no tables — this is read aloud by TTS.' : ''}${a11y === 'Vocal-Deaf' || a11y === 'Sign-Only' ? '\n## ACCESSIBILITY\n- User is deaf. Short, visual sentences.' : ''}${a11y === 'Speech' ? '\n## ACCESSIBILITY\n- Output is read aloud by TTS: smooth speakable prose, no tables, no markdown noise.' : ''}${memoryBlock}${cognitiveBlock}
 ${otherThreads ? `\n## THREAD MEMORY\nSummaries of the user's other threads. Use them ONLY if explicitly asked about past conversations.\n${otherThreads}\n` : ''}`;
 }
 
