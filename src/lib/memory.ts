@@ -27,16 +27,29 @@ export const DEFAULT_STUDENT_MEMORY: StudentMemory = {
 
 const memoryDocRef = (uid: string) => doc(db, `users/${uid}/memory/config`);
 
+function sanitizeMemory(data?: Partial<StudentMemory> | null): StudentMemory {
+  return {
+    enabled: data?.enabled === true,
+    preferredLanguage: data?.preferredLanguage || 'English',
+    explanationStyle: data?.explanationStyle || 'Practical examples first',
+    learningGoals: Array.isArray(data?.learningGoals) ? data.learningGoals : [],
+    knownPreferences: Array.isArray(data?.knownPreferences) ? data.knownPreferences : [],
+    explicitConfirmedInfo: Array.isArray(data?.explicitConfirmedInfo) ? data.explicitConfirmedInfo : [],
+    updatedAt: data?.updatedAt || new Date().toISOString(),
+  };
+}
+
 /**
  * Fetches the student's memory config once from Firestore.
  * If the document does not exist, returns DEFAULT_STUDENT_MEMORY.
  */
-export async function getStudentMemory(uid: string): Promise<StudentMemory> {
+export async function getStudentMemory(uid?: string | null): Promise<StudentMemory> {
+  if (!uid) return DEFAULT_STUDENT_MEMORY;
   const path = `users/${uid}/memory/config`;
   try {
     const snap = await getDoc(memoryDocRef(uid));
     if (snap.exists()) {
-      return { ...DEFAULT_STUDENT_MEMORY, ...(snap.data() as Partial<StudentMemory>) };
+      return sanitizeMemory(snap.data() as Partial<StudentMemory>);
     }
     return DEFAULT_STUDENT_MEMORY;
   } catch (err) {
@@ -50,19 +63,20 @@ export async function getStudentMemory(uid: string): Promise<StudentMemory> {
  * Returns an unsubscribe function.
  */
 export function subscribeToStudentMemory(
-  uid: string,
-  onUpdate: (memory: StudentMemory) => void,
+  uid?: string | null,
+  onUpdate?: (memory: StudentMemory) => void,
   onError?: (err: Error) => void
 ): () => void {
+  if (!uid) return () => {};
   const path = `users/${uid}/memory/config`;
   try {
     return onSnapshot(
       memoryDocRef(uid),
       (snap) => {
         if (snap.exists()) {
-          onUpdate({ ...DEFAULT_STUDENT_MEMORY, ...(snap.data() as Partial<StudentMemory>) });
+          onUpdate?.(sanitizeMemory(snap.data() as Partial<StudentMemory>));
         } else {
-          onUpdate(DEFAULT_STUDENT_MEMORY);
+          onUpdate?.(DEFAULT_STUDENT_MEMORY);
         }
       },
       (err) => {
@@ -81,9 +95,10 @@ export function subscribeToStudentMemory(
  * Updates partial memory fields in Firestore. Always updates updatedAt to ISO 8601 string.
  */
 export async function updateStudentMemory(
-  uid: string,
-  updates: Partial<StudentMemory>
+  uid?: string | null,
+  updates?: Partial<StudentMemory>
 ): Promise<void> {
+  if (!uid || !updates) return;
   const path = `users/${uid}/memory/config`;
   try {
     const updatedPayload: Partial<StudentMemory> = {
@@ -103,24 +118,26 @@ export async function updateStudentMemory(
  * Toggles whether Cognify Memory is enabled for AI context injection.
  */
 export async function toggleMemoryEnabled(
-  uid: string,
-  enabled: boolean
+  uid?: string | null,
+  enabled?: boolean
 ): Promise<void> {
-  return updateStudentMemory(uid, { enabled });
+  if (!uid) return;
+  return updateStudentMemory(uid, { enabled: !!enabled });
 }
 
 /**
  * Adds an item to a list-based memory category (learningGoals, knownPreferences, explicitConfirmedInfo).
  */
 export async function addMemoryItem(
-  uid: string,
-  currentMemory: StudentMemory,
-  category: 'learningGoals' | 'knownPreferences' | 'explicitConfirmedInfo',
-  value: string
+  uid?: string | null,
+  currentMemory?: StudentMemory | null,
+  category?: 'learningGoals' | 'knownPreferences' | 'explicitConfirmedInfo',
+  value?: string
 ): Promise<void> {
+  if (!uid || !category || typeof value !== 'string') return;
   const trimmed = value.trim();
   if (!trimmed) return;
-  const currentList = currentMemory[category] || [];
+  const currentList = Array.isArray(currentMemory?.[category]) ? currentMemory![category] : [];
   if (currentList.includes(trimmed)) return; // Avoid duplicate items
   
   const updatedList = [...currentList, trimmed];
@@ -131,12 +148,13 @@ export async function addMemoryItem(
  * Removes an item from a list-based memory category by index.
  */
 export async function deleteMemoryItem(
-  uid: string,
-  currentMemory: StudentMemory,
-  category: 'learningGoals' | 'knownPreferences' | 'explicitConfirmedInfo',
-  index: number
+  uid?: string | null,
+  currentMemory?: StudentMemory | null,
+  category?: 'learningGoals' | 'knownPreferences' | 'explicitConfirmedInfo',
+  index?: number
 ): Promise<void> {
-  const currentList = currentMemory[category] || [];
+  if (!uid || !category || typeof index !== 'number') return;
+  const currentList = Array.isArray(currentMemory?.[category]) ? currentMemory![category] : [];
   if (index < 0 || index >= currentList.length) return;
 
   const updatedList = currentList.filter((_, i) => i !== index);

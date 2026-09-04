@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { UserProfile, StudentMemory } from '../types';
 import { localize } from '../lib/translations';
+import { toast } from './Toast';
 import {
   updateStudentMemory,
   addMemoryItem,
@@ -23,6 +24,7 @@ import {
   Globe,
   Sliders,
   AlertTriangle,
+  Menu,
 } from 'lucide-react';
 
 interface StudentMemoryPageProps {
@@ -31,6 +33,7 @@ interface StudentMemoryPageProps {
   loading: boolean;
   error: string | null;
   onRetry: () => void;
+  onMenuClick?: () => void;
 }
 
 export default function StudentMemoryPage({
@@ -39,8 +42,15 @@ export default function StudentMemoryPage({
   loading,
   error,
   onRetry,
+  onMenuClick,
 }: StudentMemoryPageProps) {
   const isAr = profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya';
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => { isMountedRef.current = false; };
+  }, []);
 
   // Input states for adding items to the 3 list categories
   const [newGoal, setNewGoal] = useState('');
@@ -101,32 +111,58 @@ export default function StudentMemoryPage({
   }
 
   const handleToggle = async () => {
-    if (!profile.uid) return;
+    if (!profile?.uid || !memory) return;
     try {
       setIsSubmitting(true);
       await toggleMemoryEnabled(profile.uid, !memory.enabled);
+      toast.success(
+        !memory.enabled
+          ? localize(profile.language, 'Cognify Memory enabled.', 'تم تفعيل ذاكرة كوجنيفي.')
+          : localize(profile.language, 'Cognify Memory disabled.', 'تم تعطيل ذاكرة كوجنيفي.'),
+        localize(profile.language, 'Memory Updated', 'تم تحديث الذاكرة')
+      );
     } catch (err) {
       console.error('Failed to toggle memory:', err);
+      toast.error(
+        localize(profile.language, 'Failed to update memory setting.', 'فشل تحديث إعداد الذاكرة.'),
+        localize(profile.language, 'Error', 'خطأ')
+      );
     } finally {
-      setIsSubmitting(false);
+      if (isMountedRef.current) setIsSubmitting(false);
     }
   };
 
   const handleLanguageChange = async (newLang: string) => {
-    if (!profile.uid) return;
+    if (!profile?.uid) return;
     try {
       await updateStudentMemory(profile.uid, { preferredLanguage: newLang });
+      toast.success(
+        localize(profile.language, 'Language preference saved.', 'تم حفظ لغة الشرح المفضلة.'),
+        localize(profile.language, 'Saved', 'تم الحفظ')
+      );
     } catch (err) {
       console.error('Failed to update language preference:', err);
+      toast.error(
+        localize(profile.language, 'Failed to save language preference.', 'فشل حفظ لغة الشرح المفضلة.'),
+        localize(profile.language, 'Error', 'خطأ')
+      );
     }
   };
 
   const handleStyleChange = async (newStyle: string) => {
-    if (!profile.uid) return;
+    if (!profile?.uid) return;
     try {
       await updateStudentMemory(profile.uid, { explanationStyle: newStyle });
+      toast.success(
+        localize(profile.language, 'Style preference saved.', 'تم حفظ أسلوب الشرح المفضل.'),
+        localize(profile.language, 'Saved', 'تم الحفظ')
+      );
     } catch (err) {
       console.error('Failed to update explanation style:', err);
+      toast.error(
+        localize(profile.language, 'Failed to save style preference.', 'فشل حفظ أسلوب الشرح.'),
+        localize(profile.language, 'Error', 'خطأ')
+      );
     }
   };
 
@@ -135,15 +171,23 @@ export default function StudentMemoryPage({
     value: string,
     resetFn: () => void
   ) => {
-    if (!profile.uid || !value.trim()) return;
+    if (!profile?.uid || !value.trim() || !memory) return;
     try {
       setIsSubmitting(true);
       await addMemoryItem(profile.uid, memory, category, value);
       resetFn();
+      toast.success(
+        localize(profile.language, 'Item added to memory.', 'تمت إضافة العنصر إلى الذاكرة.'),
+        localize(profile.language, 'Added', 'تمت الإضافة')
+      );
     } catch (err) {
       console.error(`Failed to add item to ${category}:`, err);
+      toast.error(
+        localize(profile.language, 'Failed to add item. Check connection.', 'فشل حفظ العنصر. تحقق من الاتصال.'),
+        localize(profile.language, 'Error', 'خطأ')
+      );
     } finally {
-      setIsSubmitting(false);
+      if (isMountedRef.current) setIsSubmitting(false);
     }
   };
 
@@ -151,11 +195,19 @@ export default function StudentMemoryPage({
     category: 'learningGoals' | 'knownPreferences' | 'explicitConfirmedInfo',
     index: number
   ) => {
-    if (!profile.uid) return;
+    if (!profile?.uid || !memory) return;
     try {
       await deleteMemoryItem(profile.uid, memory, category, index);
+      toast.success(
+        localize(profile.language, 'Item forgotten.', 'تم نسيان العنصر.'),
+        localize(profile.language, 'Deleted', 'تم الحذف')
+      );
     } catch (err) {
       console.error(`Failed to delete item from ${category}:`, err);
+      toast.error(
+        localize(profile.language, 'Failed to delete item.', 'فشل حذف العنصر.'),
+        localize(profile.language, 'Error', 'خطأ')
+      );
     }
   };
 
@@ -164,6 +216,15 @@ export default function StudentMemoryPage({
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-5">
         <div className="flex items-center gap-3.5">
+          {onMenuClick && (
+            <button
+              onClick={onMenuClick}
+              className="p-2 text-text-muted bg-bg-card shadow-sm border border-border hover:bg-bg-main rounded-xl active:scale-95 shrink-0 md:hidden"
+              aria-label={localize(profile.language, 'Toggle menu', 'القائمة')}
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+          )}
           <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-violet-500/20 to-purple-600/20 text-primary flex items-center justify-center shrink-0 border border-primary/20">
             <Brain className="w-6 h-6" />
           </div>

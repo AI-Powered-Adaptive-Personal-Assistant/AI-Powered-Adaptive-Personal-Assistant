@@ -39,13 +39,13 @@ const genContentStream = (args: any) => withRetry(() => getAI().models.generateC
 const getSystemInstruction = (profile: UserProfile, otherThreadsSummary: string = 'None') => {
   let studentMemoryBlock = '';
   if (profile.memory && profile.memory.enabled === true) {
-    const goals = profile.memory.learningGoals?.length
+    const goals = Array.isArray(profile.memory.learningGoals) && profile.memory.learningGoals.length
       ? profile.memory.learningGoals.map((g) => `- ${g}`).join('\n')
       : '- None specified';
-    const prefs = profile.memory.knownPreferences?.length
+    const prefs = Array.isArray(profile.memory.knownPreferences) && profile.memory.knownPreferences.length
       ? profile.memory.knownPreferences.map((p) => `- ${p}`).join('\n')
       : '- None specified';
-    const confirmed = profile.memory.explicitConfirmedInfo?.length
+    const confirmed = Array.isArray(profile.memory.explicitConfirmedInfo) && profile.memory.explicitConfirmedInfo.length
       ? profile.memory.explicitConfirmedInfo.map((c) => `- ${c}`).join('\n')
       : '- None specified';
 

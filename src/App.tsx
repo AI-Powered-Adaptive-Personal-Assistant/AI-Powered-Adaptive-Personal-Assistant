@@ -83,6 +83,7 @@ export default function App() {
   const [memoryState, setMemoryState] = useState<StudentMemory | null>(null);
   const [memoryLoading, setMemoryLoading] = useState<boolean>(true);
   const [memoryError, setMemoryError] = useState<string | null>(null);
+  const [memoryRetryCount, setMemoryRetryCount] = useState<number>(0);
 
   // Subscribe to Cognify Memory snapshot from Firestore (Single Source of Truth)
   useEffect(() => {
@@ -111,7 +112,7 @@ export default function App() {
     );
 
     return () => unsubscribe();
-  }, [user?.uid]);
+  }, [user?.uid, memoryRetryCount]);
 
   // Merge memory snapshot with user profile
   const fullProfile: UserProfile | null = profile
@@ -622,10 +623,12 @@ export default function App() {
             memory={memoryState}
             loading={memoryLoading}
             error={memoryError}
+            onMenuClick={() => setIsMobileMenuOpen(true)}
             onRetry={() => {
               if (user?.uid) {
                 setMemoryLoading(true);
                 setMemoryError(null);
+                setMemoryRetryCount((c) => c + 1);
               }
             }}
           />
