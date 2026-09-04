@@ -117,12 +117,47 @@ export interface Profile {
   accessibilityMode?: string;
   chatThreads?: { id?: string; title?: string; lastMessageSnippet?: string }[];
   activeThreadId?: string;
+  memory?: {
+    enabled?: boolean;
+    preferredLanguage?: string;
+    explanationStyle?: string;
+    learningGoals?: string[];
+    knownPreferences?: string[];
+    explicitConfirmedInfo?: string[];
+  };
 }
 export interface Msg { id?: string; role: string; content: string }
+
+function formatStudentMemoryBlock(memory?: Profile['memory']): string {
+  if (!memory || memory.enabled !== true) return '';
+
+  const goals = Array.isArray(memory.learningGoals) && memory.learningGoals.length
+    ? memory.learningGoals.map((g) => `- ${g}`).join('\n')
+    : '- None specified';
+
+  const prefs = Array.isArray(memory.knownPreferences) && memory.knownPreferences.length
+    ? memory.knownPreferences.map((p) => `- ${p}`).join('\n')
+    : '- None specified';
+
+  const confirmed = Array.isArray(memory.explicitConfirmedInfo) && memory.explicitConfirmedInfo.length
+    ? memory.explicitConfirmedInfo.map((c) => `- ${c}`).join('\n')
+    : '- None specified';
+
+  return `\n## COGNIFY STUDENT MEMORY
+- Preferred Language: ${memory.preferredLanguage || 'English'}
+- Explanation Style: ${memory.explanationStyle || 'Practical examples first'}
+- Current Learning Goals:
+${goals}
+- Known Preferences:
+${prefs}
+- Explicitly Confirmed Student Facts:
+${confirmed}\n`;
+}
 
 /** The adaptive system prompt. Kept in step with the client's previous inline version. */
 export function buildPersona(profile: Profile, otherThreads = ''): string {
   const a11y = profile.accessibilityMode;
+  const memoryBlock = formatStudentMemoryBlock(profile.memory);
   return `You are Cognify, an adaptive AI mentor. Give the most correct, useful answer calibrated to THIS user.
 - Level: ${profile.level || 'Basic'} | Role: ${profile.role || 'Student'} | Field: ${profile.field || 'General'}
 
@@ -136,8 +171,8 @@ export function buildPersona(profile: Profile, otherThreads = ''): string {
 - Simple question → 1-4 sentences of plain prose. Bullets/headers ONLY when genuinely multi-part.
 - If the input is messy or mixed-language, infer the intent and answer it.
 - If you are not certain, say so briefly. Never invent facts, sources or numbers.
-${a11y === 'Visual' ? '\n## ACCESSIBILITY\n- USER IS BLIND. Describing an image/photo is a practical task, not a creative one:\n  1) Say FIRST if anything looks like a hazard (traffic, stairs, obstacles, fire, spills, sharp/hot objects) — one short sentence, before anything else.\n  2) Read any visible text VERBATIM (labels, signs, medicine dosage, prices, dates) — do not paraphrase or summarize numbers/instructions.\n  3) Then describe what matters practically: what/who is there, roughly where (left/right/near/far, or clock position like "at 2 o\'clock"), not colors or aesthetics unless asked.\n  4) Be concise — a few short sentences, not a paragraph. No flowery/"vivid" language, no markdown, no tables — this is read aloud by TTS.' : ''}${a11y === 'Vocal-Deaf' || a11y === 'Sign-Only' ? '\n## ACCESSIBILITY\n- User is deaf. Short, visual sentences.' : ''}${a11y === 'Speech' ? '\n## ACCESSIBILITY\n- Output is read aloud by TTS: smooth speakable prose, no tables, no markdown noise.' : ''}
-${otherThreads ? `\n## MEMORY\nSummaries of the user's other threads. Use them ONLY if explicitly asked about past conversations.\n${otherThreads}\n` : ''}`;
+${a11y === 'Visual' ? '\n## ACCESSIBILITY\n- USER IS BLIND. Describing an image/photo is a practical task, not a creative one:\n  1) Say FIRST if anything looks like a hazard (traffic, stairs, obstacles, fire, spills, sharp/hot objects) — one short sentence, before anything else.\n  2) Read any visible text VERBATIM (labels, signs, medicine dosage, prices, dates) — do not paraphrase or summarize numbers/instructions.\n  3) Then describe what matters practically: what/who is there, roughly where (left/right/near/far, or clock position like "at 2 o\'clock"), not colors or aesthetics unless asked.\n  4) Be concise — a few short sentences, not a paragraph. No flowery/"vivid" language, no markdown, no tables — this is read aloud by TTS.' : ''}${a11y === 'Vocal-Deaf' || a11y === 'Sign-Only' ? '\n## ACCESSIBILITY\n- User is deaf. Short, visual sentences.' : ''}${a11y === 'Speech' ? '\n## ACCESSIBILITY\n- Output is read aloud by TTS: smooth speakable prose, no tables, no markdown noise.' : ''}${memoryBlock}
+${otherThreads ? `\n## THREAD MEMORY\nSummaries of the user's other threads. Use them ONLY if explicitly asked about past conversations.\n${otherThreads}\n` : ''}`;
 }
 
 export function threadsSummary(profile: Profile): string {
