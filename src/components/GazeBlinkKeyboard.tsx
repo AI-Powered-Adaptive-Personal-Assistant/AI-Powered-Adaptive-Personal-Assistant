@@ -48,14 +48,14 @@ const AR_ROWS_STANDARD = [
   ['ض', 'ص', 'ث', 'ق', 'ف', 'غ', 'ع', 'ه', 'خ', 'ح', 'ج', 'د'],
   ['ش', 'س', 'ي', 'ب', 'ل', 'ا', 'ت', 'ن', 'م', 'ك', 'ط'],
   ['ئ', 'ء', 'ؤ', 'ر', 'لا', 'ى', 'ة', 'و', 'ز', 'ظ', 'ذ'],
-  ['؟', '!', '،', '.'],
+  ['؟', '!', '،', '.', ' '],
 ];
 
 const EN_ROWS_STANDARD = [
   ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'],
   ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L'],
   ['Z', 'X', 'C', 'V', 'B', 'N', 'M'],
-  ['?', '!', ',', '.'],
+  ['?', '!', ',', '.', ' '],
 ];
 
 // 2. Alphabetical (أ ب ت ث / A B C D)
@@ -220,11 +220,6 @@ export default function GazeBlinkKeyboard({
   useEffect(() => {
     setActiveTheme(themeAccent);
   }, [themeAccent]);
-
-  // Sync keyboard language when parent isArabic changes
-  useEffect(() => {
-    setKbLang(isArabic ? 'ar' : 'en');
-  }, [isArabic]);
 
   useEffect(() => {
     const engine = new GazeBlinkEngine({
@@ -456,7 +451,7 @@ export default function GazeBlinkKeyboard({
           />
         )}
 
-        <span className="relative z-10">{char === ' ' ? (kbLang === 'ar' ? '␣ مسافة' : '␣ Space') : char}</span>
+        <span className="relative z-10">{char === ' ' ? '␣ مسافة' : char}</span>
         {isActive && (
           <motion.div
             initial={{ scale: 1, opacity: 0.8 }}
@@ -471,8 +466,8 @@ export default function GazeBlinkKeyboard({
   return (
     <div 
       ref={containerRef}
-      className={`flex flex-col ${isKeyboardFullscreen ? 'fixed inset-0 z-[99999] rounded-none' : 'h-full rounded-2xl sm:rounded-3xl'} bg-slate-950 text-white border border-slate-800 ${currentScale.containerP} ${currentScale.gap} shadow-2xl transition-all min-h-0 overflow-hidden ${kbLang === 'ar' ? 'dir-rtl' : 'dir-ltr'}`}
-      dir={kbLang === 'ar' ? 'rtl' : 'ltr'}
+      className={`flex flex-col ${isKeyboardFullscreen ? 'fixed inset-0 z-[99999] rounded-none' : 'h-full rounded-2xl sm:rounded-3xl'} bg-slate-950 text-white border border-slate-800 ${currentScale.containerP} ${currentScale.gap} shadow-2xl transition-all min-h-0 overflow-hidden ${isArabic ? 'dir-rtl' : 'dir-ltr'}`}
+      dir={isArabic ? 'rtl' : 'ltr'}
     >
       {/* 1. Ultra-Flexible Top Quick Bar */}
       <div className="flex flex-wrap justify-between items-center gap-2 px-1 pb-1 border-b border-slate-800/80">
@@ -481,7 +476,7 @@ export default function GazeBlinkKeyboard({
           {/* Eye State Indicator */}
           <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold transition-colors ${eyesClosed ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'}`}>
             {eyesClosed ? <EyeOff size={13} /> : <Eye size={13} />}
-            <span>{eyesClosed ? (kbLang === 'ar' ? 'مغلق' : 'Closed') : (kbLang === 'ar' ? 'مفتوح' : 'Open')}</span>
+            <span>{eyesClosed ? (isArabic ? 'مغلق' : 'Closed') : (isArabic ? 'مفتوح' : 'Open')}</span>
           </div>
 
           {/* Ratio telemetry */}
@@ -490,7 +485,7 @@ export default function GazeBlinkKeyboard({
               <div className={`px-2.5 py-1 rounded-full font-mono text-xs font-bold border transition-colors ${
                 currentRatio > ratioThreshold ? 'bg-rose-500/20 text-rose-300 border-rose-500/40 animate-pulse' : 'bg-slate-900 text-slate-300 border-slate-800'
               }`}>
-                <span>{kbLang === 'ar' ? 'رمش:' : 'Blink:'} </span>
+                <span>{isArabic ? 'رمش:' : 'Blink:'} </span>
                 <span className={currentRatio > ratioThreshold ? 'text-rose-400' : currentTheme.text}>
                   {currentRatio.toFixed(1)}
                 </span>
@@ -502,7 +497,7 @@ export default function GazeBlinkKeyboard({
                 gazeDirection === 'right' ? 'bg-amber-500/20 text-amber-300 border-amber-500/40' :
                 'bg-slate-900 text-slate-300 border-slate-800'
               }`}>
-                <span>{kbLang === 'ar' ? 'نظر:' : 'Gaze:'} </span>
+                <span>{isArabic ? 'نظر:' : 'Gaze:'} </span>
                 <span className={gazeDirection === 'left' ? 'text-sky-400' : gazeDirection === 'right' ? 'text-amber-400' : 'text-slate-300'}>
                   {currentGazeRatio.toFixed(2)}
                 </span>
@@ -518,10 +513,10 @@ export default function GazeBlinkKeyboard({
           <button
             onClick={cycleScale}
             className={`px-2.5 py-1 rounded-xl text-xs font-bold flex items-center gap-1 bg-slate-900 border border-slate-800 hover:border-slate-700 ${currentTheme.text} transition-all`}
-            title={kbLang === 'ar' ? 'تغيير حجم الأزرار' : 'Change Key Size'}
+            title={isArabic ? 'تغيير حجم الأزرار' : 'Change Key Size'}
           >
             <Type size={13} />
-            <span>{kbLang === 'ar' ? currentScale.nameAr.split(' ')[0] : currentScale.nameEn.split(' ')[0]}</span>
+            <span>{currentScale.nameAr.split(' ')[0]}</span>
           </button>
 
           {/* Layout Type Switcher (Standard, Alpha, Numbers) */}
@@ -529,21 +524,21 @@ export default function GazeBlinkKeyboard({
             <button
               onClick={() => setLayoutType('standard')}
               className={`px-2 py-0.5 rounded-lg text-xs font-bold transition-all ${layoutType === 'standard' ? `${currentTheme.bg} text-slate-950 shadow` : 'text-slate-400 hover:text-white'}`}
-              title={kbLang === 'ar' ? 'لوحة قياسية (Standard QWERTY)' : 'Standard'}
+              title={isArabic ? 'لوحة قياسية (Standard QWERTY)' : 'Standard'}
             >
-              {kbLang === 'ar' ? 'قياسي' : 'Standard'}
+              {isArabic ? 'قياسي' : 'Standard'}
             </button>
             <button
               onClick={() => setLayoutType('alpha')}
               className={`px-2 py-0.5 rounded-lg text-xs font-bold transition-all ${layoutType === 'alpha' ? `${currentTheme.bg} text-slate-950 shadow` : 'text-slate-400 hover:text-white'}`}
-              title={kbLang === 'ar' ? 'ترتيب أبجدي (أ ب ت ث)' : 'Alphabetical'}
+              title={isArabic ? 'ترتيب أبجدي (أ ب ت ث)' : 'Alphabetical'}
             >
-              {kbLang === 'ar' ? 'أبجدي' : 'ABC'}
+              {isArabic ? 'أبجدي' : 'ABC'}
             </button>
             <button
               onClick={() => setLayoutType('nums')}
               className={`px-2 py-0.5 rounded-lg text-xs font-bold transition-all ${layoutType === 'nums' ? `${currentTheme.bg} text-slate-950 shadow` : 'text-slate-400 hover:text-white'}`}
-              title={kbLang === 'ar' ? 'أرقام ورموز وإيموجي' : '123 / Emojis'}
+              title={isArabic ? 'أرقام ورموز وإيموجي' : '123 / Emojis'}
             >
               123
             </button>
@@ -557,10 +552,10 @@ export default function GazeBlinkKeyboard({
                 ? 'bg-sky-500/20 text-sky-300 border-sky-500/40' 
                 : 'bg-slate-900 text-slate-300 border-slate-800 hover:border-slate-700'
             }`}
-            title={kbLang === 'ar' ? 'تبديل بين كيبورد كامل أو مقسوم' : 'Toggle Full / Split'}
+            title={isArabic ? 'تبديل بين كيبورد كامل أو مقسوم' : 'Toggle Full / Split'}
           >
             {layoutMode === 'full' ? <LayoutGrid size={13} /> : <Columns2 size={13} />}
-            <span>{layoutMode === 'full' ? (kbLang === 'ar' ? 'كامل' : 'Full') : (kbLang === 'ar' ? 'مقسوم' : 'Split')}</span>
+            <span>{layoutMode === 'full' ? (isArabic ? 'كامل' : 'Full') : (isArabic ? 'مقسوم' : 'Split')}</span>
           </button>
 
           {/* Quick Phrases Emergency Drawer */}
@@ -574,14 +569,14 @@ export default function GazeBlinkKeyboard({
             }`}
           >
             <AlertTriangle size={13} />
-            <span>{kbLang === 'ar' ? 'طوارئ' : 'SOS'}</span>
+            <span>{isArabic ? 'طوارئ' : 'SOS'}</span>
           </button>
 
           {/* Fullscreen Toggle */}
           <button 
             onClick={() => setIsKeyboardFullscreen(!isKeyboardFullscreen)}
             className="p-1.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 hover:text-white transition-colors"
-            title={kbLang === 'ar' ? 'تكبير الكيبورد على الشاشة بالكامل' : 'Fullscreen Keyboard'}
+            title={isArabic ? 'تكبير الكيبورد على الشاشة بالكامل' : 'Fullscreen Keyboard'}
           >
             {isKeyboardFullscreen ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
           </button>
@@ -590,7 +585,7 @@ export default function GazeBlinkKeyboard({
           <button 
             onClick={() => setShowSettings(!showSettings)}
             className={`p-1.5 rounded-xl transition-colors ${showSettings ? currentTheme.bg + ' text-slate-950' : 'bg-slate-900 border border-slate-800 text-slate-300 hover:text-white'}`}
-            title={kbLang === 'ar' ? 'تخصيص وإعدادات الواجهة' : 'Customize UI & Settings'}
+            title={isArabic ? 'تخصيص وإعدادات الواجهة' : 'Customize UI & Settings'}
           >
             <Settings2 size={15} />
           </button>
@@ -836,7 +831,7 @@ export default function GazeBlinkKeyboard({
       {/* 4. Text Display & Quick Actions */}
       <div className="bg-slate-900 rounded-2xl p-2 sm:p-2.5 border border-slate-800 flex flex-col gap-1.5 shrink-0 shadow-lg">
         <div className="min-h-[38px] max-h-[50px] text-lg sm:text-xl font-bold break-words text-white flex items-center px-2 overflow-x-auto">
-          {typedText || <span className="text-slate-600 font-normal text-xs sm:text-sm">{kbLang === 'ar' ? 'انظر إلى أي حرف واغمض عينك أو ثبت نظرك للكتابة...' : 'Gaze at any key and blink or dwell...'}</span>}
+          {typedText || <span className="text-slate-600 font-normal text-xs sm:text-sm">{isArabic ? 'انظر إلى أي حرف واغمض عينك أو ثبت نظرك للكتابة...' : 'Gaze at any key and blink or dwell...'}</span>}
           <span className={`inline-block w-2.5 h-5 ml-1.5 align-middle animate-pulse ${currentTheme.bg}`}></span>
         </div>
         
@@ -853,7 +848,7 @@ export default function GazeBlinkKeyboard({
             } ${activeKey === 'SPEAK' ? currentTheme.bg + ' text-slate-950 scale-95' : ''}`}
           >
             <Volume2 size={14} />
-            <span>{kbLang === 'ar' ? 'نطق' : 'Speak'}</span>
+            <span>{isArabic ? 'نطق' : 'Speak'}</span>
           </button>
 
           <button 
@@ -867,7 +862,7 @@ export default function GazeBlinkKeyboard({
             } ${activeKey === 'BACKSPACE' ? currentTheme.bg + ' text-slate-950 scale-95' : ''}`}
           >
             <Delete size={14} />
-            <span>{kbLang === 'ar' ? 'حذف' : 'Del'}</span>
+            <span>{isArabic ? 'حذف' : 'Del'}</span>
           </button>
 
           <button 
@@ -879,7 +874,7 @@ export default function GazeBlinkKeyboard({
             } ${activeKey === 'CLEAR' ? 'bg-rose-500 text-white scale-95' : ''}`}
           >
             <Trash2 size={14} />
-            <span>{kbLang === 'ar' ? 'مسح' : 'Clear'}</span>
+            <span>{isArabic ? 'مسح' : 'Clear'}</span>
           </button>
           
           {onSendToAI && (
@@ -892,7 +887,7 @@ export default function GazeBlinkKeyboard({
               } ${activeKey === 'AI' ? 'bg-purple-500 text-white scale-95' : ''}`}
             >
               <Sparkles size={14} />
-              <span>{kbLang === 'ar' ? 'ذكاء' : 'AI'}</span>
+              <span>{isArabic ? 'ذكاء' : 'AI'}</span>
             </button>
           )}
           
@@ -906,7 +901,7 @@ export default function GazeBlinkKeyboard({
               } ${activeKey === 'WHATSAPP' ? 'bg-emerald-500 text-white scale-95' : ''}`}
             >
               <MessageCircle size={14} />
-              <span>{kbLang === 'ar' ? 'واتساب' : 'WhatsApp'}</span>
+              <span>واتساب</span>
             </button>
           )}
 
@@ -920,7 +915,7 @@ export default function GazeBlinkKeyboard({
               } ${activeKey === 'CALL' ? 'bg-amber-500 text-slate-950 scale-95' : ''}`}
             >
               <PhoneCall size={14} />
-              <span>{kbLang === 'ar' ? 'اتصال' : 'Call'}</span>
+              <span>{isArabic ? 'اتصال' : 'Call'}</span>
             </button>
           )}
 
@@ -933,7 +928,7 @@ export default function GazeBlinkKeyboard({
             } ${activeKey === 'LANG' ? 'bg-cyan-500 text-slate-950 scale-95' : ''}`}
           >
             <Languages size={14} />
-            <span>{kbLang === 'ar' ? 'EN 🇬🇧' : 'عربي 🇪🇬'}</span>
+            <span>{kbLang === 'ar' ? 'EN' : 'عربي'}</span>
           </button>
         </div>
       </div>
@@ -943,7 +938,7 @@ export default function GazeBlinkKeyboard({
         <div className="bg-slate-900/90 rounded-xl p-1 sm:p-1.5 border border-slate-800/90 flex items-center gap-1.5 shrink-0 overflow-hidden">
           <div className={`text-[11px] font-black ${currentTheme.text} flex items-center gap-1 px-1.5 shrink-0`}>
             <Sparkles size={13} />
-            <span className="hidden sm:inline">{kbLang === 'ar' ? 'التنبؤ:' : 'Predictions:'}</span>
+            <span className="hidden sm:inline">{isArabic ? 'التنبؤ:' : 'Predictions:'}</span>
           </div>
 
           <div className="flex-1 flex gap-1.5 overflow-x-auto no-scrollbar">
@@ -1044,7 +1039,7 @@ export default function GazeBlinkKeyboard({
               )}
               <div className="flex items-center gap-2 relative z-10 font-bold text-xs sm:text-sm">
                 <Space size={18} />
-                <span>{kbLang === 'ar' ? 'مسافة' : 'Space'}</span>
+                <span>{isArabic ? 'مسافة' : 'Space'}</span>
               </div>
             </button>
           </div>
