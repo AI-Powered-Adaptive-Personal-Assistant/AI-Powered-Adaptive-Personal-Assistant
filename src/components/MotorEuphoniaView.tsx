@@ -271,7 +271,14 @@ const GAME_BUBBLES = [
 ];
 
 export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEuphoniaViewProps) {
-  const isArabic = profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya';
+  const initialIsArabic = profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya';
+  const [motorLang, setMotorLang] = useState<'ar' | 'en'>(initialIsArabic ? 'ar' : 'en');
+
+  useEffect(() => {
+    setMotorLang(initialIsArabic ? 'ar' : 'en');
+  }, [initialIsArabic]);
+
+  const isArabic = motorLang === 'ar';
 
   // Active Category Tab (Includes Eye Keyboard, Studio, Smart Room, Sensory, AI Class, Custom Bank & Eye Games)
   const [activeTab, setActiveTab] = useState<
@@ -293,6 +300,17 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
   // Theme state
   const [theme, setTheme] = useState<ColorTheme>('amber');
   const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // Previously isFullscreen was only ever set optimistically inside
+  // toggleFullScreenMode() — never corrected against reality. Exiting via
+  // the OS/Escape key (not this screen's own button) left it stuck true
+  // forever: wrong icon, and any layout that branches on isFullscreen
+  // staying wrong until the user happened to press the button twice.
+  useEffect(() => {
+    const onFsChange = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', onFsChange);
+    return () => document.removeEventListener('fullscreenchange', onFsChange);
+  }, []);
 
   // Tracking states
   const [isCameraActive, setIsCameraActive] = useState(false);
@@ -572,9 +590,10 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
    * voice installed, speechSynthesis blocked outside a user gesture, etc.)
    * instead of the card just doing nothing.
    */
-  const speakSafe = (text: string) => {
+  const speakSafe = (text: string, overrideLang?: string) => {
     if (!text?.trim()) return;
-    speak(text, profile.language || 'Egyptian Ammiya', {
+    const voiceLang = overrideLang || (motorLang === 'ar' ? (profile.language || 'Egyptian Ammiya') : 'English');
+    speak(text, voiceLang, {
       onError: (reason) => {
         const msg =
           reason === 'unsupported'
@@ -582,7 +601,7 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
             : reason === 'silent-fail'
             ? (isArabic
                 ? '⚠️ تعذر نطق الجملة. تأكد من وجود صوت عربي مثبت على الجهاز وأن الصوت غير مكتوم'
-                : '⚠️ Could not speak. Check that an Arabic voice is installed and the device is not muted')
+                : '⚠️ Could not speak. Check that an English or Arabic voice is installed and the device is not muted')
             : (isArabic ? '⚠️ حدث خطأ أثناء النطق الصوتي' : '⚠️ Speech output error');
         toast.error(msg);
       },
@@ -2073,8 +2092,11 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
       openContactPicker();
       return;
     }
-    if (cardId === 'kb-switchlang') {
-      setKbLang((prev) => (prev === 'ar' ? 'en' : 'ar'));
+    if (cardId === 'kb-switchlang' || cardId === 'motor-lang-toggle') {
+      const next = motorLang === 'ar' ? 'en' : 'ar';
+      setMotorLang(next);
+      setKbLang(next);
+      toast.info(next === 'ar' ? '🇪🇬 تم التحويل للغة العربية' : '🇬🇧 Switched to English');
       return;
     }
 
@@ -2086,7 +2108,7 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
       if (need.isAi) {
         setIsProcessingAi(true);
         try {
-          const resp = await geminiService.askGeneralQuestion(phrase, profile.language || 'Arabic');
+          const resp = await geminiService.askGeneralQuestion(phrase, motorLang === 'ar' ? (profile.language || 'Arabic') : 'English');
           setAiResponseText(resp);
           speakSafe(resp);
         } catch {
@@ -2658,6 +2680,21 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
             </button>
           </div>
 
+          {/* Motor Language Switcher: Arabic <-> English */}
+          <button
+            data-aac-id="motor-lang-toggle"
+            onClick={() => {
+              const next = motorLang === 'ar' ? 'en' : 'ar';
+              setMotorLang(next);
+              toast.info(next === 'ar' ? '🇪🇬 تم التحويل للغة العربية' : '🇬🇧 Switched to English');
+            }}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-950 hover:bg-slate-900 border border-slate-800 text-slate-200 hover:text-white font-bold text-xs transition-all shadow-sm"
+            title={motorLang === 'ar' ? 'Switch interface to English' : 'التحويل للغة العربية'}
+          >
+            <Languages className="w-3.5 h-3.5 text-amber-400" />
+            <span>{motorLang === 'ar' ? 'عربي 🇪🇬' : 'EN 🇬🇧'}</span>
+          </button>
+
           {/* Icon Utilities: Theme, 9-point, Architecture, Fullscreen, Settings */}
           <button
             onClick={() => setTheme((t) => (t === 'amber' ? 'cyan' : t === 'cyan' ? 'emerald' : t === 'emerald' ? 'monochrome' : 'amber'))}
@@ -2978,7 +3015,7 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
                 if (!text.trim()) return;
                 setIsProcessingAi(true);
                 try {
-                  const answer = await geminiService.askGeneralQuestion(text, profile.language || 'Arabic');
+                  const answer = await geminiService.askGeneralQuestion(text, motorLang === 'ar' ? (profile.language || 'Arabic') : 'English');
                   setAiResponseText(answer);
                   speakSafe(answer);
                   if (onSendMessage) onSendMessage(text);
