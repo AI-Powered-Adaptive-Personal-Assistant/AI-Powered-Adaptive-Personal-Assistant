@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { signInWithGoogle, loginWithEmail, registerWithEmail, auth, clearPreLoginState } from '../lib/firebase';
+import { signInWithGoogle, signInWithGoogleRedirect, loginWithEmail, registerWithEmail, auth, clearPreLoginState } from '../lib/firebase';
 import { sendPasswordResetEmail } from 'firebase/auth';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -112,6 +112,19 @@ export default function Login() {
         /* another popup open */
       } else if (err.code === 'auth/popup-closed-by-user') {
         setError(t("Authorization window was closed. Please try again.", "تم إغلاق نافذة التسجيل. يرجى المحاولة مرة أخرى."));
+      } else if (err.code === 'auth/popup-blocked') {
+        // Popups are blocked by the browser. Seamlessly fallback to redirect flow!
+        try {
+          await signInWithGoogleRedirect();
+          return;
+        } catch (redirErr: any) {
+          setError(
+            t(
+              "Pop-up was blocked by your browser. Please click the pop-up icon in your address bar to allow pop-ups for this site, or sign in with Email & Password.",
+              "قام المتصفح بحظر النافذة المنبثقة (Pop-up Blocked). يرجى الضغط على أيقونة النوافذ المنبثقة في شريط العنوان بالأعلى واختيار 'السماح دائماً'، أو استخدام البريد وكلمة المرور."
+            )
+          );
+        }
       } else if (err.code === 'auth/unauthorized-domain') {
         setError(t("Google Login requires an authorized domain. Please use Email & Password below.", "تسجيل جوجل يتطلب نطاقاً مصرحاً. يرجى استخدام الإيميل وكلمة المرور بالأسفل."));
       } else {
