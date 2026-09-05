@@ -28,7 +28,7 @@ import { db, cleanDataForFirestore } from '../lib/firebase';
 import { UserProfile, VisionMemory } from '../types';
 import { localize } from '../lib/translations';
 import { generateAdaptiveResponse } from '../services/gemini';
-import { speak, cancelSpeech, unlockSpeechSynthesis, isSpeaking } from '../lib/tts';
+import { speak, cancelSpeech, unlockSpeechSynthesis } from '../lib/tts';
 import { toast } from './Toast';
 
 interface VisionCompanionViewProps {
@@ -379,14 +379,21 @@ export default function VisionCompanionView({ profile, setProfile }: VisionCompa
 
   const replaySpeech = () => {
     if (!lastDescription) return;
-    if (isSpeaking()) {
-      cancelSpeech();
-      return;
-    }
+    // Previously this checked isSpeaking() (window.speechSynthesis.speaking)
+    // to decide whether to cancel or start speech — but that flag is known
+    // to get stuck `true` in Chrome/Edge well after speech has actually
+    // finished (especially right after the rapid cancel()/resume() dance in
+    // describeScene's auto-speak). Once stuck, every tap of "Repeat aloud"
+    // just called cancelSpeech() on nothing and returned — the button
+    // appeared completely dead. A button explicitly labeled "repeat" should
+    // always just replay on every press, so drop the toggle entirely.
+    cancelSpeech();
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       window.speechSynthesis.resume();
     }
-    speak(lastDescription, companionLang === 'ar' ? 'Arabic' : 'English');
+    setTimeout(() => {
+      speak(lastDescription, companionLang === 'ar' ? 'Arabic' : 'English');
+    }, 60);
   };
 
   return (

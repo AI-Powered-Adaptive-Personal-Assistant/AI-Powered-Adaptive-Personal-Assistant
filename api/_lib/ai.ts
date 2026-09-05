@@ -46,7 +46,7 @@ export const orderedFallbackKeys = (category: TaskCategory = 'fast'): string[] =
     .filter((p): p is 'nvidia' | 'groq' | 'xai' => p !== 'gemini')
     .flatMap((p) => KEY_GETTERS_BY_PROVIDER[p]());
 
-export const GEMINI_MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-flash-latest'];
+export const GEMINI_MODELS = ['gemini-flash-latest', 'gemini-2.5-flash', 'gemini-2.5-flash-lite'];
 export const GEMINI_MODEL = GEMINI_MODELS[0];
 
 /** Endpoint + model for an OpenAI-compatible key, resolved by its prefix. */
