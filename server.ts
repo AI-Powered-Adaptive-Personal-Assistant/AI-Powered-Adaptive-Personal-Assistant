@@ -13,6 +13,12 @@ async function startServer() {
 
   app.use(express.json({ limit: '50mb' }));
 
+  // Set COOP header to permit Firebase Auth Google popup communication
+  app.use((_req, res, next) => {
+    res.setHeader("Cross-Origin-Opener-Policy", "same-origin-allow-popups");
+    next();
+  });
+
   // API Health Check
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok" });

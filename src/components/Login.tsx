@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { signInWithGoogle, signInWithGoogleRedirect, loginWithEmail, registerWithEmail, auth, clearPreLoginState } from '../lib/firebase';
-import { sendPasswordResetEmail } from 'firebase/auth';
+import { sendPasswordResetEmail, getRedirectResult } from 'firebase/auth';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Chrome, Mail, Lock, AlertCircle, Loader2, Eye, EyeOff, 
   ArrowLeft, Brain, GraduationCap, Heart, ArrowRight, 
-  Sparkles, Tag, Check, ChevronDown, LockKeyhole
+  Sparkles, Tag, Check, ChevronDown, LockKeyhole, Globe
 } from 'lucide-react';
 
 type AccountPath = 'Normal' | 'Graduation Project' | 'Special Needs';
@@ -27,6 +27,7 @@ export default function Login() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [resetSuccess, setResetSuccess] = useState(false);
+  const [showRedirectOption, setShowRedirectOption] = useState(false);
 
   const [accountPath, setAccountPath] = useState<AccountPath>('Normal');
   const [universityEmail, setUniversityEmail] = useState("");
@@ -52,6 +53,19 @@ export default function Login() {
   useEffect(() => {
     isMountedRef.current = true;
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' as any });
+
+    // Catch any redirect result or domain error when returning from signInWithRedirect
+    getRedirectResult(auth).catch((err: any) => {
+      console.warn("Google Redirect Result:", err);
+      if (isMountedRef.current && err) {
+        if (err.code === 'auth/unauthorized-domain') {
+          setError(t("Google Login requires an authorized domain. Please use Email & Password below.", "تسجيل جوجل يتطلب نطاقاً مصرحاً. يرجى استخدام الإيميل وكلمة المرور بالأسفل."));
+        } else if (err.code !== 'auth/credential-already-in-use') {
+          setError(err?.message?.replace("Firebase: ", "") || t("Google Sign-In failed. Please try again or use Email.", "تعذر تسجيل الدخول عبر جوجل. يرجى المحاولة مرة أخرى أو استخدام البريد."));
+        }
+      }
+    });
+
     return () => {
       isMountedRef.current = false;
       if (authTimeoutRef.current) clearTimeout(authTimeoutRef.current);
@@ -87,6 +101,24 @@ export default function Login() {
     return !!e && /^[^\s@]+@[^\s@]+\.edu(\.[^\s@]+)?$/i.test(e.trim());
   };
 
+  const handleGoogleRedirectAuth = async () => {
+    if (loading) return;
+    setError(null);
+    setLoading(true);
+    setShowHelp(false);
+    try {
+      await signInWithGoogleRedirect();
+    } catch (err: any) {
+      if (!isMountedRef.current) return;
+      if (err.code === 'auth/unauthorized-domain') {
+        setError(t("Google Login requires an authorized domain. Please use Email & Password below.", "تسجيل جوجل يتطلب نطاقاً مصرحاً. يرجى استخدام الإيميل وكلمة المرور بالأسفل."));
+      } else {
+        setError(err?.message?.replace("Firebase: ", "") || t("Google Sign-In failed. Please use Email & Password.", "تعذر تسجيل الدخول عبر جوجل. يرجى استخدام البريد وكلمة المرور."));
+      }
+      setLoading(false);
+    }
+  };
+
   const handleGoogleAuth = async () => {
     if (loading) return;
     setError(null);
@@ -98,7 +130,8 @@ export default function Login() {
     authTimeoutRef.current = setTimeout(() => {
       if (isMountedRef.current) {
         setLoading(false);
-        setError(t("Google Sign-In timed out or was blocked by browser. Please use Email & Password below.", "استغرق تسجيل جوجل وقتاً طويلاً أو تم حظره بواسطة المتصفح. يرجى استخدام البريد وكلمة المرور أدناه."));
+        setShowRedirectOption(true);
+        setError(t("Google Sign-In timed out or was blocked by browser. Click Direct Google Sign-In below or use Email.", "استغرق تسجيل جوجل وقتاً طويلاً أو تم حظره بواسطة المتصفح. اضغط على تسجيل جوجل المباشر بالأسفل أو استخدم البريد."));
       }
     }, 10000);
 
@@ -111,24 +144,30 @@ export default function Login() {
       if (err.code === 'auth/cancelled-popup-request') {
         /* another popup open */
       } else if (err.code === 'auth/popup-closed-by-user') {
-        setError(t("Authorization window was closed. Please try again.", "تم إغلاق نافذة التسجيل. يرجى المحاولة مرة أخرى."));
+        setShowRedirectOption(true);
+        setError(t(
+          "Authorization window was closed or blocked by browser policy (COOP). Click Direct Google Sign-In below without popups.",
+          "تم إغلاق نافذة المصادقة أو حظرها بواسطة سياسة المتصفح (COOP). يمكنك الضغط على تسجيل جوجل المباشر بالأسفل بدون نوافذ منبثقة."
+        ));
       } else if (err.code === 'auth/popup-blocked') {
         // Popups are blocked by the browser. Seamlessly fallback to redirect flow!
         try {
           await signInWithGoogleRedirect();
           return;
         } catch (redirErr: any) {
+          setShowRedirectOption(true);
           setError(
             t(
-              "Pop-up was blocked by your browser. Please click the pop-up icon in your address bar to allow pop-ups for this site, or sign in with Email & Password.",
-              "قام المتصفح بحظر النافذة المنبثقة (Pop-up Blocked). يرجى الضغط على أيقونة النوافذ المنبثقة في شريط العنوان بالأعلى واختيار 'السماح دائماً'، أو استخدام البريد وكلمة المرور."
+              "Pop-up was blocked by your browser. Please click Direct Google Sign-In below or use Email & Password.",
+              "قام المتصفح بحظر النافذة المنبثقة (Pop-up Blocked). يرجى الضغط على تسجيل جوجل المباشر بالأسفل أو استخدام البريد وكلمة المرور."
             )
           );
         }
       } else if (err.code === 'auth/unauthorized-domain') {
         setError(t("Google Login requires an authorized domain. Please use Email & Password below.", "تسجيل جوجل يتطلب نطاقاً مصرحاً. يرجى استخدام الإيميل وكلمة المرور بالأسفل."));
       } else {
-        setError(err?.message?.replace("Firebase: ", "") || t("Google Sign-In failed. Please use Email & Password.", "تعذر تسجيل الدخول عبر جوجل. يرجى استخدام البريد وكلمة المرور."));
+        setShowRedirectOption(true);
+        setError(err?.message?.replace("Firebase: ", "") || t("Google Sign-In failed. Please use Direct Google Sign-In or Email below.", "تعذر تسجيل الدخول عبر جوجل. يرجى استخدام تسجيل جوجل المباشر أو البريد أدناه."));
       }
     } finally {
       if (authTimeoutRef.current) clearTimeout(authTimeoutRef.current);
@@ -786,9 +825,22 @@ export default function Login() {
                     )}
 
                     {error && (
-                      <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-400 text-xs font-bold flex items-center gap-2">
-                        <AlertCircle className="w-4 h-4 shrink-0" />
-                        <span>{error}</span>
+                      <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-400 text-xs font-bold space-y-2">
+                        <div className="flex items-center gap-2">
+                          <AlertCircle className="w-4 h-4 shrink-0" />
+                          <span>{error}</span>
+                        </div>
+                        {showRedirectOption && (
+                          <button
+                            type="button"
+                            onClick={handleGoogleRedirectAuth}
+                            disabled={loading}
+                            className="w-full py-2 px-3 bg-rose-500 hover:bg-rose-600 text-white rounded-lg text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 shadow-sm active:scale-[0.98]"
+                          >
+                            <Globe className="w-3.5 h-3.5" />
+                            <span>{t("Click Here for Direct Google Sign-In", "اضغط هنا لتسجيل الدخول المباشر")}</span>
+                          </button>
+                        )}
                       </div>
                     )}
 
@@ -814,19 +866,35 @@ export default function Login() {
                     <div className="h-px bg-slate-800 flex-1" />
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={handleGoogleAuth}
-                    disabled={loading}
-                    className="w-full h-11 flex items-center justify-center gap-2 bg-white text-slate-950 rounded-xl hover:bg-slate-100 transition-all font-black uppercase tracking-wider text-xs shadow-md disabled:opacity-50 active:scale-[0.98]"
-                  >
-                    {loading ? (
-                      <Loader2 className="w-4 h-4 animate-spin text-slate-950" />
-                    ) : (
-                      <Chrome className="w-4 h-4 text-slate-950" />
-                    )}
-                    <span>{t("Continue with Google", "المتابعة عبر جوجل")}</span>
-                  </button>
+                  <div className="space-y-2">
+                    <button
+                      type="button"
+                      onClick={handleGoogleAuth}
+                      disabled={loading}
+                      className="w-full h-11 flex items-center justify-center gap-2 bg-white text-slate-950 rounded-xl hover:bg-slate-100 transition-all font-black uppercase tracking-wider text-xs shadow-md disabled:opacity-50 active:scale-[0.98]"
+                    >
+                      {loading ? (
+                        <Loader2 className="w-4 h-4 animate-spin text-slate-950" />
+                      ) : (
+                        <Chrome className="w-4 h-4 text-slate-950" />
+                      )}
+                      <span>{t("Continue with Google", "المتابعة عبر جوجل")}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleGoogleRedirectAuth}
+                      disabled={loading}
+                      className={`w-full py-2.5 px-3 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-2 ${
+                        showRedirectOption
+                          ? 'bg-rose-500/15 border-rose-500/40 text-rose-300 hover:bg-rose-500/25 shadow-sm'
+                          : 'bg-slate-800/50 border-slate-700/60 text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                      }`}
+                    >
+                      <Globe className="w-3.5 h-3.5 shrink-0" />
+                      <span>{t("Direct Google Sign-In (No Popups)", "تسجيل جوجل المباشر (بدون نوافذ منبثقة)")}</span>
+                    </button>
+                  </div>
                 </div>
               )}
             </motion.div>
