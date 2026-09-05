@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+﻿import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   UserProfile, VocalSoundTriggerConfig, AACCardItem, HeadTrackingConfig, VocalTriggerAction,
 } from '../types';
@@ -2695,46 +2695,7 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
             <span>{motorLang === 'ar' ? 'عربي 🇪🇬' : 'EN 🇬🇧'}</span>
           </button>
 
-          {/* Icon Utilities: Theme, 9-point, Architecture, Fullscreen, Settings */}
-          <button
-            onClick={() => setTheme((t) => (t === 'amber' ? 'cyan' : t === 'cyan' ? 'emerald' : t === 'emerald' ? 'monochrome' : 'amber'))}
-            className="p-1.5 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-white"
-            title={isArabic ? 'تغيير ثيم التباين' : 'Change Theme'}
-          >
-            <Palette className="w-3.5 h-3.5" />
-          </button>
 
-          <button
-            onClick={runNinePointCalibration}
-            className="p-1.5 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-white"
-            title={isArabic ? 'معايرة 9 نقاط' : '9-Point Calibration'}
-          >
-            <Target className="w-3.5 h-3.5" />
-          </button>
-
-          <button
-            onClick={() => setShowScientificArchitectureModal(true)}
-            className="p-1.5 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-white"
-            title={isArabic ? 'المخطط العلمي' : 'Scientific Architecture'}
-          >
-            <Activity className="w-3.5 h-3.5" />
-          </button>
-
-          <button
-            onClick={toggleFullScreenMode}
-            className="p-1.5 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-white"
-            title={isArabic ? 'ملء الشاشة' : 'Fullscreen'}
-          >
-            {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
-          </button>
-
-          <button
-            onClick={() => setShowConfigModal(!showConfigModal)}
-            className="p-1.5 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-white"
-            title={isArabic ? 'الإعدادات والمعايرة' : 'Settings & Calibration'}
-          >
-            <SlidersHorizontal className="w-3.5 h-3.5" />
-          </button>
         </div>
       </div>
 {/* End of pinned chrome. Everything below (the actual keyboard / voice
