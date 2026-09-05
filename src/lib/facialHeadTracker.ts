@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Medical-Grade Steve Saling & Google Project Euphonia Eye-Gaze & Head Tracker.
  * v3 — Upgraded with:
  *   1. Anti-Tremor Deadband Filter (absorbs micro-tremors and camera noise).
@@ -782,7 +782,14 @@ export class FacialHeadTracker {
   private loop = () => {
     if (!this.isRunning || !this.videoEl) return;
 
-    if (this.isDeepLearningReady && this.faceMeshInstance && !this.isProcessingMesh && this.videoEl.readyState >= 2) {
+    if (
+      this.isDeepLearningReady &&
+      this.faceMeshInstance &&
+      !this.isProcessingMesh &&
+      this.videoEl.readyState >= 2 &&
+      this.videoEl.videoWidth > 0 &&
+      this.videoEl.videoHeight > 0
+    ) {
       this.isProcessingMesh = true;
       this.faceMeshInstance.send({ image: this.videoEl }).catch(() => {
         this.isProcessingMesh = false;
