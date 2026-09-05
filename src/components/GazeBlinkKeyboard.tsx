@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from 'react';
+﻿import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from 'react';
 import { PointerPosition, FacialGestureState } from '../lib/facialHeadTracker';
 import { GazeBlinkEngine, GazeBlinkState } from '../lib/gazeBlinkEngine';
 import { speak } from '../lib/tts';
@@ -977,8 +977,10 @@ export default function GazeBlinkKeyboard({
         </div>
       )}
 
-      {/* 6. Dynamic Main Keyboard Grid */}
-      <div className="flex-1 relative flex flex-col bg-slate-950 rounded-2xl sm:rounded-3xl p-1.5 sm:p-2 border border-slate-900 overflow-hidden min-h-0">
+      {/* 6. Dynamic Main Keyboard Grid
+          min-h-[260px]: reserves real height so the toolbars/panels above
+          can't squeeze the letter keys down to an invisible sliver. */}
+      <div className="flex-1 relative flex flex-col bg-slate-950 rounded-2xl sm:rounded-3xl p-1.5 sm:p-2 border border-slate-900 overflow-hidden min-h-[260px]">
         {/* In Split Mode: Highlighting Box Overlays */}
         {layoutMode === 'split' && (
           <>
