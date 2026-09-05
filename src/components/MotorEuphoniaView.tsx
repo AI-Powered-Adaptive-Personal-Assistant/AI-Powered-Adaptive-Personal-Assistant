@@ -3533,7 +3533,9 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
             </div>
           )}
 
-          {/* Quick Needs Row (Always Visible at Bottom for Instant Access) */}
+          {/* Quick Needs Row — hidden on the Eye Keyboard tab so it stops competing
+              with the keyboard's own bottom row for vertical space. */}
+          {activeTab !== 'keyboard' && (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2.5">
             {QUICK_NEEDS.map((need) => {
               const isHovered = hoveredCardId === need.id;
@@ -3561,6 +3563,7 @@ export default function MotorEuphoniaView({ profile, onSendMessage }: MotorEupho
               );
             })}
           </div>
+          )}
 
           {/* AI Mentor Answer Display */}
           {aiResponseText && (
