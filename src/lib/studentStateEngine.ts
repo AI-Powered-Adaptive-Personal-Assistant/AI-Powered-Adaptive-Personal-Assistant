@@ -37,6 +37,10 @@ export interface LearningStrain {
 
 export interface StudentState {
   uid: string;
+  /**
+   * Temporary initial onboarding pedagogical baseline (NOT a measurement of mental capacity or IQ).
+   * Used strictly to adapt initial explanation tone and scaffolding.
+   */
   cognitiveStage: CognitiveStage;
   activePedagogy: 'analogies' | 'scaffolded' | 'worked_example' | 'socratic' | 'advanced_rigor';
   learningStrain: LearningStrain;

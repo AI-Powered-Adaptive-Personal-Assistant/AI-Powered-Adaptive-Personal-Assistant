@@ -3,13 +3,14 @@
  * Tests core pedagogical, mathematical, and architectural engines.
  */
 
+import crypto from 'crypto';
 import { calculateNormalizedGain } from '../src/lib/evaluationEngine.js';
 import { getConcept, diagnosePrerequisiteGap } from '../src/lib/conceptGraph.js';
 import { checkRateLimit } from '../api/_lib/rateLimiter.js';
 import { validateAndSanitizeResponse } from '../api/_lib/qualityGuard.js';
 import { calculateNextReview, createInitialRetentionSchedule } from '../src/lib/spacedRetention.js';
-import { resolveCognitiveStage } from '../api/_lib/ai.js';
-import { verifyRequestAuth } from '../api/_lib/authGuard.js';
+import { resolveCognitiveStage, guard } from '../api/_lib/ai.js';
+import { verifyRequestAuth, setTestCertProvider, getExpectedProjectId } from '../api/_lib/authGuard.js';
 
 let totalPassed = 0;
 let totalFailed = 0;
@@ -118,23 +119,178 @@ async function run() {
     assert(resolveCognitiveStage(undefined) === 'developing', 'Undefined defaults to developing baseline without IQ');
   }
 
-  // 7. Hardened Authentication Guard Tests
-  console.log('\n[7] Hardened Authentication Guard (Eliminated body.uid Bypass)');
+  // 7. Hardened Authentication Guard (Complete 6-Case Matrix & Production Env Validation)
+  console.log('\n[7] Hardened Authentication Guard (6-Case Matrix & Project Validation)');
   {
-    // Rejects body.uid spoofing when no Bearer token is provided
-    const spoofReq = { headers: {}, body: { uid: 'attacker_or_spoofed_user' } };
-    const spoofRes = await verifyRequestAuth(spoofReq);
-    assert(spoofRes.authenticated === false, 'Strictly rejects request relying solely on body.uid');
+    const prevGeminiKey = process.env.GEMINI_API_KEY;
+    process.env.GEMINI_API_KEY = process.env.GEMINI_API_KEY || 'test-mock-gemini-key';
 
-    // Rejects malformed token
-    const malformedReq = { headers: { authorization: 'Bearer broken.token' } };
-    const malformedRes = await verifyRequestAuth(malformedReq);
-    assert(malformedRes.authenticated === false, 'Rejects malformed JWT token');
+    function createMockRes() {
+      const headers: Record<string, string> = {};
+      return {
+        statusCode: 200,
+        body: null as any,
+        headers,
+        setHeader(name: string, val: string) {
+          headers[name] = val;
+          return this;
+        },
+        status(code: number) {
+          this.statusCode = code;
+          return this;
+        },
+        json(data: any) {
+          this.body = data;
+          return this;
+        },
+      };
+    }
 
-    // Accepts verified Bearer token in test environment
-    const validTestReq = { headers: { authorization: 'Bearer test_valid_token_student_verified_77' } };
-    const validRes = await verifyRequestAuth(validTestReq);
-    assert(validRes.authenticated === true && validRes.uid === 'student_verified_77', 'Successfully verifies valid Bearer token');
+    // Set up RSA key pairs for testing cryptographic verification
+    const { privateKey, publicKey } = crypto.generateKeyPairSync('rsa', {
+      modulusLength: 2048,
+      publicKeyEncoding: { type: 'spki', format: 'pem' },
+      privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
+    });
+
+    const wrongKeyPair = crypto.generateKeyPairSync('rsa', {
+      modulusLength: 2048,
+      publicKeyEncoding: { type: 'spki', format: 'pem' },
+      privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
+    });
+
+    const testKid = 'test-cert-kid-1';
+    const projectId = getExpectedProjectId();
+
+    function signTestJwt(header: any, payload: any, keyPem: string) {
+      const h = Buffer.from(JSON.stringify(header)).toString('base64url');
+      const p = Buffer.from(JSON.stringify(payload)).toString('base64url');
+      const signer = crypto.createSign('RSA-SHA256');
+      signer.update(`${h}.${p}`);
+      const sig = signer.sign(keyPem, 'base64url');
+      return `${h}.${p}.${sig}`;
+    }
+
+    // Register test public cert
+    setTestCertProvider(async () => ({ [testKid]: publicKey }));
+
+    try {
+      const nowSec = Math.floor(Date.now() / 1000);
+
+      // Case 1: No token -> 401
+      const req1 = { method: 'POST', headers: {}, body: { uid: 'attacker_spoof_attempt' } };
+      const res1 = createMockRes();
+      const allowed1 = await guard(req1, res1);
+      assert(!allowed1 && res1.statusCode === 401, 'Case 1: No token (body.uid spoof) -> 401 Unauthorized');
+
+      // Case 2: Fake JWT -> 401
+      const req2 = { method: 'POST', headers: { authorization: 'Bearer completely.fake.jwt' } };
+      const res2 = createMockRes();
+      const allowed2 = await guard(req2, res2);
+      assert(!allowed2 && res2.statusCode === 401, 'Case 2: Fake JWT -> 401 Unauthorized');
+
+      // Case 3: Wrong signature -> 401
+      const wrongSigToken = signTestJwt(
+        { alg: 'RS256', kid: testKid },
+        {
+          aud: projectId,
+          iss: `https://securetoken.google.com/${projectId}`,
+          sub: 'student_wrong_sig',
+          user_id: 'student_wrong_sig',
+          exp: nowSec + 3600,
+          auth_time: nowSec,
+        },
+        wrongKeyPair.privateKey
+      );
+      const req3 = { method: 'POST', headers: { authorization: `Bearer ${wrongSigToken}` } };
+      const res3 = createMockRes();
+      const allowed3 = await guard(req3, res3);
+      assert(!allowed3 && res3.statusCode === 401, 'Case 3: Wrong cryptographic signature -> 401 Unauthorized');
+
+      // Case 4: Expired token -> 401
+      const expiredToken = signTestJwt(
+        { alg: 'RS256', kid: testKid },
+        {
+          aud: projectId,
+          iss: `https://securetoken.google.com/${projectId}`,
+          sub: 'student_expired',
+          user_id: 'student_expired',
+          exp: nowSec - 60,
+          auth_time: nowSec - 3600,
+        },
+        privateKey
+      );
+      const req4 = { method: 'POST', headers: { authorization: `Bearer ${expiredToken}` } };
+      const res4 = createMockRes();
+      const allowed4 = await guard(req4, res4);
+      assert(!allowed4 && res4.statusCode === 401, 'Case 4: Expired token -> 401 Unauthorized');
+
+      // Case 5: Wrong project -> 401
+      const wrongProjectToken = signTestJwt(
+        { alg: 'RS256', kid: testKid },
+        {
+          aud: 'different-firebase-project',
+          iss: `https://securetoken.google.com/${projectId}`,
+          sub: 'student_wrong_proj',
+          user_id: 'student_wrong_proj',
+          exp: nowSec + 3600,
+          auth_time: nowSec,
+        },
+        privateKey
+      );
+      const req5 = { method: 'POST', headers: { authorization: `Bearer ${wrongProjectToken}` } };
+      const res5 = createMockRes();
+      const allowed5 = await guard(req5, res5);
+      assert(!allowed5 && res5.statusCode === 401, 'Case 5: Wrong project audience -> 401 Unauthorized');
+
+      // Case 6: Valid Firebase RS256 token -> 200
+      const validToken = signTestJwt(
+        { alg: 'RS256', kid: testKid },
+        {
+          aud: projectId,
+          iss: `https://securetoken.google.com/${projectId}`,
+          sub: 'student_verified_200',
+          user_id: 'student_verified_200',
+          exp: nowSec + 3600,
+          auth_time: nowSec,
+        },
+        privateKey
+      );
+      const req6 = { method: 'POST', headers: { authorization: `Bearer ${validToken}` } };
+      const res6 = createMockRes();
+      const allowed6 = await guard(req6, res6);
+      if (allowed6) {
+        res6.status(200).json({ ok: true, uid: (req6 as any).authenticatedUid });
+      }
+      assert(
+        allowed6 === true && res6.statusCode === 200 && (req6 as any).authenticatedUid === 'student_verified_200',
+        'Case 6: Valid Firebase RS256 token -> 200 OK'
+      );
+    } finally {
+      // Clean up test cert provider
+      setTestCertProvider(null);
+    }
+
+    // Production Project ID Validation: Ensure missing FIREBASE_PROJECT_ID in production throws
+    const prevEnv = process.env.NODE_ENV;
+    const prevProjectId = process.env.FIREBASE_PROJECT_ID;
+    try {
+      (process.env as any).NODE_ENV = 'production';
+      delete process.env.FIREBASE_PROJECT_ID;
+      let didThrow = false;
+      try {
+        getExpectedProjectId();
+      } catch (err: any) {
+        didThrow = true;
+      }
+      assert(didThrow === true, 'Production strictly requires FIREBASE_PROJECT_ID and throws if missing');
+    } finally {
+      (process.env as any).NODE_ENV = prevEnv;
+      if (prevProjectId) process.env.FIREBASE_PROJECT_ID = prevProjectId;
+      else delete process.env.FIREBASE_PROJECT_ID;
+      if (prevGeminiKey) process.env.GEMINI_API_KEY = prevGeminiKey;
+      else delete process.env.GEMINI_API_KEY;
+    }
   }
 
   console.log(`\n========================================`);

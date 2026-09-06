@@ -12,8 +12,18 @@ import express from "express";
 import generateAdaptiveResponseHandler from "../api/gemini/generateAdaptiveResponse";
 import generateAdaptiveResponseStreamHandler from "../api/gemini/generateAdaptiveResponseStream";
 import generateContentHandler from "../api/gemini/generateContent";
+import { guard } from "../api/_lib/ai";
 
 export const geminiRouter = express.Router();
+
+// Enforce security guard (Bearer token verification + rate limiting) on all AI endpoints
+geminiRouter.use(async (req, res, next) => {
+  if (req.method === 'POST') {
+    const allowed = await guard(req, res);
+    if (!allowed) return;
+  }
+  next();
+});
 
 const wrap = (fn: (req: express.Request, res: express.Response) => Promise<any>) =>
   async (req: express.Request, res: express.Response) => {

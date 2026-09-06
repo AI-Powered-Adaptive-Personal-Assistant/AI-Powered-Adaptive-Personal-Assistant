@@ -156,6 +156,12 @@ ${prefs}
 ${confirmed}\n`;
 }
 
+/**
+ * CognitiveStage represents a dynamic pedagogical baseline initialized during onboarding.
+ * IMPORTANT: This is NOT a diagnostic assessment of the student's fixed intelligence, mental capacity, or IQ.
+ * It is solely an adaptive pedagogical calibration used to tailor the initial explanation style,
+ * tone, and scaffolding, which evolves dynamically based on student interaction and mastery.
+ */
 export type CognitiveStage = 'foundational' | 'developing' | 'proficient' | 'advanced';
 
 export function resolveCognitiveStage(level?: string): CognitiveStage {
@@ -170,6 +176,10 @@ export function resolveCognitiveStage(level?: string): CognitiveStage {
 function formatCognitiveCalibration(style?: string, level?: string): string {
   let res = '';
   const stage = resolveCognitiveStage(level);
+
+  res += `\n## PEDAGOGICAL CALIBRATION BASELINE (DYNAMIC ONBOARDING BASELINE - NOT A MEASUREMENT OF MENTAL CAPACITY OR IQ)\n`;
+  res += `- This calibration is an adaptive instructional preference baseline for tone and scaffolding.\n`;
+  res += `- It is NOT a permanent classification or clinical evaluation of the student's cognitive capabilities.\n`;
 
   if (stage === 'foundational') {
     res += `\n## COGNITIVE CALIBRATION: FOUNDATIONAL (STAGE: مرحلة التأسيس والمبسط جداً)
@@ -427,31 +437,19 @@ export async function readBody(req: any): Promise<any> {
 import { verifyRequestAuth } from './authGuard.js';
 import { checkRateLimit } from './rateLimiter.js';
 
-/** Shared guard: POST only, provider key check, dual-tier rate limiting (IP + User), and authentication. */
+/** Shared guard: POST only, authentication, provider key check, and dual-tier rate limiting (IP + User). */
 export async function guard(req: any, res: any): Promise<boolean> {
+  // If already authenticated and guarded upstream (e.g. in Express middleware), proceed immediately
+  if (req.authenticatedUid) {
+    return true;
+  }
+
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' });
     return false;
   }
-  if (!GEMINI_KEYS().length && !FALLBACK_KEYS().length) {
-    res.status(503).json({
-      error: 'No AI provider key configured on the server. Set GEMINI_API_KEY (and optionally GROQ_API_KEY / XAI_API_KEY) in the Vercel project environment variables.',
-    });
-    return false;
-  }
 
-  // 1. IP Rate Limiting (DDoS & Scraper Defense: 100 requests/minute)
-  const clientIp = req.headers?.['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || 'unknown_ip';
-  const ipRateLimit = checkRateLimit(`ip:${clientIp}`, 100);
-  res.setHeader('X-RateLimit-Limit-IP', '100');
-  res.setHeader('X-RateLimit-Remaining-IP', String(ipRateLimit.remaining));
-  if (!ipRateLimit.allowed) {
-    res.setHeader('Retry-After', Math.ceil(ipRateLimit.resetMs / 1000).toString());
-    res.status(429).json({ error: 'Too many requests from this IP address. Please slow down.' });
-    return false;
-  }
-
-  // 2. Authentication Verification (Strict Firebase ID Token Check)
+  // 1. Authentication Verification (Strict Firebase ID Token Check)
   const auth = await verifyRequestAuth(req);
   if (!auth.authenticated || !auth.uid) {
     res.status(401).json({ error: auth.error || 'Authentication required. Please sign in to access Cognify AI.' });
@@ -459,12 +457,39 @@ export async function guard(req: any, res: any): Promise<boolean> {
   }
   req.authenticatedUid = auth.uid;
 
-  // 3. User-Level Rate Limiting (Account Quota Defense: 60 requests/minute)
+  // 2. Provider Key Check
+  if (!GEMINI_KEYS().length && !FALLBACK_KEYS().length) {
+    res.status(503).json({
+      error: 'No AI provider key configured on the server. Set GEMINI_API_KEY (and optionally GROQ_API_KEY / XAI_API_KEY) in the Vercel project environment variables.',
+    });
+    return false;
+  }
+
+  // 3. IP Rate Limiting (DDoS & Scraper Defense: 100 requests/minute)
+  const clientIp = req.headers?.['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || 'unknown_ip';
+  const ipRateLimit = checkRateLimit(`ip:${clientIp}`, 100);
+  if (typeof res.setHeader === 'function') {
+    res.setHeader('X-RateLimit-Limit-IP', '100');
+    res.setHeader('X-RateLimit-Remaining-IP', String(ipRateLimit.remaining));
+  }
+  if (!ipRateLimit.allowed) {
+    if (typeof res.setHeader === 'function') {
+      res.setHeader('Retry-After', Math.ceil(ipRateLimit.resetMs / 1000).toString());
+    }
+    res.status(429).json({ error: 'Too many requests from this IP address. Please slow down.' });
+    return false;
+  }
+
+  // 4. User-Level Rate Limiting (Account Quota Defense: 60 requests/minute)
   const userRateLimit = checkRateLimit(`user:${auth.uid}`, 60);
-  res.setHeader('X-RateLimit-Limit-User', '60');
-  res.setHeader('X-RateLimit-Remaining-User', String(userRateLimit.remaining));
+  if (typeof res.setHeader === 'function') {
+    res.setHeader('X-RateLimit-Limit-User', '60');
+    res.setHeader('X-RateLimit-Remaining-User', String(userRateLimit.remaining));
+  }
   if (!userRateLimit.allowed) {
-    res.setHeader('Retry-After', Math.ceil(userRateLimit.resetMs / 1000).toString());
+    if (typeof res.setHeader === 'function') {
+      res.setHeader('Retry-After', Math.ceil(userRateLimit.resetMs / 1000).toString());
+    }
     res.status(429).json({ error: 'User rate limit exceeded. Please wait a moment before sending more requests.' });
     return false;
   }

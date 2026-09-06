@@ -19,7 +19,31 @@ export function extractBearerToken(req: any): string | null {
   return null;
 }
 
-const EXPECTED_PROJECT_ID = process.env.FIREBASE_PROJECT_ID || 'gen-lang-client-0347404066';
+export type CertProvider = () => Promise<Record<string, string>>;
+let customCertProvider: CertProvider | null = null;
+
+/**
+ * Allows automated test suites to mock Google public certs for RS256 signature testing.
+ */
+export function setTestCertProvider(provider: CertProvider | null): void {
+  customCertProvider = provider;
+}
+
+/**
+ * Returns the expected Firebase project ID.
+ * Strictly enforces that FIREBASE_PROJECT_ID is present in production environments.
+ */
+export function getExpectedProjectId(): string {
+  const envProjectId = process.env.FIREBASE_PROJECT_ID;
+  if (process.env.NODE_ENV === 'production') {
+    if (!envProjectId) {
+      throw new Error('[authGuard] CRITICAL CONFIGURATION ERROR: FIREBASE_PROJECT_ID must be set in production.');
+    }
+    return envProjectId;
+  }
+  return envProjectId || 'gen-lang-client-0347404066';
+}
+
 const GOOGLE_CERTS_URL = 'https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com';
 
 interface CertCache {
@@ -30,6 +54,10 @@ interface CertCache {
 let certCache: CertCache | null = null;
 
 async function getGooglePublicCerts(): Promise<Record<string, string>> {
+  if (customCertProvider) {
+    return await customCertProvider();
+  }
+
   const now = Date.now();
   if (certCache && certCache.expiresAt > now) {
     return certCache.certs;
@@ -111,7 +139,16 @@ export async function verifyRequestAuth(req: any): Promise<AuthValidationResult>
 
     // 2. Verify Claims (Audience, Issuer, Expiration, Subject)
     const nowSec = Math.floor(Date.now() / 1000);
-    const projectId = EXPECTED_PROJECT_ID;
+    let projectId: string;
+    try {
+      projectId = getExpectedProjectId();
+    } catch (cfgErr: any) {
+      console.error(cfgErr.message);
+      return {
+        authenticated: false,
+        error: 'Server authentication configuration error: Missing project configuration.',
+      };
+    }
 
     if (payload.aud !== projectId) {
       return {
@@ -155,11 +192,9 @@ export async function verifyRequestAuth(req: any): Promise<AuthValidationResult>
       if (!isSignatureValid) {
         return { authenticated: false, error: 'Invalid token cryptographic signature.' };
       }
-    } catch (certErr) {
-      console.warn('[authGuard] Google cert verification network issue:', certErr);
-      if (process.env.NODE_ENV === 'production') {
-        return { authenticated: false, error: 'Authentication service temporarily unavailable.' };
-      }
+    } catch (certErr: any) {
+      console.warn('[authGuard] Cert verification failure:', certErr?.message || certErr);
+      return { authenticated: false, error: 'Authentication signature verification failed.' };
     }
 
     return { authenticated: true, uid };
