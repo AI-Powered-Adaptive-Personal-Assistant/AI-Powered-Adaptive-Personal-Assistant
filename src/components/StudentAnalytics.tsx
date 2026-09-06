@@ -9,6 +9,7 @@ import { subscribeToEvents, ymd } from '../lib/calendar';
 import { subscribeToGoals } from '../lib/goals';
 import { subscribeToTasks } from '../lib/planner';
 import AcademicCommandCenter from './AcademicCommandCenter';
+import LearningIntelligenceCard from './LearningIntelligenceCard';
 import { MetricsInput } from '../lib/studentMetrics';
 
 interface StudentAnalyticsProps {
@@ -123,6 +124,9 @@ export default function StudentAnalytics({ profile, onMenuClick, onNavigateBack 
       <div className="max-w-6xl w-full space-y-6 pb-10">
         {/* S1 · Executive Command Center — the headline "what to do next" card */}
         <AcademicCommandCenter input={metricsInput} isAr={isAr} language={profile.language} />
+
+        {/* Explainable Cognitive & Learning Intelligence Card (Evidence-Based Mastery) */}
+        <LearningIntelligenceCard profile={profile} />
 
         {/* Stat cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

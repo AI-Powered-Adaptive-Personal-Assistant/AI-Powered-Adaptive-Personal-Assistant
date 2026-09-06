@@ -5,12 +5,15 @@
 
 import crypto from 'crypto';
 import { calculateNormalizedGain } from '../src/lib/evaluationEngine.js';
-import { getConcept, diagnosePrerequisiteGap } from '../src/lib/conceptGraph.js';
+import { getConcept, diagnosePrerequisiteGap, detectConceptFromText } from '../src/lib/conceptGraph.js';
 import { checkRateLimit } from '../api/_lib/rateLimiter.js';
 import { validateAndSanitizeResponse } from '../api/_lib/qualityGuard.js';
 import { calculateNextReview, createInitialRetentionSchedule } from '../src/lib/spacedRetention.js';
-import { resolveCognitiveStage, guard } from '../api/_lib/ai.js';
+import { resolveCognitiveStage, guard, buildPersona } from '../api/_lib/ai.js';
 import { verifyRequestAuth, setTestCertProvider, getExpectedProjectId } from '../api/_lib/authGuard.js';
+import { eventBus } from '../src/lib/learningEvents.js';
+import { getStudentStateManager } from '../src/lib/studentStateEngine.js';
+import { classifyRequest } from '../api/_lib/router.js';
 
 let totalPassed = 0;
 let totalFailed = 0;
@@ -291,6 +294,148 @@ async function run() {
       if (prevGeminiKey) process.env.GEMINI_API_KEY = prevGeminiKey;
       else delete process.env.GEMINI_API_KEY;
     }
+  }
+
+  // 8. Closed-Loop Event Bus & Student State Engine
+  console.log('\n[8] Closed-Loop Event Bus & Student State Engine');
+  {
+    const testUid = `student_loop_${Date.now()}`;
+    const manager1 = getStudentStateManager(testUid, 'Basic');
+    const manager2 = getStudentStateManager(testUid, 'Basic');
+    assert(manager1 === manager2, 'getStudentStateManager returns singleton instance');
+
+    let notifiedState: any = null;
+    const unsubscribe = manager1.subscribe((state) => {
+      notifiedState = state;
+    });
+
+    // Emit event through global event bus as would occur during exercises/quizzes
+    eventBus.emit('EXERCISE_ANSWERED', testUid, {
+      subject: 'math',
+      topic: 'basic_algebra',
+      conceptId: 'basic_algebra',
+      isCorrect: true,
+      responseTimeMs: 3500,
+      difficulty: 'easy',
+    });
+
+    assert(notifiedState !== null, 'Subscriber was notified of state update from eventBus');
+    assert(
+      notifiedState?.conceptMastery['basic_algebra']?.attempts === 1 &&
+      notifiedState?.conceptMastery['basic_algebra']?.correct === 1,
+      'EventBus emission successfully updated conceptMastery in StudentStateManager'
+    );
+
+    // Test learning strain progression via consecutive errors and high latency
+    eventBus.emit('EXERCISE_ANSWERED', testUid, {
+      subject: 'math',
+      topic: 'basic_algebra',
+      conceptId: 'basic_algebra',
+      isCorrect: false,
+      responseTimeMs: 18000,
+      difficulty: 'medium',
+      mistakeType: 'sign_error',
+    });
+    eventBus.emit('EXERCISE_ANSWERED', testUid, {
+      subject: 'math',
+      topic: 'basic_algebra',
+      conceptId: 'basic_algebra',
+      isCorrect: false,
+      responseTimeMs: 22000,
+      difficulty: 'medium',
+      mistakeType: 'sign_error',
+    });
+
+    assert(
+      notifiedState.learningStrain.possibleStruggle >= 0.5,
+      'Consecutive errors and high latency increase learning strain'
+    );
+    assert(
+      notifiedState.learningStrain.signals.includes('repeated_errors') &&
+      notifiedState.learningStrain.signals.includes('high_response_latency'),
+      'Strain signals detect repeated_errors and high_response_latency'
+    );
+
+    unsubscribe();
+    manager1.destroy();
+  }
+
+  // 9. AI Persona Generation & Active Intervention Directives
+  console.log('\n[9] AI Persona Generation & Active Intervention Directives');
+  {
+    const mockProfile = {
+      level: 'Basic',
+      role: 'Student',
+      field: 'Computer Science',
+      accessibilityMode: 'Visual',
+      studentState: {
+        activePedagogy: 'worked_example' as const,
+        learningStrain: {
+          possibleStruggle: 0.8,
+          confidence: 0.9,
+          signals: ['repeated_errors', 'high_response_latency'],
+        },
+        activeInterventions: {
+          dynamic_memory: {
+            conceptId: 'dynamic_memory',
+            strategy: 'worked_example',
+            action: 'review_prerequisite',
+            reason: 'Weak foundation in pointers',
+            recommendedAction: 'review_prerequisite',
+          },
+        },
+      },
+    };
+
+    const persona = buildPersona(mockProfile as any);
+    assert(persona.includes('ACTIVE INTERVENTION DIRECTIVE:'), 'Persona includes ACTIVE INTERVENTION DIRECTIVE');
+    assert(persona.includes('Strategy: worked_example'), 'Persona specifies worked_example strategy');
+    assert(persona.includes('Target Concept: dynamic_memory'), 'Persona specifies target concept');
+    assert(persona.includes('INSTRUCTION FOR LEARNING STRAIN:'), 'Persona includes high learning strain instructions');
+    assert(persona.includes('USER IS BLIND'), 'Preserves accessibility instructions for Visual mode');
+  }
+
+  // 10. Deterministic AI Router with Student State Strain
+  console.log('\n[10] Deterministic AI Router with Student State Strain');
+  {
+    // Fast route for normal short queries without strain
+    const r1 = classifyRequest('What is a loop?', []);
+    assert(r1 === 'fast', 'Short concept question routes to fast model');
+
+    // Code block routes to reasoning
+    const r2 = classifyRequest('How to fix this? ```python\nx = 1\n```', []);
+    assert(r2 === 'reasoning', 'Code block routes to reasoning model');
+
+    // High learning strain forces reasoning model even for short queries
+    const r3 = classifyRequest('What is a loop?', [], {
+      activePedagogy: 'scaffolded',
+      learningStrain: { possibleStruggle: 0.8 },
+    });
+    assert(r3 === 'reasoning', 'High learning strain (>=0.7) deterministically routes to reasoning model');
+
+    // Active worked_example pedagogy forces reasoning model
+    const r4 = classifyRequest('Help with dynamic memory', [], {
+      activePedagogy: 'worked_example',
+      learningStrain: { possibleStruggle: 0.3 },
+    });
+    assert(r4 === 'reasoning', 'worked_example pedagogy deterministically routes to reasoning model');
+
+    // Image attachment always routes to vision
+    const r5 = classifyRequest('Help me', [{ type: 'image/png' }]);
+    assert(r5 === 'vision', 'Image attachment routes to vision model');
+  }
+
+  // 11. Concept Detection from Natural Language
+  console.log('\n[11] Concept Detection from Natural Language');
+  {
+    const c1 = detectConceptFromText('I am confused about pointers and addresses');
+    assert(c1?.id === 'pointers', 'Detects pointers concept from English text');
+
+    const c2 = detectConceptFromText('عايز أفهم الجبر والمعادلات الرياضية');
+    assert(c2?.id === 'basic_algebra', 'Detects basic_algebra concept from Arabic text');
+
+    const c3 = detectConceptFromText('What is the capital of France?');
+    assert(c3 === null, 'Returns null for unrelated queries');
   }
 
   console.log(`\n========================================`);

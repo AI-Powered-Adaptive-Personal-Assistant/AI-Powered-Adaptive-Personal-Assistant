@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Concept & Knowledge Graph with Prerequisite Root-Cause Diagnosis (Points 6 & 31)
  * Models hierarchical concepts, dependencies, and enables the Intelligent Tutor
  * to diagnose whether a student's failure in an advanced topic stems from an
@@ -260,4 +260,33 @@ export function diagnosePrerequisiteGap(
     explanationEn: `Prerequisites for "${target.nameEn}" are satisfied. Difficulty is localized to the concept itself.`,
     explanationAr: `المتطلبات السابقة لـ "${target.nameAr}" مكتملة بشكل جيد. الصعوبة مرتبطة مباشرة بالمفهوم الحالي.`,
   };
+}
+
+/**
+ * Detects the most relevant ConceptNode mentioned in a user question or text.
+ */
+export function detectConceptFromText(text: string): ConceptNode | null {
+  if (!text || typeof text !== 'string') return null;
+  const lower = text.toLowerCase();
+
+  // Tier 1: Priority check for exact concept ID (e.g. "pointers", "dynamic memory")
+  for (const [id, node] of Object.entries(CONCEPT_REGISTRY)) {
+    if (lower.includes(id.replace(/_/g, ' ')) || lower.includes(id)) {
+      return node;
+    }
+  }
+
+  // Tier 2: Check English and Arabic descriptive keywords
+  for (const [, node] of Object.entries(CONCEPT_REGISTRY)) {
+    const enKeywords = node.nameEn.toLowerCase().split(/[\s,&()]+/);
+    if (enKeywords.some((kw) => kw.length > 4 && lower.includes(kw))) {
+      return node;
+    }
+    const arKeywords = node.nameAr.split(/[\s،&()]+/);
+    if (arKeywords.some((kw) => kw.length > 3 && text.includes(kw))) {
+      return node;
+    }
+  }
+
+  return null;
 }

@@ -818,7 +818,8 @@ export async function* generateAdaptiveResponseStream(
   profile: UserProfile,
   history: Message[],
   attachments: { name: string, type: string, data: string }[] = [],
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  studentState?: any
 ) {
   // Once we know there's no backend, go straight to the direct path.
   if (backendUp === false) {
@@ -838,7 +839,7 @@ export async function* generateAdaptiveResponseStream(
     const res = await fetch('/api/gemini/generateAdaptiveResponseStream', {
       method: 'POST',
       headers,
-      body: JSON.stringify({ message, profile, history, attachments }),
+      body: JSON.stringify({ message, profile, history, attachments, studentState }),
       signal
     });
 
@@ -962,14 +963,15 @@ export async function generateAdaptiveResponse(
   message: string,
   profile: UserProfile,
   history: Message[],
-  attachments: { name: string, type: string, data: string }[] = []
+  attachments: { name: string, type: string, data: string }[] = [],
+  studentState?: any
 ) {
   const isAr = profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya';
 
   // Direct (no-backend) path: stream from Gemini/Groq and collect the full text.
   const direct = async (): Promise<string> => {
     let text = "";
-    for await (const chunk of generateAdaptiveResponseStream(message, profile, history, attachments)) {
+    for await (const chunk of generateAdaptiveResponseStream(message, profile, history, attachments, undefined, studentState)) {
       if (chunk.text) text = chunk.text;
     }
     return text || (isAr
@@ -987,7 +989,7 @@ export async function generateAdaptiveResponse(
     const res = await fetch('/api/gemini/generateAdaptiveResponse', {
       method: 'POST',
       headers,
-      body: JSON.stringify({ message, profile, history, attachments })
+      body: JSON.stringify({ message, profile, history, attachments, studentState })
     });
     const isHtml = res.headers.get('Content-Type')?.includes('text/html');
     if (!res.ok || isHtml) {

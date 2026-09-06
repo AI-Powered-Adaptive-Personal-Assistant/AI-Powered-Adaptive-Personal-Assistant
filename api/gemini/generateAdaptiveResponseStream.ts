@@ -158,7 +158,7 @@ export default async function handler(req: any, res: any) {
   if (!(await guard(req, res))) return;
 
   try {
-    const { message, profile = {}, history = [], attachments = [] } = await readBody(req);
+    const { message, profile = {}, history = [], attachments = [], studentState } = await readBody(req);
     if (!message || typeof message !== 'string') {
       res.status(400).json({ error: 'message is required' });
       return;
@@ -178,9 +178,10 @@ export default async function handler(req: any, res: any) {
     const safeHistory = Array.isArray(history) ? history : [];
     const safeAttachments = Array.isArray(attachments) ? attachments : [];
 
-    // Phase 1.1 — deterministic router. Plain classification, no model call.
-    const category = classifyRequest(message, safeAttachments);
-    const system = buildPersona(profile, threadsSummary(profile));
+    // Phase 1.1 — deterministic router with student state awareness.
+    const effectiveState = studentState || profile?.studentState;
+    const category = classifyRequest(message, safeAttachments, effectiveState);
+    const system = buildPersona(profile, threadsSummary(profile), effectiveState);
     let full = '';
 
     try {

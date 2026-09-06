@@ -112,6 +112,28 @@ export function stripReasoning(text: string): string {
   return out.replace(/^\s+/, '');
 }
 
+export interface StudentStatePayload {
+  activePedagogy?: 'analogies' | 'scaffolded' | 'worked_example' | 'socratic' | 'advanced_rigor';
+  learningStrain?: {
+    possibleStruggle: number;
+    confidence: number;
+    signals: string[];
+  };
+  activeInterventions?: Record<string, {
+    conceptId: string;
+    strategy: string;
+    action: string;
+    reason: string;
+    recommendedAction?: string;
+  }>;
+  conceptMastery?: Record<string, {
+    conceptId: string;
+    accuracy: number;
+    attempts: number;
+    confidence: number;
+  }>;
+}
+
 export interface Profile {
   level?: string; role?: string; field?: string; language?: string;
   accessibilityMode?: string;
@@ -119,6 +141,7 @@ export interface Profile {
   activeThreadId?: string;
   iqScore?: number;
   preferredPedagogyStyle?: string;
+  studentState?: StudentStatePayload;
   memory?: {
     enabled?: boolean;
     preferredLanguage?: string;
@@ -236,11 +259,58 @@ function formatCognitiveCalibration(style?: string, level?: string): string {
   return res;
 }
 
+function formatStudentStateBlock(state?: StudentStatePayload): string {
+  if (!state) return '';
+  let block = '';
+
+  const strain = state.learningStrain;
+  const interventions = state.activeInterventions ? Object.values(state.activeInterventions) : [];
+  const activeIntervention = interventions.length > 0 ? interventions[0] : null;
+
+  block += '\n## REAL-TIME COGNITIVE & PEDAGOGICAL STATE (EVIDENCE-BASED LEARNING ENGINE)\n';
+  if (state.activePedagogy) {
+    block += `- Active Pedagogical Mode: ${state.activePedagogy.toUpperCase()}\n`;
+  }
+
+  if (strain) {
+    const strugglePct = Math.round(strain.possibleStruggle * 100);
+    const signalList = strain.signals && strain.signals.length > 0 ? strain.signals.join(', ') : 'none';
+    block += `- Current Learning Strain: ${strugglePct}% struggle likelihood (Confidence: ${Math.round(strain.confidence * 100)}%, Signals: ${signalList})\n`;
+    if (strain.possibleStruggle > 0.5) {
+      block += `- INSTRUCTION FOR LEARNING STRAIN: The student is experiencing observable difficulty. Slow down pacing, lower cognitive load, avoid presenting multiple complex steps simultaneously, and offer warm encouragement.\n`;
+    }
+  }
+
+  if (activeIntervention) {
+    block += `\n## ACTIVE INTERVENTION DIRECTIVE:
+- Strategy: ${activeIntervention.strategy}
+- Target Concept: ${activeIntervention.conceptId}
+- Diagnosed Root Cause: ${activeIntervention.reason}
+${activeIntervention.recommendedAction ? `- Specific Remediation Action: ${activeIntervention.recommendedAction}\n` : ''}`;
+    if (activeIntervention.action === 'review_prerequisite') {
+      block += `- CRITICAL: The student is stumbling because of a foundation gap in "${activeIntervention.conceptId}". Before advancing, briefly explain and solidify this prerequisite using concrete real-world intuition.\n`;
+    } else if (activeIntervention.strategy === 'worked_example') {
+      block += `- CRITICAL: Provide a complete step-by-step worked example with thorough inline commentary before asking the student to solve on their own.\n`;
+    } else if (activeIntervention.strategy === 'analogies') {
+      block += `- CRITICAL: Anchor your explanation in an intuitive, physical real-world metaphor first before mentioning any code, math, or formal terms.\n`;
+    }
+  }
+
+  return block;
+}
+
 /** The adaptive system prompt. Kept in step with the client's previous inline version. */
-export function buildPersona(profile: Profile, otherThreads = ''): string {
+export function buildPersona(
+  profile: Profile,
+  otherThreads = '',
+  explicitStudentState?: StudentStatePayload
+): string {
   const a11y = profile.accessibilityMode;
   const memoryBlock = formatStudentMemoryBlock(profile.memory);
-  const cognitiveBlock = formatCognitiveCalibration(profile.preferredPedagogyStyle, profile.level);
+  const effectiveState = explicitStudentState || profile.studentState;
+  const stateBlock = formatStudentStateBlock(effectiveState);
+  const effectivePedagogy = effectiveState?.activePedagogy || profile.preferredPedagogyStyle;
+  const cognitiveBlock = formatCognitiveCalibration(effectivePedagogy, profile.level);
   return `You are Cognify, an adaptive AI mentor. Give the most correct, useful answer calibrated to THIS user.
 - Level: ${profile.level || 'Basic'} | Role: ${profile.role || 'Student'} | Field: ${profile.field || 'General'}
 
@@ -254,7 +324,7 @@ export function buildPersona(profile: Profile, otherThreads = ''): string {
 - Simple question → 1-4 sentences of plain prose. Bullets/headers ONLY when genuinely multi-part.
 - If the input is messy or mixed-language, infer the intent and answer it.
 - If you are not certain, say so briefly. Never invent facts, sources or numbers.
-${a11y === 'Visual' ? '\n## ACCESSIBILITY\n- USER IS BLIND. Describing an image/photo is a practical task, not a creative one:\n  1) Say FIRST if anything looks like a hazard (traffic, stairs, obstacles, fire, spills, sharp/hot objects) — one short sentence, before anything else.\n  2) Read any visible text VERBATIM (labels, signs, medicine dosage, prices, dates) — do not paraphrase or summarize numbers/instructions.\n  3) Then describe what matters practically: what/who is there, roughly where (left/right/near/far, or clock position like "at 2 o\'clock"), not colors or aesthetics unless asked.\n  4) Be concise — a few short sentences, not a paragraph. No flowery/"vivid" language, no markdown, no tables — this is read aloud by TTS.' : ''}${a11y === 'Vocal-Deaf' || a11y === 'Sign-Only' ? '\n## ACCESSIBILITY\n- User is deaf. Short, visual sentences.' : ''}${a11y === 'Speech' ? '\n## ACCESSIBILITY\n- Output is read aloud by TTS: smooth speakable prose, no tables, no markdown noise.' : ''}${memoryBlock}${cognitiveBlock}
+${a11y === 'Visual' ? '\n## ACCESSIBILITY\n- USER IS BLIND. Describing an image/photo is a practical task, not a creative one:\n  1) Say FIRST if anything looks like a hazard (traffic, stairs, obstacles, fire, spills, sharp/hot objects) — one short sentence, before anything else.\n  2) Read any visible text VERBATIM (labels, signs, medicine dosage, prices, dates) — do not paraphrase or summarize numbers/instructions.\n  3) Then describe what matters practically: what/who is there, roughly where (left/right/near/far, or clock position like "at 2 o\'clock"), not colors or aesthetics unless asked.\n  4) Be concise — a few short sentences, not a paragraph. No flowery/"vivid" language, no markdown, no tables — this is read aloud by TTS.' : ''}${a11y === 'Vocal-Deaf' || a11y === 'Sign-Only' ? '\n## ACCESSIBILITY\n- User is deaf. Short, visual sentences.' : ''}${a11y === 'Speech' ? '\n## ACCESSIBILITY\n- Output is read aloud by TTS: smooth speakable prose, no tables, no markdown noise.' : ''}${memoryBlock}${stateBlock}${cognitiveBlock}
 ${otherThreads ? `\n## THREAD MEMORY\nSummaries of the user's other threads. Use them ONLY if explicitly asked about past conversations.\n${otherThreads}\n` : ''}`;
 }
 

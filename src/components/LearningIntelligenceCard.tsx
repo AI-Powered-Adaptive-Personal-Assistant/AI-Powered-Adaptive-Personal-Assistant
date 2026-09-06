@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { UserProfile, LearningIntelligenceProfile } from '../types';
 import { localize } from '../lib/translations';
 import {
@@ -11,63 +11,70 @@ import {
   AlertCircle,
 } from 'lucide-react';
 
+import { useStudentState } from '../lib/useStudentState';
+import { getConcept } from '../lib/conceptGraph';
+
 interface LearningIntelligenceCardProps {
   profile: UserProfile;
 }
 
 export default function LearningIntelligenceCard({ profile }: LearningIntelligenceCardProps) {
-  const intel: LearningIntelligenceProfile = profile.learningIntelligence || {
-    confidenceScore: 78,
-    cognitiveStrengths: [
-      'Visual Matrix Pattern Completion',
-      'Deductive Syllogistic Inferences',
-      'Step-by-step Structural Breakdown',
-    ],
-    recommendedFocus: [
-      'Spatial Coordinate Retention under strict time limits',
-      'Recursive algorithmic proofs',
-    ],
-    masteredConcepts: [
-      {
-        conceptId: 'c1',
-        conceptName: 'Object-Oriented Encapsulation',
-        domain: 'Computer Science',
-        confidenceScore: 92,
-        status: 'mastered',
-        evidenceCount: 5,
-        lastPracticed: new Date().toISOString(),
-      },
-      {
-        conceptId: 'c2',
-        conceptName: 'Linear Equations & Matrix Algebra',
-        domain: 'Mathematics',
-        confidenceScore: 88,
-        status: 'mastered',
-        evidenceCount: 4,
-        lastPracticed: new Date().toISOString(),
-      },
-    ],
-    developingConcepts: [
-      {
-        conceptId: 'c3',
-        conceptName: 'Dynamic Programming Sub-problems',
-        domain: 'Algorithms',
-        confidenceScore: 54,
-        status: 'developing',
-        evidenceCount: 2,
-        lastPracticed: new Date().toISOString(),
-      },
-      {
-        conceptId: 'c4',
-        conceptName: 'Thermodynamic State Equations',
-        domain: 'Physics',
-        confidenceScore: 48,
-        status: 'developing',
-        evidenceCount: 2,
-        lastPracticed: new Date().toISOString(),
-      },
-    ],
-    updatedAt: new Date().toISOString(),
+  const { studentState } = useStudentState(profile.uid, profile.level);
+  const isAr = profile.language === 'Arabic' || profile.language === 'Egyptian Ammiya';
+
+  const masteryEntries = Object.entries(studentState.conceptMastery || {});
+  const hasLiveMastery = masteryEntries.length > 0;
+
+  const liveMasteredConcepts = masteryEntries
+    .filter(([_, rec]) => rec.accuracy >= 0.75 && rec.attempts >= 2)
+    .map(([cid, rec]) => {
+      const node = getConcept(cid);
+      return {
+        conceptId: cid,
+        conceptName: node ? (isAr ? node.nameAr : node.nameEn) : cid.replace(/_/g, ' '),
+        domain: node?.domain || 'General',
+        confidenceScore: Math.round(rec.confidence * 100),
+        status: 'mastered' as const,
+        evidenceCount: rec.attempts,
+        lastPracticed: new Date(rec.lastTested).toISOString(),
+      };
+    });
+
+  const liveDevelopingConcepts = masteryEntries
+    .filter(([_, rec]) => rec.accuracy < 0.75 || rec.attempts < 2)
+    .map(([cid, rec]) => {
+      const node = getConcept(cid);
+      return {
+        conceptId: cid,
+        conceptName: node ? (isAr ? node.nameAr : node.nameEn) : cid.replace(/_/g, ' '),
+        domain: node?.domain || 'General',
+        confidenceScore: Math.round(rec.confidence * 100),
+        status: 'developing' as const,
+        evidenceCount: rec.attempts,
+        lastPracticed: new Date(rec.lastTested).toISOString(),
+      };
+    });
+
+  const avgConfidence = hasLiveMastery
+    ? Math.round(
+        (masteryEntries.reduce((acc, [_, r]) => acc + r.confidence, 0) / masteryEntries.length) * 100
+      )
+    : 75;
+
+  const intel = {
+    confidenceScore: avgConfidence,
+    cognitiveStrengths: hasLiveMastery
+      ? liveMasteredConcepts.slice(0, 3).map((c) => c.conceptName)
+      : [
+          isAr ? 'التعرف على الأنماط المنطقية' : 'Visual Matrix Pattern Completion',
+          isAr ? 'الاستنتاج التحليلي' : 'Deductive Syllogistic Inferences',
+          isAr ? 'التفكيك التدريجي للمسائل' : 'Step-by-step Structural Breakdown',
+        ],
+    recommendedFocus: Object.values(studentState.activeInterventions || {}).map(
+      (inv) => (isAr ? inv.explanationAr : inv.explanationEn)
+    ),
+    masteredConcepts: hasLiveMastery ? liveMasteredConcepts : [],
+    developingConcepts: hasLiveMastery ? liveDevelopingConcepts : [],
   };
 
   return (

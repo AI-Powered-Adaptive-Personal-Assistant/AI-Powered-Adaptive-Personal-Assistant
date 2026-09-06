@@ -14,6 +14,8 @@ import { getTranslation } from "../lib/translations";
 import { toast } from "./Toast";
 import MarkdownMessage from "./MarkdownMessage";
 import { speak as speakText, cancelSpeech } from "../lib/tts";
+import { useStudentState } from "../lib/useStudentState";
+import { detectConceptFromText } from "../lib/conceptGraph";
 
 // Three.js is heavy — only load the sign avatar when a deaf-mode user opens it.
 const SignAvatar3D = React.lazy(() => import("./SignAvatar3D"));
@@ -131,7 +133,17 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
   const [insights, setInsights] = useState<string | null>(null);
   const [isGeneratingInsights, setIsGeneratingInsights] = useState(false);
 
-  const [activePedagogyStyle, setActivePedagogyStyle] = useState<PedagogyStyle>(profile?.preferredPedagogyStyle || 'analogies');
+  const { studentState, recordAnswer } = useStudentState(profile?.uid, profile?.level);
+  const [activePedagogyStyle, setActivePedagogyStyle] = useState<PedagogyStyle>(
+    (studentState?.activePedagogy as any) || profile?.preferredPedagogyStyle || 'analogies'
+  );
+
+  // Keep active pedagogy synchronized with real-time student state engine
+  useEffect(() => {
+    if (studentState?.activePedagogy) {
+      setActivePedagogyStyle(studentState.activePedagogy as any);
+    }
+  }, [studentState?.activePedagogy]);
 
   const handleSelectPedagogy = (style: PedagogyStyle) => {
     setActivePedagogyStyle(style);
@@ -842,7 +854,14 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
         ...profile,
         preferredPedagogyStyle: activePedagogyStyle,
       };
-      const stream = generateAdaptiveResponseStream(submittedMessage, calibratedProfile, newHistory, attachmentsToSubmit, abortRef.current?.signal);
+      const stream = generateAdaptiveResponseStream(
+        submittedMessage,
+        calibratedProfile,
+        newHistory,
+        attachmentsToSubmit,
+        abortRef.current?.signal,
+        studentState
+      );
 
       for await (const chunk of stream) {
         if (!isMountedRef.current || stopRef.current) break; // user pressed Stop or left

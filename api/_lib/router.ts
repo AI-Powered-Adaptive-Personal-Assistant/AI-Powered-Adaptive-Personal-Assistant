@@ -37,6 +37,7 @@ const LONG_MESSAGE_CHARS = 500;
 export function classifyRequest(
   message: string,
   attachments: { type?: string }[] = [],
+  studentState?: { activePedagogy?: string; learningStrain?: { possibleStruggle: number } }
 ): TaskCategory {
   // An image/screenshot always needs the vision-capable model, regardless
   // of what the accompanying text says.
@@ -45,6 +46,14 @@ export function classifyRequest(
   const text = typeof message === 'string' ? message : '';
   if (REASONING_SIGNALS.some((rx) => rx.test(text))) return 'reasoning';
   if (text.length > LONG_MESSAGE_CHARS) return 'reasoning';
+
+  // If student is under heavy learning strain or requires worked examples/deep rigor, use reasoning
+  if (studentState?.learningStrain && studentState.learningStrain.possibleStruggle >= 0.7) {
+    return 'reasoning';
+  }
+  if (studentState?.activePedagogy === 'worked_example' || studentState?.activePedagogy === 'advanced_rigor') {
+    return 'reasoning';
+  }
 
   return 'fast';
 }

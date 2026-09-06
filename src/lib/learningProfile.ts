@@ -18,6 +18,7 @@ import {
   Unsubscribe,
 } from 'firebase/firestore';
 import { db } from './firebase';
+import { eventBus } from './learningEvents';
 import {
   LearningProfile,
   SubjectType,
@@ -177,7 +178,22 @@ export async function recordExerciseResult(
   // Save to localStorage immediately
   localStorage.setItem(localKey, JSON.stringify(updated));
 
-  // 4. Async Firestore updates
+  // 4. Async Firestore updates & Learning Event Bus emission
+  try {
+    const diffMap: Record<number, 'easy' | 'medium' | 'hard'> = { 1: 'easy', 2: 'medium', 3: 'hard' };
+    eventBus.emit('EXERCISE_ANSWERED', uid, {
+      subject: result.subject,
+      topic: result.topic,
+      conceptId: result.topic,
+      isCorrect: result.isCorrect,
+      responseTimeMs: result.responseTimeMs,
+      difficulty: diffMap[result.difficulty] || 'medium',
+      mistakeType: result.mistakeType,
+    });
+  } catch (eventErr) {
+    console.warn('[LearningProfile] EventBus emission error:', eventErr);
+  }
+
   try {
     const profileRef = doc(db, 'users', uid, 'learningProfile', 'current');
     setDoc(profileRef, updated, { merge: true }).catch(console.error);
@@ -207,6 +223,16 @@ export async function finishLearningSession(
   updated.totalSessionsCompleted += 1;
   updated.totalTimeSpentMinutes += Math.max(1, Math.round(durationMinutes));
   updated.subjects[subject].sessionsCompleted += 1;
+
+  try {
+    eventBus.emit('LESSON_COMPLETED', uid, {
+      subject,
+      durationMinutes,
+      totalSessions: updated.totalSessionsCompleted,
+    });
+  } catch (err) {
+    console.warn('[LearningProfile] LESSON_COMPLETED emission failed:', err);
+  }
 
   const localKey = `${LOCAL_STORAGE_KEY_PREFIX}${uid}`;
   localStorage.setItem(localKey, JSON.stringify(updated));

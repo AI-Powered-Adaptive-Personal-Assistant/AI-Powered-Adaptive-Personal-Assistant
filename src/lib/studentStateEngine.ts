@@ -77,6 +77,8 @@ export function createInitialStudentState(uid: string, level?: string): StudentS
 
 export class StudentStateManager {
   private state: StudentState;
+  private changeListeners: Set<(state: StudentState) => void> = new Set();
+  private unsubscribeEventBus?: () => void;
 
   constructor(uid: string, level?: string) {
     this.state = this.loadFromStorage(uid) || createInitialStudentState(uid, level);
@@ -87,8 +89,33 @@ export class StudentStateManager {
     return { ...this.state };
   }
 
+  public subscribe(listener: (state: StudentState) => void): () => void {
+    this.changeListeners.add(listener);
+    return () => {
+      this.changeListeners.delete(listener);
+    };
+  }
+
+  private notify() {
+    const snap = { ...this.state };
+    this.changeListeners.forEach((fn) => {
+      try {
+        fn(snap);
+      } catch (err) {
+        console.error('[StudentStateManager] Error in subscriber callback:', err);
+      }
+    });
+  }
+
+  public destroy() {
+    if (this.unsubscribeEventBus) {
+      this.unsubscribeEventBus();
+    }
+    this.changeListeners.clear();
+  }
+
   private initEventListeners() {
-    eventBus.on('EXERCISE_ANSWERED', (event: LearningEvent<ExerciseAnsweredPayload>) => {
+    this.unsubscribeEventBus = eventBus.on('EXERCISE_ANSWERED', (event: LearningEvent<ExerciseAnsweredPayload>) => {
       if (event.uid === this.state.uid && event.payload) {
         this.recordAnswer(
           event.payload.conceptId || event.payload.topic,
@@ -207,6 +234,9 @@ export class StudentStateManager {
     // Persist to local storage
     this.saveToStorage();
 
+    // Notify all active subscribers of the state transition
+    this.notify();
+
     return { state: { ...this.state }, intervention };
   }
 
@@ -234,4 +264,17 @@ export class StudentStateManager {
     }
     return null;
   }
+}
+
+const managerCache: Map<string, StudentStateManager> = new Map();
+
+/**
+ * Returns or creates the singleton StudentStateManager for a given user ID.
+ * Ensures consistent reactive state across all UI components and background handlers.
+ */
+export function getStudentStateManager(uid: string, level?: string): StudentStateManager {
+  if (!managerCache.has(uid)) {
+    managerCache.set(uid, new StudentStateManager(uid, level));
+  }
+  return managerCache.get(uid)!;
 }

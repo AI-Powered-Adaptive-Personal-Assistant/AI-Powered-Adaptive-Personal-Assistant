@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { UserProfile, CognitiveDomainScores, IqAssessmentRecord, CognitiveLevel } from '../types';
 import { localize } from '../lib/translations';
 import { toast } from './Toast';
+import { eventBus } from '../lib/learningEvents';
 import {
   IQ_QUESTION_BATTERY,
   calculateStandardizedIq,
@@ -128,6 +129,17 @@ export default function IqAssessmentModal({
 
     setAssessmentResult(newRecord);
     setStep('results');
+
+    try {
+      eventBus.emit('EVALUATION_COMPLETED', profile.uid || 'guest', {
+        conceptId: 'standardized_iq_assessment',
+        preScore: 0,
+        postScore: iqScore,
+        normalizedGain: Math.min(1.0, iqScore / 100),
+      });
+    } catch (e) {
+      console.warn('[IqAssessmentModal] EventBus emit error:', e);
+    }
 
     // Save to Firestore if uid exists
     if (profile.uid) {

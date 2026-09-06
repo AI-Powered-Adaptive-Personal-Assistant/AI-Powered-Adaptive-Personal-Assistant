@@ -5,6 +5,7 @@ import { toast } from './Toast';
 import { getDailyGymWorkout, checkIqCooldownEligibility, GymChallenge } from '../lib/iqAssessment';
 import { updateDoc, doc, increment } from 'firebase/firestore';
 import { db, cleanDataForFirestore, handleFirestoreError, OperationType } from '../lib/firebase';
+import { eventBus } from '../lib/learningEvents';
 import {
   Brain,
   Flame,
@@ -61,6 +62,19 @@ export default function CognitiveGym({
     const correct = selectedIdx === challenge.correctIndex;
     setIsCorrect(correct);
     setIsAnswerSubmitted(true);
+
+    try {
+      eventBus.emit('EXERCISE_ANSWERED', profile.uid, {
+        subject: 'cognitive_gym',
+        topic: challenge.type || 'logic',
+        conceptId: challenge.type || 'logic',
+        isCorrect: correct,
+        responseTimeMs: 8000,
+        difficulty: 'medium',
+      });
+    } catch (evtErr) {
+      console.warn('[CognitiveGym] Event emit failed:', evtErr);
+    }
 
     try {
       setIsSubmitting(true);
