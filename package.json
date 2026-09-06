@@ -10,7 +10,9 @@
     "preview": "vite preview",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit",
-    "test": "tsx tests/runAllTests.ts"
+    "test:unit": "tsx tests/runAllTests.ts",
+    "test:e2e": "tsx tests/e2eFullUserCycle.ts",
+    "test": "tsx tests/runAllTests.ts && tsx tests/e2eFullUserCycle.ts"
   },
   "dependencies": {
     "@google/genai": "^1.50.1",

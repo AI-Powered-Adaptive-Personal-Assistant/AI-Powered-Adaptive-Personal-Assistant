@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Unified Student State Engine (Point 1)
  * The Single Source of Truth for student state in Cognify 2.0.
  * Coordinates cognitive stage, concept mastery, prerequisite diagnosis,
@@ -114,12 +114,13 @@ export class StudentStateManager {
       record.correct += 1;
       record.consecutiveCorrect += 1;
       record.consecutiveIncorrect = 0;
-      // Confidence gains smoothly with correct answers
-      record.confidence = Math.min(1.0, record.confidence + 0.1);
+      // Confidence gains smoothly with correct answers, with streak bonus
+      const streakBonus = Math.min(0.15, record.consecutiveCorrect * 0.05);
+      record.confidence = Math.min(1.0, Math.round((record.confidence + 0.12 + streakBonus) * 100) / 100);
     } else {
       record.consecutiveIncorrect += 1;
       record.consecutiveCorrect = 0;
-      record.confidence = Math.max(0.1, record.confidence - 0.15);
+      record.confidence = Math.max(0.1, Math.round((record.confidence - 0.15) * 100) / 100);
       if (mistakeType && !record.mistakeTypes.includes(mistakeType)) {
         record.mistakeTypes.push(mistakeType);
       }
