@@ -587,6 +587,15 @@ ${prefs}
 ${confirmed}
 `;
   }
+
+  let spatialMemoryBlock = '';
+  if (Array.isArray(profile.spatialMemories) && profile.spatialMemories.length > 0) {
+    spatialMemoryBlock = '\n## COGNIFY SPATIAL MEMORY (PHYSICAL OBJECT LOCATIONS REMEMBERED BY VISION COMPANION)\n' +
+      '- The following physical items and their last-observed locations have been recorded for this student:\n' +
+      profile.spatialMemories.slice(0, 8).map(m => `  * ${m.objectName || 'Item'}: on ${[m.surface, m.room, m.relativePosition?.direction ? `(${m.relativePosition.direction})` : ''].filter(Boolean).join(', ') || 'surface'} [Observed at: ${m.lastSeenIso ? new Date(m.lastSeenIso).toLocaleTimeString() : 'recently'}]`).join('\n') +
+      '\n- INSTRUCTION: If the user asks where an object is located, reference its last known location accurately and state that it was the position observed at that time.\n';
+  }
+
   let cognitiveBlock = '';
   const clientLevel = (profile.level || 'Intermediate').trim();
   if (clientLevel === 'Basic') {
@@ -638,6 +647,8 @@ Always reply in the same language AND dialect as the user's LAST message:
 - English → English.
 - فصحى → فصحى.
 - مصري (علامات: "ازيك"، "عايز"، "ليه"، "ازاي") → رد بمصري طبيعي وودود ("تمام يا باشا"، "خليني أقولك على حاجة"...) مع الحفاظ على دقة المصطلحات التقنية — ممكن تكتب المصطلح الإنجليزي بين قوسين.
+- French → French (naturel, fluide et idiomatique).
+- If the user's configured language is French ("French") and query language is ambiguous, reply in French.
 - If the user switches language mid-conversation, switch immediately.
 
 ## ANSWER STYLE
@@ -655,7 +666,7 @@ ${profile.accessibilityMode === 'Visual' ? `- USER IS BLIND. Describing an image
   4) Be concise — a few short sentences, not a paragraph. No flowery/"vivid" language, no markdown, no tables — this is read aloud by TTS.` : ''}
 ${(profile.accessibilityMode === 'Vocal-Deaf' || profile.accessibilityMode === 'Sign-Only') ? `- User is deaf. Short, visual sentences.` : ''}
 ${profile.accessibilityMode === 'Speech' ? `- Output is read aloud by TTS: smooth speakable prose, no tables, no symbol clutter, no markdown noise.` : ''}
-${studentMemoryBlock}${cognitiveBlock}
+${studentMemoryBlock}${spatialMemoryBlock}${cognitiveBlock}
 ## THREAD MEMORY
 Summaries of the user's other threads are below. Use them ONLY if the user explicitly asks about past conversations. Otherwise ignore them completely — never volunteer them, especially not on greetings.
 ${otherThreadsSummary}

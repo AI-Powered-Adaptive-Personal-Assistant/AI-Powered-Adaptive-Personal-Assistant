@@ -22,14 +22,22 @@ import {
   Minimize2,
   Sparkles,
   Globe,
+  MapPin,
+  Search,
 } from 'lucide-react';
 import { doc, setDoc } from 'firebase/firestore';
 import { db, cleanDataForFirestore } from '../lib/firebase';
-import { UserProfile, VisionMemory } from '../types';
+import { UserProfile, VisionMemory, SpatialObjectRecord } from '../types';
 import { localize } from '../lib/translations';
 import { generateAdaptiveResponse } from '../services/gemini';
 import { speak, cancelSpeech, unlockSpeechSynthesis } from '../lib/tts';
 import { toast } from './Toast';
+import {
+  extractSpatialObjectsFromVision,
+  recordObservedSpatialObjects,
+  getSpatialObjects,
+  querySpatialMemory,
+} from '../lib/spatialMemoryEngine';
 
 interface VisionCompanionViewProps {
   profile: UserProfile;
@@ -45,26 +53,40 @@ export default function VisionCompanionView({ profile, setProfile }: VisionCompa
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const isMountedRef = useRef(true);
+  const isMountedRef = useRef<boolean>(true);
 
-  const [status, setStatus] = useState<Status>('idle');
+  const [status, setStatus] = useState<Status>('starting-camera');
   const [lastDescription, setLastDescription] = useState<string>('');
-  const [lastSnapshot, setLastSnapshot] = useState<string>('');
-  const [announce, setAnnounce] = useState<string>('');
+  const [lastSnapshot, setLastSnapshot] = useState<string | null>(null);
+  const [announce, setAnnounce] = useState('');
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [labelInput, setLabelInput] = useState('');
   const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
   const [isFullscreen, setIsFullscreen] = useState(false);
 
-  // Two language choices: Arabic vs English
-  const [companionLang, setCompanionLang] = useState<'ar' | 'en'>(() =>
-    isArabicLang(profile?.language) ? 'ar' : 'en'
+  // Supported languages: Arabic, English, French
+  const [companionLang, setCompanionLang] = useState<'ar' | 'en' | 'fr'>(() => {
+    if (isArabicLang(profile?.language)) return 'ar';
+    if (profile?.language === 'French' || (profile?.language as unknown as string) === 'fr') return 'fr';
+    return 'en';
+  });
+
+  // Spatial memory drawer state
+  const [showSpatialMemory, setShowSpatialMemory] = useState(false);
+  const [spatialRecords, setSpatialRecords] = useState<SpatialObjectRecord[]>(() =>
+    profile?.uid ? getSpatialObjects(profile.uid) : []
   );
+  const [spatialQueryInput, setSpatialQueryInput] = useState('');
+  const [spatialQueryResult, setSpatialQueryResult] = useState<string | null>(null);
 
   const memories = profile?.visionMemories || [];
 
   const t = useCallback(
-    (en: string, ar: string) => (companionLang === 'ar' ? ar : en),
+    (en: string, ar: string, fr?: string) => {
+      if (companionLang === 'ar') return ar;
+      if (companionLang === 'fr') return fr || en;
+      return en;
+    },
     [companionLang]
   );
 
@@ -204,7 +226,7 @@ export default function VisionCompanionView({ profile, setProfile }: VisionCompa
     return canvas.toDataURL('image/jpeg', 0.85);
   };
 
-  const describeScene = async (choiceLang?: 'ar' | 'en') => {
+  const describeScene = async (choiceLang?: 'ar' | 'en' | 'fr') => {
     const targetLang = choiceLang || companionLang;
     setCompanionLang(targetLang);
 
@@ -222,29 +244,36 @@ export default function VisionCompanionView({ profile, setProfile }: VisionCompa
     }
 
     if (status !== 'ready' && status !== 'analyzing') {
-      speak(
+      const errNoCam =
         targetLang === 'ar'
           ? 'الكاميرا غير متاحة حالياً، يرجى السماح بالوصول للكاميرا.'
-          : 'Camera is not available. Please allow camera access.',
-        targetLang === 'ar' ? 'Arabic' : 'English'
-      );
+          : targetLang === 'fr'
+          ? "La caméra n'est pas disponible. Veuillez autoriser l'accès à la caméra."
+          : 'Camera is not available. Please allow camera access.';
+      speak(errNoCam, targetLang === 'ar' ? 'Arabic' : targetLang === 'fr' ? 'French' : 'English');
       return;
     }
 
     const frame = captureFrame();
     if (!frame) {
-      speak(
+      const errNoFrame =
         targetLang === 'ar'
           ? 'تعذر التقاط صورة الكاميرا، يرجى المحاولة ثانية.'
-          : 'Could not capture the camera frame, please try again.',
-        targetLang === 'ar' ? 'Arabic' : 'English'
-      );
+          : targetLang === 'fr'
+          ? "Impossible de capturer l'image de la caméra, veuillez réessayer."
+          : 'Could not capture the camera frame, please try again.';
+      speak(errNoFrame, targetLang === 'ar' ? 'Arabic' : targetLang === 'fr' ? 'French' : 'English');
       return;
     }
 
     setLastSnapshot(frame);
     setStatus('analyzing');
-    const waitingMsg = targetLang === 'ar' ? 'بحلل اللي قدامك في الكاميرا...' : "Analyzing what's in front of you...";
+    const waitingMsg =
+      targetLang === 'ar'
+        ? 'بحلل اللي قدامك في الكاميرا...'
+        : targetLang === 'fr'
+        ? "J'analyse ce qui se trouve devant vous..."
+        : "Analyzing what's in front of you...";
     setAnnounce(waitingMsg);
 
     const knownContext = memories.length
@@ -254,10 +283,14 @@ export default function VisionCompanionView({ profile, setProfile }: VisionCompa
           .join('\n')}`
       : '';
 
-    const prompt =
-      targetLang === 'ar'
-        ? `أنت رفيق بصري لشخص كفيف. صف ما تراه في الكاميرا باللغة العربية بدقة وبشكل طبيعي (الأخطار أولاً إن وجدت، أي نصوص مكتوبة حرفياً، ثم وصف مختصر وعملي للمكان والأشياء).${knownContext}`
-        : `You are a visual companion for a blind person. Describe what you see in English clearly and concisely (hazards first if any, visible text verbatim, then a brief practical scene description).${knownContext}`;
+    let prompt = '';
+    if (targetLang === 'ar') {
+      prompt = `أنت رفيق بصري لشخص كفيف. صف ما تراه في الكاميرا باللغة العربية بدقة وبشكل طبيعي (الأخطار أولاً إن وجدت، أي نصوص مكتوبة حرفياً، ثم وصف مختصر وعملي للمكان والأسطح والأشياء).${knownContext}`;
+    } else if (targetLang === 'fr') {
+      prompt = `Vous êtes un compagnon visuel pour une personne aveugle. Décrivez ce que vous voyez dans la caméra en français de manière claire et concise (d'abord les dangers éventuels, les textes visibles textuellement, puis une description pratique de la pièce, des surfaces et des objets).${knownContext}`;
+    } else {
+      prompt = `You are a visual companion for a blind person. Describe what you see in English clearly and concisely (hazards first if any, visible text verbatim, then a brief practical scene description including surfaces and objects).${knownContext}`;
+    }
 
     try {
       const cleanData = frame.replace(/^data:[^;]+;base64,/, '');
@@ -265,7 +298,7 @@ export default function VisionCompanionView({ profile, setProfile }: VisionCompa
         prompt,
         {
           ...profile,
-          language: targetLang === 'ar' ? 'Egyptian Ammiya' : 'English',
+          language: targetLang === 'ar' ? 'Egyptian Ammiya' : targetLang === 'fr' ? 'French' : 'English',
         },
         [],
         [{ name: 'scene.jpg', type: 'image/jpeg', data: cleanData }]
@@ -276,19 +309,32 @@ export default function VisionCompanionView({ profile, setProfile }: VisionCompa
       setStatus('ready');
       setAnnounce(result);
 
+      // Automatically extract and record spatial physical objects for this user
+      if (profile?.uid) {
+        const extracted = extractSpatialObjectsFromVision(result, profile.uid, targetLang);
+        if (extracted.length > 0) {
+          recordObservedSpatialObjects(profile.uid, extracted).then(() => {
+            if (isMountedRef.current && profile.uid) {
+              setSpatialRecords(getSpatialObjects(profile.uid));
+            }
+          });
+        }
+      }
+
       // AUTOMATICALLY REPEAT ALOUD FROM THE VERY FIRST TIME WITHOUT USER HAVING TO ASK!
       if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
         window.speechSynthesis.cancel();
         window.speechSynthesis.resume();
       }
 
+      const voiceLang = targetLang === 'ar' ? 'Arabic' : targetLang === 'fr' ? 'French' : 'English';
       setTimeout(() => {
-        speak(result, targetLang === 'ar' ? 'Arabic' : 'English', {
+        speak(result, voiceLang, {
           onError: () => {
             // Chrome speech resume recovery
             if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
               window.speechSynthesis.resume();
-              setTimeout(() => speak(result, targetLang === 'ar' ? 'Arabic' : 'English'), 120);
+              setTimeout(() => speak(result, voiceLang), 120);
             }
           },
         });
@@ -299,10 +345,19 @@ export default function VisionCompanionView({ profile, setProfile }: VisionCompa
       const err =
         targetLang === 'ar'
           ? 'حصلت مشكلة في تحليل الصورة، من فضلك جرب تاني.'
+          : targetLang === 'fr'
+          ? "Un problème est survenu lors de l'analyse de l'image. Veuillez réessayer."
           : 'Something went wrong analyzing the image. Please try again.';
       setLastDescription(err);
-      speak(err, targetLang === 'ar' ? 'Arabic' : 'English');
+      speak(err, targetLang === 'ar' ? 'Arabic' : targetLang === 'fr' ? 'French' : 'English');
     }
+  };
+
+  const handleSearchSpatial = () => {
+    if (!profile?.uid || !spatialQueryInput.trim()) return;
+    const res = querySpatialMemory(profile.uid, spatialQueryInput, companionLang);
+    setSpatialQueryResult(res.message);
+    speak(res.message, companionLang === 'ar' ? 'Arabic' : companionLang === 'fr' ? 'French' : 'English');
   };
 
   const openSaveDialog = () => {
@@ -451,15 +506,15 @@ export default function VisionCompanionView({ profile, setProfile }: VisionCompa
       {/* ── 2. ACCESSIBLE FLOATING HUD OVERLAY ── */}
       <div className="relative z-20 flex flex-col justify-between h-full p-3 sm:p-5 md:p-6 pointer-events-none">
         {/* Floating Top Command Bar */}
-        <div className="pointer-events-auto flex items-center justify-between gap-2">
-          {/* Two Language Choices: Arabic & English */}
+        <div className="pointer-events-auto flex items-center justify-between gap-2 flex-wrap sm:flex-nowrap">
+          {/* Three Language Choices: Arabic, English, French */}
           <div className="flex items-center bg-black/75 backdrop-blur-xl border border-white/20 p-1 rounded-2xl shadow-2xl">
             <button
               onClick={() => {
                 setCompanionLang('ar');
                 toast.success('تم اختيار اللغة العربية 🇪🇬');
               }}
-              className={`px-3 py-1.5 rounded-xl text-xs sm:text-sm font-black flex items-center gap-1.5 transition-all ${
+              className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-xs sm:text-sm font-black flex items-center gap-1 transition-all ${
                 companionLang === 'ar'
                   ? 'bg-emerald-600 text-white shadow-lg'
                   : 'text-slate-300 hover:text-white'
@@ -473,7 +528,7 @@ export default function VisionCompanionView({ profile, setProfile }: VisionCompa
                 setCompanionLang('en');
                 toast.success('English language selected 🇬🇧');
               }}
-              className={`px-3 py-1.5 rounded-xl text-xs sm:text-sm font-black flex items-center gap-1.5 transition-all ${
+              className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-xs sm:text-sm font-black flex items-center gap-1 transition-all ${
                 companionLang === 'en'
                   ? 'bg-primary text-white shadow-lg'
                   : 'text-slate-300 hover:text-white'
@@ -482,16 +537,46 @@ export default function VisionCompanionView({ profile, setProfile }: VisionCompa
               <span>🇬🇧</span>
               <span>English</span>
             </button>
+            <button
+              onClick={() => {
+                setCompanionLang('fr');
+                toast.success('Langue française sélectionnée 🇫🇷');
+              }}
+              className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-xs sm:text-sm font-black flex items-center gap-1 transition-all ${
+                companionLang === 'fr'
+                  ? 'bg-blue-600 text-white shadow-lg'
+                  : 'text-slate-300 hover:text-white'
+              }`}
+            >
+              <span>🇫🇷</span>
+              <span>Français</span>
+            </button>
           </div>
 
-          {/* Right Utilities: Flip Camera + Fullscreen */}
-          <div className="flex items-center gap-2">
+          {/* Right Utilities: Spatial Memory + Flip Camera + Fullscreen */}
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <button
+              onClick={() => {
+                setShowSpatialMemory(true);
+                if (profile?.uid) setSpatialRecords(getSpatialObjects(profile.uid));
+              }}
+              aria-label={t('Spatial Memory', 'الذاكرة المكانية', 'Mémoire spatiale')}
+              className="px-3 py-2 rounded-2xl bg-black/75 text-white backdrop-blur-xl border border-emerald-500/40 hover:bg-black/90 shadow-lg active:scale-95 transition-all flex items-center gap-1.5 text-xs font-bold"
+              title={t('Spatial Memory: Where are my things?', 'الذاكرة المكانية: حاجتي فين؟', 'Mémoire spatiale : Où sont mes affaires ?')}
+            >
+              <MapPin className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span className="hidden md:inline">{t('Where is my stuff?', 'حاجتي فين؟', 'Où est mon objet ?')}</span>
+              {spatialRecords.length > 0 && (
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              )}
+            </button>
+
             {(status === 'ready' || status === 'analyzing') && (
               <button
                 onClick={flipCamera}
-                aria-label={t('Switch camera', 'بدّل الكاميرا')}
+                aria-label={t('Switch camera', 'بدّل الكاميرا', 'Changer de caméra')}
                 className="p-2.5 rounded-2xl bg-black/65 text-white backdrop-blur-xl border border-white/20 hover:bg-black/85 shadow-lg active:scale-95 transition-all"
-                title={t('Switch Camera', 'تبديل الكاميرا أمامي/خلفي')}
+                title={t('Switch Camera', 'تبديل الكاميرا أمامي/خلفي', 'Changer de caméra')}
               >
                 <Camera className="w-5 h-5" />
               </button>
@@ -551,29 +636,41 @@ export default function VisionCompanionView({ profile, setProfile }: VisionCompa
 
         {/* Floating Bottom Action Dock */}
         <div className="pointer-events-auto space-y-2.5 max-w-2xl mx-auto w-full">
-          {/* Two Primary Action Choices: Arabic & English */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
+          {/* Three Primary Action Choices: Arabic, English, French */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-2.5">
             <button
               onClick={() => describeScene('ar')}
               disabled={status === 'analyzing' || status === 'starting-camera'}
-              className="w-full min-h-[64px] sm:min-h-[72px] rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 text-white font-black text-base sm:text-lg flex items-center justify-center gap-3 shadow-2xl shadow-emerald-950/60 border border-emerald-400/40 active:scale-[0.98] transition-all disabled:opacity-50"
+              className="w-full min-h-[58px] sm:min-h-[66px] rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 text-white font-black text-sm sm:text-base flex items-center justify-center gap-2.5 shadow-2xl shadow-emerald-950/60 border border-emerald-400/40 active:scale-[0.98] transition-all disabled:opacity-50"
             >
-              <Camera className="w-6 h-6 shrink-0" />
+              <Camera className="w-5 h-5 shrink-0" />
               <div className="flex flex-col items-start sm:items-center text-start sm:text-center leading-tight">
-                <span>🇪🇬 ماذا أمامي؟ (عربي)</span>
-                <span className="text-[11px] font-normal opacity-90">وصف فوري ونطق صوتي مباشر</span>
+                <span>🇪🇬 ماذا أمامي؟</span>
+                <span className="text-[10px] font-normal opacity-90">وصف فوري بالصوت</span>
               </div>
             </button>
 
             <button
               onClick={() => describeScene('en')}
               disabled={status === 'analyzing' || status === 'starting-camera'}
-              className="w-full min-h-[64px] sm:min-h-[72px] rounded-2xl bg-gradient-to-r from-primary to-indigo-600 hover:from-primary/90 hover:to-indigo-500 text-white font-black text-base sm:text-lg flex items-center justify-center gap-3 shadow-2xl shadow-indigo-950/60 border border-primary/40 active:scale-[0.98] transition-all disabled:opacity-50"
+              className="w-full min-h-[58px] sm:min-h-[66px] rounded-2xl bg-gradient-to-r from-primary to-indigo-600 hover:from-primary/90 hover:to-indigo-500 text-white font-black text-sm sm:text-base flex items-center justify-center gap-2.5 shadow-2xl shadow-indigo-950/60 border border-primary/40 active:scale-[0.98] transition-all disabled:opacity-50"
             >
-              <Camera className="w-6 h-6 shrink-0" />
+              <Camera className="w-5 h-5 shrink-0" />
               <div className="flex flex-col items-start sm:items-center text-start sm:text-center leading-tight">
-                <span>🇬🇧 What's in front of me?</span>
-                <span className="text-[11px] font-normal opacity-90">Instant speech in English</span>
+                <span>🇬🇧 What is here?</span>
+                <span className="text-[10px] font-normal opacity-90">Spoken English</span>
+              </div>
+            </button>
+
+            <button
+              onClick={() => describeScene('fr')}
+              disabled={status === 'analyzing' || status === 'starting-camera'}
+              className="w-full min-h-[58px] sm:min-h-[66px] rounded-2xl bg-gradient-to-r from-blue-600 to-cyan-700 hover:from-blue-500 hover:to-cyan-600 text-white font-black text-sm sm:text-base flex items-center justify-center gap-2.5 shadow-2xl shadow-blue-950/60 border border-blue-400/40 active:scale-[0.98] transition-all disabled:opacity-50"
+            >
+              <Camera className="w-5 h-5 shrink-0" />
+              <div className="flex flex-col items-start sm:items-center text-start sm:text-center leading-tight">
+                <span>🇫🇷 Que vois-je ?</span>
+                <span className="text-[10px] font-normal opacity-90">Vocal en français</span>
               </div>
             </button>
           </div>
@@ -586,7 +683,7 @@ export default function VisionCompanionView({ profile, setProfile }: VisionCompa
               className="flex-1 min-h-[46px] rounded-xl bg-black/70 hover:bg-black/90 backdrop-blur-xl border border-white/20 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-40 shadow-lg active:scale-95"
             >
               <Volume2 className="w-4 h-4 text-emerald-400" />
-              <span>{companionLang === 'ar' ? 'كرر بالصوت (Repeat)' : 'Repeat aloud'}</span>
+              <span>{companionLang === 'ar' ? 'كرر بالصوت' : companionLang === 'fr' ? 'Répéter' : 'Repeat aloud'}</span>
             </button>
 
             <button
@@ -595,14 +692,20 @@ export default function VisionCompanionView({ profile, setProfile }: VisionCompa
               className="flex-1 min-h-[46px] rounded-xl bg-black/70 hover:bg-black/90 backdrop-blur-xl border border-white/20 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-40 shadow-lg active:scale-95"
             >
               <BookmarkPlus className="w-4 h-4 text-amber-400" />
-              <span>{companionLang === 'ar' ? 'احفظ ده (Remember)' : 'Remember this'}</span>
+              <span>{companionLang === 'ar' ? 'احفظ ده' : companionLang === 'fr' ? 'Mémoriser' : 'Remember this'}</span>
             </button>
 
-            {memories.length > 0 && (
-              <span className="px-3 py-2.5 rounded-xl bg-black/70 backdrop-blur-xl border border-white/20 text-amber-400 text-xs font-black shrink-0 shadow-lg">
-                💾 {memories.length}
-              </span>
-            )}
+            <button
+              onClick={() => {
+                setShowSpatialMemory(true);
+                if (profile?.uid) setSpatialRecords(getSpatialObjects(profile.uid));
+              }}
+              className="px-3 min-h-[46px] rounded-xl bg-black/70 hover:bg-black/90 backdrop-blur-xl border border-emerald-500/40 text-emerald-400 font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 transition-all shadow-lg active:scale-95"
+              title={companionLang === 'ar' ? 'الذاكرة المكانية' : companionLang === 'fr' ? 'Mémoire spatiale' : 'Spatial Memory'}
+            >
+              <MapPin className="w-4 h-4" />
+              <span>📍 {spatialRecords.length}</span>
+            </button>
           </div>
         </div>
       </div>
@@ -630,11 +733,11 @@ export default function VisionCompanionView({ profile, setProfile }: VisionCompa
               <div className="flex items-center justify-between border-b border-slate-800 pb-3">
                 <h3 id="save-dialog-title" className="font-bold text-base text-white flex items-center gap-2">
                   <BookmarkPlus className="w-5 h-5 text-amber-400" />
-                  {companionLang === 'ar' ? 'احفظ العنصر أو الشخص باسم...' : 'Remember this as...'}
+                  {companionLang === 'ar' ? 'احفظ العنصر أو الشخص باسم...' : companionLang === 'fr' ? 'Enregistrer cet élément comme...' : 'Remember this as...'}
                 </h3>
                 <button
                   onClick={() => setShowSaveDialog(false)}
-                  aria-label={t('Close', 'إغلاق')}
+                  aria-label={t('Close', 'إغلاق', 'Fermer')}
                   className="p-1 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white"
                 >
                   <X className="w-5 h-5" />
@@ -644,13 +747,13 @@ export default function VisionCompanionView({ profile, setProfile }: VisionCompa
               <input
                 autoFocus
                 type="text"
-                aria-label={t('Memory label', 'اسم العنصر')}
+                aria-label={t('Memory label', 'اسم العنصر', "Nom de l'élément")}
                 value={labelInput}
                 onChange={(e) => setLabelInput(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') saveMemory();
                 }}
-                placeholder={companionLang === 'ar' ? 'مثلاً: "دوا الضغط" أو "مفاتيحي" أو "أحمد"' : 'e.g. "My Keys", "Coffee Mug", "Ahmed"'}
+                placeholder={companionLang === 'ar' ? 'مثلاً: "دوا الضغط" أو "مفاتيحي" أو "أحمد"' : companionLang === 'fr' ? 'ex. "Mes clés", "Télécommande", "Médicament"' : 'e.g. "My Keys", "Coffee Mug", "Ahmed"'}
                 className="w-full px-4 py-3 rounded-xl border border-slate-700 bg-slate-950 text-white placeholder-slate-500 focus:ring-2 focus:ring-primary outline-none text-sm"
               />
 
@@ -659,15 +762,160 @@ export default function VisionCompanionView({ profile, setProfile }: VisionCompa
                   onClick={() => setShowSaveDialog(false)}
                   className="flex-1 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs"
                 >
-                  {companionLang === 'ar' ? 'إلغاء' : 'Cancel'}
+                  {companionLang === 'ar' ? 'إلغاء' : companionLang === 'fr' ? 'Annuler' : 'Cancel'}
                 </button>
                 <button
                   onClick={saveMemory}
                   disabled={!labelInput.trim()}
                   className="flex-1 py-3 rounded-xl bg-primary hover:bg-primary/90 text-white font-bold text-xs disabled:opacity-50"
                 >
-                  {companionLang === 'ar' ? 'حفظ وتثبيت' : 'Save Memory'}
+                  {companionLang === 'ar' ? 'حفظ وتثبيت' : companionLang === 'fr' ? 'Enregistrer' : 'Save Memory'}
                 </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Spatial Memory Query & List Modal */}
+      <AnimatePresence>
+        {showSpatialMemory && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-end sm:items-center justify-center p-3 sm:p-4"
+            onClick={() => setShowSpatialMemory(false)}
+          >
+            <motion.div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="spatial-dialog-title"
+              initial={{ y: 40, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 40, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full sm:max-w-lg bg-slate-900 rounded-3xl p-5 sm:p-6 space-y-4 border border-slate-800 shadow-2xl text-white max-h-[85vh] flex flex-col"
+            >
+              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                <div className="flex items-center gap-2">
+                  <MapPin className="w-5 h-5 text-emerald-400" />
+                  <h3 id="spatial-dialog-title" className="font-bold text-base text-white">
+                    {companionLang === 'ar' ? 'الذاكرة المكانية للأشياء' : companionLang === 'fr' ? 'Mémoire Spatiale des Objets' : 'Spatial Memory of Objects'}
+                  </h3>
+                </div>
+                <button
+                  onClick={() => setShowSpatialMemory(false)}
+                  aria-label={t('Close', 'إغلاق', 'Fermer')}
+                  className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Query Input */}
+              <div className="space-y-1.5">
+                <label className="text-xs text-slate-400 font-semibold">
+                  {companionLang === 'ar'
+                    ? 'اسأل عن مكان أي شيء (مثلاً: "فين الريموت؟" أو "فين المفاتيح؟"):'
+                    : companionLang === 'fr'
+                    ? "Demandez où se trouve un objet (ex. 'Où est la télécommande ?') :"
+                    : "Ask where an item is located (e.g. 'Where is the remote?'):"}
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={spatialQueryInput}
+                    onChange={(e) => setSpatialQueryInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleSearchSpatial();
+                    }}
+                    placeholder={
+                      companionLang === 'ar'
+                        ? 'فين ريموت التلفزيون؟'
+                        : companionLang === 'fr'
+                        ? 'Où est la télécommande ?'
+                        : 'Where is the TV remote?'
+                    }
+                    className="flex-1 px-4 py-2.5 rounded-xl border border-slate-700 bg-slate-950 text-white placeholder-slate-500 text-sm outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                  <button
+                    onClick={handleSearchSpatial}
+                    className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-sm flex items-center gap-1.5 shadow-lg active:scale-95 transition-all"
+                  >
+                    <Search className="w-4 h-4" />
+                    <span>{companionLang === 'ar' ? 'بحث' : companionLang === 'fr' ? 'Chercher' : 'Search'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {spatialQueryResult && (
+                <div className="p-3.5 rounded-2xl bg-emerald-950/50 border border-emerald-500/40 text-emerald-200 text-sm leading-relaxed flex items-start gap-2.5">
+                  <Volume2 className="w-5 h-5 shrink-0 text-emerald-400 mt-0.5" />
+                  <div className="flex-1">
+                    <p className="font-semibold">{spatialQueryResult}</p>
+                    <button
+                      onClick={() => speak(spatialQueryResult, companionLang === 'ar' ? 'Arabic' : companionLang === 'fr' ? 'French' : 'English')}
+                      className="mt-2 text-xs font-bold text-emerald-300 hover:text-emerald-100 underline flex items-center gap-1"
+                    >
+                      <span>{companionLang === 'ar' ? 'استمع مرة أخرى' : companionLang === 'fr' ? 'Réécouter' : 'Listen again'}</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* List of remembered items */}
+              <div className="flex-1 overflow-y-auto space-y-2 pr-1 min-h-[140px]">
+                <div className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center justify-between">
+                  <span>{companionLang === 'ar' ? 'الأشياء المرصودة مؤخراً' : companionLang === 'fr' ? 'Objets récemment observés' : 'Recently Observed Items'}</span>
+                  <span className="text-[11px] font-mono text-emerald-400">{spatialRecords.length} items</span>
+                </div>
+
+                {spatialRecords.length === 0 ? (
+                  <div className="text-center py-6 text-slate-500 text-xs">
+                    {companionLang === 'ar'
+                      ? 'لم يتم رصد أي أشياء بعد. وجّه الكاميرا إلى الغرفة واضغط على زر الفحص لتسجيل الأماكن تلقائياً.'
+                      : companionLang === 'fr'
+                      ? 'Aucun objet observé pour le moment. Pointez la caméra et appuyez sur "Que vois-je ?" pour mémoriser les emplacements.'
+                      : 'No objects observed yet. Point the camera and tap any scan button to record locations automatically.'}
+                  </div>
+                ) : (
+                  spatialRecords.map((item) => (
+                    <button
+                      key={item.id}
+                      onClick={() => {
+                        const query = querySpatialMemory(profile?.uid || '', item.objectName, companionLang);
+                        setSpatialQueryResult(query.message);
+                        speak(query.message, companionLang === 'ar' ? 'Arabic' : companionLang === 'fr' ? 'French' : 'English');
+                      }}
+                      className="w-full text-start p-3 rounded-2xl bg-slate-800/70 hover:bg-slate-800 border border-slate-700/60 flex items-center justify-between gap-3 group transition-all"
+                    >
+                      <div className="space-y-0.5">
+                        <div className="font-bold text-sm text-white group-hover:text-emerald-400 flex items-center gap-2">
+                          <span>{item.objectName}</span>
+                          {item.relativePosition?.direction && (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-700 text-slate-300 font-normal">
+                              {item.relativePosition.direction}
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-xs text-slate-400">
+                          <span>{item.surface || 'Table'}</span>
+                          {item.room && <span> • {item.room}</span>}
+                        </div>
+                      </div>
+                      <div className="text-end shrink-0">
+                        <span className="text-[10px] text-slate-500 block">
+                          {new Date(item.lastSeenTimestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                        <span className="text-xs text-emerald-400 font-semibold group-hover:underline flex items-center justify-end gap-1">
+                          <Volume2 className="w-3.5 h-3.5" />
+                          {companionLang === 'ar' ? 'اسمع المكان' : companionLang === 'fr' ? 'Écouter' : 'Hear'}
+                        </span>
+                      </div>
+                    </button>
+                  ))
+                )}
               </div>
             </motion.div>
           </motion.div>

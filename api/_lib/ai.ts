@@ -142,6 +142,7 @@ export interface Profile {
   iqScore?: number;
   preferredPedagogyStyle?: string;
   studentState?: StudentStatePayload;
+  spatialMemories?: any[];
   memory?: {
     enabled?: boolean;
     preferredLanguage?: string;
@@ -152,6 +153,19 @@ export interface Profile {
   };
 }
 export interface Msg { id?: string; role: string; content: string }
+
+function formatSpatialMemoriesBlock(memories?: any[]): string {
+  if (!Array.isArray(memories) || memories.length === 0) return '';
+  let block = '\n## COGNIFY SPATIAL MEMORY (PHYSICAL OBJECT LOCATIONS REMEMBERED BY VISION COMPANION)\n';
+  block += '- The following physical items and their last-observed locations have been recorded for this student:\n';
+  for (const m of memories.slice(0, 8)) {
+    const loc = [m.surface, m.room, m.relativePosition?.direction ? `(${m.relativePosition.direction})` : ''].filter(Boolean).join(', ');
+    const timeDesc = m.lastSeenIso ? new Date(m.lastSeenIso).toLocaleTimeString() : 'recently';
+    block += `  * ${m.objectName || 'Item'}: on ${loc || 'surface'} [Observed at: ${timeDesc}]\n`;
+  }
+  block += '- INSTRUCTION: If the user asks where an object is located, reference its last known location accurately and state that it was the position observed at that time.\n';
+  return block;
+}
 
 function formatStudentMemoryBlock(memory?: Profile['memory']): string {
   if (!memory || memory.enabled !== true) return '';
@@ -307,6 +321,7 @@ export function buildPersona(
 ): string {
   const a11y = profile.accessibilityMode;
   const memoryBlock = formatStudentMemoryBlock(profile.memory);
+  const spatialBlock = formatSpatialMemoriesBlock(profile.spatialMemories);
   const effectiveState = explicitStudentState || profile.studentState;
   const stateBlock = formatStudentStateBlock(effectiveState);
   const effectivePedagogy = effectiveState?.activePedagogy || profile.preferredPedagogyStyle;
@@ -317,6 +332,9 @@ export function buildPersona(
 ## LANGUAGE
 - Reply in the SAME language/dialect as the user's last message.
 - Egyptian Arabic in → reply in natural Egyptian Arabic; Modern Standard in → reply in Modern Standard.
+- French in → reply in natural, fluent, idiomatic French.
+- English in → reply in natural English.
+- If the user's configured language is French ("French") and query language is ambiguous, reply in French.
 - If the user switches language mid-conversation, switch immediately.
 
 ## ANSWER STYLE
@@ -324,7 +342,7 @@ export function buildPersona(
 - Simple question → 1-4 sentences of plain prose. Bullets/headers ONLY when genuinely multi-part.
 - If the input is messy or mixed-language, infer the intent and answer it.
 - If you are not certain, say so briefly. Never invent facts, sources or numbers.
-${a11y === 'Visual' ? '\n## ACCESSIBILITY\n- USER IS BLIND. Describing an image/photo is a practical task, not a creative one:\n  1) Say FIRST if anything looks like a hazard (traffic, stairs, obstacles, fire, spills, sharp/hot objects) — one short sentence, before anything else.\n  2) Read any visible text VERBATIM (labels, signs, medicine dosage, prices, dates) — do not paraphrase or summarize numbers/instructions.\n  3) Then describe what matters practically: what/who is there, roughly where (left/right/near/far, or clock position like "at 2 o\'clock"), not colors or aesthetics unless asked.\n  4) Be concise — a few short sentences, not a paragraph. No flowery/"vivid" language, no markdown, no tables — this is read aloud by TTS.' : ''}${a11y === 'Vocal-Deaf' || a11y === 'Sign-Only' ? '\n## ACCESSIBILITY\n- User is deaf. Short, visual sentences.' : ''}${a11y === 'Speech' ? '\n## ACCESSIBILITY\n- Output is read aloud by TTS: smooth speakable prose, no tables, no markdown noise.' : ''}${memoryBlock}${stateBlock}${cognitiveBlock}
+${a11y === 'Visual' ? '\n## ACCESSIBILITY\n- USER IS BLIND. Describing an image/photo is a practical task, not a creative one:\n  1) Say FIRST if anything looks like a hazard (traffic, stairs, obstacles, fire, spills, sharp/hot objects) — one short sentence, before anything else.\n  2) Read any visible text VERBATIM (labels, signs, medicine dosage, prices, dates) — do not paraphrase or summarize numbers/instructions.\n  3) Then describe what matters practically: what/who is there, roughly where (left/right/near/far, or clock position like "at 2 o\'clock"), not colors or aesthetics unless asked.\n  4) Be concise — a few short sentences, not a paragraph. No flowery/"vivid" language, no markdown, no tables — this is read aloud by TTS.' : ''}${a11y === 'Vocal-Deaf' || a11y === 'Sign-Only' ? '\n## ACCESSIBILITY\n- User is deaf. Short, visual sentences.' : ''}${a11y === 'Speech' ? '\n## ACCESSIBILITY\n- Output is read aloud by TTS: smooth speakable prose, no tables, no markdown noise.' : ''}${memoryBlock}${spatialBlock}${stateBlock}${cognitiveBlock}
 ${otherThreads ? `\n## THREAD MEMORY\nSummaries of the user's other threads. Use them ONLY if explicitly asked about past conversations.\n${otherThreads}\n` : ''}`;
 }
 

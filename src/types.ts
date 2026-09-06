@@ -192,6 +192,11 @@ export interface UserProfile {
    * stored, just what the person asked us to remember about it.
    */
   visionMemories?: VisionMemory[];
+  /**
+   * Dedicated spatial memory records tracking physical object locations,
+   * surfaces, rooms, and historical transitions.
+   */
+  spatialMemories?: SpatialObjectRecord[];
 }
 
 export interface VisionMemory {
@@ -199,6 +204,31 @@ export interface VisionMemory {
   label: string;        // what the user called it, e.g. "أحمد" or "دوا الضغط"
   description: string;  // the AI's description at the moment it was saved
   createdAt: string;    // ISO date string
+}
+
+export interface SpatialObjectRecord {
+  id: string;
+  uid: string;
+  objectName: string;
+  category: 'remote' | 'keys' | 'glasses' | 'medication' | 'phone' | 'cup' | 'bag' | 'document' | 'other';
+  room?: string;
+  surface?: string;
+  relativePosition?: {
+    direction?: 'left' | 'right' | 'center' | 'top' | 'bottom';
+    clockPosition?: string;
+    distance?: 'near' | 'medium' | 'far';
+  };
+  lastSeenTimestamp: number;
+  lastSeenIso: string;
+  confidence: number;
+  source: 'camera_auto' | 'user_confirmed';
+  descriptionSnippet?: string;
+  history?: {
+    timestamp: number;
+    room?: string;
+    surface?: string;
+    direction?: string;
+  }[];
 }
 
 // ─── PATCH: Add these types to src/types.ts ───────────────────────────────────

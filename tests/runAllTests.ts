@@ -14,6 +14,13 @@ import { verifyRequestAuth, setTestCertProvider, getExpectedProjectId } from '..
 import { eventBus } from '../src/lib/learningEvents.js';
 import { getStudentStateManager } from '../src/lib/studentStateEngine.js';
 import { classifyRequest } from '../api/_lib/router.js';
+import {
+  extractSpatialObjectsFromVision,
+  saveSpatialObject,
+  getSpatialObjects,
+  querySpatialMemory,
+} from '../src/lib/spatialMemoryEngine.js';
+import { localize } from '../src/lib/translations.js';
 
 let totalPassed = 0;
 let totalFailed = 0;
@@ -436,6 +443,144 @@ async function run() {
 
     const c3 = detectConceptFromText('What is the capital of France?');
     assert(c3 === null, 'Returns null for unrelated queries');
+  }
+
+  // 12. Spatial Memory Engine & Multi-User Isolation
+  console.log('\n[12] Spatial Memory Engine & Multi-User Isolation');
+  {
+    // Extraction from English vision description
+    const enText = 'In front of you on the wooden table, there is a black TV remote on the right side, and a cup on the desk.';
+    const extractedEn = extractSpatialObjectsFromVision(enText, 'user_alice', 'en');
+    assert(extractedEn.length >= 2, 'Extracts multiple spatial objects from English vision text');
+    const remoteEn = extractedEn.find((e) => e.category === 'remote');
+    assert(
+      !!remoteEn && remoteEn.surface?.toLowerCase() === 'table' && remoteEn.relativePosition?.direction === 'right',
+      'English extraction captures category, surface, and relative direction'
+    );
+
+    // Extraction from Arabic vision description
+    const arText = 'أمامي على الترابيزة ريموت التلفزيون ناحية اليمين وفي الصالة مفاتيح على المكتب.';
+    const extractedAr = extractSpatialObjectsFromVision(arText, 'user_alice', 'ar');
+    assert(extractedAr.length >= 1, 'Extracts spatial objects from Arabic vision text');
+    const remoteAr = extractedAr.find((e) => e.category === 'remote');
+    assert(!!remoteAr && remoteAr.category === 'remote', 'Arabic extraction accurately resolves category for remote');
+
+    // Extraction from French vision description
+    const frText = 'Sur la table se trouve une télécommande sur la droite et des clés.';
+    const extractedFr = extractSpatialObjectsFromVision(frText, 'user_alice', 'fr');
+    assert(extractedFr.length >= 1, 'Extracts spatial objects from French vision text');
+    const remoteFr = extractedFr.find((e) => e.category === 'remote');
+    assert(!!remoteFr && remoteFr.category === 'remote', 'French extraction accurately resolves category for remote');
+
+    // Multi-User Isolation: User A objects cannot be accessed by User B
+    const userA = 'student_isolated_alpha';
+    const userB = 'student_isolated_beta';
+
+    const objA: any = {
+      id: 'obj_alpha_1',
+      uid: userA,
+      category: 'keys',
+      objectName: 'House Keys',
+      surface: 'coffee table',
+      room: 'living room',
+      relativePosition: { direction: 'left' },
+      lastSeenTimestamp: Date.now(),
+      lastSeenIso: new Date().toISOString(),
+      confidence: 0.95,
+    };
+    await saveSpatialObject(userA, objA);
+
+    const memoryA = getSpatialObjects(userA);
+    const memoryB = getSpatialObjects(userB);
+
+    assert(memoryA.some((m) => m.category === 'keys'), "User A has access to User A's stored spatial object");
+    assert(!memoryB.some((m) => m.category === 'keys'), "User B cannot see or access User A's spatial objects (Strict Multi-User Isolation)");
+
+    // Location history transition
+    const movedObjA: any = {
+      ...objA,
+      surface: 'kitchen counter',
+      room: 'kitchen',
+      lastSeenTimestamp: Date.now() + 1000,
+    };
+    await saveSpatialObject(userA, movedObjA);
+    const updatedA = getSpatialObjects(userA).find((m) => m.category === 'keys');
+    assert(updatedA?.surface === 'kitchen counter', 'Object surface updated to new location');
+    assert(Array.isArray(updatedA?.history) && updatedA.history.length === 1, 'Location history records previous surface on move');
+    assert(updatedA?.history?.[0]?.surface === 'coffee table', 'History contains coffee table as previous location');
+
+    // Epistemic honesty in querySpatialMemory
+    const freshQuery = querySpatialMemory(userA, 'Where are my keys?', 'en');
+    assert(freshQuery.found === true && freshQuery.message.includes('kitchen counter'), 'Spatial query successfully finds remembered object');
+    assert(!freshQuery.message.includes('Note: Since some time has passed'), 'Recent observation does not include stale time disclaimer');
+
+    // Stale object query (> 20 minutes ago) includes epistemic disclaimer
+    const staleObjA: any = {
+      ...objA,
+      category: 'remote',
+      objectName: 'TV Remote',
+      surface: 'sofa',
+      lastSeenTimestamp: Date.now() - 30 * 60 * 1000, // 30 mins ago
+    };
+    await saveSpatialObject(userA, staleObjA);
+    const staleQueryEn = querySpatialMemory(userA, 'Where is the remote?', 'en');
+    assert(
+      staleQueryEn.found === true && staleQueryEn.message.includes('Note: Since some time has passed'),
+      'Epistemic honesty: Stale observation (> 20 min) includes time disclaimer in English'
+    );
+
+    const staleQueryAr = querySpatialMemory(userA, 'فين ريموت التلفزيون؟', 'ar');
+    assert(
+      staleQueryAr.found === true && staleQueryAr.message.includes('ملاحظة: نظراً لمرور بعض الوقت'),
+      'Epistemic honesty: Stale observation includes time disclaimer in Arabic'
+    );
+
+    const staleQueryFr = querySpatialMemory(userA, 'Où est la télécommande ?', 'fr');
+    assert(
+      staleQueryFr.found === true && staleQueryFr.message.includes("Remarque : Du temps s'étant écoulé"),
+      'Epistemic honesty: Stale observation includes time disclaimer in French'
+    );
+  }
+
+  // 13. French First-Class Language Integration & AI Prompts
+  console.log('\n[13] French First-Class Language Integration & AI Prompts');
+  {
+    // Translations test
+    const frTitle = localize('French', 'spatial_memory');
+    assert(frTitle === 'Mémoire spatiale', 'localize resolves French translation for spatial_memory');
+
+    const frWhere = localize('French', 'where_is_my_stuff');
+    assert(frWhere === 'Où sont mes affaires ?', 'localize resolves French translation for where_is_my_stuff');
+
+    // Also supports 'fr' code
+    const frShort = localize('fr', 'spatial_memory');
+    assert(frShort === 'Mémoire spatiale', 'localize resolves "fr" language code');
+
+    // AI persona building for French
+    const frenchProfile = {
+      level: 'Intermediate',
+      role: 'Student',
+      field: 'Computer Science',
+      language: 'French',
+      accessibilityMode: 'None',
+      spatialMemories: [
+        {
+          category: 'remote',
+          objectName: 'Télécommande',
+          surface: 'table du salon',
+          room: 'salon',
+          lastSeenIso: new Date().toISOString(),
+        },
+      ],
+    };
+
+    const frenchPersona = buildPersona(frenchProfile as any);
+    assert(
+      frenchPersona.includes('French in → reply in natural, fluent, idiomatic French'),
+      'Persona includes French language mirroring instruction'
+    );
+    assert(frenchPersona.includes('COGNIFY SPATIAL MEMORY'), 'Persona includes Spatial Memory context block');
+    assert(frenchPersona.includes('Télécommande: on table du salon'), 'Persona formats remembered physical objects in spatial block');
   }
 
   console.log(`\n========================================`);

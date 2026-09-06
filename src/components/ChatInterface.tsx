@@ -16,6 +16,7 @@ import MarkdownMessage from "./MarkdownMessage";
 import { speak as speakText, cancelSpeech } from "../lib/tts";
 import { useStudentState } from "../lib/useStudentState";
 import { detectConceptFromText } from "../lib/conceptGraph";
+import { getSpatialObjects } from "../lib/spatialMemoryEngine";
 
 // Three.js is heavy — only load the sign avatar when a deaf-mode user opens it.
 const SignAvatar3D = React.lazy(() => import("./SignAvatar3D"));
@@ -850,9 +851,11 @@ const ChatInterface = React.forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({ 
     let streamedAttachments: any[] = [];
     let usedFallback = false;
     try {
+      const localSpatial = profile.uid ? getSpatialObjects(profile.uid) : [];
       const calibratedProfile: UserProfile = {
         ...profile,
         preferredPedagogyStyle: activePedagogyStyle,
+        spatialMemories: profile.spatialMemories?.length ? profile.spatialMemories : localSpatial,
       };
       const stream = generateAdaptiveResponseStream(
         submittedMessage,

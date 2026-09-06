@@ -830,6 +830,17 @@ const EXTRA: Record<string, Record<string, string>> = {
     'Enables vision analysis, high contrast, text zooming, and spatial layout modifications.': 'Active l’analyse visuelle, le contraste élevé, le zoom du texte et des ajustements de mise en page.',
     'Enables sign language avatar alongside speech recognition for users who are deaf but can speak.': 'Active l’avatar en langue des signes avec reconnaissance vocale pour les personnes sourdes qui peuvent parler.',
     'Full sign language interface powered by the avatar and vision-based gesture recognition.': 'Interface complète en langue des signes via l’avatar et la reconnaissance gestuelle par caméra.',
+    'Spatial Memory': 'Mémoire spatiale',
+    'spatial_memory': 'Mémoire spatiale',
+    'Where is my stuff?': 'Où sont mes affaires ?',
+    'where_is_my_stuff': 'Où sont mes affaires ?',
+    'Remembered Objects': 'Objets mémorisés',
+    'Where is...': 'Où se trouve...',
+    'Find an object': 'Trouver un objet',
+    'Items Remembered': 'Objets mémorisés',
+    'Search physical location': 'Rechercher un emplacement physique',
+    'Explainable Learning Profile': "Profil d'apprentissage explicable",
+    'Vision Companion': 'Compagnon visuel',
   },
   Spanish: {
     'Adaptive AI Mentor': 'Mentor de IA adaptativo', 'Goals': 'Objetivos', 'GPA': 'Promedio', 'Analytics': 'Analíticas', 'Planner': 'Planificador', 'Academics': 'Académico', 'Accessibility': 'Accesibilidad', 'Live': 'En vivo', 'Admin': 'Admin', 'Staff': 'Personal', 'Account': 'Cuenta', 'No messages yet': 'Sin mensajes', 'Light': 'Claro', 'Dark': 'Oscuro', 'Captions': 'Subtítulos',
@@ -1190,8 +1201,9 @@ const EXTRA: Record<string, Record<string, string>> = {
   },
 };
 
-export function localize(language: string | undefined, en: string, ar: string): string {
-  if (language === 'Arabic' || language === 'Egyptian Ammiya') return ar;
-  if (language && EXTRA[language] && EXTRA[language][en]) return EXTRA[language][en];
+export function localize(language: string | undefined, en: string, ar?: string): string {
+  if (language === 'Arabic' || language === 'Egyptian Ammiya' || language === 'ar') return ar || en;
+  const langKey = language === 'fr' ? 'French' : language;
+  if (langKey && EXTRA[langKey] && EXTRA[langKey][en]) return EXTRA[langKey][en];
   return en;
 }

@@ -18,6 +18,9 @@ const LANG_MAP: Record<string, string> = {
   Russian: "ru-RU",
   Chinese: "zh-CN",
   Japanese: "ja-JP",
+  fr: "fr-FR",
+  en: "en-US",
+  ar: "ar-SA",
 };
 
 /** Strip sign markers and markdown noise so speech sounds clean. */
