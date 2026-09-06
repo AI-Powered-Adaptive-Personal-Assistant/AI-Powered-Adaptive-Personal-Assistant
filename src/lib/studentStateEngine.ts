@@ -27,11 +27,21 @@ export interface ConceptMasteryRecord {
   mistakeTypes: string[];
 }
 
+export type StruggleSignalType = 'high_response_latency' | 'repeated_errors' | 'prerequisite_gap' | 'frequent_hints';
+
+export interface LearningStrain {
+  possibleStruggle: number; // 0.0 (smooth/fluent) to 1.0 (high strain)
+  confidence: number;       // 0.0 to 1.0 (statistical confidence in struggle detection)
+  signals: StruggleSignalType[];
+}
+
 export interface StudentState {
   uid: string;
   cognitiveStage: CognitiveStage;
   activePedagogy: 'analogies' | 'scaffolded' | 'worked_example' | 'socratic' | 'advanced_rigor';
-  cognitiveLoadScore: number; // 0.0 (low/smooth) to 1.0 (overwhelmed/struggling)
+  learningStrain: LearningStrain;
+  struggleSignal: number;     // 0.0 to 1.0 (convenience scalar matching learningStrain.possibleStruggle)
+  cognitiveLoadScore: number; // Deprecated alias maintained for backward compatibility
   conceptMastery: Record<string, ConceptMasteryRecord>;
   retentionSchedules: Record<string, RetentionSchedule>;
   activeInterventions: Record<string, InterventionDirective>;
@@ -46,6 +56,12 @@ export function createInitialStudentState(uid: string, level?: string): StudentS
     uid,
     cognitiveStage: resolveCognitiveStage(level),
     activePedagogy: 'scaffolded',
+    learningStrain: {
+      possibleStruggle: 0.2,
+      confidence: 0.5,
+      signals: [],
+    },
+    struggleSignal: 0.2,
     cognitiveLoadScore: 0.2,
     conceptMastery: {},
     retentionSchedules: {},
@@ -131,17 +147,36 @@ export class StudentStateManager {
     this.state.totalExercisesCompleted += 1;
     this.state.lastActiveTimestamp = now;
 
-    // Calculate cognitive load score (0.0 to 1.0)
-    // High latency (>15s) or repeated errors spike cognitive load
-    const latencyWeight = Math.min(0.5, responseTimeMs / 30000);
-    const errorWeight = Math.min(0.5, record.consecutiveIncorrect * 0.25);
-    this.state.cognitiveLoadScore = Math.round((latencyWeight + errorWeight) * 100) / 100;
-
     // Diagnose prerequisite gaps using concept graph
     const prereqDiagnosis: PrerequisiteDiagnosis = diagnosePrerequisiteGap(
       cleanConcept,
       this.state.conceptMastery
     );
+
+    // Calculate empirical learning strain signals (Point 4 Hardening)
+    const detectedSignals: StruggleSignalType[] = [];
+    if (responseTimeMs > 15000) {
+      detectedSignals.push('high_response_latency');
+    }
+    if (record.consecutiveIncorrect >= 2) {
+      detectedSignals.push('repeated_errors');
+    }
+    if (prereqDiagnosis.hasPrerequisiteGap) {
+      detectedSignals.push('prerequisite_gap');
+    }
+
+    const latencyWeight = Math.min(0.5, responseTimeMs / 30000);
+    const errorWeight = Math.min(0.5, record.consecutiveIncorrect * 0.25);
+    const possibleStruggle = Math.min(1.0, Math.round((latencyWeight + errorWeight) * 100) / 100);
+    const confidence = Math.min(1.0, Math.round((0.5 + Math.min(0.5, record.attempts * 0.1)) * 100) / 100);
+
+    this.state.learningStrain = {
+      possibleStruggle,
+      confidence,
+      signals: detectedSignals,
+    };
+    this.state.struggleSignal = possibleStruggle;
+    this.state.cognitiveLoadScore = possibleStruggle;
 
     // Decide whether a pedagogical intervention is warranted
     const intervention = decideIntervention({

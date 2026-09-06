@@ -1,5 +1,6 @@
 import { UserProfile, Message } from "../types";
 import { toast } from "../components/Toast";
+import { auth } from "../lib/firebase";
 
 // SECURITY: provider keys are NEVER read in the browser any more.
 //
@@ -132,39 +133,35 @@ function buildPersona(profile: UserProfile): string {
   }
 
   let cognitiveBlock = '';
-  const effectiveIq = typeof profile.iqScore === 'number' && profile.iqScore > 0
-    ? profile.iqScore
-    : (profile.level === 'Basic' ? 85 : profile.level === 'Advanced' ? 120 : (profile.level === 'Intermediate' ? 100 : undefined));
+  const level = (profile.level || 'Intermediate').trim();
 
-  if (typeof effectiveIq === 'number') {
-    if (effectiveIq < 90) {
-      cognitiveBlock = `\n## COGNITIVE CALIBRATION: FOUNDATIONAL (STAGE: أدنى مرحلة - تأسيسي ومبسط جداً · CALIBRATED IQ: ${effectiveIq})
+  if (level === 'Basic') {
+    cognitiveBlock = `\n## COGNITIVE CALIBRATION: FOUNDATIONAL (STAGE: أدنى مرحلة - تأسيسي ومبسط جداً)
 - CORE MENTALITY: Treat the student as someone who genuinely struggles with academic abstraction, complex jargon, and theories. Explain with extreme simplicity, warmth, and patience.
 - TONE & LANGUAGE ("الكلام بالبلدي وبدون تعقيد"):
   * If speaking in Arabic or Egyptian, speak "بالبلدي" (natural, colloquial, warm, down-to-earth Egyptian/Arabic dialect).
   * Strictly avoid confusing jargon, complicated theorems, dense academic phrasing, or overwhelming formulas.
   * Always use everyday real-life metaphors and examples ("أمثلة بلدي ملموسة" - e.g. شراء طلبات من السوق، حنفية مياه وخرطوم، سلك ولمبة، فكة الفلوس، ركوب مواصلات، كوباية شاي).
   * Keep explanations bite-sized, gentle, and one clear concept at a time.`;
-    } else if (effectiveIq >= 115) {
-      cognitiveBlock = `\n## COGNITIVE CALIBRATION: SOCRATIC & DEEP RIGOR (STAGE: أعلى مرحلة - متقدم وعبقري · CALIBRATED IQ: ${effectiveIq})
+  } else if (level === 'Advanced') {
+    cognitiveBlock = `\n## COGNITIVE CALIBRATION: SOCRATIC & DEEP RIGOR (STAGE: أعلى مرحلة - متقدم وعبقري)
 - CORE MENTALITY: The student is intellectually sharp, grasps concepts rapidly, and is bored by standard textbook summaries.
 - GO BEYOND TEXTBOOK THEORY TO GLOBAL INDUSTRY IMPACT ("يطلع معاه للعالم والشركات العالمية"):
   * Do NOT stop at textbook scientific theory. Relate concepts directly to how top world-class tech companies and frontier labs (e.g. Google, OpenAI, Meta, DeepMind, NVIDIA, Microsoft, Apple) actually build, engineer, and deploy this in high-scale real-world production ("الشركات العالمية بتعمل كذا في الواقع العملي").
   * Analyze architectural trade-offs, algorithmic complexity (Big-O), distributed systems challenges, hardware constraints, and cutting-edge innovations.
   * EXPAND HORIZONS ("يفتح له مدارك كتير لكل حاجة"): Ask deep, thought-provoking Socratic questions, challenge edge cases, and encourage innovative problem-solving. Treat them as an intellectual peer.`;
-    } else {
-      cognitiveBlock = `\n## COGNITIVE CALIBRATION: BALANCED (STAGE: المرحلة المتوسطة · CALIBRATED IQ: ${effectiveIq})
+  } else {
+    cognitiveBlock = `\n## COGNITIVE CALIBRATION: BALANCED (STAGE: المرحلة المتوسطة)
 - CORE MENTALITY: The student has solid foundational knowledge and is ready for structured scientific inquiry and interactive dialogue.
 - SCIENTIFIC & INTERACTIVE GIVE-AND-TAKE ("طريقة علمية + ياخد ويدي في الكلام + يفتح معاه شوية"):
   * Explain concepts using sound scientific methodologies, clear logical cause-and-effect, and structured technical reasoning.
   * Keep the discussion interactive and engaging ("ياخد ويدي معاه" - e.g., "تعال نشوف النتيجة دي...", "فكر معايا في السبب العلمي اللي يخلي ده يحصل...").
   * Moderately widen their horizons ("يفتح معاه شوية") with practical industrial use cases, real-world engineering workflows, and applied examples.`;
-    }
   }
 
-  // EXPLICIT USER STYLE OVERRIDE (HIGHEST PRIORITY OVER IQ & COGNITIVE LEVEL)
+  // EXPLICIT USER STYLE OVERRIDE (HIGHEST PRIORITY OVER DEFAULT LEVEL)
   cognitiveBlock += `\n## EXPLICIT USER STYLE OVERRIDE (CRITICAL - HIGHEST PRIORITY):
-- If the user explicitly asks you to speak in a specific manner or style, YOU MUST IMMEDIATELY OBEY THEIR WISH REGARDLESS OF THEIR IQ SCORE OR STAGE:
+- If the user explicitly asks you to speak in a specific manner or style, YOU MUST IMMEDIATELY OBEY THEIR WISH REGARDLESS OF DEFAULT LEVEL OR STAGE:
   * If a user in the Foundational/Basic tier asks: "لا اتكلم معايا بطريقة علمية وأكاديمية" -> Switch immediately to formal, rigorous scientific mode as requested.
   * If a user in the Advanced tier asks: "كلمني بالبلدي وببساطة ومن غير تعقيد" -> Switch immediately to ultra-simple, colloquial "بلدي" mode with everyday analogies.
   * Any direct in-conversation style instruction from the student ALWAYS supersedes the default calibrated level.`;
@@ -591,19 +588,18 @@ ${confirmed}
 `;
   }
   let cognitiveBlock = '';
-  if (typeof profile.iqScore === 'number' && profile.iqScore > 0) {
-    if (profile.iqScore < 90) {
-      cognitiveBlock += `\n## COGNITIVE CALIBRATION: FOUNDATIONAL (CALIBRATED IQ: ${profile.iqScore})
+  const clientLevel = (profile.level || 'Intermediate').trim();
+  if (clientLevel === 'Basic') {
+    cognitiveBlock += `\n## COGNITIVE CALIBRATION: FOUNDATIONAL
 - Break complex concepts into intuitive, bite-sized components with concrete analogies.
 - Emphasize foundational clarity, intuitive explanations, and frequent comprehension checkpoints.`;
-    } else if (profile.iqScore >= 115) {
-      cognitiveBlock += `\n## COGNITIVE CALIBRATION: SOCRATIC & DEEP RIGOR (CALIBRATED IQ: ${profile.iqScore})
+  } else if (clientLevel === 'Advanced') {
+    cognitiveBlock += `\n## COGNITIVE CALIBRATION: SOCRATIC & DEEP RIGOR
 - Deliver high-density analytical reasoning, formal proofs, structural abstractions, and edge cases.
 - Use Socratic inquiry to challenge assumptions and probe advanced mathematical/algorithmic implications.`;
-    } else {
-      cognitiveBlock += `\n## COGNITIVE CALIBRATION: BALANCED (CALIBRATED IQ: ${profile.iqScore})
+  } else {
+    cognitiveBlock += `\n## COGNITIVE CALIBRATION: BALANCED
 - Deliver structured explanations balancing conceptual intuition, real-world context, and logical progression.`;
-    }
   }
 
   if (profile.preferredPedagogyStyle === 'analogies') {
@@ -835,9 +831,13 @@ export async function* generateAdaptiveResponseStream(
     return;
   }
   try {
+    const idToken = await auth.currentUser?.getIdToken().catch(() => null);
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (idToken) headers['Authorization'] = `Bearer ${idToken}`;
+
     const res = await fetch('/api/gemini/generateAdaptiveResponseStream', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({ message, profile, history, attachments }),
       signal
     });
@@ -980,9 +980,13 @@ export async function generateAdaptiveResponse(
   if (backendUp === false) return direct();
 
   try {
+    const idToken = await auth.currentUser?.getIdToken().catch(() => null);
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (idToken) headers['Authorization'] = `Bearer ${idToken}`;
+
     const res = await fetch('/api/gemini/generateAdaptiveResponse', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({ message, profile, history, attachments })
     });
     const isHtml = res.headers.get('Content-Type')?.includes('text/html');

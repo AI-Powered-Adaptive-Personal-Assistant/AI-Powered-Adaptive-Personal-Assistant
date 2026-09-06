@@ -4,7 +4,7 @@ import { classifyRequest } from '../_lib/router.js';
 import { validateAndSanitizeResponse } from '../_lib/qualityGuard.js';
 
 export default async function handler(req: any, res: any) {
-  if (!guard(req, res)) return;
+  if (!(await guard(req, res))) return;
 
   try {
     const { message, profile = {}, history = [], attachments = [] } = await readBody(req);

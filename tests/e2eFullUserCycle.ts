@@ -53,7 +53,8 @@ async function runE2ETest() {
   expect(initial.uid === student.uid, 'User ID initialized correctly');
   expect(initial.cognitiveStage === 'foundational', 'Basic level mapped to foundational cognitive stage');
   expect(initial.activePedagogy === 'scaffolded', 'Initial pedagogy set to scaffolded guidance');
-  expect(initial.cognitiveLoadScore === 0.2, 'Initial cognitive load at baseline (0.2)');
+  expect(initial.struggleSignal === 0.2, 'Initial struggle signal at baseline (0.2)');
+  expect(initial.learningStrain.possibleStruggle === 0.2, 'Initial learning strain at baseline (0.2)');
 
   // STEP 2: Struggling on Advanced Concept (Dynamic Memory Allocation)
   console.log('\n🔍 STEP 2: Student Attempts "dynamic_memory" and Struggles...');
@@ -66,7 +67,9 @@ async function runE2ETest() {
   // Attempt 2: Failed again with dereferencing error
   const res2 = stateManager.recordAnswer('dynamic_memory', false, 22000, 'null_dereference');
   expect(res2.state.conceptMastery['dynamic_memory'].consecutiveIncorrect === 2, '2 consecutive incorrect recorded');
-  expect(res2.state.cognitiveLoadScore >= 0.5, `Cognitive load spiked due to struggle: ${res2.state.cognitiveLoadScore}`);
+  expect(res2.state.struggleSignal >= 0.5, `Struggle signal spiked due to struggle: ${res2.state.struggleSignal}`);
+  expect(res2.state.learningStrain.signals.includes('repeated_errors'), 'Detected repeated_errors signal');
+  expect(res2.state.learningStrain.signals.includes('high_response_latency'), 'Detected high_response_latency signal');
   
   // STEP 3: Prerequisite Diagnosis & Pedagogical Intervention
   console.log('\n🧠 STEP 3: Closed-Loop Intervention & Prerequisite Diagnosis...');
@@ -127,15 +130,29 @@ async function runE2ETest() {
   
   // Test unauthenticated request
   const unauthReq = { headers: {}, body: {} };
-  const authCheck = verifyRequestAuth(unauthReq);
-  // In development, process.env.NODE_ENV or test allows, but check token parsing:
+  const authCheck = await verifyRequestAuth(unauthReq);
+  expect(authCheck.authenticated === false, 'Unauthenticated request rejected');
+
+  // Test body.uid spoofing rejection (P0 requirement)
+  const spoofReq = { headers: {}, body: { uid: 'spoofed_student_uid' } };
+  const spoofCheck = await verifyRequestAuth(spoofReq);
+  expect(spoofCheck.authenticated === false, 'body.uid bypass strictly rejected');
+
+  // Test malformed token rejection
   const tokenReq = { headers: { authorization: 'Bearer invalid.token' } };
-  const badToken = verifyRequestAuth(tokenReq);
+  const badToken = await verifyRequestAuth(tokenReq);
   expect(badToken.authenticated === false, 'Invalid JWT token rejected');
 
-  // Rate Limiting
-  const rateLimitTest = checkRateLimit(testUserId, 60);
-  expect(rateLimitTest.allowed === true && rateLimitTest.remaining === 59, 'Rate limiter permits valid request');
+  // Test valid bearer token
+  const validTokenReq = { headers: { authorization: `Bearer test_valid_token_${testUserId}` } };
+  const validAuth = await verifyRequestAuth(validTokenReq);
+  expect(validAuth.authenticated === true && validAuth.uid === testUserId, 'Valid Bearer token authenticated');
+
+  // Dual-tier Rate Limiting
+  const ipRateLimit = checkRateLimit('ip:127.0.0.1', 100);
+  expect(ipRateLimit.allowed === true && ipRateLimit.remaining === 99, 'IP rate limiter permits valid request');
+  const userRateLimit = checkRateLimit(`user:${testUserId}`, 60);
+  expect(userRateLimit.allowed === true && userRateLimit.remaining === 59, 'User rate limiter permits valid request');
 
   // Quality Guard Sanitization
   const brokenAiOutput = 'Here is the step: \n```cpp\nint* p = new int(10);';

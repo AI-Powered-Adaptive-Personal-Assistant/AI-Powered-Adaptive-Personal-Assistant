@@ -2,7 +2,7 @@
 import { guard, readBody, generateText } from '../_lib/ai.js';
 
 export default async function handler(req: any, res: any) {
-  if (!guard(req, res)) return;
+  if (!(await guard(req, res))) return;
 
   try {
     const { profile = {}, recentMessages = [] } = await readBody(req);

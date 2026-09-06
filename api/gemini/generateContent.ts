@@ -16,7 +16,7 @@
 import { guard, readBody, geminiFetch, fallbackChat } from '../_lib/ai.js';
 
 export default async function handler(req: any, res: any) {
-  if (!guard(req, res)) return;
+  if (!(await guard(req, res))) return;
 
   try {
     const { parts } = await readBody(req);

@@ -158,13 +158,7 @@ ${confirmed}\n`;
 
 export type CognitiveStage = 'foundational' | 'developing' | 'proficient' | 'advanced';
 
-export function resolveCognitiveStage(level?: string, score?: number): CognitiveStage {
-  if (typeof score === 'number' && score > 0) {
-    if (score < 90) return 'foundational';
-    if (score < 105) return 'developing';
-    if (score < 120) return 'proficient';
-    return 'advanced';
-  }
+export function resolveCognitiveStage(level?: string): CognitiveStage {
   const norm = (level || '').trim().toLowerCase();
   if (norm === 'basic' || norm === 'foundational') return 'foundational';
   if (norm === 'intermediate' || norm === 'developing') return 'developing';
@@ -173,9 +167,9 @@ export function resolveCognitiveStage(level?: string, score?: number): Cognitive
   return 'developing';
 }
 
-function formatCognitiveCalibration(iqScore?: number, style?: string, level?: string): string {
+function formatCognitiveCalibration(style?: string, level?: string): string {
   let res = '';
-  const stage = resolveCognitiveStage(level, iqScore);
+  const stage = resolveCognitiveStage(level);
 
   if (stage === 'foundational') {
     res += `\n## COGNITIVE CALIBRATION: FOUNDATIONAL (STAGE: مرحلة التأسيس والمبسط جداً)
@@ -207,9 +201,9 @@ function formatCognitiveCalibration(iqScore?: number, style?: string, level?: st
   * Moderately widen their horizons ("يفتح معاه شوية") with practical industrial use cases, real-world engineering workflows, and applied examples.`;
   }
 
-  // EXPLICIT USER STYLE OVERRIDE (HIGHEST PRIORITY OVER IQ & COGNITIVE LEVEL)
+  // EXPLICIT USER STYLE OVERRIDE (HIGHEST PRIORITY OVER DEFAULT LEVEL)
   res += `\n## EXPLICIT USER STYLE OVERRIDE (CRITICAL - HIGHEST PRIORITY):
-- If the user explicitly asks you to speak in a specific manner or style, YOU MUST IMMEDIATELY OBEY THEIR WISH REGARDLESS OF THEIR IQ SCORE OR STAGE:
+- If the user explicitly asks you to speak in a specific manner or style, YOU MUST IMMEDIATELY OBEY THEIR WISH REGARDLESS OF DEFAULT LEVEL OR STAGE:
   * If a user in the Foundational/Basic tier asks: "لا اتكلم معايا بطريقة علمية وأكاديمية" -> Switch immediately to formal, rigorous scientific mode as requested.
   * If a user in the Advanced tier asks: "كلمني بالبلدي وببساطة ومن غير تعقيد" -> Switch immediately to ultra-simple, colloquial "بلدي" mode with everyday analogies.
   * Any direct in-conversation style instruction from the student ALWAYS supersedes the default calibrated level.`;
@@ -236,7 +230,7 @@ function formatCognitiveCalibration(iqScore?: number, style?: string, level?: st
 export function buildPersona(profile: Profile, otherThreads = ''): string {
   const a11y = profile.accessibilityMode;
   const memoryBlock = formatStudentMemoryBlock(profile.memory);
-  const cognitiveBlock = formatCognitiveCalibration(profile.iqScore, profile.preferredPedagogyStyle, profile.level);
+  const cognitiveBlock = formatCognitiveCalibration(profile.preferredPedagogyStyle, profile.level);
   return `You are Cognify, an adaptive AI mentor. Give the most correct, useful answer calibrated to THIS user.
 - Level: ${profile.level || 'Basic'} | Role: ${profile.role || 'Student'} | Field: ${profile.field || 'General'}
 
@@ -433,8 +427,8 @@ export async function readBody(req: any): Promise<any> {
 import { verifyRequestAuth } from './authGuard.js';
 import { checkRateLimit } from './rateLimiter.js';
 
-/** Shared guard: POST only, provider key check, rate limiting, and authentication. */
-export function guard(req: any, res: any): boolean {
+/** Shared guard: POST only, provider key check, dual-tier rate limiting (IP + User), and authentication. */
+export async function guard(req: any, res: any): Promise<boolean> {
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' });
     return false;
@@ -446,21 +440,32 @@ export function guard(req: any, res: any): boolean {
     return false;
   }
 
-  // Rate Limiting (Point 12)
+  // 1. IP Rate Limiting (DDoS & Scraper Defense: 100 requests/minute)
   const clientIp = req.headers?.['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || 'unknown_ip';
-  const rateLimit = checkRateLimit(clientIp, 60);
-  res.setHeader('X-RateLimit-Limit', '60');
-  res.setHeader('X-RateLimit-Remaining', String(rateLimit.remaining));
-  if (!rateLimit.allowed) {
-    res.setHeader('Retry-After', Math.ceil(rateLimit.resetMs / 1000).toString());
-    res.status(429).json({ error: 'Too many requests. Please slow down and try again in a few seconds.' });
+  const ipRateLimit = checkRateLimit(`ip:${clientIp}`, 100);
+  res.setHeader('X-RateLimit-Limit-IP', '100');
+  res.setHeader('X-RateLimit-Remaining-IP', String(ipRateLimit.remaining));
+  if (!ipRateLimit.allowed) {
+    res.setHeader('Retry-After', Math.ceil(ipRateLimit.resetMs / 1000).toString());
+    res.status(429).json({ error: 'Too many requests from this IP address. Please slow down.' });
     return false;
   }
 
-  // Authentication Verification (Point 11)
-  const auth = verifyRequestAuth(req);
-  if (!auth.authenticated) {
+  // 2. Authentication Verification (Strict Firebase ID Token Check)
+  const auth = await verifyRequestAuth(req);
+  if (!auth.authenticated || !auth.uid) {
     res.status(401).json({ error: auth.error || 'Authentication required. Please sign in to access Cognify AI.' });
+    return false;
+  }
+  req.authenticatedUid = auth.uid;
+
+  // 3. User-Level Rate Limiting (Account Quota Defense: 60 requests/minute)
+  const userRateLimit = checkRateLimit(`user:${auth.uid}`, 60);
+  res.setHeader('X-RateLimit-Limit-User', '60');
+  res.setHeader('X-RateLimit-Remaining-User', String(userRateLimit.remaining));
+  if (!userRateLimit.allowed) {
+    res.setHeader('Retry-After', Math.ceil(userRateLimit.resetMs / 1000).toString());
+    res.status(429).json({ error: 'User rate limit exceeded. Please wait a moment before sending more requests.' });
     return false;
   }
 
