@@ -466,7 +466,7 @@ export default function GazeBlinkKeyboard({
   return (
     <div 
       ref={containerRef}
-      className={`flex flex-col ${isKeyboardFullscreen ? 'fixed inset-0 z-[99999] rounded-none' : 'h-full rounded-2xl sm:rounded-3xl'} bg-slate-950 text-white border border-slate-800 ${currentScale.containerP} ${currentScale.gap} shadow-2xl transition-all min-h-0 overflow-hidden ${isArabic ? 'dir-rtl' : 'dir-ltr'}`}
+      className={`flex flex-col ${isKeyboardFullscreen ? 'fixed inset-0 z-[99999] rounded-none' : 'flex-1 h-full rounded-2xl sm:rounded-3xl'} bg-slate-950 text-white border border-slate-800 ${currentScale.containerP} ${currentScale.gap} shadow-2xl transition-all min-h-0 overflow-hidden ${isArabic ? 'dir-rtl' : 'dir-ltr'}`}
       dir={isArabic ? 'rtl' : 'ltr'}
     >
       {/* 1. Ultra-Flexible Top Quick Bar */}
