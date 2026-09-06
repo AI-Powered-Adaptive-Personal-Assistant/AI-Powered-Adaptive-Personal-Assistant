@@ -1,0 +1,41 @@
+﻿{
+  "id": "/",
+  "name": "Cognify — Adaptive AI Study Mentor",
+  "short_name": "Cognify",
+  "description": "Adaptive, accessible AI study mentor that tailors learning to your level, field, and accessibility needs.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0B0E17",
+  "theme_color": "#0F172A",
+  "categories": ["education", "productivity"],
+  "icons": [
+    {
+      "src": "/assets/icon.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "AI Chat Mentor",
+      "short_name": "Chat",
+      "description": "Ask questions and receive calibrated adaptive answers",
+      "url": "/#chat"
+    },
+    {
+      "name": "Learning Hub",
+      "short_name": "Learn",
+      "description": "Adaptive learning modules and exercises",
+      "url": "/#learning"
+    },
+    {
+      "name": "Accessibility Suite",
+      "short_name": "Assistive",
+      "description": "Eye-gaze, Euphonia, captions, and sign language tools",
+      "url": "/#disability"
+    }
+  ]
+}

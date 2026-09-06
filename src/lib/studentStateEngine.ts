@@ -1,0 +1,197 @@
+﻿/**
+ * Unified Student State Engine (Point 1)
+ * The Single Source of Truth for student state in Cognify 2.0.
+ * Coordinates cognitive stage, concept mastery, prerequisite diagnosis,
+ * active interventions, and spaced retention schedules.
+ */
+
+import { CognitiveStage, resolveCognitiveStage } from '../../api/_lib/ai';
+import { diagnosePrerequisiteGap, PrerequisiteDiagnosis } from './conceptGraph';
+import { decideIntervention, InterventionDirective } from './interventionEngine';
+import {
+  RetentionSchedule,
+  createInitialRetentionSchedule,
+  calculateNextReview,
+} from './spacedRetention';
+import { eventBus, LearningEvent, ExerciseAnsweredPayload } from './learningEvents';
+
+export interface ConceptMasteryRecord {
+  conceptId: string;
+  attempts: number;
+  correct: number;
+  accuracy: number;
+  confidence: number;
+  consecutiveCorrect: number;
+  consecutiveIncorrect: number;
+  lastTested: number;
+  mistakeTypes: string[];
+}
+
+export interface StudentState {
+  uid: string;
+  cognitiveStage: CognitiveStage;
+  activePedagogy: 'analogies' | 'scaffolded' | 'worked_example' | 'socratic' | 'advanced_rigor';
+  cognitiveLoadScore: number; // 0.0 (low/smooth) to 1.0 (overwhelmed/struggling)
+  conceptMastery: Record<string, ConceptMasteryRecord>;
+  retentionSchedules: Record<string, RetentionSchedule>;
+  activeInterventions: Record<string, InterventionDirective>;
+  totalExercisesCompleted: number;
+  lastActiveTimestamp: number;
+}
+
+const STORAGE_PREFIX = 'cognify_student_state_';
+
+export function createInitialStudentState(uid: string, level?: string): StudentState {
+  return {
+    uid,
+    cognitiveStage: resolveCognitiveStage(level),
+    activePedagogy: 'scaffolded',
+    cognitiveLoadScore: 0.2,
+    conceptMastery: {},
+    retentionSchedules: {},
+    activeInterventions: {},
+    totalExercisesCompleted: 0,
+    lastActiveTimestamp: Date.now(),
+  };
+}
+
+export class StudentStateManager {
+  private state: StudentState;
+
+  constructor(uid: string, level?: string) {
+    this.state = this.loadFromStorage(uid) || createInitialStudentState(uid, level);
+    this.initEventListeners();
+  }
+
+  public getState(): StudentState {
+    return { ...this.state };
+  }
+
+  private initEventListeners() {
+    eventBus.on('EXERCISE_ANSWERED', (event: LearningEvent<ExerciseAnsweredPayload>) => {
+      if (event.uid === this.state.uid && event.payload) {
+        this.recordAnswer(
+          event.payload.conceptId || event.payload.topic,
+          event.payload.isCorrect,
+          event.payload.responseTimeMs,
+          event.payload.mistakeType
+        );
+      }
+    });
+  }
+
+  /**
+   * Process an answered exercise and update student state in closed-loop fashion.
+   */
+  public recordAnswer(
+    conceptId: string,
+    isCorrect: boolean,
+    responseTimeMs: number,
+    mistakeType?: string
+  ): { state: StudentState; intervention?: InterventionDirective } {
+    const now = Date.now();
+    const cleanConcept = conceptId.toLowerCase().trim().replace(/[\s-]+/g, '_');
+
+    let record = this.state.conceptMastery[cleanConcept];
+    if (!record) {
+      record = {
+        conceptId: cleanConcept,
+        attempts: 0,
+        correct: 0,
+        accuracy: 0,
+        confidence: 0.5,
+        consecutiveCorrect: 0,
+        consecutiveIncorrect: 0,
+        lastTested: now,
+        mistakeTypes: [],
+      };
+    }
+
+    record.attempts += 1;
+    record.lastTested = now;
+
+    if (isCorrect) {
+      record.correct += 1;
+      record.consecutiveCorrect += 1;
+      record.consecutiveIncorrect = 0;
+      // Confidence gains smoothly with correct answers
+      record.confidence = Math.min(1.0, record.confidence + 0.1);
+    } else {
+      record.consecutiveIncorrect += 1;
+      record.consecutiveCorrect = 0;
+      record.confidence = Math.max(0.1, record.confidence - 0.15);
+      if (mistakeType && !record.mistakeTypes.includes(mistakeType)) {
+        record.mistakeTypes.push(mistakeType);
+      }
+    }
+
+    record.accuracy = Math.round((record.correct / record.attempts) * 100) / 100;
+    this.state.conceptMastery[cleanConcept] = record;
+    this.state.totalExercisesCompleted += 1;
+    this.state.lastActiveTimestamp = now;
+
+    // Calculate cognitive load score (0.0 to 1.0)
+    // High latency (>15s) or repeated errors spike cognitive load
+    const latencyWeight = Math.min(0.5, responseTimeMs / 30000);
+    const errorWeight = Math.min(0.5, record.consecutiveIncorrect * 0.25);
+    this.state.cognitiveLoadScore = Math.round((latencyWeight + errorWeight) * 100) / 100;
+
+    // Diagnose prerequisite gaps using concept graph
+    const prereqDiagnosis: PrerequisiteDiagnosis = diagnosePrerequisiteGap(
+      cleanConcept,
+      this.state.conceptMastery
+    );
+
+    // Decide whether a pedagogical intervention is warranted
+    const intervention = decideIntervention({
+      conceptId: cleanConcept,
+      consecutiveIncorrect: record.consecutiveIncorrect,
+      consecutiveCorrect: record.consecutiveCorrect,
+      accuracyRate: record.accuracy,
+      avgResponseTimeMs: responseTimeMs,
+      prerequisiteDiagnosis: prereqDiagnosis,
+      repeatedMistakeType: mistakeType,
+    });
+
+    this.state.activeInterventions[cleanConcept] = intervention;
+    this.state.activePedagogy = intervention.strategy;
+
+    // Update spaced retention schedule
+    let schedule = this.state.retentionSchedules[cleanConcept];
+    if (!schedule) {
+      schedule = createInitialRetentionSchedule(cleanConcept);
+    }
+    const qualityScore = isCorrect ? (responseTimeMs < 8000 ? 5 : 4) : 2;
+    this.state.retentionSchedules[cleanConcept] = calculateNextReview(schedule, qualityScore);
+
+    // Persist to local storage
+    this.saveToStorage();
+
+    return { state: { ...this.state }, intervention };
+  }
+
+  private saveToStorage() {
+    try {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(
+          `${STORAGE_PREFIX}${this.state.uid}`,
+          JSON.stringify(this.state)
+        );
+      }
+    } catch (e) {
+      console.warn('[StudentStateManager] Storage save failed:', e);
+    }
+  }
+
+  private loadFromStorage(uid: string): StudentState | null {
+    try {
+      if (typeof window !== 'undefined') {
+        const raw = localStorage.getItem(`${STORAGE_PREFIX}${uid}`);
+        if (raw) return JSON.parse(raw);
+      }
+    } catch {
+      // Ignore
+    }
+    return null;
+  }
+}

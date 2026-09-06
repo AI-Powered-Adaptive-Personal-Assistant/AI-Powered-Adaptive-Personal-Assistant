@@ -1,6 +1,7 @@
 /** Non-streaming chat. Returns { result }. Keys stay server-side. */
 import { guard, readBody, buildPersona, threadsSummary, buildContents, buildOpenAIMessages, geminiFetch, fallbackChat } from '../_lib/ai.js';
 import { classifyRequest } from '../_lib/router.js';
+import { validateAndSanitizeResponse } from '../_lib/qualityGuard.js';
 
 export default async function handler(req: any, res: any) {
   if (!guard(req, res)) return;
@@ -44,9 +45,18 @@ export default async function handler(req: any, res: any) {
     if (category !== 'reasoning') {
       txt = await fallbackChat(buildOpenAIMessages(message, system, safeHistory), category);
     }
+
     const isAr = profile?.language === 'Arabic' || profile?.language === 'Egyptian Ammiya';
+    const rawOutput = txt || (isAr ? '⚠️ الذكاء الاصطناعي مشغول دلوقتي. جرّب تاني 🙏' : '⚠️ The AI is busy right now. Please try again 🙏');
+    const validated = validateAndSanitizeResponse(rawOutput, {
+      accessibilityMode: profile?.accessibilityMode,
+      language: profile?.language,
+      cognitiveStage: profile?.level,
+    });
+
     res.status(200).json({
-      result: txt || (isAr ? '⚠️ الذكاء الاصطناعي مشغول دلوقتي. جرّب تاني 🙏' : '⚠️ The AI is busy right now. Please try again 🙏'),
+      result: validated.text,
+      warnings: validated.warnings,
     });
   } catch (err) {
     console.error('[api] generateAdaptiveResponse:', err);

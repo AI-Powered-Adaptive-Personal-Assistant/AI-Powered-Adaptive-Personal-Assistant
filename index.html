@@ -5,6 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>Cognify — Adaptive AI Study Mentor</title>
     <meta name="description" content="Cognify is an adaptive, accessible AI study mentor that tailors every answer to your level, field, and accessibility needs." />
+    <meta name="theme-color" content="#0F172A" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Cognify" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" type="image/svg+xml" href="/assets/icon.svg" />
+    <link rel="apple-touch-icon" href="/assets/icon.svg" />
     <script>
       (function() {
         try {
@@ -14,6 +22,15 @@
             document.documentElement.classList.remove('dark');
           }
         } catch (_) {}
+
+        // Register Service Worker for PWA mobile installability
+        if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
+          window.addEventListener('load', function() {
+            navigator.serviceWorker.register('/sw.js').catch(function(err) {
+              console.warn('[SW Registration Error]:', err);
+            });
+          });
+        }
       })();
     </script>
   </head>

@@ -156,36 +156,55 @@ ${prefs}
 ${confirmed}\n`;
 }
 
+export type CognitiveStage = 'foundational' | 'developing' | 'proficient' | 'advanced';
+
+export function resolveCognitiveStage(level?: string, score?: number): CognitiveStage {
+  if (typeof score === 'number' && score > 0) {
+    if (score < 90) return 'foundational';
+    if (score < 105) return 'developing';
+    if (score < 120) return 'proficient';
+    return 'advanced';
+  }
+  const norm = (level || '').trim().toLowerCase();
+  if (norm === 'basic' || norm === 'foundational') return 'foundational';
+  if (norm === 'intermediate' || norm === 'developing') return 'developing';
+  if (norm === 'proficient') return 'proficient';
+  if (norm === 'advanced' || norm === 'genius') return 'advanced';
+  return 'developing';
+}
+
 function formatCognitiveCalibration(iqScore?: number, style?: string, level?: string): string {
   let res = '';
-  const effectiveIq = typeof iqScore === 'number' && iqScore > 0
-    ? iqScore
-    : (level === 'Basic' ? 85 : level === 'Advanced' ? 120 : (level === 'Intermediate' ? 100 : undefined));
+  const stage = resolveCognitiveStage(level, iqScore);
 
-  if (typeof effectiveIq === 'number') {
-    if (effectiveIq < 90) {
-      res += `\n## COGNITIVE CALIBRATION: FOUNDATIONAL (STAGE: أدنى مرحلة - تأسيسي ومبسط جداً · CALIBRATED IQ: ${effectiveIq})
+  if (stage === 'foundational') {
+    res += `\n## COGNITIVE CALIBRATION: FOUNDATIONAL (STAGE: مرحلة التأسيس والمبسط جداً)
 - CORE MENTALITY: Treat the student as someone who genuinely struggles with academic abstraction, complex jargon, and theories. Explain with extreme simplicity, warmth, and patience.
 - TONE & LANGUAGE ("الكلام بالبلدي وبدون تعقيد"):
   * If speaking in Arabic or Egyptian, speak "بالبلدي" (natural, colloquial, warm, down-to-earth Egyptian/Arabic dialect).
   * Strictly avoid confusing jargon, complicated theorems, dense academic phrasing, or overwhelming formulas.
   * Always use everyday real-life metaphors and examples ("أمثلة بلدي ملموسة" - e.g. شراء طلبات من السوق، حنفية مياه وخرطوم، سلك ولمبة، فكة الفلوس، ركوب مواصلات، كوباية شاي).
   * Keep explanations bite-sized, gentle, and one clear concept at a time.`;
-    } else if (effectiveIq >= 115) {
-      res += `\n## COGNITIVE CALIBRATION: SOCRATIC & DEEP RIGOR (STAGE: أعلى مرحلة - متقدم وعبقري · CALIBRATED IQ: ${effectiveIq})
+  } else if (stage === 'advanced') {
+    res += `\n## COGNITIVE CALIBRATION: SOCRATIC & DEEP RIGOR (STAGE: المرحلة المتقدمة والبحثية)
 - CORE MENTALITY: The student is intellectually sharp, grasps concepts rapidly, and is bored by standard textbook summaries.
 - GO BEYOND TEXTBOOK THEORY TO GLOBAL INDUSTRY IMPACT ("يطلع معاه للعالم والشركات العالمية"):
   * Do NOT stop at textbook scientific theory. Relate concepts directly to how top world-class tech companies and frontier labs (e.g. Google, OpenAI, Meta, DeepMind, NVIDIA, Microsoft, Apple) actually build, engineer, and deploy this in high-scale real-world production ("الشركات العالمية بتعمل كذا في الواقع العملي").
   * Analyze architectural trade-offs, algorithmic complexity (Big-O), distributed systems challenges, hardware constraints, and cutting-edge innovations.
   * EXPAND HORIZONS ("يفتح له مدارك كتير لكل حاجة"): Ask deep, thought-provoking Socratic questions, challenge edge cases, and encourage innovative problem-solving. Treat them as an intellectual peer.`;
-    } else {
-      res += `\n## COGNITIVE CALIBRATION: BALANCED (STAGE: المرحلة المتوسطة · CALIBRATED IQ: ${effectiveIq})
+  } else if (stage === 'proficient') {
+    res += `\n## COGNITIVE CALIBRATION: PROFICIENT & APPLIED (STAGE: مرحلة التمكن الهندسي)
+- CORE MENTALITY: The student has mastered core concepts and is ready for rigorous engineering standards, code efficiency, and deep architectural trade-offs.
+- TECHNICAL DEPTH & REAL-WORLD PRACTICES:
+  * Integrate industry standards, design patterns, testing strategies, and edge-case resilience.
+  * Provide concise, rigorous explanations with concrete syntax and operational flow.`;
+  } else {
+    res += `\n## COGNITIVE CALIBRATION: BALANCED (STAGE: المرحلة المتنامية والمتوسطة)
 - CORE MENTALITY: The student has solid foundational knowledge and is ready for structured scientific inquiry and interactive dialogue.
 - SCIENTIFIC & INTERACTIVE GIVE-AND-TAKE ("طريقة علمية + ياخد ويدي في الكلام + يفتح معاه شوية"):
   * Explain concepts using sound scientific methodologies, clear logical cause-and-effect, and structured technical reasoning.
   * Keep the discussion interactive and engaging ("ياخد ويدي معاه" - e.g., "تعال نشوف النتيجة دي...", "فكر معايا في السبب العلمي اللي يخلي ده يحصل...").
   * Moderately widen their horizons ("يفتح معاه شوية") with practical industrial use cases, real-world engineering workflows, and applied examples.`;
-    }
   }
 
   // EXPLICIT USER STYLE OVERRIDE (HIGHEST PRIORITY OVER IQ & COGNITIVE LEVEL)
@@ -411,7 +430,10 @@ export async function readBody(req: any): Promise<any> {
   });
 }
 
-/** Shared guard: POST only, and at least one provider key configured. */
+import { verifyRequestAuth } from './authGuard.js';
+import { checkRateLimit } from './rateLimiter.js';
+
+/** Shared guard: POST only, provider key check, rate limiting, and authentication. */
 export function guard(req: any, res: any): boolean {
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' });
@@ -423,5 +445,24 @@ export function guard(req: any, res: any): boolean {
     });
     return false;
   }
+
+  // Rate Limiting (Point 12)
+  const clientIp = req.headers?.['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || 'unknown_ip';
+  const rateLimit = checkRateLimit(clientIp, 60);
+  res.setHeader('X-RateLimit-Limit', '60');
+  res.setHeader('X-RateLimit-Remaining', String(rateLimit.remaining));
+  if (!rateLimit.allowed) {
+    res.setHeader('Retry-After', Math.ceil(rateLimit.resetMs / 1000).toString());
+    res.status(429).json({ error: 'Too many requests. Please slow down and try again in a few seconds.' });
+    return false;
+  }
+
+  // Authentication Verification (Point 11)
+  const auth = verifyRequestAuth(req);
+  if (!auth.authenticated) {
+    res.status(401).json({ error: auth.error || 'Authentication required. Please sign in to access Cognify AI.' });
+    return false;
+  }
+
   return true;
 }
